@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AppChrome } from "@/components/AppChrome";
@@ -46,3 +46,8 @@ export default function RootLayout({
     </html>
   );
 }
+
+// Enable iOS safe-area env vars (for bottom nav padding)
+export const viewport: Viewport = {
+  viewportFit: "cover",
+};
