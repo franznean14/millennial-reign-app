@@ -119,4 +119,13 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* Prevent iOS Safari auto-zoom on inputs by keeping a minimum font-size */
+  input, select, textarea, button {
+    font-size: 16px;
+  }
+  /* Reduce double-tap to zoom and gesture zooming for app-like feel */
+  html {
+    -webkit-text-size-adjust: 100%;
+    touch-action: manipulation;
+  }
 }

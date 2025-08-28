@@ -56,5 +56,9 @@ export default function RootLayout({
 
 // Enable iOS safe-area env vars (for bottom nav padding)
 export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: "cover",
 };
