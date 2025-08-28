@@ -1,5 +1,23 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## User profiles and monthly records
+
+This app includes:
+
+- User Profile fields: first name, last name, optional middle name, age, date of baptism, privileges (multiple), and role (user/admin/superadmin).
+- Monthly Records: month (YYYY-MM), hours, bible studies, and note.
+
+The Account page (`/account`) lets authenticated users edit their profile and add/update their monthly records.
+
+### Supabase setup
+
+Run the SQL in `supabase-schema.sql` in your Supabase project (SQL editor) to create the tables and RLS policies.
+
+Notes:
+
+- Profiles are keyed by `auth.users.id`. Each user can insert/update their own profile. Admins and superadmins can read/write all profiles.
+- Monthly records are unique per `(user_id, month)` and are only visible/editable by their owner (admins can read all).
+
 ## Getting Started
 
 First, run the development server:
