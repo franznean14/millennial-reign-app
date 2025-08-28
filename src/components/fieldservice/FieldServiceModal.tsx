@@ -98,54 +98,28 @@ export function FieldServiceModal({ userId }: { userId: string }) {
           // optimistically mark the date as having saved data
           setMonthMarks((m) => ({ ...m, [date]: true }));
         }
-        // throttle success toast: only show after a short lull
         if (notifyRef.current) clearTimeout(notifyRef.current);
         notifyRef.current = setTimeout(() => {
-          toast.success(isDailyEmpty(payload) ? "Daily record cleared" : "Daily record updated");
-          try {
-            window.dispatchEvent(new CustomEvent("daily-record-updated", { detail: { date } }));
-          } catch {}
-        }, 1200);
-        setDirty(false);
-      } catch {}
-    }, 400);
+          toast.success("Saved");
+        }, 100);
+      } catch (e) {
+        toast.error("Failed to save");
+      }
+    }, 500);
   };
 
   useEffect(() => {
-    if (open) {
-      // clear any pending timers and fresh-load for current date
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      if (notifyRef.current) clearTimeout(notifyRef.current);
-      notifyRef.current = null;
-      load(date);
-      loadMonthMarks();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open]);
+    if (dirty) scheduleSave();
+  }, [dirty, hours, studies, note]);
 
   useEffect(() => {
-    if (!open) return;
-    // Only save when user has made a change after load
-    if (!dirty) return;
-    if (notifyRef.current) {
-      clearTimeout(notifyRef.current);
-      notifyRef.current = null;
-    }
-    scheduleSave();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hours, studies, note, date]);
+    load(date);
+  }, [date]);
 
-  // Reload month marks when the visible month changes
   useEffect(() => {
-    if (!open) return;
     loadMonthMarks();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view]);
-
-  // Keep marks in sync when other tabs/components update records
-  useEffect(() => {
     const handler = (e: any) => {
-      const d = e?.detail?.date as string | undefined;
+      const d = e.detail?.date;
       if (!d) {
         loadMonthMarks();
         return;
@@ -180,21 +154,39 @@ export function FieldServiceModal({ userId }: { userId: string }) {
     <Dialog.Root open={open} onOpenChange={setOpen}>
       {!open && (
         <Dialog.Trigger asChild>
-          <button className="fixed bottom-20 right-4 z-[2147483647] inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary text-xl text-primary-foreground shadow-lg md:bottom-6">
-            +
+          <button 
+            className="fixed bottom-20 right-4 z-[999999] inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary text-2xl text-primary-foreground shadow-2xl hover:shadow-3xl transition-all duration-200 hover:scale-110 active:scale-95 touch-manipulation md:bottom-6 md:right-6" 
+            style={{ 
+              zIndex: 2147483647,
+              position: 'fixed',
+              pointerEvents: 'auto'
+            }}
+          >
+            <Plus className="h-6 w-6" />
           </button>
         </Dialog.Trigger>
       )}
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/40 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <Dialog.Overlay className="fixed inset-0 bg-black/40 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" style={{ zIndex: 2147483646 }} />
         {open && (
           <Dialog.Close asChild>
-            <button className="fixed bottom-20 right-4 z-[2147483647] inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary text-xl text-primary-foreground shadow-lg md:bottom-6" aria-label="Close">
-              X
+            <button 
+              className="fixed bottom-20 right-4 z-[999999] inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary text-2xl text-primary-foreground shadow-2xl hover:shadow-3xl transition-all duration-200 hover:scale-110 active:scale-95 touch-manipulation md:bottom-6 md:right-6" 
+              aria-label="Close"
+              style={{ 
+                zIndex: 2147483647,
+                position: 'fixed',
+                pointerEvents: 'auto'
+              }}
+            >
+              <X className="h-6 w-6" />
             </button>
           </Dialog.Close>
         )}
-        <Dialog.Content className="fixed left-1/2 top-1/2 w-[min(96vw,720px)] -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-background p-0 shadow-xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95 data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0">
+        <Dialog.Content 
+          className="fixed left-1/2 top-1/2 w-[min(96vw,720px)] -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-background p-0 shadow-xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95 data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0"
+          style={{ zIndex: 2147483646 }}
+        >
           <div className="grid md:grid-cols-2">
             {/* Calendar side */}
             <div className="p-4 border-b md:border-b-0 md:border-r">
