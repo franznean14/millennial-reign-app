@@ -19,7 +19,6 @@ export const metadata: Metadata = {
   title: "Millennial Reign App",
   description: "PWA with Supabase auth and offline support",
   applicationName: "Millennial Reign App",
-  manifest: "/manifest.webmanifest",
   icons: {
     icon: [
       "/favicon.ico",

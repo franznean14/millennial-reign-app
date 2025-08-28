@@ -1,27 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PUBLIC_PATHS = [
-  "/login",
-  "/auth/callback",
-  "/auth/reset-password",
-  "/manifest.webmanifest",
-  "/favicon.ico",
-  "/favicon-16x16.png",
-  "/favicon-32x32.png",
-  "/apple-touch-icon.png",
-  "/safari-pinned-tab.svg",
-  "/icons",
-  "/next.svg",
-  "/vercel.svg",
-  "/sw.js",
-];
-
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-
-  const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"));
-  if (isPublic) return NextResponse.next();
 
   // Heuristic: Supabase sets cookies containing 'sb-' and '-auth-token' with JSON value including access_token
   const authCookie = req.cookies
@@ -55,5 +36,9 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/:path*"],
+  // Skip middleware for static assets and public files so resources like
+  // the manifest and icons are available on first paint.
+  matcher: [
+    "/((?!api|_next/static|_next/image|favicon.ico|favicon-16x16.png|favicon-32x32.png|manifest.webmanifest|apple-touch-icon.png|safari-pinned-tab.svg|icons|sw.js).*)",
+  ],
 };
