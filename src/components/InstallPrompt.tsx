@@ -18,8 +18,14 @@ export default function InstallPrompt() {
       setDeferred(evt);
       setVisible(true);
     };
-    window.addEventListener("beforeinstallprompt", onBeforeInstallPrompt);
-    return () => window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt);
+    // Handle the event only once per page lifecycle to avoid repeated
+    // console messages about preventDefault() and duplicate prompts.
+    window.addEventListener(
+      "beforeinstallprompt",
+      onBeforeInstallPrompt as EventListener,
+      { once: true }
+    );
+    return () => window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt as EventListener);
   }, []);
 
   if (!visible || !deferred) return null;
@@ -44,4 +50,3 @@ export default function InstallPrompt() {
     </button>
   );
 }
-
