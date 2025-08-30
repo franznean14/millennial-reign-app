@@ -71,6 +71,7 @@ export function CongregationClient() {
     weekend_day: 0,
     weekend_start: "10:00",
     meeting_duration_minutes: 105,
+    business_witnessing_enabled: false,
   };
 
   return (

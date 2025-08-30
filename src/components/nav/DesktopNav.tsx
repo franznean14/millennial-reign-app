@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, User, Landmark } from "lucide-react";
+import { Home, User, Landmark, Briefcase } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getProfile } from "@/lib/db/profiles";
@@ -34,12 +34,32 @@ function useShowCongregationTab() {
   return ok;
 }
 
+function useShowBusinessTab() {
+  const [ok, setOk] = useState(false);
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+    (async () => {
+      try {
+        await supabase.auth.getSession();
+        const { data: enabled } = await supabase.rpc('is_business_enabled');
+        const { data: participant } = await supabase.rpc('is_business_participant');
+        setOk(!!enabled && !!participant);
+      } catch {
+        setOk(false);
+      }
+    })();
+  }, []);
+  return ok;
+}
+
 export default function DesktopNav() {
   const pathname = usePathname();
   const showCong = useShowCongregationTab();
+  const showBiz = useShowBusinessTab();
   const links = [
     { href: "/", label: "Home", icon: Home },
     ...(showCong ? [{ href: "/congregation", label: "Congregation", icon: Landmark }] : []),
+    ...(showBiz ? [{ href: "/business", label: "BWI", icon: Briefcase }] : []),
     { href: "/account", label: "Account", icon: User },
   ];
   return (

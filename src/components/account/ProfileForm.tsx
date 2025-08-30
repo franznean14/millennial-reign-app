@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { format as formatDate } from "date-fns";
 import { upsertProfile } from "@/lib/db/profiles";
 import type { Profile, Gender, Privilege } from "@/lib/db/types";
@@ -9,7 +9,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/sonner";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 interface ProfileFormProps {
   userId: string;
@@ -20,6 +22,8 @@ interface ProfileFormProps {
 
 export function ProfileForm({ userId, initialEmail, initialProfile, onSaved }: ProfileFormProps) {
   const [saving, setSaving] = useState(false);
+  const [bwiEnabled, setBwiEnabled] = useState(false);
+  const [isBwiParticipant, setIsBwiParticipant] = useState(false);
   const [formData, setFormData] = useState({
     first_name: initialProfile?.first_name || "",
     last_name: initialProfile?.last_name || "",
@@ -29,6 +33,22 @@ export function ProfileForm({ userId, initialEmail, initialProfile, onSaved }: P
     gender: initialProfile?.gender || null,
     privileges: initialProfile?.privileges || [],
   });
+
+  // Check BWI status on component mount
+  useEffect(() => {
+    const checkBwiStatus = async () => {
+      const supabase = createSupabaseBrowserClient();
+      try {
+        const { data: enabled } = await supabase.rpc('is_business_enabled');
+        const { data: participant } = await supabase.rpc('is_business_participant');
+        setBwiEnabled(!!enabled);
+        setIsBwiParticipant(!!participant);
+      } catch (error) {
+        console.error('Error checking BWI status:', error);
+      }
+    };
+    checkBwiStatus();
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,9 +60,8 @@ export function ProfileForm({ userId, initialEmail, initialProfile, onSaved }: P
         first_name: formData.first_name,
         last_name: formData.last_name,
         middle_name: formData.middle_name || null,
-        // Use local calendar date to avoid timezone shifts
-        date_of_birth: formData.date_of_birth ? formatDate(formData.date_of_birth, 'yyyy-MM-dd') : null,
-        date_of_baptism: formData.date_of_baptism ? formatDate(formData.date_of_baptism, 'yyyy-MM-dd') : null,
+        date_of_birth: formData.date_of_birth?.toISOString().split('T')[0] || null,
+        date_of_baptism: formData.date_of_baptism?.toISOString().split('T')[0] || null,
         gender: formData.gender,
         privileges: formData.privileges,
         time_zone: initialProfile?.time_zone || null,
@@ -59,31 +78,26 @@ export function ProfileForm({ userId, initialEmail, initialProfile, onSaved }: P
     }
   };
 
+  const toggleBwiParticipation = async () => {
+    const supabase = createSupabaseBrowserClient();
+    try {
+      const { data, error } = await supabase.rpc('toggle_business_participation');
+      if (error) throw error;
+      
+      setIsBwiParticipant(!!data);
+      toast.success(data ? "BWI participation enabled" : "BWI participation disabled");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update BWI participation");
+    }
+  };
+
   const togglePrivilege = (privilege: Privilege) => {
-    setFormData(prev => {
-      const has = prev.privileges.includes(privilege);
-      // If already selected, just remove it
-      if (has) {
-        return { ...prev, privileges: prev.privileges.filter(p => p !== privilege) };
-      }
-      // Add with mutual-exclusion rules
-      let next = [...prev.privileges, privilege];
-      // MS vs Elder (only one allowed)
-      if (privilege === 'Elder') {
-        next = next.filter(p => p !== 'Ministerial Servant');
-      }
-      if (privilege === 'Ministerial Servant') {
-        next = next.filter(p => p !== 'Elder');
-      }
-      // Regular vs Auxiliary Pioneer (only one allowed)
-      if (privilege === 'Regular Pioneer') {
-        next = next.filter(p => p !== 'Auxiliary Pioneer');
-      }
-      if (privilege === 'Auxiliary Pioneer') {
-        next = next.filter(p => p !== 'Regular Pioneer');
-      }
-      return { ...prev, privileges: next };
-    });
+    setFormData(prev => ({
+      ...prev,
+      privileges: prev.privileges.includes(privilege)
+        ? prev.privileges.filter(p => p !== privilege)
+        : [...prev.privileges, privilege]
+    }));
   };
 
   const allPrivileges: Privilege[] = [
@@ -179,6 +193,28 @@ export function ProfileForm({ userId, initialEmail, initialProfile, onSaved }: P
           ))}
         </div>
       </div>
+
+      {/* BWI Participation Section */}
+      {bwiEnabled && (
+        <div className="space-y-2">
+          <Label>Business Witnessing Initiative (BWI)</Label>
+          <div className="flex items-center justify-between p-3 border rounded-md">
+            <div className="space-y-1">
+              <div className="text-sm font-medium">BWI Participant</div>
+              <div className="text-xs text-muted-foreground">
+                {isBwiParticipant 
+                  ? "You can access the Business tab in navigation" 
+                  : "Enable to access Business Witnessing features"
+                }
+              </div>
+            </div>
+            <Switch
+              checked={isBwiParticipant}
+              onCheckedChange={toggleBwiParticipation}
+            />
+          </div>
+        </div>
+      )}
 
       <div className="flex justify-end gap-2">
         <Button type="submit" disabled={saving}>

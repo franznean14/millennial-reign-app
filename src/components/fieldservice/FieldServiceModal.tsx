@@ -297,8 +297,7 @@ export function FieldServiceModal({ userId }: { userId: string }) {
       {!open && (
         <Button
           onClick={() => setOpen(true)}
-          className="fixed bottom-20 right-4 z-[999999] h-14 w-14 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-200 hover:scale-110 active:scale-95 touch-manipulation md:bottom-6 md:right-6"
-          style={{ zIndex: 2147483647, position: "fixed", pointerEvents: "auto" }}
+          className="fixed right-4 z-40 h-14 w-14 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-200 hover:scale-110 active:scale-95 touch-manipulation md:right-6 bottom-[calc(max(env(safe-area-inset-bottom),0px)+80px)] md:bottom-[104px]"
           size="lg"
         >
           <Plus className="h-6 w-6" />

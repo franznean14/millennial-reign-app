@@ -14,6 +14,7 @@ export interface Congregation {
   weekend_day: number; // 0=Sun or 6=Sat
   weekend_start: string; // HH:MM
   meeting_duration_minutes: number;
+  business_witnessing_enabled?: boolean;
 }
 
 export async function getMyCongregation(): Promise<Congregation | null> {
@@ -60,6 +61,7 @@ export async function saveCongregation(input: Congregation): Promise<Congregatio
       weekend_day: input.weekend_day,
       weekend_start: (input.weekend_start ?? "").slice(0, 5),
       meeting_duration_minutes: input.meeting_duration_minutes ?? 105,
+      business_witnessing_enabled: !!(input as any).business_witnessing_enabled,
     } as const;
     if (input.id) {
       const { id, ...rest } = input as any;

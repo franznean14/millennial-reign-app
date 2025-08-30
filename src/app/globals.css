@@ -119,13 +119,47 @@
   body {
     @apply bg-background text-foreground;
   }
+  
+  /* Comprehensive zoom prevention for PWA */
+  html {
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    touch-action: manipulation;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+  
+  /* Allow text selection in specific areas where needed */
+  input, textarea, [contenteditable="true"], .selectable {
+    -webkit-user-select: text;
+    -khtml-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
+  }
+  
   /* Prevent iOS Safari auto-zoom on inputs by keeping a minimum font-size */
   input, select, textarea, button {
     font-size: 16px;
   }
-  /* Reduce double-tap to zoom and gesture zooming for app-like feel */
-  html {
-    -webkit-text-size-adjust: 100%;
+  
+  /* Disable double-tap zoom on all elements */
+  * {
     touch-action: manipulation;
+  }
+  
+  /* Prevent pinch zoom on the entire document */
+  body {
+    touch-action: pan-x pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Ensure no zoom on focus for inputs */
+  input:focus, textarea:focus, select:focus {
+    font-size: 16px !important;
   }
 }

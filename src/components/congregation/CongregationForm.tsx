@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import type { Congregation } from "@/lib/db/congregations";
 
 const weekdays = [
@@ -40,6 +41,7 @@ export function CongregationForm({
     weekend_day: 0,
     weekend_start: "10:00",
     meeting_duration_minutes: 105,
+    business_witnessing_enabled: false,
   };
   const [form, setForm] = useState<Congregation>({ ...defaults, ...initial });
   const [gps, setGps] = useState<string>("");
@@ -185,6 +187,14 @@ export function CongregationForm({
           }}
           disabled={disable}
         />
+      </div>
+
+      <div className="grid gap-1">
+        <Label>Business Witnessing</Label>
+        <div className="flex items-center justify-between rounded-md border px-3 py-2">
+          <div className="text-sm opacity-80">Enable for this congregation</div>
+          <Switch checked={!!form.business_witnessing_enabled} onCheckedChange={(v)=> setForm((f)=> ({...f, business_witnessing_enabled: v}))} disabled={disable} />
+        </div>
       </div>
 
       <div className="flex justify-end gap-2 pt-1">

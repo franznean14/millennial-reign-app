@@ -351,6 +351,8 @@ create table if not exists public.congregations (
   weekend_day smallint not null check (weekend_day in (0,6)),
   weekend_start time without time zone not null default '10:00',
   meeting_duration_minutes integer not null default 105,
+  -- Feature flags
+  business_witnessing_enabled boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -374,6 +376,12 @@ do $$ begin
     where table_schema='public' and table_name='congregations' and column_name='lng'
   ) then
     alter table public.congregations add column lng numeric(9,6);
+  end if;
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema='public' and table_name='congregations' and column_name='business_witnessing_enabled'
+  ) then
+    alter table public.congregations add column business_witnessing_enabled boolean not null default false;
   end if;
 end $$;
 
@@ -670,4 +678,264 @@ $$;
 
 grant execute on function public.get_my_congregation() to authenticated;
 
+-- ==============================================
+-- Business Witnessing
+-- ==============================================
+
+-- Participants who can access the feature in a congregation
+create table if not exists public.business_participants (
+  congregation_id uuid not null references public.congregations(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  active boolean not null default true,
+  added_at timestamptz not null default now(),
+  primary key (congregation_id, user_id)
+);
+
+-- Establishments tracked under a congregation
+do $$ begin
+  if not exists (
+    select 1
+    from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    where t.typname = 'business_establishment_status_t' and n.nspname = 'public'
+  ) then
+    create type public.business_establishment_status_t as enum (
+      'for_scouting','for_follow_up','accepted_rack','declined_rack','has_bible_studies'
+    );
+  end if;
+end $$;
+
+create table if not exists public.business_establishments (
+  id uuid primary key default gen_random_uuid(),
+  congregation_id uuid not null references public.congregations(id) on delete cascade,
+  name text not null,
+  description text,
+  area text,
+  lat numeric(9,6),
+  lng numeric(9,6),
+  floor text,
+  status public.business_establishment_status_t not null default 'for_scouting',
+  note text,
+  created_by uuid references public.profiles(id),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists trg_business_establishments_updated_at on public.business_establishments;
+create trigger trg_business_establishments_updated_at before update on public.business_establishments
+for each row execute function public.set_updated_at();
+
+-- Householders associated with an establishment
+do $$ begin
+  if not exists (
+    select 1
+    from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    where t.typname = 'business_householder_status_t' and n.nspname = 'public'
+  ) then
+    create type public.business_householder_status_t as enum (
+      'interested','return_visit','bible_study','do_not_call'
+    );
+  end if;
+end $$;
+
+create table if not exists public.business_householders (
+  id uuid primary key default gen_random_uuid(),
+  establishment_id uuid not null references public.business_establishments(id) on delete cascade,
+  name text not null,
+  status public.business_householder_status_t not null default 'interested',
+  note text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists trg_business_householders_updated_at on public.business_householders;
+create trigger trg_business_householders_updated_at before update on public.business_householders
+for each row execute function public.set_updated_at();
+
+-- Visit updates applicable to either an establishment or a householder
+create table if not exists public.business_visits (
+  id uuid primary key default gen_random_uuid(),
+  congregation_id uuid not null references public.congregations(id) on delete cascade,
+  establishment_id uuid references public.business_establishments(id) on delete set null,
+  householder_id uuid references public.business_householders(id) on delete set null,
+  note text,
+  publisher_id uuid references public.profiles(id),
+  partner_id uuid references public.profiles(id),
+  visit_date date not null default (current_date),
+  created_at timestamptz not null default now()
+);
+
+-- RLS: members of congregation only
+alter table public.business_participants enable row level security;
+alter table public.business_establishments enable row level security;
+alter table public.business_householders enable row level security;
+alter table public.business_visits enable row level security;
+
+drop policy if exists "Business: participants read" on public.business_participants;
+create policy "Business: participants read" on public.business_participants
+  for select using (
+    exists (
+      select 1 from public.profiles me
+      where me.id = auth.uid() and me.congregation_id = public.business_participants.congregation_id
+    )
+  );
+
+drop policy if exists "Business: participants write" on public.business_participants;
+create policy "Business: participants write" on public.business_participants
+  for insert with check (
+    public.is_admin(auth.uid())
+  );
+
+drop policy if exists "Business: est read" on public.business_establishments;
+create policy "Business: est read" on public.business_establishments
+  for select using (
+    exists (
+      select 1 from public.profiles me
+      where me.id = auth.uid() and me.congregation_id = public.business_establishments.congregation_id
+    )
+  );
+
+drop policy if exists "Business: est write" on public.business_establishments;
+create policy "Business: est write" on public.business_establishments
+  for all using (
+    exists (
+      select 1 from public.business_participants bp
+      join public.profiles me on me.id = auth.uid()
+      where bp.congregation_id = public.business_establishments.congregation_id
+        and bp.user_id = auth.uid() and bp.active = true and me.congregation_id = bp.congregation_id
+    )
+  ) with check (
+    exists (
+      select 1 from public.business_participants bp
+      join public.profiles me on me.id = auth.uid()
+      where bp.congregation_id = public.business_establishments.congregation_id
+        and bp.user_id = auth.uid() and bp.active = true and me.congregation_id = bp.congregation_id
+    )
+  );
+
+drop policy if exists "Business: hh read" on public.business_householders;
+create policy "Business: hh read" on public.business_householders
+  for select using (
+    exists (
+      select 1 from public.business_establishments e, public.profiles me
+      where e.id = public.business_householders.establishment_id and me.id = auth.uid() and me.congregation_id = e.congregation_id
+    )
+  );
+
+drop policy if exists "Business: hh write" on public.business_householders;
+create policy "Business: hh write" on public.business_householders
+  for all using (
+    exists (
+      select 1 from public.business_establishments e, public.business_participants bp, public.profiles me
+      where e.id = public.business_householders.establishment_id and bp.user_id = auth.uid() and me.id = auth.uid()
+        and bp.congregation_id = e.congregation_id and me.congregation_id = e.congregation_id and bp.active = true
+    )
+  ) with check (
+    exists (
+      select 1 from public.business_establishments e, public.business_participants bp, public.profiles me
+      where e.id = public.business_householders.establishment_id and bp.user_id = auth.uid() and me.id = auth.uid()
+        and bp.congregation_id = e.congregation_id and me.congregation_id = e.congregation_id and bp.active = true
+    )
+  );
+
+drop policy if exists "Business: visit read" on public.business_visits;
+create policy "Business: visit read" on public.business_visits
+  for select using (
+    exists (
+      select 1 from public.profiles me
+      where me.id = auth.uid() and me.congregation_id = public.business_visits.congregation_id
+    )
+  );
+
+drop policy if exists "Business: visit write" on public.business_visits;
+create policy "Business: visit write" on public.business_visits
+  for insert with check (
+    exists (
+      select 1 from public.business_participants bp, public.profiles me
+      where bp.user_id = auth.uid() and me.id = auth.uid()
+        and me.congregation_id = bp.congregation_id and bp.active = true
+        and bp.congregation_id = public.business_visits.congregation_id
+    )
+  );
+
+-- Helper RPCs
+create or replace function public.is_business_enabled()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(c.business_witnessing_enabled, false)
+  from public.profiles p
+  left join public.congregations c on c.id = p.congregation_id
+  where p.id = auth.uid();
+$$;
+
+grant execute on function public.is_business_enabled() to authenticated;
+
+create or replace function public.is_business_participant()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.business_participants bp
+    join public.profiles p on p.id = auth.uid()
+    where bp.user_id = auth.uid() and bp.active = true and p.congregation_id = bp.congregation_id
+  );
+$$;
+
+grant execute on function public.is_business_participant() to authenticated;
+
 -- Legacy profile upsert RPCs removed; client performs table upsert under RLS
+
+-- Function to toggle business participation for current user
+create or replace function public.toggle_business_participation()
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  user_congregation_id uuid;
+  is_participant boolean;
+begin
+  -- Get user's congregation
+  select congregation_id into user_congregation_id
+  from public.profiles
+  where id = auth.uid();
+  
+  if user_congregation_id is null then
+    raise exception 'User not assigned to a congregation';
+  end if;
+  
+  -- Check if user is already a participant
+  select exists (
+    select 1 from public.business_participants
+    where user_id = auth.uid() 
+    and congregation_id = user_congregation_id 
+    and active = true
+  ) into is_participant;
+  
+  if is_participant then
+    -- Remove participation
+    delete from public.business_participants
+    where user_id = auth.uid() 
+    and congregation_id = user_congregation_id;
+    return false;
+  else
+    -- Add participation
+    insert into public.business_participants (congregation_id, user_id, active)
+    values (user_congregation_id, auth.uid(), true)
+    on conflict (congregation_id, user_id) 
+    do update set active = true;
+    return true;
+  end if;
+end;
+$$;
+
+grant execute on function public.toggle_business_participation() to authenticated;

@@ -23,6 +23,9 @@ pnpm-debug.log*
 .vscode/
 .idea/
 
+# Cursor AI rules (private development config)
+cursor/
+
 # Test/coverage
 coverage/
 
