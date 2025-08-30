@@ -331,8 +331,8 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
       id: visit.id,
       note: visit.note,
       visit_date: visit.visit_date,
-      publisher: visit.publisher || null,
-      partner: visit.partner || null
+      publisher: Array.isArray(visit.publisher) ? visit.publisher[0] || null : visit.publisher || null,
+      partner: Array.isArray(visit.partner) ? visit.partner[0] || null : visit.partner || null
     };
   }) || [];
 
