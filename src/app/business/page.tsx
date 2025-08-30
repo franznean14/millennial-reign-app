@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +13,7 @@ import { BusinessFilters } from "@/components/business/BusinessFilters";
 import { EstablishmentDetails } from "@/components/business/EstablishmentDetails";
 import { businessEventBus } from "@/lib/events/business-events";
 
-export default function BusinessPage() {
+function BusinessPageContent() {
   const [establishments, setEstablishments] = useState<EstablishmentWithDetails[]>([]);
   const [selectedEstablishment, setSelectedEstablishment] = useState<EstablishmentWithDetails | null>(null);
   const [selectedEstablishmentDetails, setSelectedEstablishmentDetails] = useState<{
@@ -391,6 +391,14 @@ export default function BusinessPage() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+export default function BusinessPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <BusinessPageContent />
+    </Suspense>
   );
 }
 

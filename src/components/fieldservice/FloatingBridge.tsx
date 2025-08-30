@@ -1,10 +1,11 @@
 "use client";
 
 import { usePathname, useSearchParams } from "next/navigation";
+import { Suspense } from "react";
 import { FloatingAddFS } from "./FloatingAddFS";
 import { BusinessFloatingButton } from "@/components/business/BusinessFloatingButton";
 
-export function FloatingBridge() {
+function FloatingBridgeContent() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   
@@ -24,5 +25,13 @@ export function FloatingBridge() {
   
   // Show field service floating button on other pages
   return <FloatingAddFS />;
+}
+
+export function FloatingBridge() {
+  return (
+    <Suspense fallback={null}>
+      <FloatingBridgeContent />
+    </Suspense>
+  );
 }
 
