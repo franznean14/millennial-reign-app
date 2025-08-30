@@ -73,17 +73,46 @@ export async function listDailyByMonth(userId: string, month: string): Promise<D
   try {
     const supabase = createSupabaseBrowserClient();
     await supabase.auth.getSession();
-    const { data } = await supabase
+    // Compute next month boundary (YYYY-MM-01)
+    const [yStr, mStr] = month.split("-");
+    const y = Number(yStr);
+    const m = Number(mStr);
+    const nextY = m === 12 ? y + 1 : y;
+    const nextM = m === 12 ? 1 : m + 1;
+    const nextMonth = `${String(nextY).padStart(4, "0")}-${String(nextM).padStart(2, "0")}-01`;
+    const { data, error, status } = await supabase
       .from(TABLE)
       .select("id, user_id, date, hours, bible_studies, note")
       .eq("user_id", userId)
       .gte("date", month + "-01")
-      .lt("date", month + "-32")
+      .lt("date", nextMonth)
       .order("date", { ascending: true });
+    if (error) {
+      // Include status for better hints upstream
+      const err: any = error;
+      if (typeof status !== "undefined") err.status = status;
+      throw err;
+    }
     const list = (data ?? []) as DailyRecord[];
     await cacheSet(key, list);
     return list;
-  } catch {
+  } catch (e: any) {
+    // Try cache fallback so calendar marks don’t disappear
+    try {
+      const fallback = (await cacheGet<DailyRecord[]>(key)) || [];
+      if (fallback.length) return fallback;
+    } catch {}
+    // Surface a helpful toast for common causes
+    try {
+      const status = e?.cause?.status ?? e?.status ?? e?.code ?? "";
+      const msg = e?.message ?? "Unknown error";
+      const hint = String(status) === "500"
+        ? "Database error (500). Check RLS policies and constraints."
+        : String(status) === "403" || String(status) === "401"
+        ? "Permission issue. Sign in again or verify RLS policies."
+        : "Network or server issue. Will retry automatically.";
+      toast.error(`Could not load month entries: ${hint}`, { description: msg });
+    } catch {}
     return [];
   }
 }

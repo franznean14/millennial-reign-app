@@ -1,164 +1,198 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ProfileForm } from "@/components/user/ProfileForm";
-// import { MonthlyRecordForm } from "@/components/user/MonthlyRecordForm";
-// import { MonthlyRecordsList } from "@/components/user/MonthlyRecordsList";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { ProfileView } from "@/components/user/ProfileView";
 import { getProfile } from "@/lib/db/profiles";
 import type { Profile } from "@/lib/db/types";
-import * as Dialog from "@radix-ui/react-dialog";
-import { X } from "lucide-react";
+import { ResponsiveModal } from "@/components/ui/responsive-modal";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { EditAccountDialog } from "@/components/account/EditAccountDialog";
 import { PasswordDialog } from "@/components/account/PasswordDialog";
 import { BiometricToggle } from "@/components/account/BiometricToggle";
+import { ProfileForm } from "@/components/account/ProfileForm";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 
-export function AccountClient({ userId, initialEmail }: { userId?: string; initialEmail?: string | null }) {
-  const [uid, setUid] = useState<string | null>(userId ?? null);
-  const [email, setEmail] = useState<string | null | undefined>(initialEmail);
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [authReady, setAuthReady] = useState(false);
+export function AccountClient() {
+  const [uid, setUid] = useState<string | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [editing, setEditing] = useState(false);
   const [editAccountOpen, setEditAccountOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
-  const [profile, setProfile] = useState<Profile | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [profileLoading, setProfileLoading] = useState(true);
   const [hasPassword, setHasPassword] = useState<boolean>(false);
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
-    supabase.auth.getSession().then(({ data }) => {
-      setAuthReady(true);
-      if (!uid) setUid(data.session?.user?.id ?? null);
-      if (!email) setEmail(data.session?.user?.email ?? null);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
-      setAuthReady(true);
-      setUid(session?.user?.id ?? null);
-      setEmail(session?.user?.email ?? null);
-    });
-    return () => sub.subscription.unsubscribe();
+    
+    const getUser = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          setUid(user.id);
+          setEmail(user.email);
+          try {
+            localStorage.setItem("has_password", user.app_metadata?.provider === "email" ? "1" : "0");
+            setHasPassword(user.app_metadata?.provider === "email");
+          } catch {}
+        }
+      } catch (error) {
+        console.error("Error getting user:", error);
+      }
+    };
+
+    getUser();
   }, []);
 
   useEffect(() => {
-    if (!authReady) return;
-    if (!uid) {
-      setProfile(null);
+    if (!uid) return;
+    getProfile(uid).then((p) => {
+      setProfile(p);
       setProfileLoading(false);
-      return;
-    }
-    let mounted = true;
-    setProfileLoading(true);
-    (async () => {
-      try {
-        const p = await getProfile(uid);
-        if (mounted) setProfile(p);
-        // Detect if user has a password identity.
-        const supabase = createSupabaseBrowserClient();
-        const { data: sess } = await supabase.auth.getSession();
-        const u: any = sess.session?.user;
-        if (!u) {
-          if (mounted) setHasPassword(false);
-        } else {
-          // First: derive from identities/providers immediately
-          const identities = Array.isArray(u.identities) ? u.identities : [];
-          const providers = Array.isArray(u.app_metadata?.providers) ? u.app_metadata.providers : [];
-          const hasEmailProvider = identities.some((i: any) => (i?.provider || "") === "email") || providers.includes("email") || (u.app_metadata?.provider === "email");
-          if (hasEmailProvider) {
-            if (mounted) setHasPassword(true);
-          } else {
-            // Online: confirm via RPCs; Offline: rely on local flag
-            let hasPwd = localStorage.getItem("has_password") === "1";
-            if (navigator.onLine) {
-              try {
-                const { data: direct } = await supabase.rpc("has_encrypted_password");
-                if (direct === true) hasPwd = true; else {
-                  const { data: byIdent } = await supabase.rpc("has_password_auth");
-                  hasPwd = !!byIdent;
-                }
-              } catch {}
-            }
-            if (mounted) setHasPassword(hasPwd);
-          }
-        }
-      } finally {
-        if (mounted) setProfileLoading(false);
-      }
-    })();
-    return () => {
-      mounted = false;
-    };
-  }, [authReady, uid, refreshKey]);
+    });
+  }, [uid, refreshKey]);
 
-  if (!authReady) {
-    return <div className="text-sm opacity-70">Preparing your session…</div>;
+  if (profileLoading) {
+    return <div className="p-4">Loading...</div>;
   }
 
-  return (
-    <div className="space-y-6">
-      <ProfileView userId={uid ?? undefined} email={email ?? undefined} onEdit={() => setEditing(true)} profile={profile} />
+  const fullName = profile ? `${profile.first_name} ${profile.last_name}`.trim() : "User";
+  const initials = profile ? `${profile.first_name?.[0] || ""}${profile.last_name?.[0] || ""}`.toUpperCase() : "U";
 
-      {/* Account overview (labels only) */}
-      <section className="rounded-md border p-4 space-y-3">
-        <h2 className="text-base font-medium">Account</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="grid gap-0.5 text-sm">
-            <span className="opacity-70">Email</span>
-            <span className="font-medium break-all">{email || "Not set"}</span>
-          </div>
-          <div className="grid gap-0.5 text-sm">
-            <span className="opacity-70">Username</span>
-            <span className="font-medium">{(profile as any)?.username || "Not set"}</span>
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  return (
+    <div className="space-y-6 p-4">
+      {/* Profile Header */}
+      <section className="space-y-4">
+        <div className="flex items-center gap-4">
+          <Avatar className="h-16 w-16">
+            <AvatarImage src={profile?.avatar_url || undefined} alt={fullName} />
+            <AvatarFallback className="text-lg">{initials}</AvatarFallback>
+          </Avatar>
+          <div className="flex-1">
+            <div className="flex items-center gap-3">
+              <h1 className="text-xl font-semibold">{fullName}</h1>
+              {!!uid && (
+                <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+                  Edit Profile
+                </Button>
+              )}
+            </div>
+            {profile?.username && (
+              <p className="text-sm text-muted-foreground">@{profile.username}</p>
+            )}
+            {profile?.privileges && profile.privileges.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {profile.privileges.map((privilege) => (
+                  <Badge key={privilege} variant="secondary" className="text-xs">
+                    {privilege}
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
         </div>
-        <div className="flex flex-wrap gap-2 pt-1">
-          {!!uid && (
-            <button className="rounded-md border px-3 py-2 text-sm hover:bg-muted" onClick={() => setEditAccountOpen(true)}>
-              Edit account
-            </button>
+
+        {/* Profile Details */}
+        <div className="grid gap-3 text-sm">
+          {profile?.date_of_birth && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Date of Birth:</span>
+              <span>{formatDate(profile.date_of_birth)}</span>
+            </div>
           )}
-          {!!uid && (
-            <button className="rounded-md border px-3 py-2 text-sm hover:bg-muted" onClick={() => setPasswordOpen(true)}>
-              {hasPassword ? "Update password" : "Add password"}
-            </button>
+          {profile?.date_of_baptism && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Date of Baptism:</span>
+              <span>{formatDate(profile.date_of_baptism)}</span>
+            </div>
           )}
-        </div>
-        <div className="pt-2 border-t">
-          <h3 className="text-sm font-medium mb-2">Biometrics</h3>
-          <BiometricToggle />
+          {profile?.gender && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Gender:</span>
+              <span className="capitalize">{profile.gender}</span>
+            </div>
+          )}
         </div>
       </section>
 
-      <Dialog.Root open={editing && !!uid} onOpenChange={setEditing}>
-        <Dialog.Portal>
-          <Dialog.Overlay className="fixed inset-0 bg-black/40 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-          <Dialog.Content className="fixed left-1/2 top-1/2 w-[min(92vw,640px)] -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-background p-4 shadow-xl max-h-[85dvh] overflow-y-auto overscroll-contain touch-pan-y data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95 data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0">
-            <div className="flex items-center justify-between">
-              <Dialog.Title className="text-lg font-semibold">Edit Profile</Dialog.Title>
-              <Dialog.Close asChild>
-                <button className="rounded-md p-1 hover:bg-muted" aria-label="Close">
-                  <X className="h-4 w-4" />
-                </button>
-              </Dialog.Close>
-            </div>
-            <div className="mt-4">
-              <ProfileForm
-                userId={uid!}
-                initialEmail={email}
-                initialProfile={profile}
-                onSaved={(p) => {
-                  setEditing(false);
-                  setProfile(p);
-                  setRefreshKey((k) => k + 1);
-                }}
-              />
-            </div>
-          </Dialog.Content>
-        </Dialog.Portal>
-      </Dialog.Root>
+      <Separator />
 
-      {/* Edit Account (email + username) */}
+      {/* Account Settings */}
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold">Account Settings</h2>
+        
+        {/* Basic Account Info */}
+        <div className="grid gap-3 text-sm">
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Email:</span>
+            <span>{email || "Not set"}</span>
+          </div>
+          {profile?.username && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Username:</span>
+              <span>@{profile.username}</span>
+            </div>
+          )}
+          {profile?.time_zone && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Time Zone:</span>
+              <span>{profile.time_zone}</span>
+            </div>
+          )}
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex flex-wrap gap-2">
+          {!!uid && (
+            <Button variant="outline" onClick={() => setEditAccountOpen(true)}>
+              Edit Account
+            </Button>
+          )}
+          {!!uid && (
+            <Button variant="outline" onClick={() => setPasswordOpen(true)}>
+              {hasPassword ? "Change Password" : "Add Password"}
+            </Button>
+          )}
+        </div>
+      </section>
+
+      <Separator />
+
+      {/* Biometrics */}
+      <section className="space-y-4">
+        <h3 className="text-lg font-semibold">Security</h3>
+        <BiometricToggle />
+      </section>
+
+      <ResponsiveModal
+        open={editing && !!uid}
+        onOpenChange={setEditing}
+        title="Edit Profile"
+        description="Edit your profile details and preferences"
+      >
+        <ProfileForm
+          userId={uid!}
+          initialEmail={email}
+          initialProfile={profile}
+          onSaved={(p) => {
+            setEditing(false);
+            setProfile(p);
+            setRefreshKey((k) => k + 1);
+          }}
+        />
+      </ResponsiveModal>
+
       {!!uid && (
         <EditAccountDialog
           open={editAccountOpen}
@@ -173,7 +207,6 @@ export function AccountClient({ userId, initialEmail }: { userId?: string; initi
         />
       )}
 
-      {/* Password dialog */}
       <PasswordDialog
         open={passwordOpen}
         onOpenChange={setPasswordOpen}
@@ -186,8 +219,6 @@ export function AccountClient({ userId, initialEmail }: { userId?: string; initi
           setHasPassword(true);
         }}
       />
-
-      {/* Monthly records removed per request; keep account info only */}
     </div>
   );
 }

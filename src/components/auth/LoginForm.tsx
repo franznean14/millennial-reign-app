@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { toast } from "@/components/ui/sonner";
+import { Input } from "@/components/ui/input";
 
 export function LoginForm() {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
@@ -81,11 +82,11 @@ export function LoginForm() {
       <div className="grid gap-2">
         <label className="grid gap-1 text-sm">
           <span className="opacity-70">Email or username</span>
-          <input className="rounded-md border bg-background px-3 py-2" type="text" value={identifier} onChange={(e) => setIdentifier(e.target.value)} autoComplete="username" />
+          <Input type="text" value={identifier} onChange={(e) => setIdentifier(e.target.value)} autoComplete="username" />
         </label>
         <label className="grid gap-1 text-sm">
           <span className="opacity-70">Password</span>
-          <input className="rounded-md border bg-background px-3 py-2" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
+          <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" />
         </label>
         <button
           type="button"

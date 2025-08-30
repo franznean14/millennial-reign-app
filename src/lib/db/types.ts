@@ -4,7 +4,12 @@ export type Privilege =
   | "Elder"
   | "Ministerial Servant"
   | "Regular Pioneer"
-  | "Auxiliary Pioneer";
+  | "Auxiliary Pioneer"
+  | "Secretary"
+  | "Coordinator"
+  | "Group Overseer";
+
+export type Gender = "male" | "female";
 
 export interface Profile {
   id: string; // matches auth.users.id
@@ -18,6 +23,9 @@ export interface Profile {
   role: Role;
   time_zone?: string | null;
   username?: string | null;
+  // Congregation and profile fields
+  gender?: Gender | null; // optional; required when assigning male-only privileges
+  congregation_id?: string | null;
 }
 
 export interface MonthlyRecord {
@@ -25,7 +33,7 @@ export interface MonthlyRecord {
   user_id: string; // references profiles.id
   month: string; // YYYY-MM
   hours: number;
-  bible_studies: number;
+  bible_studies: number; // monthly aggregate count (not names)
   note?: string | null;
 }
 

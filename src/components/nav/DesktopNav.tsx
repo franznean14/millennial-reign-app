@@ -2,15 +2,46 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, User } from "lucide-react";
+import { Home, User, Landmark } from "lucide-react";
+import { useEffect, useState } from "react";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { getProfile } from "@/lib/db/profiles";
 
-const links = [
-  { href: "/", label: "Home", icon: Home },
-  { href: "/account", label: "Account", icon: User },
-];
+function useShowCongregationTab() {
+  const [ok, setOk] = useState(false);
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        const id = data.session?.user?.id ?? null;
+        if (!id) return setOk(false);
+        const p = await getProfile(id);
+        const isElder = Array.isArray((p as any)?.privileges) && (p as any).privileges.includes('Elder');
+        const isSuperadmin = (p as any)?.role === "superadmin";
+        const assigned = !!(p as any)?.congregation_id;
+        let admin = false;
+        try {
+          const { data: isAdm } = await supabase.rpc("is_admin", { uid: id });
+          admin = !!isAdm;
+        } catch {}
+        setOk(assigned || isSuperadmin || (admin && isElder));
+      } catch {
+        setOk(false);
+      }
+    })();
+  }, []);
+  return ok;
+}
 
 export default function DesktopNav() {
   const pathname = usePathname();
+  const showCong = useShowCongregationTab();
+  const links = [
+    { href: "/", label: "Home", icon: Home },
+    ...(showCong ? [{ href: "/congregation", label: "Congregation", icon: Landmark }] : []),
+    { href: "/account", label: "Account", icon: User },
+  ];
   return (
     <aside className="sticky top-14 hidden h-[calc(100dvh-56px)] w-60 shrink-0 border-r border-border/70 md:block">
       <nav className="p-3 grid gap-1">

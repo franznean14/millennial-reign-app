@@ -5,6 +5,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cacheGet, cacheSet } from "@/lib/offline/store";
 import { formatDateHuman } from "@/lib/utils";
 import { TopStudies } from "@/components/home/TopStudies";
+import { toast } from "@/components/ui/sonner";
 
 type StudyCount = [string, number];
 
@@ -52,6 +53,13 @@ export function HomeSummary({
   const [syHours, setSyHours] = useState(initialSyHours);
   const [studies, setStudies] = useState<StudyCount[]>(initialStudies);
   const [localPioneer, setLocalPioneer] = useState<boolean>(isRegularPioneer);
+  // Compute date ranges on the client to avoid SSR timezone mismatch
+  const [range, setRange] = useState(() => ({
+    mStart: monthStart,
+    mNext: nextMonthStart,
+    syStart: serviceYearStart,
+    syEnd: serviceYearEnd,
+  }));
 
   const fmtHours = (v: number) => {
     if (!isFinite(v)) return "0";
@@ -63,42 +71,70 @@ export function HomeSummary({
 
   const refresh = async () => {
     if (!uid) return;
-    const supabase = createSupabaseBrowserClient();
-    // Ensure session is hydrated to satisfy RLS
-    await supabase.auth.getSession();
-    const [{ data: monthData }, { data: syData }] = await Promise.all([
-      supabase
-        .from("daily_records")
-        .select("date,hours,bible_studies")
-        .eq("user_id", uid)
-        .gte("date", monthStart)
-        .lt("date", nextMonthStart),
-      supabase
-        .from("daily_records")
-        .select("date,hours")
-        .eq("user_id", uid)
-        .gte("date", serviceYearStart)
-        .lt("date", serviceYearEnd),
-    ]);
-    const month = monthData ?? [];
-    const sy = syData ?? [];
-    setMonthHours(sumHours(month));
-    setSyHours(sumHours(sy));
-    setStudies(topStudies(month, 5));
+    try {
+      const supabase = createSupabaseBrowserClient();
+      // Ensure session is hydrated to satisfy RLS
+      await supabase.auth.getSession();
+      const [monthRes, syRes] = await Promise.all([
+        supabase
+          .from("daily_records")
+          .select("date,hours,bible_studies")
+          .eq("user_id", uid)
+          .gte("date", range.mStart)
+          .lt("date", range.mNext),
+        supabase
+          .from("daily_records")
+          .select("date,hours")
+          .eq("user_id", uid)
+          .gte("date", range.syStart)
+          .lt("date", range.syEnd),
+      ]);
+      if (monthRes.error || syRes.error) {
+        const err = monthRes.error || syRes.error;
+        throw err;
+      }
+      const month = monthRes.data ?? [];
+      const sy = syRes.data ?? [];
+      setMonthHours(sumHours(month));
+      setSyHours(sumHours(sy));
+      setStudies(topStudies(month, 5));
+      // Persist fresh results into offline cache so future failures use up-to-date data
+      try {
+        const monthKey = range.mStart.slice(0, 7);
+        await cacheSet(`daily:${uid}:month:${monthKey}`, month);
+        for (const rec of month) {
+          try { await cacheSet(`daily:${uid}:${rec.date}`, rec as any); } catch {}
+        }
+      } catch {}
+    } catch (e: any) {
+      // Network/RLS error: rely on cache so we don't drop to 0
+      await refreshFromCache();
+      try {
+        const status = e?.cause?.status ?? e?.status ?? e?.code ?? "";
+        const msg = e?.message ?? "Unknown error";
+        // Provide actionable hint for common causes
+        const hint = String(status) === "500"
+          ? "Database error (500). Check RLS policies and constraints."
+          : String(status) === "403" || String(status) === "401"
+          ? "Permission issue. Sign in again or verify RLS policies."
+          : "Network or server issue. Will retry automatically.";
+        toast.error(`Could not load hours: ${hint}`, { description: msg });
+      } catch {}
+    }
   };
 
   const refreshFromCache = async () => {
     try {
       if (!uid) return;
-      const monthKey = monthStart.slice(0, 7);
+      const monthKey = range.mStart.slice(0, 7);
       const month = (await cacheGet<any[]>(`daily:${uid}:month:${monthKey}`)) || [];
       if (month.length) {
         setMonthHours(sumHours(month));
         setStudies(topStudies(month, 5));
       }
       // Service year: iterate months via local y/m increments
-      const syStart = serviceYearStart.slice(0, 7);
-      const syEnd = serviceYearEnd.slice(0, 7);
+      const syStart = range.syStart.slice(0, 7);
+      const syEnd = range.syEnd.slice(0, 7);
       const [syStartY, syStartM] = syStart.split("-").map((s) => Number(s));
       const accum: any[] = [];
       let y = syStartY;
@@ -118,17 +154,25 @@ export function HomeSummary({
     } catch {}
   };
 
-  // Hydrate uid on mount if not provided
+  // Hydrate uid on mount if not provided, and react to auth changes
   useEffect(() => {
-    if (uid) return;
     const supabase = createSupabaseBrowserClient();
+    let unsub: any;
     supabase.auth
       .getSession()
       .then(({ data }) => {
         const id = data.session?.user?.id ?? null;
-        if (id) setUid(id);
+        if (!uid && id) setUid(id);
       })
       .catch(() => {});
+    const sub = supabase.auth.onAuthStateChange((_evt, session) => {
+      const id = session?.user?.id ?? null;
+      if (id && id !== uid) setUid(id);
+    });
+    unsub = sub.data?.subscription;
+    return () => {
+      try { unsub?.unsubscribe?.(); } catch {}
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -145,6 +189,25 @@ export function HomeSummary({
       } catch {}
     })();
   }, [uid, localPioneer]);
+
+  // Derive correct ranges in the browser (user's TZ or provided)
+  useEffect(() => {
+    const tz = timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const now = new Date();
+    const parts = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "numeric", day: "numeric" }).formatToParts(now);
+    const y = Number(parts.find((p) => p.type === "year")?.value || now.getFullYear());
+    const m = Number(parts.find((p) => p.type === "month")?.value || now.getMonth() + 1) - 1; // 0-based
+    const ymd = (yy: number, mmIndex: number, dd: number) => {
+      const mm = String(mmIndex + 1).padStart(2, "0");
+      const ddStr = String(dd).padStart(2, "0");
+      return `${yy}-${mm}-${ddStr}`;
+    };
+    const mStart = ymd(y, m, 1);
+    const mNext = m === 11 ? ymd(y + 1, 0, 1) : ymd(y, m + 1, 1);
+    const syStart = m >= 8 ? ymd(y, 8, 1) : ymd(y - 1, 8, 1);
+    const syEnd = m >= 8 ? ymd(y + 1, 8, 1) : ymd(y, 8, 1);
+    setRange({ mStart, mNext, syStart, syEnd });
+  }, [timeZone]);
 
   // Subscribe to events and realtime once uid is known
   useEffect(() => {
@@ -207,7 +270,7 @@ export function HomeSummary({
       if (refreshTimer) clearTimeout(refreshTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uid]);
+  }, [uid, range.mStart, range.mNext, range.syStart, range.syEnd]);
 
   return (
     <section>

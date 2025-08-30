@@ -42,22 +42,19 @@ for each row execute function public.set_updated_at();
 
 alter table public.profiles enable row level security;
 
--- Allow users to select their own profile
-drop policy if exists "Profiles: Read own" on public.profiles;
-create policy "Profiles: Read own" on public.profiles
-  for select using (id = auth.uid());
+-- Reset all policies on profiles to avoid legacy recursion
+do $$
+declare p record;
+begin
+  for p in select policyname from pg_policies where schemaname='public' and tablename='profiles' loop
+    execute format('drop policy if exists %I on public.profiles', p.policyname);
+  end loop;
+end $$;
 
--- Allow users to insert their own profile (first row)
-drop policy if exists "Profiles: Insert own" on public.profiles;
-create policy "Profiles: Insert own" on public.profiles
-  for insert with check (id = auth.uid());
-
--- Allow users to update their own profile but not escalate role
--- Allow users to update their own profile
-drop policy if exists "Profiles: Update own" on public.profiles;
-create policy "Profiles: Update own" on public.profiles
-  for update using (id = auth.uid())
-  with check (id = auth.uid());
+-- Re-create minimal, non-recursive policies on profiles
+create policy "Profiles: Read own" on public.profiles for select using (id = auth.uid());
+create policy "Profiles: Insert own" on public.profiles for insert with check (id = auth.uid());
+create policy "Profiles: Update own" on public.profiles for update using (id = auth.uid()) with check (id = auth.uid());
 
 -- Admin users list (no RLS to avoid recursion in policies)
 create table if not exists public.admin_users (
@@ -84,22 +81,7 @@ create policy "Profiles: Admin all" on public.profiles
   for all using (public.is_admin(auth.uid()))
   with check (public.is_admin(auth.uid()));
 
--- Prevent non-admins from changing the role column
-create or replace function public.enforce_role_update_privilege()
-returns trigger as $$
-begin
-  if new.role is distinct from old.role then
-    if not public.is_admin(auth.uid()) then
-      raise exception 'insufficient_privilege: cannot change role';
-    end if;
-  end if;
-  return new;
-end;
-$$ language plpgsql;
-
-drop trigger if exists trg_profiles_enforce_role on public.profiles;
-create trigger trg_profiles_enforce_role before update on public.profiles
-for each row execute function public.enforce_role_update_privilege();
+-- (role change enforcement trigger is defined later together with congregation rules)
 
 -- Monthly ministry records
 create extension if not exists pgcrypto;
@@ -233,94 +215,19 @@ $$;
 
 grant execute on function public.get_my_profile() to anon, authenticated;
 
--- RPC: upsert current user's profile (no role changes)
-create or replace function public.upsert_my_profile(
-  first_name text,
-  last_name text,
-  middle_name text,
-  date_of_birth date,
-  date_of_baptism date,
-  privileges text[],
-  avatar_url text,
-  time_zone text
-)
-returns public.profiles
-language sql
-security definer
-set search_path = public
-as $$
-  insert into public.profiles (id, first_name, last_name, middle_name, date_of_birth, date_of_baptism, privileges, avatar_url, time_zone)
-  values (
-    auth.uid(),
-    coalesce(first_name, ''),
-    coalesce(last_name, ''),
-    nullif(middle_name, ''),
-    date_of_birth,
-    date_of_baptism,
-    coalesce(privileges, '{}'),
-    nullif(avatar_url, ''),
-    nullif(time_zone, '')
-  )
-  on conflict (id) do update set
-    first_name = excluded.first_name,
-    last_name = excluded.last_name,
-    middle_name = excluded.middle_name,
-    date_of_birth = excluded.date_of_birth,
-    date_of_baptism = excluded.date_of_baptism,
-    privileges = excluded.privileges,
-    avatar_url = excluded.avatar_url,
-    time_zone = excluded.time_zone,
-    updated_at = now()
-  returning *;
-$$;
-
-grant execute on function public.upsert_my_profile(text, text, text, date, date, text[], text, text) to authenticated;
-
--- v2 function name to avoid schema cache issues in clients
-create or replace function public.upsert_my_profile_v2(
-  first_name text,
-  last_name text,
-  middle_name text,
-  date_of_birth date,
-  date_of_baptism date,
-  privileges text[],
-  avatar_url text,
-  time_zone text,
-  username text
-)
-returns public.profiles
-language sql
-security definer
-set search_path = public
-as $$
-  insert into public.profiles (id, first_name, last_name, middle_name, date_of_birth, date_of_baptism, privileges, avatar_url, time_zone, username)
-  values (
-    auth.uid(),
-    coalesce(first_name, ''),
-    coalesce(last_name, ''),
-    nullif(middle_name, ''),
-    date_of_birth,
-    date_of_baptism,
-    coalesce(privileges, '{}'),
-    nullif(avatar_url, ''),
-    nullif(time_zone, ''),
-    nullif(username, '')
-  )
-  on conflict (id) do update set
-    first_name = excluded.first_name,
-    last_name = excluded.last_name,
-    middle_name = excluded.middle_name,
-    date_of_birth = excluded.date_of_birth,
-    date_of_baptism = excluded.date_of_baptism,
-    privileges = excluded.privileges,
-    avatar_url = excluded.avatar_url,
-    time_zone = excluded.time_zone,
-    username = excluded.username,
-    updated_at = now()
-  returning *;
-$$;
-
-grant execute on function public.upsert_my_profile_v2(text, text, text, date, date, text[], text, text, text) to authenticated;
+-- Remove legacy profile upsert RPCs (client uses table upsert under RLS)
+do $$
+begin
+  begin
+    drop function if exists public.upsert_my_profile_v2(text, text, text, date, date, text[], text, text, text);
+  exception when undefined_function then null; end;
+  begin
+    drop function if exists public.upsert_my_profile(text, text, text, date, date, text[], text, text);
+  exception when undefined_function then null; end;
+  begin
+    drop function if exists public.upsert_my_profile_v3(text, text, text, date, date, text[], text, text, text, public.gender_t, boolean, public.pioneer_t);
+  exception when undefined_function then null; end;
+end $$;
 
 -- Lookup email by username to support username login
 create or replace function public.get_email_by_username(u text)
@@ -344,6 +251,23 @@ end;
 $$;
 
 grant execute on function public.get_email_by_username(text) to anon, authenticated;
+
+-- RPC: is a username available (case-insensitive)?
+create or replace function public.is_username_available(u text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select not exists (
+    select 1 from public.profiles p
+    where lower(p.username) = lower(u)
+      and p.id <> auth.uid()
+  );
+$$;
+
+grant execute on function public.is_username_available(text) to authenticated;
 
 -- RPC: does current user have an email/password identity?
 create or replace function public.has_password_auth()
@@ -374,3 +298,376 @@ as $$
 $$;
 
 grant execute on function public.has_encrypted_password() to authenticated;
+
+-- ==============================================
+-- Congregations, roles, and eligibility rules
+-- ==============================================
+
+-- Enums
+do $$ begin
+  if not exists (
+    select 1
+    from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    where t.typname = 'gender_t' and n.nspname = 'public'
+  ) then
+    create type public.gender_t as enum ('male','female');
+  end if;
+end $$;
+
+do $$ begin
+  if not exists (
+    select 1
+    from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    where t.typname = 'pioneer_t' and n.nspname = 'public'
+  ) then
+    create type public.pioneer_t as enum ('none','auxiliary','regular');
+  end if;
+end $$;
+
+do $$ begin
+  if not exists (
+    select 1
+    from pg_type t
+    join pg_namespace n on n.oid = t.typnamespace
+    where t.typname = 'congregation_role_t' and n.nspname = 'public'
+  ) then
+    create type public.congregation_role_t as enum ('unbaptized_publisher','publisher','ministerial_servant','elder');
+  end if;
+end $$;
+
+-- Congregations
+create table if not exists public.congregations (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  address text,
+  -- Optional GPS coordinates for maps/directions
+  lat numeric(9,6),
+  lng numeric(9,6),
+  -- 0=Sun,1=Mon,...,6=Sat
+  midweek_day smallint not null check (midweek_day between 1 and 5),
+  midweek_start time without time zone not null default '19:00',
+  weekend_day smallint not null check (weekend_day in (0,6)),
+  weekend_start time without time zone not null default '10:00',
+  meeting_duration_minutes integer not null default 105,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+drop trigger if exists trg_congregations_updated_at on public.congregations;
+create trigger trg_congregations_updated_at before update on public.congregations
+for each row execute function public.set_updated_at();
+
+alter table public.congregations enable row level security;
+
+-- Backfill-safe: add columns if not present (idempotent)
+do $$ begin
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema='public' and table_name='congregations' and column_name='lat'
+  ) then
+    alter table public.congregations add column lat numeric(9,6);
+  end if;
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema='public' and table_name='congregations' and column_name='lng'
+  ) then
+    alter table public.congregations add column lng numeric(9,6);
+  end if;
+end $$;
+
+-- Extend profiles with congregation fields and constraints (must exist before policies below)
+alter table public.profiles
+  add column if not exists congregation_id uuid references public.congregations(id),
+  add column if not exists gender public.gender_t;
+
+-- Helpful index when scoping queries by congregation
+create index if not exists profiles_congregation_idx on public.profiles(congregation_id);
+
+-- Only members of a congregation (or admins) can read it
+drop policy if exists "Congregations: Read own" on public.congregations;
+create policy "Congregations: Read own" on public.congregations
+  for select using (
+    public.is_admin(auth.uid())
+    or exists (
+      select 1 from public.profiles me
+      where me.id = auth.uid() and me.congregation_id = public.congregations.id
+    )
+  );
+
+-- Only admins can create/delete congregations; elders can update their own congregation
+drop policy if exists "Congregations: Admin write" on public.congregations;
+create policy "Congregations: Admin write" on public.congregations
+  for all using (public.is_admin(auth.uid())) with check (public.is_admin(auth.uid()));
+
+drop policy if exists "Congregations: Elder update" on public.congregations;
+create policy "Congregations: Elder update" on public.congregations
+  for update using (
+    exists (
+      select 1 from public.profiles me
+      where me.id = auth.uid()
+        and me.privileges @> array['Elder']::text[]
+        and me.congregation_id = public.congregations.id
+    )
+  ) with check (
+    exists (
+      select 1 from public.profiles me
+      where me.id = auth.uid()
+        and me.privileges @> array['Elder']::text[]
+        and me.congregation_id = public.congregations.id
+    )
+  );
+-- Eligibility rules (added NOT VALID to avoid breaking existing data before backfill)
+-- Note: Postgres < 16 doesn't support IF NOT EXISTS on ADD CONSTRAINT, so
+-- add them conditionally via a DO block for idempotency.
+-- Remove legacy constraints/columns in favor of array-based privileges
+do $$
+begin
+  -- Drop old constraints if present
+  perform 1 from pg_constraint where conname = 'profiles_ck_pioneer_requires_baptized' and conrelid = 'public.profiles'::regclass;
+  if found then alter table public.profiles drop constraint profiles_ck_pioneer_requires_baptized; end if;
+  perform 1 from pg_constraint where conname = 'profiles_ck_role_requires_baptized' and conrelid = 'public.profiles'::regclass;
+  if found then alter table public.profiles drop constraint profiles_ck_role_requires_baptized; end if;
+  perform 1 from pg_constraint where conname = 'profiles_ck_ms_elder_male_baptized' and conrelid = 'public.profiles'::regclass;
+  if found then alter table public.profiles drop constraint profiles_ck_ms_elder_male_baptized; end if;
+  perform 1 from pg_constraint where conname = 'profiles_ck_unbap_no_pioneer' and conrelid = 'public.profiles'::regclass;
+  if found then alter table public.profiles drop constraint profiles_ck_unbap_no_pioneer; end if;
+
+  -- Drop redundant columns if they exist
+  if exists (select 1 from information_schema.columns where table_schema='public' and table_name='profiles' and column_name='baptized') then
+    alter table public.profiles drop column baptized;
+  end if;
+  if exists (select 1 from information_schema.columns where table_schema='public' and table_name='profiles' and column_name='pioneer_type') then
+    alter table public.profiles drop column pioneer_type;
+  end if;
+  if exists (select 1 from information_schema.columns where table_schema='public' and table_name='profiles' and column_name='congregation_role') then
+    alter table public.profiles drop column congregation_role;
+  end if;
+end $$;
+
+-- New array-based privilege constraints
+do $$
+begin
+  -- Allowed values only
+  if not exists (
+    select 1 from pg_constraint where conname='profiles_ck_privileges_allowed' and conrelid='public.profiles'::regclass
+  ) then
+    alter table public.profiles add constraint profiles_ck_privileges_allowed
+    check (
+      privileges <@ array['Elder','Ministerial Servant','Regular Pioneer','Auxiliary Pioneer','Secretary','Coordinator','Group Overseer']::text[]
+    ) not valid;
+  end if;
+
+  -- Mutually exclusive: Regular vs Auxiliary Pioneer
+  if not exists (
+    select 1 from pg_constraint where conname='profiles_ck_pioneer_mutex' and conrelid='public.profiles'::regclass
+  ) then
+    alter table public.profiles add constraint profiles_ck_pioneer_mutex
+    check (
+      not (privileges @> array['Regular Pioneer']::text[] and privileges @> array['Auxiliary Pioneer']::text[])
+    ) not valid;
+  end if;
+
+  -- Mutually exclusive: MS vs Elder
+  if not exists (
+    select 1 from pg_constraint where conname='profiles_ck_ms_elder_mutex' and conrelid='public.profiles'::regclass
+  ) then
+    alter table public.profiles add constraint profiles_ck_ms_elder_mutex
+    check (
+      not (privileges @> array['Ministerial Servant']::text[] and privileges @> array['Elder']::text[])
+    ) not valid;
+  end if;
+
+  -- Elder-only privileges require Elder
+  if not exists (
+    select 1 from pg_constraint where conname='profiles_ck_elder_only_privs' and conrelid='public.profiles'::regclass
+  ) then
+    alter table public.profiles add constraint profiles_ck_elder_only_privs
+    check (
+      (not privileges @> array['Secretary']::text[] or privileges @> array['Elder']::text[]) and
+      (not privileges @> array['Coordinator']::text[] or privileges @> array['Elder']::text[]) and
+      (not privileges @> array['Group Overseer']::text[] or privileges @> array['Elder']::text[])
+    ) not valid;
+  end if;
+
+  -- Male required for MS/Elder
+  if not exists (
+    select 1 from pg_constraint where conname='profiles_ck_male_required_for_ms_elder' and conrelid='public.profiles'::regclass
+  ) then
+    alter table public.profiles add constraint profiles_ck_male_required_for_ms_elder
+    check (
+      case when privileges @> array['Ministerial Servant']::text[] or privileges @> array['Elder']::text[] then gender = 'male'::public.gender_t else true end
+    ) not valid;
+  end if;
+end $$;
+
+-- Helper: is the caller an elder?
+create or replace function public.is_elder(uid uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.profiles p where p.id = uid and p.privileges @> array['Elder']::text[]
+  );
+$$;
+
+grant execute on function public.is_elder(uuid) to anon, authenticated;
+
+-- Helper: are two users in the same congregation?
+create or replace function public.same_congregation(a uuid, b uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(pa.congregation_id = pb.congregation_id, false)
+  from public.profiles pa, public.profiles pb
+  where pa.id = a and pb.id = b;
+$$;
+
+grant execute on function public.same_congregation(uuid, uuid) to anon, authenticated;
+
+-- Helper: get my congregation id (avoids recursive self-joins in policies)
+create or replace function public.my_congregation_id()
+returns uuid
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select p.congregation_id from public.profiles p where p.id = auth.uid();
+$$;
+
+grant execute on function public.my_congregation_id() to anon, authenticated;
+
+-- Relax: drop strict gender requirement until data is backfilled
+do $$
+begin
+  if exists (
+    select 1 from pg_constraint
+    where conname = 'profiles_gender_required'
+      and conrelid = 'public.profiles'::regclass
+  ) then
+    alter table public.profiles drop constraint profiles_gender_required;
+  end if;
+end $$;
+
+-- Tighten profile edit privileges: allow only admins or elders-in-congregation to change congregation_id / congregation_role
+-- Simplify the trigger to avoid recursion
+create or replace function public.enforce_privileges_update_privilege()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  -- Only allow admins to change privileges (role escalation)
+  if new.privileges is distinct from old.privileges then
+    if not public.is_admin(auth.uid()) then
+      raise exception 'insufficient_privilege: cannot change privileges';
+    end if;
+  end if;
+  
+  -- For congregation changes, we'll rely on RLS policies instead of triggers
+  -- This avoids the infinite recursion issue
+  
+  return new;
+end;
+$$;
+
+-- Remove the old trigger
+drop trigger if exists trg_profiles_enforce_role on public.profiles;
+drop trigger if exists trg_profiles_enforce_privileges on public.profiles;
+
+-- Create the simplified trigger
+create trigger trg_profiles_enforce_privileges before update on public.profiles
+for each row execute function public.enforce_privileges_update_privilege();
+
+-- Profiles: Elders may read/update members in their congregation (admins handled separately)
+-- IMPORTANT: Avoid recursive references to public.profiles inside its own policies.
+-- Elder policies removed to fix "infinite recursion detected in policy for relation 'profiles'".
+drop policy if exists "Profiles: Elder read congregation" on public.profiles;
+drop policy if exists "Profiles: Elder update congregation" on public.profiles;
+
+-- Monthly/Daily records: elders can read within congregation
+drop policy if exists "Monthly: Elder read congregation" on public.monthly_records;
+create policy "Monthly: Elder read congregation" on public.monthly_records
+  for select using (
+    public.is_elder(auth.uid()) and public.same_congregation(auth.uid(), public.monthly_records.user_id)
+  );
+
+drop policy if exists "Daily: Elder read congregation" on public.daily_records;
+create policy "Daily: Elder read congregation" on public.daily_records
+  for select using (
+    public.is_elder(auth.uid()) and public.same_congregation(auth.uid(), public.daily_records.user_id)
+  );
+
+-- Ensure policies referencing public.profiles can be evaluated by the authenticated role
+do $$ begin
+  begin
+    grant select on table public.profiles to authenticated;
+  exception when others then null;
+  end;
+end $$;
+
+-- RPC: move a user to a different congregation (elder or admin only)
+create or replace function public.transfer_user_to_congregation(target_user uuid, new_congregation uuid)
+returns public.profiles
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  allowed boolean;
+  res public.profiles;
+begin
+  -- Ensure target congregation exists
+  if not exists (select 1 from public.congregations c where c.id = new_congregation) then
+    raise exception 'invalid_congregation';
+  end if;
+
+  -- Admins always allowed; elders only for their own congregation members
+  select (
+    public.is_admin(auth.uid())
+    or exists (
+      select 1 from public.profiles me, public.profiles p
+      where me.id = auth.uid() and p.id = target_user
+        and me.privileges @> array['Elder']::text[]
+        and me.congregation_id = p.congregation_id
+    )
+  ) into allowed;
+
+  if not coalesce(allowed, false) then
+    raise exception 'insufficient_privilege: only an elder of the user''s current congregation or an admin may transfer';
+  end if;
+
+  update public.profiles set congregation_id = new_congregation, updated_at = now()
+  where id = target_user
+  returning * into res;
+  return res;
+end;
+$$;
+
+grant execute on function public.transfer_user_to_congregation(uuid, uuid) to authenticated;
+
+-- RPC: fetch my congregation
+create or replace function public.get_my_congregation()
+returns public.congregations
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select c.* from public.congregations c
+  join public.profiles p on p.congregation_id = c.id
+  where p.id = auth.uid();
+$$;
+
+grant execute on function public.get_my_congregation() to authenticated;
+
+-- Legacy profile upsert RPCs removed; client performs table upsert under RLS

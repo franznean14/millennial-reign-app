@@ -19,13 +19,13 @@ export function initOfflineSync() {
 
   const pingBackend = async () => {
     try {
-      // Prefer a lightweight HEAD request to Supabase REST endpoint
+      // Prefer a lightweight HEAD request to Supabase Auth health endpoint
       const base = process.env.NEXT_PUBLIC_SUPABASE_URL;
       if (base) {
         const ctrl = new AbortController();
         const to = setTimeout(() => ctrl.abort(), 3000);
         try {
-          await fetch(`${base}`, { method: "GET", mode: "no-cors", cache: "no-store", signal: ctrl.signal });
+          await fetch(`${base.replace(/\/$/, "")}/auth/v1/health`, { method: "HEAD", mode: "no-cors", cache: "no-store", signal: ctrl.signal });
           dispatchReachability(true, true, undefined);
           return true;
         } finally {
@@ -50,7 +50,7 @@ export function initOfflineSync() {
       const ctrl = new AbortController();
       const to = setTimeout(() => ctrl.abort(), 3000);
       try {
-        const url = `${location.origin}/__ping?ts=${Date.now()}`;
+        const url = `${location.origin}/ping?ts=${Date.now()}`;
         await fetch(url, { method: "HEAD", mode: "no-cors", cache: "no-store", signal: ctrl.signal });
         dispatchReachability(true, undefined, true);
         return true;
@@ -112,7 +112,11 @@ export function initOfflineSync() {
       // Process profile updates (few, do sequentially)
       for (const item of profiles) {
         try {
-          await supabase.rpc("upsert_my_profile_v2", item.payload);
+          const { data: userRes } = await supabase.auth.getUser();
+          const uid = userRes.user?.id;
+          if (!uid) throw new Error("No session");
+          const payload = { id: uid, ...item.payload } as any;
+          await supabase.from("profiles").upsert(payload, { onConflict: "id" });
           await outboxRemove(item.id!);
           anyFlushed = true;
         } catch {}
@@ -218,7 +222,7 @@ export function initOfflineSync() {
     // Fire in parallel
     void flushOutbox();
     void hydrateCache();
-    void pingBackend();
+    // Silence noisy cross-origin pings; origin ping is sufficient for UX
     void pingOrigin();
   };
 

@@ -2,11 +2,13 @@
 
 import { useState } from "react";
 import { upsertMonthlyRecord } from "@/lib/db/monthlyRecords";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 export function MonthlyRecordForm({ userId, onSaved }: { userId: string; onSaved?: () => void }) {
   const [month, setMonth] = useState<string>(new Date().toISOString().slice(0, 7)); // YYYY-MM
   const [hours, setHours] = useState<number | "">("");
-  const [bibleStudies, setBibleStudies] = useState<number | "">("");
+  const [bibleStudies, setBibleStudies] = useState<string>("");
   const [note, setNote] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -21,7 +23,7 @@ export function MonthlyRecordForm({ userId, onSaved }: { userId: string; onSaved
         user_id: userId,
         month,
         hours: Number(hours),
-        bible_studies: Number(bibleStudies),
+        bible_studies: bibleStudies.trim() ? bibleStudies.trim().split(',').map(s => s.trim()).filter(Boolean) : [],
         note: note.trim() || null,
       });
       if (onSaved) onSaved();
@@ -39,12 +41,11 @@ export function MonthlyRecordForm({ userId, onSaved }: { userId: string; onSaved
       <div className="grid gap-3 sm:grid-cols-4">
         <label className="grid gap-1 text-sm">
           <span className="opacity-70">Month</span>
-          <input className="rounded-md border bg-background px-3 py-2" type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
+          <Input type="month" value={month} onChange={(e) => setMonth(e.target.value)} />
         </label>
         <label className="grid gap-1 text-sm">
           <span className="opacity-70">Hours</span>
-          <input
-            className="rounded-md border bg-background px-3 py-2"
+          <Input
             type="number"
             min={0}
             value={hours}
@@ -52,18 +53,17 @@ export function MonthlyRecordForm({ userId, onSaved }: { userId: string; onSaved
           />
         </label>
         <label className="grid gap-1 text-sm">
-          <span className="opacity-70">Bible Studies</span>
-          <input
-            className="rounded-md border bg-background px-3 py-2"
-            type="number"
-            min={0}
+          <span className="opacity-70">Bible Studies (comma-separated names)</span>
+          <Input
+            type="text"
             value={bibleStudies}
-            onChange={(e) => setBibleStudies(e.target.value === "" ? "" : Number(e.target.value))}
+            onChange={(e) => setBibleStudies(e.target.value)}
+            placeholder="John, Mary, etc."
           />
         </label>
         <label className="grid gap-1 text-sm sm:col-span-4">
           <span className="opacity-70">Note</span>
-          <textarea className="rounded-md border bg-background px-3 py-2" rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
+          <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} />
         </label>
       </div>
       <button
@@ -77,4 +77,3 @@ export function MonthlyRecordForm({ userId, onSaved }: { userId: string; onSaved
     </div>
   );
 }
-

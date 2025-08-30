@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { toast } from "@/components/ui/sonner";
+import { Input } from "@/components/ui/input";
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState("");
@@ -37,7 +38,7 @@ export default function ResetPasswordPage() {
       <h1 className="text-xl font-semibold mb-4">Reset Password</h1>
       <label className="grid gap-1 text-sm">
         <span className="opacity-70">New password</span>
-        <input className="rounded-md border bg-background px-3 py-2" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
       </label>
       <div className="mt-4">
         <button disabled={!password || saving} onClick={submit} className="rounded-md bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50">
@@ -47,4 +48,3 @@ export default function ResetPasswordPage() {
     </div>
   );
 }
-

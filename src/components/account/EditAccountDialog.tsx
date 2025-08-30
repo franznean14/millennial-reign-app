@@ -1,52 +1,74 @@
 "use client";
 
-import * as Dialog from "@radix-ui/react-dialog";
 import { useEffect, useState } from "react";
-import { X } from "lucide-react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { upsertProfile, getProfile } from "@/lib/db/profiles";
-import type { Profile } from "@/lib/db/types";
+import { ResponsiveModal } from "@/components/ui/responsive-modal";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
+import type { Profile } from "@/lib/db/types";
 
-export function EditAccountDialog({ open, onOpenChange, userId, initialEmail, initialUsername, currentProfile }: { open: boolean; onOpenChange: (o: boolean) => void; userId: string; initialEmail?: string | null; initialUsername?: string | null | undefined; currentProfile?: Profile | null }) {
-  const [email, setEmail] = useState(initialEmail ?? "");
-  const [username, setUsername] = useState(initialUsername ?? "");
+interface EditAccountDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  userId: string;
+  initialEmail: string | null;
+  initialUsername: string | null;
+  currentProfile: Profile | null;
+}
+
+export function EditAccountDialog({
+  open,
+  onOpenChange,
+  userId,
+  initialEmail,
+  initialUsername,
+  currentProfile
+}: EditAccountDialogProps) {
+  const [email, setEmail] = useState(initialEmail || "");
+  const [username, setUsername] = useState(initialUsername || "");
+  const [timeZone, setTimeZone] = useState(currentProfile?.time_zone || "");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    setEmail(initialEmail ?? "");
-    setUsername(initialUsername ?? "");
-  }, [initialEmail, initialUsername, open]);
+    if (open) {
+      setEmail(initialEmail || "");
+      setUsername(initialUsername || "");
+      setTimeZone(currentProfile?.time_zone || "");
+    }
+  }, [open, initialEmail, initialUsername, currentProfile]);
 
-  const save = async () => {
+  const submit = async () => {
     setSaving(true);
+    const supabase = createSupabaseBrowserClient();
     try {
-      const supabase = createSupabaseBrowserClient();
       // Update email if changed
-      if (email && email !== initialEmail) {
+      if (email !== initialEmail) {
         const { error } = await supabase.auth.updateUser({ email });
         if (error) throw error;
-        toast.success("Email update sent. Confirm via email.");
+        toast.success("Email update initiated. Check your email to confirm.");
       }
-      // Update username via profile upsert — preserve existing profile fields
-      let base = currentProfile as Profile | null | undefined;
-      if (!base) {
-        base = await getProfile(userId);
+
+      // Update profile with new username and timezone
+      const updates: any = {};
+      if (username !== initialUsername) {
+        updates.username = username || null;
       }
-      const payload: any = {
-        id: userId,
-        first_name: base?.first_name ?? "",
-        last_name: base?.last_name ?? "",
-        middle_name: base?.middle_name ?? null,
-        date_of_birth: base?.date_of_birth ?? null,
-        date_of_baptism: base?.date_of_baptism ?? null,
-        privileges: base?.privileges ?? [],
-        avatar_url: base?.avatar_url ?? null,
-        time_zone: (base as any)?.time_zone ?? null,
-        username: username ?? null,
-      };
-      await upsertProfile(payload);
-      toast.success("Account updated");
+      if (timeZone !== currentProfile?.time_zone) {
+        updates.time_zone = timeZone || null;
+      }
+
+      if (Object.keys(updates).length > 0) {
+        const { error } = await supabase
+          .from("profiles")
+          .update(updates)
+          .eq("id", userId);
+        if (error) throw error;
+        toast.success("Account updated successfully");
+      }
+
       onOpenChange(false);
     } catch (e: any) {
       toast.error(e.message ?? "Failed to update account");
@@ -55,45 +77,75 @@ export function EditAccountDialog({ open, onOpenChange, userId, initialEmail, in
     }
   };
 
+  const timeZones = [
+    "America/New_York",
+    "America/Chicago", 
+    "America/Denver",
+    "America/Los_Angeles",
+    "America/Anchorage",
+    "Pacific/Honolulu",
+    "Europe/London",
+    "Europe/Paris",
+    "Europe/Berlin",
+    "Asia/Tokyo",
+    "Asia/Shanghai",
+    "Australia/Sydney"
+  ];
+
   return (
-    <Dialog.Root open={open} onOpenChange={onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 bg-black/40 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 w-[min(92vw,520px)] -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-background p-4 shadow-xl max-h-[85dvh] overflow-y-auto overscroll-contain touch-pan-y data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95 data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0">
-          <div className="flex items-center justify-between">
-            <Dialog.Title className="text-lg font-semibold">Edit Account</Dialog.Title>
-            <Dialog.Close asChild>
-              <button className="rounded-md p-1 hover:bg-muted" aria-label="Close">
-                <X className="h-4 w-4" />
-              </button>
-            </Dialog.Close>
-          </div>
-          <div className="mt-4 grid gap-3">
-            <label className="grid gap-1 text-sm">
-              <span className="opacity-70">Email address</span>
-              <input className="rounded-md border bg-background px-3 py-2" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
-            </label>
-            <label className="grid gap-1 text-sm">
-              <span className="opacity-70">Username</span>
-              <input
-                className="rounded-md border bg-background px-3 py-2"
-                value={username ?? ""}
-                onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_.-]/g, ""))}
-                placeholder="Not set"
-              />
-              <span className="text-[11px] opacity-60">Letters, numbers, dot, underscore, hyphen</span>
-            </label>
-          </div>
-          <div className="mt-4 flex justify-end gap-2">
-            <Dialog.Close asChild>
-              <button className="rounded-md border px-3 py-2 text-sm">Cancel</button>
-            </Dialog.Close>
-            <button onClick={save} disabled={saving} className="rounded-md bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50">
-              {saving ? "Saving…" : "Save"}
-            </button>
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+    <ResponsiveModal
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Edit Account"
+      description="Update your email, username, and timezone"
+    >
+      <div className="grid gap-4">
+        <div className="grid gap-2">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="your@email.com"
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="username">Username</Label>
+          <Input
+            id="username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            placeholder="username"
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="timezone">Time Zone</Label>
+          <Select
+            value={timeZone}
+            onValueChange={setTimeZone}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select timezone" />
+            </SelectTrigger>
+            <SelectContent>
+              {timeZones.map((tz) => (
+                <SelectItem key={tz} value={tz}>
+                  {tz.replace('_', ' ')}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="mt-4 flex justify-end gap-2">
+        <Button variant="outline" onClick={() => onOpenChange(false)}>
+          Cancel
+        </Button>
+        <Button onClick={submit} disabled={saving}>
+          {saving ? "Saving…" : "Save changes"}
+        </Button>
+      </div>
+    </ResponsiveModal>
   );
 }

@@ -27,6 +27,10 @@ self.addEventListener("fetch", (event) => {
     if (url.protocol !== "http:" && url.protocol !== "https:") {
       return; // do not intercept
     }
+    // Do not intercept cross-origin requests (e.g., Supabase APIs)
+    if (url.origin !== self.location.origin) {
+      return;
+    }
   } catch {
     return;
   }

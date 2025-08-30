@@ -1,0 +1,172 @@
+# Millennial Reign App - Cursor Rules
+
+## Design System & Components
+- **ALWAYS use shadcn/ui components** for all UI elements
+- **Reference shadcn/ui documentation**: https://ui.shadcn.com/docs/components
+- **Use shadcn/ui themes**: https://ui.shadcn.com/themes
+- **Use shadcn/ui color palette**: https://ui.shadcn.com/colors
+- **Never create custom components** when a shadcn/ui equivalent exists
+- **Follow shadcn/ui patterns** for component composition and styling
+- **Use Tailwind CSS** with shadcn/ui design tokens and variables
+
+## Component Guidelines
+- Import components from `@/components/ui/` directory
+- Use shadcn/ui's built-in variants and styling patterns
+- Leverage shadcn/ui's accessibility features and ARIA attributes
+- Follow shadcn/ui's component API patterns for props and events
+- Use shadcn/ui's theme system for consistent dark/light mode support
+
+## Styling & Theming
+- Use shadcn/ui's CSS variables for colors, spacing, and typography
+- Follow shadcn/ui's design system for consistent visual hierarchy
+- Use shadcn/ui's component variants (e.g., `variant="default"`, `size="sm"`)
+- Leverage shadcn/ui's responsive design patterns
+- Use shadcn/ui's animation and transition utilities
+
+## Project Structure
+- Keep shadcn/ui components in `src/components/ui/`
+- Use shadcn/ui CLI for adding new components: `npx shadcn@latest add [component]`
+- Follow shadcn/ui's component composition patterns
+- Use shadcn/ui's form components with React Hook Form integration
+
+## Code Quality
+- Maintain shadcn/ui's component structure and naming conventions
+- Use TypeScript with shadcn/ui's type definitions
+- Follow shadcn/ui's best practices for component development
+- Ensure all components meet shadcn/ui's accessibility standards
+
+## Database Schema Management
+
+### Schema File Integrity
+- **ALWAYS retain the entire schema** in `supabase-schema.sql` file
+- **Never delete existing tables, functions, or policies** without careful consideration
+- **Maintain backward compatibility** - existing functionality must continue working
+- **Reference existing schema** before making any changes
+- **Document all schema changes** with clear comments explaining the reasoning
+
+### Schema Refactoring Principles
+- **Remove redundancy** while preserving functionality
+- **Consolidate similar functions** into unified versions when possible
+- **Use versioned function names** (e.g., `upsert_my_profile_v2`, `upsert_my_profile_v3`)
+- **Maintain function signatures** for existing client code compatibility
+- **Add new functionality** without breaking existing features
+
+### Schema Update Process
+- **Read existing schema first** - understand current structure and dependencies
+- **Identify dependencies** - check what tables/functions reference each other
+- **Plan migration strategy** - ensure new schema works with existing data
+- **Use conditional creation** - `if not exists` and `add column if not exists`
+- **Test thoroughly** - verify existing functionality still works
+
+### Table Management
+- **Preserve existing table structures** - don't drop columns without migration
+- **Use `alter table` carefully** - add columns, don't remove without data migration
+- **Maintain indexes** - existing performance optimizations must be preserved
+- **Keep constraints** - existing data integrity rules must remain
+- **Version table changes** - use comments to track schema evolution
+
+### Function Management
+- **Keep all existing functions** - even if newer versions exist
+- **Use function overloading** - maintain multiple versions for compatibility
+- **Document function purposes** - clear comments explaining what each function does
+- **Test function dependencies** - ensure RPC calls still work
+- **Maintain security definer** - preserve existing permission models
+
+### Policy Management
+- **Preserve existing RLS policies** - don't remove without careful consideration
+- **Maintain policy hierarchy** - admin policies, user policies, elder policies
+- **Test policy changes** - ensure existing users still have proper access
+- **Document policy purposes** - explain why each policy exists
+- **Use policy names consistently** - follow existing naming patterns
+
+### Migration Safety
+- **Use `if not exists`** for all table and function creation
+- **Use `add column if not exists`** for table alterations
+- **Use `drop policy if exists`** before creating new policies
+- **Use `drop trigger if exists`** before creating new triggers
+- **Test with existing data** - ensure migrations work with real data
+
+### Schema Documentation
+- **Clear section headers** - organize schema logically
+- **Explain complex logic** - document business rules and constraints
+- **Reference dependencies** - note which functions depend on which tables
+- **Version comments** - track when features were added
+- **Migration notes** - explain any breaking changes or data migrations
+
+### Error Prevention
+- **Check column references** - ensure `congregation_id` and similar columns exist
+- **Validate foreign keys** - ensure referenced tables exist before creating relationships
+- **Test enum types** - ensure custom types are created before use
+- **Verify function signatures** - ensure parameter types match expected usage
+- **Check policy conditions** - ensure referenced columns and functions exist
+
+## PWA & Offline-First Architecture
+
+### Core Principles
+- **ALWAYS prioritize offline-first functionality** - app must work without network
+- **Cache-first strategy** - load from cache, then sync when online
+- **Fast loading** - minimize initial network requests
+- **Data consistency** - retain latest edits regardless of sync order
+- **Progressive enhancement** - basic functionality offline, enhanced when online
+
+### Server-Side Rendering (SSR) Patterns
+- **Avoid network calls in SSR** for offline-first support
+- **Use auth cookies only** for initial access control
+- **Compute dates client-side** without profile timezone dependencies
+- **Provide empty initial state** - let client hydrate from cache
+- **Comments should explain offline-first reasoning**
+
+### Client-Side Data Management
+- **IndexedDB for caching** - use `cacheGet/cacheSet` from `@/lib/offline/store`
+- **Outbox pattern** - queue offline changes for later sync
+- **Optimistic updates** - update UI immediately, sync in background
+- **Conflict resolution** - prioritize most recent edit timestamp
+- **Batch operations** - group similar operations for efficient sync
+
+### Service Worker Strategy
+- **Cache-first for static assets** - `/`, `/offline` page
+- **Network-first for API calls** - fallback to cache on failure
+- **Background sync** - retry failed requests when online
+- **Versioned caches** - use `mr-app-v2` naming pattern
+- **Graceful degradation** - offline page for navigation failures
+
+### Authentication & Security
+- **Biometric unlock for offline access** - secure cached data
+- **Local session persistence** - use localStorage for auth state
+- **Graceful auth degradation** - work offline with cached credentials
+- **Secure token handling** - proper cookie management
+
+### Network Detection & Sync
+- **Reachability monitoring** - ping backend and origin separately
+- **Custom events** - `app-net-reachable`, `offline-sync-flushed`
+- **Automatic sync** - flush outbox when connection restored
+- **User feedback** - show offline indicators and sync status
+- **Timeout handling** - 3-second timeouts for network checks
+
+### Component Patterns
+- **Offline indicators** - show connection status to users
+- **Sync banners** - notify when data is being synchronized
+- **Loading states** - distinguish between offline and loading
+- **Error boundaries** - handle offline/network errors gracefully
+- **Progressive loading** - show cached data immediately, enhance when online
+
+### Data Flow
+- **Read from cache first** - immediate UI response
+- **Write to cache immediately** - optimistic updates
+- **Queue for sync** - outbox pattern for offline changes
+- **Background sync** - automatic when online
+- **Conflict resolution** - timestamp-based merging
+
+### Performance Optimization
+- **Minimize bundle size** - critical for offline loading
+- **Lazy load non-critical features** - progressive enhancement
+- **Efficient caching** - cache only necessary data
+- **Batch operations** - reduce network requests
+- **Compression** - optimize for slow connections
+
+### User Experience
+- **Seamless offline/online transitions** - no jarring changes
+- **Clear status indicators** - users know connection state
+- **Fast initial load** - cached data appears immediately
+- **Reliable sync** - users trust their data is saved
+- **Graceful degradation** - core features always work
