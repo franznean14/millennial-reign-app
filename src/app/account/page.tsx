@@ -1,5 +1,5 @@
 import { AccountClient } from "@/components/account/AccountClient";
-import LogoutButton from "@/components/account/LogoutButton";
+import { LogoutButton } from "@/components/account/LogoutButton";
 
 export default async function AccountPage() {
   // Do not query Supabase on the server to support true offline rendering.

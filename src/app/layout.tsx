@@ -4,6 +4,7 @@ import "./globals.css";
 import { AppChrome } from "@/components/AppChrome";
 import ThemeInit from "@/components/ThemeInit";
 import { Toaster } from "@/components/ui/sonner";
+import { SPAProvider } from "@/components/SPAProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -46,7 +47,9 @@ export default function RootLayout({
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ThemeInit />
-        <AppChrome>{children}</AppChrome>
+        <SPAProvider>
+          <AppChrome>{children}</AppChrome>
+        </SPAProvider>
         {/* Toast notifications (auto dark/light) */}
         <Toaster position="top-center" richColors closeButton theme="system" />
       </body>

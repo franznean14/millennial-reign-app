@@ -101,7 +101,12 @@ export async function isBusinessParticipant(): Promise<boolean> {
 export async function listEstablishments(): Promise<Establishment[]> {
   const supabase = createSupabaseBrowserClient();
   await supabase.auth.getSession().catch(() => {});
-  const { data } = await supabase.from('business_establishments').select('*').order('updated_at', { ascending: false });
+  const { data } = await supabase
+    .from('business_establishments')
+    .select('*')
+    .eq('is_deleted', false)
+    .eq('is_archived', false)
+    .order('updated_at', { ascending: false });
   return (data as any) ?? [];
 }
 
@@ -219,7 +224,7 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
   const supabase = createSupabaseBrowserClient();
   await supabase.auth.getSession().catch(() => {});
   
-  // Get establishments with visit and householder counts
+  // Get establishments with visit and householder counts (exclude archived and deleted)
   const { data: establishments } = await supabase
     .from('business_establishments')
     .select(`
@@ -227,6 +232,8 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
       visits:business_visits(count),
       householders:business_householders(count)
     `)
+    .eq('is_deleted', false)
+    .eq('is_archived', false)
     .order('updated_at', { ascending: false });
   
   if (!establishments) return [];
@@ -439,5 +446,59 @@ export async function getBwiParticipants(): Promise<Array<{
   
   console.log('Processed participants:', participants); // Debug log
   return participants;
+}
+
+export async function archiveEstablishment(establishmentId: string): Promise<boolean> {
+  const supabase = createSupabaseBrowserClient();
+  await supabase.auth.getSession().catch(() => {});
+  
+  // Get user's profile
+  const { data: profile } = await supabase.rpc('get_my_profile');
+  if (!profile?.id) {
+    throw new Error('User not authenticated');
+  }
+  
+  const { error } = await supabase
+    .from('business_establishments')
+    .update({
+      is_archived: true,
+      archived_at: new Date().toISOString(),
+      archived_by: profile.id
+    })
+    .eq('id', establishmentId);
+  
+  if (error) {
+    console.error('Failed to archive establishment:', error);
+    return false;
+  }
+  
+  return true;
+}
+
+export async function deleteEstablishment(establishmentId: string): Promise<boolean> {
+  const supabase = createSupabaseBrowserClient();
+  await supabase.auth.getSession().catch(() => {});
+  
+  // Get user's profile
+  const { data: profile } = await supabase.rpc('get_my_profile');
+  if (!profile?.id) {
+    throw new Error('User not authenticated');
+  }
+  
+  const { error } = await supabase
+    .from('business_establishments')
+    .update({
+      is_deleted: true,
+      deleted_at: new Date().toISOString(),
+      deleted_by: profile.id
+    })
+    .eq('id', establishmentId);
+  
+  if (error) {
+    console.error('Failed to delete establishment:', error);
+    return false;
+  }
+  
+  return true;
 }
 

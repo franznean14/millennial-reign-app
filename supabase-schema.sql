@@ -717,6 +717,13 @@ create table if not exists public.business_establishments (
   status public.business_establishment_status_t not null default 'for_scouting',
   note text,
   created_by uuid references public.profiles(id),
+  -- New fields for archiving and deletion
+  is_archived boolean not null default false,
+  archived_at timestamptz,
+  archived_by uuid references public.profiles(id),
+  is_deleted boolean not null default false,
+  deleted_at timestamptz,
+  deleted_by uuid references public.profiles(id),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -724,6 +731,46 @@ create table if not exists public.business_establishments (
 drop trigger if exists trg_business_establishments_updated_at on public.business_establishments;
 create trigger trg_business_establishments_updated_at before update on public.business_establishments
 for each row execute function public.set_updated_at();
+
+-- Backfill-safe: add archive and deletion columns if not present
+do $$ begin
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema='public' and table_name='business_establishments' and column_name='is_archived'
+  ) then
+    alter table public.business_establishments add column is_archived boolean not null default false;
+  end if;
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema='public' and table_name='business_establishments' and column_name='archived_at'
+  ) then
+    alter table public.business_establishments add column archived_at timestamptz;
+  end if;
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema='public' and table_name='business_establishments' and column_name='archived_by'
+  ) then
+    alter table public.business_establishments add column archived_by uuid references public.profiles(id);
+  end if;
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema='public' and table_name='business_establishments' and column_name='is_deleted'
+  ) then
+    alter table public.business_establishments add column is_deleted boolean not null default false;
+  end if;
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema='public' and table_name='business_establishments' and column_name='deleted_at'
+  ) then
+    alter table public.business_establishments add column deleted_at timestamptz;
+  end if;
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema='public' and table_name='business_establishments' and column_name='deleted_by'
+  ) then
+    alter table public.business_establishments add column deleted_by uuid references public.profiles(id);
+  end if;
+end $$;
 
 -- Householders associated with an establishment
 do $$ begin
@@ -794,6 +841,7 @@ create policy "Business: est read" on public.business_establishments
       select 1 from public.profiles me
       where me.id = auth.uid() and me.congregation_id = public.business_establishments.congregation_id
     )
+    and not public.business_establishments.is_deleted
   );
 
 drop policy if exists "Business: est write" on public.business_establishments;

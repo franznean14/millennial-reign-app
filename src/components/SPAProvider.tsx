@@ -1,0 +1,107 @@
+"use client";
+
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+
+interface SPAContextType {
+  currentSection: string;
+  userPermissions: {
+    showCongregation: boolean;
+    showBusiness: boolean;
+  };
+  onSectionChange: (section: string) => void;
+  isAuthenticated: boolean;
+  refreshAuth: () => void;
+}
+
+const SPAContext = createContext<SPAContextType | undefined>(undefined);
+
+export function SPAProvider({ children }: { children: ReactNode }) {
+  const [currentSection, setCurrentSection] = useState('home'); // Default to home
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userPermissions, setUserPermissions] = useState({
+    showCongregation: false,
+    showBusiness: false,
+  });
+
+  const handleSectionChange = (section: string) => {
+    setCurrentSection(section);
+    
+    // Update URL without page reload
+    const url = new URL(window.location.href);
+    url.pathname = section === 'home' ? '/' : `/${section}`;
+    window.history.pushState({}, '', url.toString());
+  };
+
+  const refreshAuth = () => {
+    checkAuth();
+  };
+
+  const checkAuth = async () => {
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session?.user) {
+        setIsAuthenticated(true);
+        
+        // Check user permissions
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (profile) {
+          const isElder = Array.isArray(profile?.privileges) && profile.privileges.includes('Elder');
+          const isSuperadmin = profile?.role === "superadmin";
+          const assigned = !!profile?.congregation_id;
+          const admin = profile?.role === "admin";
+          
+          setUserPermissions({
+            showCongregation: true, // Show for all authenticated users
+            showBusiness: assigned || isSuperadmin || (admin && isElder),
+          });
+        }
+      } else {
+        setIsAuthenticated(false);
+        setUserPermissions({
+          showCongregation: false,
+          showBusiness: false,
+        });
+      }
+    } catch (error) {
+      console.error('Auth check error:', error);
+      setIsAuthenticated(false);
+    }
+  };
+
+  useEffect(() => {
+    checkAuth();
+  }, []);
+
+  const value: SPAContextType = {
+    currentSection,
+    userPermissions,
+    onSectionChange: handleSectionChange,
+    isAuthenticated,
+    refreshAuth,
+  };
+
+  return (
+    <SPAContext.Provider value={value}>
+      {children}
+    </SPAContext.Provider>
+  );
+}
+
+export function useSPA() {
+  const context = useContext(SPAContext);
+  if (context === undefined) {
+    throw new Error('useSPA must be used within a SPAProvider');
+  }
+  return context;
+}
+
+
+

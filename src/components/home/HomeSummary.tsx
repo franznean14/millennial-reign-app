@@ -1,28 +1,34 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { cacheGet, cacheSet } from "@/lib/offline/store";
 import { formatDateHuman } from "@/lib/utils";
-import { TopStudies } from "@/components/home/TopStudies";
-import { toast } from "@/components/ui/sonner";
 
 type StudyCount = [string, number];
-
-function sumHours(records: { hours: number }[]) {
-  return records.reduce((acc, r) => acc + (Number(r.hours) || 0), 0);
-}
 
 function topStudies(records: { bible_studies: string[] | null }[], limit = 5): StudyCount[] {
   const counts = new Map<string, number>();
   for (const r of records) {
     for (const name of r.bible_studies ?? []) {
       const key = name.trim();
-      if (!key) continue;
-      counts.set(key, (counts.get(key) ?? 0) + 1);
+      if (key) counts.set(key, (counts.get(key) || 0) + 1);
     }
   }
-  return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]).slice(0, limit);
+  return Array.from(counts.entries())
+    .sort(([, a], [, b]) => b - a)
+    .slice(0, limit);
+}
+
+function sumHours(records: { hours: number }[]) {
+  return records.reduce((acc, r) => acc + (Number(r.hours) || 0), 0);
+}
+
+interface HomeSummaryProps {
+  userId: string;
+  monthStart: string;
+  nextMonthStart: string;
+  serviceYearStart: string;
+  serviceYearEnd: string;
 }
 
 export function HomeSummary({
@@ -31,172 +37,82 @@ export function HomeSummary({
   nextMonthStart,
   serviceYearStart,
   serviceYearEnd,
-  initialMonthHours,
-  initialSyHours,
-  initialStudies,
-  isRegularPioneer,
-  timeZone,
-}: {
-  userId?: string;
-  monthStart: string;
-  nextMonthStart: string;
-  serviceYearStart: string;
-  serviceYearEnd: string;
-  initialMonthHours: number;
-  initialSyHours: number;
-  initialStudies: StudyCount[];
-  isRegularPioneer: boolean;
-  timeZone?: string | null;
-}) {
-  const [uid, setUid] = useState<string | null>(userId ?? null);
-  const [monthHours, setMonthHours] = useState(initialMonthHours);
-  const [syHours, setSyHours] = useState(initialSyHours);
-  const [studies, setStudies] = useState<StudyCount[]>(initialStudies);
-  const [localPioneer, setLocalPioneer] = useState<boolean>(isRegularPioneer);
-  // Compute date ranges on the client to avoid SSR timezone mismatch
-  const [range, setRange] = useState(() => ({
+}: HomeSummaryProps) {
+  const [monthHours, setMonthHours] = useState(0);
+  const [syHours, setSyHours] = useState(0);
+  const [studies, setStudies] = useState<StudyCount[]>([]);
+  const [localPioneer, setLocalPioneer] = useState(false);
+  const [timeZone, setTimeZone] = useState<string | null>(null);
+  const [uid, setUid] = useState<string | null>(null);
+  const [range, setRange] = useState({
     mStart: monthStart,
     mNext: nextMonthStart,
     syStart: serviceYearStart,
     syEnd: serviceYearEnd,
-  }));
+  });
 
-  const fmtHours = (v: number) => {
-    if (!isFinite(v)) return "0";
-    const rounded = Math.round(v);
-    if (Math.abs(v - rounded) < 1e-9) return String(rounded);
-    const s = v.toFixed(2).replace(/(\.\d*[1-9])0+$/, "$1").replace(/\.0+$/, "");
-    return s;
+  const fmtHours = (h: number) => {
+    // Only show decimals if the number has decimal places
+    return h % 1 === 0 ? h.toString() : h.toFixed(2);
   };
+
+  // Get user timezone
+  useEffect(() => {
+    setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  }, []);
+
+  // Set user ID
+  useEffect(() => {
+    setUid(userId);
+  }, [userId]);
+
+  // Update date ranges when props change
+  useEffect(() => {
+    setRange({
+      mStart: monthStart,
+      mNext: nextMonthStart,
+      syStart: serviceYearStart,
+      syEnd: serviceYearEnd,
+    });
+  }, [monthStart, nextMonthStart, serviceYearStart, serviceYearEnd]);
 
   const refresh = async () => {
     if (!uid) return;
-    try {
-      const supabase = createSupabaseBrowserClient();
-      // Ensure session is hydrated to satisfy RLS
-      await supabase.auth.getSession();
-      const [monthRes, syRes] = await Promise.all([
-        supabase
-          .from("daily_records")
-          .select("date,hours,bible_studies")
-          .eq("user_id", uid)
-          .gte("date", range.mStart)
-          .lt("date", range.mNext),
-        supabase
-          .from("daily_records")
-          .select("date,hours")
-          .eq("user_id", uid)
-          .gte("date", range.syStart)
-          .lt("date", range.syEnd),
-      ]);
-      if (monthRes.error || syRes.error) {
-        const err = monthRes.error || syRes.error;
-        throw err;
-      }
-      const month = monthRes.data ?? [];
-      const sy = syRes.data ?? [];
-      setMonthHours(sumHours(month));
-      setSyHours(sumHours(sy));
-      setStudies(topStudies(month, 5));
-      // Persist fresh results into offline cache so future failures use up-to-date data
-      try {
-        const monthKey = range.mStart.slice(0, 7);
-        await cacheSet(`daily:${uid}:month:${monthKey}`, month);
-        for (const rec of month) {
-          try { await cacheSet(`daily:${uid}:${rec.date}`, rec as any); } catch {}
-        }
-      } catch {}
-    } catch (e: any) {
-      // Network/RLS error: rely on cache so we don't drop to 0
-      await refreshFromCache();
-      try {
-        const status = e?.cause?.status ?? e?.status ?? e?.code ?? "";
-        const msg = e?.message ?? "Unknown error";
-        // Provide actionable hint for common causes
-        const hint = String(status) === "500"
-          ? "Database error (500). Check RLS policies and constraints."
-          : String(status) === "403" || String(status) === "401"
-          ? "Permission issue. Sign in again or verify RLS policies."
-          : "Network or server issue. Will retry automatically.";
-        toast.error(`Could not load hours: ${hint}`, { description: msg });
-      } catch {}
+    const supabase = createSupabaseBrowserClient();
+
+    const [month, sy, profile] = await Promise.all([
+      supabase
+        .from("daily_records")
+        .select("hours,bible_studies")
+        .eq("user_id", uid)
+        .gte("date", range.mStart)
+        .lt("date", range.mNext),
+      supabase
+        .from("daily_records")
+        .select("hours")
+        .eq("user_id", uid)
+        .gte("date", range.syStart)
+        .lt("date", range.syEnd),
+      supabase.from("profiles").select("privileges").eq("id", uid).single(),
+    ]);
+
+    if (month.data) {
+      setMonthHours(sumHours(month.data));
+      setStudies(topStudies(month.data, 5));
+    }
+    if (sy.data) setSyHours(sumHours(sy.data));
+    if (profile.data) {
+      const privileges = profile.data.privileges;
+      setLocalPioneer(Array.isArray(privileges) && privileges.includes("Regular Pioneer"));
     }
   };
 
-  const refreshFromCache = async () => {
-    try {
-      if (!uid) return;
-      const monthKey = range.mStart.slice(0, 7);
-      const month = (await cacheGet<any[]>(`daily:${uid}:month:${monthKey}`)) || [];
-      if (month.length) {
-        setMonthHours(sumHours(month));
-        setStudies(topStudies(month, 5));
-      }
-      // Service year: iterate months via local y/m increments
-      const syStart = range.syStart.slice(0, 7);
-      const syEnd = range.syEnd.slice(0, 7);
-      const [syStartY, syStartM] = syStart.split("-").map((s) => Number(s));
-      const accum: any[] = [];
-      let y = syStartY;
-      let m = syStartM; // 1-12
-      const fmt = (yy: number, mm: number) => `${String(yy).padStart(4, "0")}-${String(mm).padStart(2, "0")}`;
-      while (fmt(y, m) !== syEnd) {
-        const key = `daily:${uid}:month:${fmt(y, m)}`;
-        const list = (await cacheGet<any[]>(key)) || [];
-        if (list.length) accum.push(...list);
-        m += 1;
-        if (m > 12) {
-          m = 1;
-          y += 1;
-        }
-      }
-      if (accum.length) setSyHours(sumHours(accum));
-    } catch {}
-  };
-
-  // Hydrate uid on mount if not provided, and react to auth changes
+  // Update timezone-based ranges
   useEffect(() => {
-    const supabase = createSupabaseBrowserClient();
-    let unsub: any;
-    supabase.auth
-      .getSession()
-      .then(({ data }) => {
-        const id = data.session?.user?.id ?? null;
-        if (!uid && id) setUid(id);
-      })
-      .catch(() => {});
-    const sub = supabase.auth.onAuthStateChange((_evt, session) => {
-      const id = session?.user?.id ?? null;
-      if (id && id !== uid) setUid(id);
-    });
-    unsub = sub.data?.subscription;
-    return () => {
-      try { unsub?.unsubscribe?.(); } catch {}
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Try cached profile to infer pioneer if SSR said false
-  useEffect(() => {
-    if (!uid) return;
-    if (localPioneer) return;
-    (async () => {
-      try {
-        const prof = await cacheGet<any>(`profile:${uid}`);
-        if (Array.isArray(prof?.privileges) && prof.privileges.includes("Regular Pioneer")) {
-          setLocalPioneer(true);
-        }
-      } catch {}
-    })();
-  }, [uid, localPioneer]);
-
-  // Derive correct ranges in the browser (user's TZ or provided)
-  useEffect(() => {
-    const tz = timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (!timeZone) return;
     const now = new Date();
-    const parts = new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "numeric", day: "numeric" }).formatToParts(now);
-    const y = Number(parts.find((p) => p.type === "year")?.value || now.getFullYear());
-    const m = Number(parts.find((p) => p.type === "month")?.value || now.getMonth() + 1) - 1; // 0-based
+    const y = now.getFullYear();
+    const m = now.getMonth();
     const ymd = (yy: number, mmIndex: number, dd: number) => {
       const mm = String(mmIndex + 1).padStart(2, "0");
       const ddStr = String(dd).padStart(2, "0");
@@ -209,23 +125,16 @@ export function HomeSummary({
     setRange({ mStart, mNext, syStart, syEnd });
   }, [timeZone]);
 
-  // Subscribe to events and realtime once uid is known
+  // Load data when component mounts or ranges change
+  useEffect(() => {
+    if (!uid) return;
+    refresh();
+  }, [uid, range.mStart, range.mNext, range.syStart, range.syEnd]);
+
+  // Subscribe to realtime updates
   useEffect(() => {
     if (!uid) return;
     const supabase = createSupabaseBrowserClient();
-    let refreshTimer: any = null;
-    const schedule = () => {
-      if (refreshTimer) clearTimeout(refreshTimer);
-      refreshTimer = setTimeout(() => {
-        refresh().catch(() => {});
-      }, 500);
-    };
-
-    const handler = () => {
-      // cache first; avoid immediate network refetch for offline-first UX
-      refreshFromCache();
-    };
-    window.addEventListener("daily-record-updated", handler as any);
 
     const channel = supabase
       .channel("home-daily-changes")
@@ -233,44 +142,18 @@ export function HomeSummary({
         "postgres_changes",
         { event: "*", schema: "public", table: "daily_records", filter: `user_id=eq.${uid}` },
         async (payload: any) => {
-          try {
-            const rec = payload?.new;
-            if (rec?.date && rec?.user_id === uid) {
-              await cacheSet(`daily:${uid}:${rec.date}`, rec);
-              const mk = String(rec.date).slice(0, 7);
-              const keyMonth = `daily:${uid}:month:${mk}`;
-              const monthCache = (await cacheGet<any[]>(keyMonth)) || [];
-              const idx = monthCache.findIndex((r) => r.date === rec.date);
-              if (idx >= 0) monthCache[idx] = rec; else monthCache.push(rec);
-              monthCache.sort((a, b) => a.date.localeCompare(b.date));
-              await cacheSet(keyMonth, monthCache);
-            }
-          } catch {}
-          // Always re-read from cache for display
-          refreshFromCache();
+          // Refresh data when records change
+          refresh();
         }
       )
       .subscribe();
 
-    // Initial cache hydrate + one-time network fetch if online
-    (async () => {
-      await refreshFromCache();
-      if (typeof navigator !== "undefined" && navigator.onLine) {
-        try {
-          await refresh();
-        } catch {}
-      }
-    })();
-
     return () => {
-      window.removeEventListener("daily-record-updated", handler as any);
       try {
         supabase.removeChannel(channel);
       } catch {}
-      if (refreshTimer) clearTimeout(refreshTimer);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uid, range.mStart, range.mNext, range.syStart, range.syEnd]);
+  }, [uid]);
 
   return (
     <section>
@@ -293,10 +176,10 @@ export function HomeSummary({
           </div>
         </div>
 
-        {/* Top studies */}
+        {/* Top studies - temporarily removed */}
         <div className="rounded-lg border p-4">
-          <div className="text-sm font-medium mb-2">Top Bible Studies</div>
-          <TopStudies items={studies} />
+          <div className="text-sm font-medium mb-2">Bible Studies</div>
+          <div className="text-sm opacity-70">Coming soon...</div>
         </div>
       </div>
     </section>

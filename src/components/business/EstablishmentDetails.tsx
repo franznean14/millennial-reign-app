@@ -186,51 +186,56 @@ export function EstablishmentDetails({
           <CardContent>
             {visits.length > 0 ? (
               <div className="space-y-3">
-                {visits.map((visit) => {
-                  console.log('Visit data:', visit); // Debug log
-                  console.log('Publisher:', visit.publisher); // Debug publisher
-                  console.log('Partner:', visit.partner); // Debug partner
-                  return (
-                    <div key={visit.id} className="flex items-start justify-between gap-3 p-3 border rounded-lg">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm font-medium">{formatDate(visit.visit_date)}</span>
+                {visits
+                  .filter((visit, index, self) => 
+                    // Remove duplicates based on visit ID
+                    index === self.findIndex(v => v.id === visit.id)
+                  )
+                  .map((visit) => {
+                    console.log('Visit data:', visit); // Debug log
+                    console.log('Publisher:', visit.publisher); // Debug publisher
+                    console.log('Partner:', visit.partner); // Debug partner
+                    return (
+                      <div key={visit.id} className="flex items-start justify-between gap-3 p-3 border rounded-lg">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-medium">{formatDate(visit.visit_date)}</span>
+                          </div>
+                          {visit.note && (
+                            <p className="text-sm text-muted-foreground">{visit.note}</p>
+                          )}
                         </div>
-                        {visit.note && (
-                          <p className="text-sm text-muted-foreground">{visit.note}</p>
-                        )}
+                        
+                        {/* Publisher avatars on the right - overlapping style */}
+                        <div className="flex items-center flex-shrink-0">
+                          {visit.publisher ? (
+                            <Avatar className="h-8 w-8 ring-2 ring-background">
+                              <AvatarImage src={visit.publisher.avatar_url} alt={`${visit.publisher.first_name} ${visit.publisher.last_name}`} />
+                              <AvatarFallback className="text-xs">
+                                {visit.publisher.first_name && visit.publisher.last_name ? 
+                                  `${visit.publisher.first_name} ${visit.publisher.last_name}`.charAt(0) : 
+                                  'U'
+                                }
+                              </AvatarFallback>
+                            </Avatar>
+                          ) : (
+                            <div className="text-xs text-muted-foreground">No publisher</div>
+                          )}
+                          {visit.partner ? (
+                            <Avatar className="h-8 w-8 -ml-2 ring-2 ring-background">
+                              <AvatarImage src={visit.partner.avatar_url} alt={`${visit.partner.first_name} ${visit.partner.last_name}`} />
+                              <AvatarFallback className="text-xs">
+                                {visit.partner.first_name && visit.partner.last_name ? 
+                                  `${visit.partner.first_name} ${visit.partner.last_name}`.charAt(0) : 
+                                  'U'
+                                }
+                              </AvatarFallback>
+                            </Avatar>
+                          ) : null}
+                        </div>
                       </div>
-                      
-                      {/* Publisher avatars on the right - overlapping style */}
-                      <div className="flex items-center flex-shrink-0">
-                        {visit.publisher ? (
-                          <Avatar className="h-8 w-8 ring-2 ring-background">
-                            <AvatarImage src={visit.publisher.avatar_url} alt={`${visit.publisher.first_name} ${visit.publisher.last_name}`} />
-                            <AvatarFallback className="text-xs">
-                              {visit.publisher.first_name && visit.publisher.last_name ? 
-                                `${visit.publisher.first_name} ${visit.publisher.last_name}`.charAt(0) : 
-                                'U'
-                              }
-                            </AvatarFallback>
-                          </Avatar>
-                        ) : (
-                          <div className="text-xs text-muted-foreground">No publisher</div>
-                        )}
-                        {visit.partner ? (
-                          <Avatar className="h-8 w-8 -ml-2 ring-2 ring-background">
-                            <AvatarImage src={visit.partner.avatar_url} alt={`${visit.partner.first_name} ${visit.partner.last_name}`} />
-                            <AvatarFallback className="text-xs">
-                              {visit.partner.first_name && visit.partner.last_name ? 
-                                `${visit.partner.first_name} ${visit.partner.last_name}`.charAt(0) : 
-                                'U'
-                              }
-                            </AvatarFallback>
-                          </Avatar>
-                        ) : null}
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground text-center py-4">No visits recorded yet</p>

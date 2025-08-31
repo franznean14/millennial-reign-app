@@ -1,5 +1,24 @@
 # Millennial Reign App - Cursor Rules
 
+## SPA Pattern (Single Page Application)
+- **Use SPA pattern app-wide** for lightning-fast performance
+- **Single client components** that manage all state and render different views based on state changes
+- **No route changes** - Everything happens within one component
+- **State persistence** - Data stays in memory between "navigation"
+- **Instant transitions** - Just state changes, no page loads
+- **Shared data** - Data is loaded once and reused across views
+- **State-based navigation** - Use state changes instead of route changes
+- **Persistent state** - Maintain state across "navigation" within sections
+
+## Offline-Ready UI & Data
+- **UI and Data must be offline-ready** - All components should work without internet connection
+- **Local data persistence** - Store critical data in IndexedDB/localStorage for offline access
+- **Offline-first rendering** - Components should display cached data immediately
+- **Background sync** - Sync data when connection is restored
+- **Graceful degradation** - Show appropriate offline states and error messages
+- **Service Worker caching** - Cache static assets and API responses for offline use
+- **Optimistic UI updates** - Update UI immediately, handle sync conflicts gracefully
+
 ## Design System & Components
 - **ALWAYS use shadcn/ui components** for all UI elements
 - **Reference shadcn/ui documentation**: https://ui.shadcn.com/docs/components
@@ -15,6 +34,9 @@
 - Leverage shadcn/ui's accessibility features and ARIA attributes
 - Follow shadcn/ui's component API patterns for props and events
 - Use shadcn/ui's theme system for consistent dark/light mode support
+- **Client components** for interactive features
+- **Server components** only for initial auth checks and static content
+- **State-driven rendering** - UI changes based on state, not route changes
 
 ## Styling & Theming
 - Use shadcn/ui's CSS variables for colors, spacing, and typography
@@ -22,18 +44,37 @@
 - Use shadcn/ui's component variants (e.g., `variant="default"`, `size="sm"`)
 - Leverage shadcn/ui's responsive design patterns
 - Use shadcn/ui's animation and transition utilities
+- **Dark theme preferred** - Use dark muted colors (1E201E, 3C3D37, ECDFCC)
+- **Mobile-first design** - All components must work on mobile
+
+## Performance Patterns
+- **Business page pattern** - Use this as the template for all sections:
+  - Single client component managing all section state
+  - Different views rendered based on selected items/state
+  - Data loaded once and persisted in memory
+  - Instant transitions between views
+  - Real-time updates for data changes
+- **Load once, use everywhere** - Fetch data once and share across components
+- **Background sync** - Keep data fresh with periodic and real-time updates
+- **Optimistic UI** - Update immediately, handle errors gracefully
+- **Cache intelligently** - Store data locally for offline support
 
 ## Project Structure
 - Keep shadcn/ui components in `src/components/ui/`
 - Use shadcn/ui CLI for adding new components: `npx shadcn@latest add [component]`
 - Follow shadcn/ui's component composition patterns
 - Use shadcn/ui's form components with React Hook Form integration
+- **Organized by feature** - Group related files together
+- **Clear naming** - Use descriptive file and component names
 
 ## Code Quality
 - Maintain shadcn/ui's component structure and naming conventions
 - Use TypeScript with shadcn/ui's type definitions
 - Follow shadcn/ui's best practices for component development
 - Ensure all components meet shadcn/ui's accessibility standards
+- **TypeScript everywhere** - No `any` types unless absolutely necessary
+- **Error boundaries** - Handle errors gracefully
+- **Loading states** - Show appropriate loading indicators
 
 ## Database Schema Management
 
@@ -170,3 +211,11 @@
 - **Fast initial load** - cached data appears immediately
 - **Reliable sync** - users trust their data is saved
 - **Graceful degradation** - core features always work
+
+## Performance Targets
+- **< 2s load time** - Initial page load
+- **< 100ms interactions** - UI interactions
+- **< 1s navigation** - Between sections
+- **90+ Lighthouse score** - Performance score
+
+Remember: **SPA pattern first, state-driven rendering, instant transitions, shared data, optimistic updates, real-time sync, offline-ready UI & data.**

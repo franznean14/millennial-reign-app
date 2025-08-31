@@ -33,11 +33,19 @@ export function CongregationClient() {
       setCong(c);
       setLoading(false);
       // Auto-open create modal if none exists and user can create (admin)
+      // But only if we're still on the congregation view
       if (!c?.id && isAdm) {
         setMode("create");
         setModalOpen(true);
       }
     });
+  }, []);
+
+  // Close modal when component unmounts or when navigating away
+  useEffect(() => {
+    return () => {
+      setModalOpen(false);
+    };
   }, []);
 
   const isElder = Array.isArray((profile as any)?.privileges) && (profile as any).privileges.includes('Elder');
@@ -52,6 +60,17 @@ export function CongregationClient() {
 
   if (loading) return <div className="text-sm opacity-70">Loading congregation…</div>;
   if (!uid) return <div className="text-sm opacity-70">Sign in to manage your congregation.</div>;
+  
+  // Show message for users without congregation assignment
+  if (!(profile as any)?.congregation_id) {
+    return (
+      <div className="rounded-md border p-4">
+        <div className="text-base font-medium">No congregation assigned</div>
+        <div className="mt-1 text-sm opacity-70">Ask an Elder in your congregation to add you.</div>
+      </div>
+    );
+  }
+  
   if (!(isElder || admin)) {
     return (
       <div className="rounded-md border p-4">
