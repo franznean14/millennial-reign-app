@@ -1,5 +1,9 @@
 // Simple event system for business updates
-type BusinessEventType = 'establishment-added' | 'householder-added' | 'visit-added';
+export type BusinessEventType = 
+  | 'establishment-added'
+  | 'establishment-updated'
+  | 'householder-added'
+  | 'visit-added';
 
 interface BusinessEvent {
   type: BusinessEventType;

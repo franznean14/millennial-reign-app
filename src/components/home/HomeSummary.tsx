@@ -77,33 +77,48 @@ export function HomeSummary({
   }, [monthStart, nextMonthStart, serviceYearStart, serviceYearEnd]);
 
   const refresh = async () => {
-    if (!uid) return;
-    const supabase = createSupabaseBrowserClient();
+    if (!uid || !range.mStart || !range.mNext || !range.syStart || !range.syEnd) return;
+    
+    // Create AbortController for this request
+    const abortController = new AbortController();
+    
+    try {
+      const supabase = createSupabaseBrowserClient();
 
-    const [month, sy, profile] = await Promise.all([
-      supabase
-        .from("daily_records")
-        .select("hours,bible_studies")
-        .eq("user_id", uid)
-        .gte("date", range.mStart)
-        .lt("date", range.mNext),
-      supabase
-        .from("daily_records")
-        .select("hours")
-        .eq("user_id", uid)
-        .gte("date", range.syStart)
-        .lt("date", range.syEnd),
-      supabase.from("profiles").select("privileges").eq("id", uid).single(),
-    ]);
+      const [month, sy, profile] = await Promise.all([
+        supabase
+          .from("daily_records")
+          .select("hours,bible_studies")
+          .eq("user_id", uid)
+          .gte("date", range.mStart)
+          .lt("date", range.mNext),
+        supabase
+          .from("daily_records")
+          .select("hours")
+          .eq("user_id", uid)
+          .gte("date", range.syStart)
+          .lt("date", range.syEnd),
+        supabase
+          .from("profiles")
+          .select("privileges")
+          .eq("id", uid)
+          .single(),
+      ]);
 
-    if (month.data) {
-      setMonthHours(sumHours(month.data));
-      setStudies(topStudies(month.data, 5));
-    }
-    if (sy.data) setSyHours(sumHours(sy.data));
-    if (profile.data) {
-      const privileges = profile.data.privileges;
-      setLocalPioneer(Array.isArray(privileges) && privileges.includes("Regular Pioneer"));
+      if (month.data) {
+        setMonthHours(sumHours(month.data));
+        setStudies(topStudies(month.data, 5));
+      }
+      if (sy.data) setSyHours(sumHours(sy.data));
+      if (profile.data) {
+        const privileges = profile.data.privileges;
+        setLocalPioneer(Array.isArray(privileges) && privileges.includes("Regular Pioneer"));
+      }
+    } catch (error) {
+      // Only log errors that aren't from cancellation
+      if (error instanceof Error && error.name !== 'AbortError') {
+        console.error('Error fetching home summary data:', error);
+      }
     }
   };
 
@@ -142,8 +157,10 @@ export function HomeSummary({
         "postgres_changes",
         { event: "*", schema: "public", table: "daily_records", filter: `user_id=eq.${uid}` },
         async (payload: any) => {
-          // Refresh data when records change
-          refresh();
+          // Only refresh if component is still mounted and user is still logged in
+          if (uid) {
+            refresh();
+          }
         }
       )
       .subscribe();
@@ -153,6 +170,16 @@ export function HomeSummary({
         supabase.removeChannel(channel);
       } catch {}
     };
+  }, [uid]);
+
+  // Cleanup effect - reset state when user logs out
+  useEffect(() => {
+    if (!uid) {
+      setMonthHours(0);
+      setSyHours(0);
+      setStudies([]);
+      setLocalPioneer(false);
+    }
   }, [uid]);
 
   return (

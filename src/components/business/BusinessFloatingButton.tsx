@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Plus, Building2, UserPlus, FilePlus2, X, Crosshair } from "lucide-react";
+import { Plus, Building2, UserPlus, FilePlus2, X, Crosshair, Edit } from "lucide-react";
 import { ResponsiveModal } from "@/components/ui/responsive-modal";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,6 +14,8 @@ import { toast } from "sonner";
 import { businessEventBus } from "@/lib/events/business-events";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
+import { ChevronDown } from "lucide-react";
 
 function useGeo() {
   const [coords, setCoords] = useState<{lat:number;lng:number}|null>(null);
@@ -136,21 +138,31 @@ export function BusinessFloatingButton({
   );
 }
 
-function EstablishmentForm({ onSaved, coords, onGetLocation, selectedArea }: { 
+function EstablishmentForm({ 
+  onSaved, 
+  coords, 
+  onGetLocation, 
+  selectedArea,
+  initialData,
+  isEditing = false
+}: { 
   onSaved: (newEstablishment?: any)=>void; 
   coords: {lat:number;lng:number}|null; 
   onGetLocation: ()=>void; 
-  selectedArea?: string; 
+  selectedArea?: string;
+  initialData?: any;
+  isEditing?: boolean;
 }) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [area, setArea] = useState(selectedArea || "");
-  const [lat, setLat] = useState<number | null>(null);
-  const [lng, setLng] = useState<number | null>(null);
-  const [floor, setFloor] = useState("");
-  const [status, setStatus] = useState<EstablishmentStatus>('for_scouting');
-  const [note, setNote] = useState("");
-  const [gps, setGps] = useState<string>("");
+  const [name, setName] = useState(initialData?.name || "");
+  const [description, setDescription] = useState(initialData?.description || "");
+  const [area, setArea] = useState(initialData?.area || selectedArea || "");
+  const [lat, setLat] = useState<number | null>(initialData?.lat || null);
+  const [lng, setLng] = useState<number | null>(initialData?.lng || null);
+  const [floor, setFloor] = useState(initialData?.floor || "");
+  const [status, setStatus] = useState<string[]>(initialData?.statuses || []);
+  const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
+  const [note, setNote] = useState(initialData?.note || "");
+  const [gps, setGps] = useState<string>(initialData?.lat && initialData?.lng ? `${initialData.lat}, ${initialData.lng}` : "");
   const [areas, setAreas] = useState<string[]>([]);
   const [floors, setFloors] = useState<string[]>([]);
   const [showAreaInput, setShowAreaInput] = useState(false);
@@ -202,27 +214,43 @@ function EstablishmentForm({ onSaved, coords, onGetLocation, selectedArea }: {
     setSaving(true);
     
     try {
-      const result = await upsertEstablishment({ 
+      const establishmentData = { 
         name, 
         description: description||null, 
         area: area||null, 
         lat, 
         lng, 
         floor: floor||null, 
-        status, 
+        statuses: status, // Changed from status to statuses
         note: note||null 
-      });
+      };
+
+      let result;
+      if (isEditing && initialData?.id) {
+        // Update existing establishment
+        result = await upsertEstablishment({ 
+          id: initialData.id,
+          ...establishmentData
+        });
+      } else {
+        // Create new establishment
+        result = await upsertEstablishment(establishmentData);
+      }
       
       if (result) {
-        toast.success("Establishment saved successfully!");
+        toast.success(isEditing ? "Establishment updated successfully!" : "Establishment saved successfully!");
         onSaved(result);
         // Emit event for live update
-        businessEventBus.emit('establishment-added', result);
+        if (isEditing) {
+          businessEventBus.emit('establishment-updated', result);
+        } else {
+          businessEventBus.emit('establishment-added', result);
+        }
       } else {
-        toast.error("Failed to save establishment");
+        toast.error(isEditing ? "Failed to update establishment" : "Failed to save establishment");
       }
     } catch (error) {
-      toast.error("Error saving establishment");
+      toast.error(isEditing ? "Error updating establishment" : "Error saving establishment");
       console.error('Error saving establishment:', error);
     } finally {
       setSaving(false);
@@ -322,16 +350,41 @@ function EstablishmentForm({ onSaved, coords, onGetLocation, selectedArea }: {
 
       <div className="grid gap-1">
         <Label>Status</Label>
-        <Select value={status} onValueChange={(v:any)=> setStatus(v)}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="for_scouting">For Scouting</SelectItem>
-            <SelectItem value="for_follow_up">For Follow Up</SelectItem>
-            <SelectItem value="accepted_rack">Accepted Rack</SelectItem>
-            <SelectItem value="declined_rack">Declined Rack</SelectItem>
-            <SelectItem value="has_bible_studies">Has Bible Studies</SelectItem>
-          </SelectContent>
-        </Select>
+        <DropdownMenu open={statusDropdownOpen} onOpenChange={setStatusDropdownOpen}>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="w-full justify-between">
+              {status.length === 0 ? "Select Statuses" : `${status.length} selected`}
+              <ChevronDown className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-56">
+            <DropdownMenuLabel>Select Statuses</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {[
+              { value: "for_scouting", label: "For Scouting" },
+              { value: "for_follow_up", label: "For Follow Up" },
+              { value: "for_replenishment", label: "For Replenishment" },
+              { value: "accepted_rack", label: "Accepted Rack" },
+              { value: "declined_rack", label: "Declined Rack" },
+              { value: "has_bible_studies", label: "Has Bible Studies" }
+            ].map((statusOption) => (
+              <DropdownMenuCheckboxItem
+                key={statusOption.value}
+                checked={status.includes(statusOption.value)}
+                onCheckedChange={(checked) => {
+                  if (checked) {
+                    setStatus([...status, statusOption.value]);
+                  } else {
+                    setStatus(status.filter(s => s !== statusOption.value));
+                  }
+                }}
+                onSelect={(e) => e.preventDefault()}
+              >
+                {statusOption.label}
+              </DropdownMenuCheckboxItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="grid gap-1">
@@ -386,7 +439,7 @@ function EstablishmentForm({ onSaved, coords, onGetLocation, selectedArea }: {
       </div>
       <div className="flex justify-end">
         <Button type="submit" disabled={saving}>
-          {saving ? "Saving..." : "Save"}
+          {saving ? (isEditing ? "Updating..." : "Saving...") : (isEditing ? "Update" : "Save")}
         </Button>
       </div>
     </form>
@@ -710,3 +763,6 @@ function VisitForm({
     </form>
   );
 }
+
+// Export the EstablishmentForm component
+export { EstablishmentForm };

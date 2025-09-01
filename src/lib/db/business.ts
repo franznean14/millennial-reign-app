@@ -2,7 +2,20 @@
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
-export type EstablishmentStatus = 'for_scouting'|'for_follow_up'|'accepted_rack'|'declined_rack'|'has_bible_studies';
+export interface BusinessFiltersState {
+  search: string;
+  statuses: string[];
+  areas: string[];
+  myEstablishments: boolean;
+}
+
+export type EstablishmentStatus = 
+  | 'for_scouting'
+  | 'for_follow_up'
+  | 'for_replenishment'
+  | 'accepted_rack'
+  | 'declined_rack'
+  | 'has_bible_studies';
 export type HouseholderStatus = 'interested'|'return_visit'|'bible_study'|'do_not_call';
 
 export interface Establishment {
@@ -36,7 +49,20 @@ export interface VisitUpdate {
   visit_date?: string; // YYYY-MM-DD
 }
 
-export interface EstablishmentWithDetails extends Establishment {
+export interface EstablishmentWithDetails {
+  id?: string;
+  name: string;
+  description?: string | null;
+  area?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  floor?: string | null;
+  statuses: string[]; // Changed from status to statuses
+  note?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  created_by?: string;
+  updated_by?: string;
   visit_count?: number;
   householder_count?: number;
   top_visitors?: Array<{
@@ -44,7 +70,6 @@ export interface EstablishmentWithDetails extends Establishment {
     first_name: string;
     last_name: string;
     avatar_url?: string;
-    visit_count: number;
   }>;
 }
 
@@ -110,35 +135,95 @@ export async function listEstablishments(): Promise<Establishment[]> {
   return (data as any) ?? [];
 }
 
-export async function upsertEstablishment(e: Establishment): Promise<Establishment | null> {
+export async function upsertEstablishment(establishment: {
+  id?: string;
+  name: string;
+  description?: string | null;
+  area?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  floor?: string | null;
+  statuses?: string[];
+  note?: string | null;
+}): Promise<any> {
   const supabase = createSupabaseBrowserClient();
-  await supabase.auth.getSession().catch(() => {});
   
-  // Get user's congregation_id
-  const { data: profile } = await supabase.rpc('get_my_profile');
+  // Get current user's congregation_id
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('congregation_id')
+    .eq('id', (await supabase.auth.getUser()).data.user?.id)
+    .single();
+  
   if (!profile?.congregation_id) {
-    throw new Error('User not assigned to a congregation');
+    throw new Error('User not associated with a congregation');
   }
   
-  const payload: any = {
-    congregation_id: profile.congregation_id,
-    name: e.name,
-    description: e.description ?? null,
-    area: e.area ?? null,
-    lat: e.lat ?? null,
-    lng: e.lng ?? null,
-    floor: e.floor ?? null,
-    status: e.status,
-    note: e.note ?? null,
-    created_by: profile.id,
+  // Ensure statuses is always an array
+  const establishmentData = {
+    ...establishment,
+    statuses: establishment.statuses || ['for_scouting'],
+    congregation_id: profile.congregation_id
   };
   
-  if (e.id) {
-    const { data, error } = await supabase.from('business_establishments').update(payload).eq('id', e.id).select().single();
-    if (error) return null; return data as any;
+  console.log('Sending establishment data:', establishmentData);
+  
+  try {
+    if (establishmentData.id) {
+      // Update existing establishment
+      const { data, error } = await supabase
+        .from('business_establishments')
+        .update({
+          name: establishmentData.name,
+          description: establishmentData.description,
+          area: establishmentData.area,
+          lat: establishmentData.lat,
+          lng: establishmentData.lng,
+          floor: establishmentData.floor,
+          statuses: establishmentData.statuses,
+          note: establishmentData.note,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', establishmentData.id)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Error updating establishment:', error);
+        throw error;
+      }
+      
+      return data;
+    } else {
+      // Insert new establishment
+      const { data, error } = await supabase
+        .from('business_establishments')
+        .insert({
+          name: establishmentData.name,
+          description: establishmentData.description,
+          area: establishmentData.area,
+          lat: establishmentData.lat,
+          lng: establishmentData.lng,
+          floor: establishmentData.floor,
+          statuses: establishmentData.statuses,
+          note: establishmentData.note,
+          congregation_id: establishmentData.congregation_id,
+          created_by: (await supabase.auth.getUser()).data.user?.id
+        })
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('Error inserting establishment:', error);
+        throw error;
+      }
+      
+      return data;
+    }
+  } catch (error) {
+    console.error('Error upserting establishment:', error);
+    throw error;
   }
-  const { data, error } = await supabase.from('business_establishments').insert(payload).select().single();
-  if (error) return null; return data as any;
 }
 
 export async function upsertHouseholder(h: Householder): Promise<Householder | null> {
@@ -153,35 +238,77 @@ export async function upsertHouseholder(h: Householder): Promise<Householder | n
   if (error) return null; return data as any;
 }
 
-export async function addVisit(v: VisitUpdate): Promise<boolean> {
+export async function addVisit(visit: {
+  establishment_id?: string;
+  householder_id?: string;
+  note?: string | null;
+  publisher_id?: string;
+  partner_id?: string;
+  visit_date?: string;
+}): Promise<boolean> {
   const supabase = createSupabaseBrowserClient();
-  await supabase.auth.getSession().catch(() => {});
   
-  // Get user's congregation_id
-  const { data: profile } = await supabase.rpc('get_my_profile');
-  if (!profile?.congregation_id) {
-    throw new Error('User not assigned to a congregation');
+  try {
+    // Get current user's congregation_id
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('congregation_id')
+      .eq('id', (await supabase.auth.getUser()).data.user?.id)
+      .single();
+    
+    if (!profile?.congregation_id) {
+      console.error('User not associated with a congregation');
+      return false;
+    }
+
+    // If establishment_id is provided, verify it exists
+    if (visit.establishment_id && visit.establishment_id !== 'none') {
+      const { data: establishment } = await supabase
+        .from('business_establishments')
+        .select('id')
+        .eq('id', visit.establishment_id)
+        .eq('congregation_id', profile.congregation_id)
+        .single();
+      
+      if (!establishment) {
+        console.error('Establishment not found:', visit.establishment_id);
+        return false;
+      }
+    }
+
+    console.log('Adding visit with data:', {
+      congregation_id: profile.congregation_id,
+      establishment_id: visit.establishment_id === 'none' ? null : visit.establishment_id,
+      householder_id: visit.householder_id || null,
+      note: visit.note,
+      publisher_id: visit.publisher_id || null,
+      partner_id: visit.partner_id || null,
+      visit_date: visit.visit_date || new Date().toISOString().split('T')[0]
+    });
+
+    const { error } = await supabase
+      .from('business_visits')
+      .insert({
+        congregation_id: profile.congregation_id,
+        establishment_id: visit.establishment_id === 'none' ? null : visit.establishment_id,
+        householder_id: visit.householder_id || null,
+        note: visit.note,
+        publisher_id: visit.publisher_id || null,
+        partner_id: visit.partner_id || null,
+        visit_date: visit.visit_date || new Date().toISOString().split('T')[0]
+      });
+
+    if (error) {
+      console.error('Error adding visit:', error);
+      console.error('Error details:', error.message, error.details, error.hint);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Unexpected error in addVisit:', error);
+    return false;
   }
-  
-  const payload: any = {
-    congregation_id: profile.congregation_id,
-    establishment_id: v.establishment_id ?? null,
-    householder_id: v.householder_id ?? null,
-    note: v.note ?? null,
-    publisher_id: v.publisher_id ?? null, // Make sure this is included
-    partner_id: v.partner_id ?? null,
-    visit_date: v.visit_date ?? null,
-  };
-  
-  console.log('Adding visit with payload:', payload); // Debug log
-  
-  const { error } = await supabase.from('business_visits').insert(payload);
-  
-  if (error) {
-    console.error('Error adding visit:', error);
-  }
-  
-  return !error;
 }
 
 export async function getUniqueAreas(): Promise<string[]> {
@@ -222,57 +349,94 @@ export async function getUniqueFloors(): Promise<string[]> {
 
 export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithDetails[]> {
   const supabase = createSupabaseBrowserClient();
-  await supabase.auth.getSession().catch(() => {});
   
-  // Get establishments with visit and householder counts (exclude archived and deleted)
-  const { data: establishments } = await supabase
-    .from('business_establishments')
-    .select(`
-      *,
-      visits:business_visits(count),
-      householders:business_householders(count)
-    `)
-    .eq('is_deleted', false)
-    .eq('is_archived', false)
-    .order('updated_at', { ascending: false });
-  
-  if (!establishments) return [];
-  
-  // Get top visitors for each establishment (both publishers and partners)
-  const establishmentsWithDetails = await Promise.all(
-    establishments.map(async (est) => {
-      const { data: topVisitors } = await supabase
-        .from('business_visits')
-        .select(`
-          publisher_id,
-          partner_id,
-          publisher:profiles!business_visits_publisher_id_fkey(first_name, last_name, avatar_url),
-          partner:profiles!business_visits_partner_id_fkey(first_name, last_name, avatar_url)
-        `)
-        .eq('establishment_id', est.id)
-        .or('publisher_id.not.is.null,partner_id.not.is.null');
+  try {
+    // Get current user's congregation_id
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('congregation_id')
+      .eq('id', (await supabase.auth.getUser()).data.user?.id)
+      .single();
+    
+    if (profileError) {
+      console.error('Error fetching profile:', profileError);
+      return [];
+    }
+    
+    if (!profile?.congregation_id) {
+      console.log('User not associated with a congregation');
+      return [];
+    }
+
+    console.log('Fetching establishments for congregation:', profile.congregation_id);
+
+    // Get establishments with visit and householder counts
+    const { data, error } = await supabase
+      .from('business_establishments')
+      .select(`
+        *,
+        visits:business_visits!business_visits_establishment_id_fkey(
+          id,
+          publisher:profiles!business_visits_publisher_id_fkey(
+            id,
+            first_name,
+            last_name,
+            avatar_url
+          ),
+          partner:profiles!business_visits_partner_id_fkey(
+            id,
+            first_name,
+            last_name,
+            avatar_url
+          )
+        ),
+        householders:business_householders!business_householders_establishment_id_fkey(
+          id
+        )
+      `)
+      .eq('congregation_id', profile.congregation_id)
+      .eq('is_deleted', false)
+      .eq('is_archived', false)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching establishments:', error);
+      console.error('Error details:', error.message, error.details, error.hint);
+      return [];
+    }
+
+    console.log('Raw establishments data:', data);
+
+    // Transform the data to include counts and top visitors
+    const establishments = data?.map(establishment => {
+      // Count visits and householders
+      const visit_count = establishment.visits?.length || 0;
+      const householder_count = establishment.householders?.length || 0;
       
+      // Get top visitors (publishers and partners who visited most)
       const visitorCounts = new Map<string, { count: number; profile: any }>();
-      topVisitors?.forEach(visit => {
-        // Count publisher visits
-        if (visit.publisher_id && visit.publisher) {
-          const existing = visitorCounts.get(visit.publisher_id);
-          visitorCounts.set(visit.publisher_id, {
+      
+      establishment.visits?.forEach((visit: any) => {
+        // Count publisher
+        if (visit.publisher) {
+          const existing = visitorCounts.get(visit.publisher.id);
+          visitorCounts.set(visit.publisher.id, {
             count: (existing?.count || 0) + 1,
             profile: visit.publisher
           });
         }
-        // Count partner visits
-        if (visit.partner_id && visit.partner) {
-          const existing = visitorCounts.get(visit.partner_id);
-          visitorCounts.set(visit.partner_id, {
+        
+        // Count partner
+        if (visit.partner) {
+          const existing = visitorCounts.get(visit.partner.id);
+          visitorCounts.set(visit.partner.id, {
             count: (existing?.count || 0) + 1,
             profile: visit.partner
           });
         }
       });
       
-      const topVisitorsList = Array.from(visitorCounts.entries())
+      const top_visitors = Array.from(visitorCounts.entries())
         .map(([user_id, data]) => ({
           user_id,
           first_name: data.profile.first_name,
@@ -281,18 +445,22 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
           visit_count: data.count
         }))
         .sort((a, b) => b.visit_count - a.visit_count)
-        .slice(0, 3); // Show top 3 instead of 2
-      
+        .slice(0, 5);
+
       return {
-        ...est,
-        visit_count: est.visits?.[0]?.count || 0,
-        householder_count: est.householders?.[0]?.count || 0,
-        top_visitors: topVisitorsList
+        ...establishment,
+        visit_count,
+        householder_count,
+        top_visitors
       };
-    })
-  );
-  
-  return establishmentsWithDetails;
+    }) || [];
+
+    console.log('Processed establishments:', establishments);
+    return establishments;
+  } catch (error) {
+    console.error('Unexpected error in getEstablishmentsWithDetails:', error);
+    return [];
+  }
 }
 
 export async function getEstablishmentDetails(establishmentId: string): Promise<{

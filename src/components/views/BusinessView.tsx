@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Filter } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { getEstablishmentsWithDetails, getEstablishmentDetails, type EstablishmentWithDetails, type VisitWithUser, type HouseholderWithDetails } from "@/lib/db/business";
+import { getEstablishmentsWithDetails, getEstablishmentDetails, type EstablishmentWithDetails, type VisitWithUser, type HouseholderWithDetails, type BusinessFiltersState } from "@/lib/db/business";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { EstablishmentList } from "@/components/business/EstablishmentList";
 import { BusinessFilters } from "@/components/business/BusinessFilters";
@@ -30,10 +30,10 @@ export function BusinessView({ userId }: BusinessViewProps) {
   } | null>(null);
   const [isExpanding, setIsExpanding] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [filters, setFilters] = useState({
+  const [filters, setFilters] = useState<BusinessFiltersState>({
     search: "",
-    statuses: [],
-    areas: [],
+    statuses: [] as string[],
+    areas: [] as string[],
     myEstablishments: false
   });
 
@@ -161,6 +161,49 @@ export function BusinessView({ userId }: BusinessViewProps) {
     }
   }, [selectedEstablishment]);
 
+  // Add filtering logic
+  const filteredEstablishments = useMemo(() => {
+    return establishments.filter(establishment => {
+      // Search filter
+      if (filters.search && !establishment.name.toLowerCase().includes(filters.search.toLowerCase())) {
+        return false;
+      }
+
+      // Status filter
+      if (filters.statuses.length > 0 && !establishment.statuses?.some(status => filters.statuses.includes(status))) {
+        return false;
+      }
+
+      // Area filter
+      if (filters.areas.length > 0 && establishment.area && !filters.areas.includes(establishment.area)) {
+        return false;
+      }
+
+      // My Establishments filter (if user has visited)
+      if (filters.myEstablishments) {
+        // This would need to check if the current user has visited this establishment
+        // For now, we'll skip this filter until we have the user data
+        return true;
+      }
+
+      return true;
+    });
+  }, [establishments, filters]);
+
+  // Get unique areas for filter options
+  const areaOptions = useMemo(() => {
+    const areas = establishments
+      .map(e => e.area)
+      .filter(area => area && typeof area === 'string' && area.trim() !== "")
+      .filter((area, index, arr) => arr.indexOf(area) === index) // Remove duplicates
+      .sort();
+    
+    return areas.map(area => ({
+      value: area || '',
+      label: area || ''
+    }));
+  }, [establishments]);
+
   return (
     <motion.div
       key="business"
@@ -168,41 +211,33 @@ export function BusinessView({ userId }: BusinessViewProps) {
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 20 }}
       transition={{ duration: 0.3 }}
-      className="space-y-6"
+      className="space-y-6 pb-32" // Added pb-32 for bottom padding
     >
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Business</h1>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setShowFilters(!showFilters)}
-          className="flex items-center gap-2"
-        >
-          <Filter className="h-4 w-4" />
-          Filters
-          {filters.statuses.length > 0 || filters.areas.length > 0 || filters.search && (
-            <Badge variant="secondary" className="ml-1">
-              {filters.statuses.length + filters.areas.length + (filters.search ? 1 : 0)}
-            </Badge>
-          )}
-        </Button>
-      </div>
-
-      <AnimatePresence mode="wait">
-        {showFilters && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <BusinessFilters
-              filters={filters}
-              onFiltersChange={setFilters}
-            />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Remove the empty div that was adding unwanted space */}
+      
+      {/* Only show BusinessFilters when not viewing establishment details */}
+      {!selectedEstablishment && (
+        <BusinessFilters
+          filters={filters}
+          onFiltersChange={setFilters}
+          onClearFilters={() => setFilters({
+            search: "",
+            statuses: [],
+            areas: [],
+            myEstablishments: false
+          })}
+          hasActiveFilters={filters.search !== "" || filters.statuses.length > 0 || filters.areas.length > 0 || filters.myEstablishments}
+          statusOptions={[
+            { value: "for_scouting", label: "For Scouting" },
+            { value: "for_follow_up", label: "For Follow Up" },
+            { value: "for_replenishment", label: "For Replenishment" },
+            { value: "accepted_rack", label: "Accepted Rack" },
+            { value: "declined_rack", label: "Declined Rack" },
+            { value: "has_bible_studies", label: "Has Bible Studies" }
+          ]}
+          areaOptions={areaOptions}
+        />
+      )}
 
       <div className="w-full">
         <AnimatePresence mode="wait">
@@ -216,11 +251,13 @@ export function BusinessView({ userId }: BusinessViewProps) {
               className="w-full"
             >
               <EstablishmentList
-                establishments={establishments}
+                establishments={filteredEstablishments}
                 onEstablishmentClick={(establishment) => {
                   console.log('Establishment clicked:', establishment);
                   setSelectedEstablishment(establishment);
-                  loadEstablishmentDetails(establishment.id);
+                  if (establishment.id) {
+                    loadEstablishmentDetails(establishment.id);
+                  }
                 }}
                 onEstablishmentDelete={handleDeleteEstablishment}
                 onEstablishmentArchive={handleArchiveEstablishment}

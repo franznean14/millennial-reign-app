@@ -1,27 +1,34 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChevronLeft, MapPin, Building2, MapPinned, Calendar, Users } from "lucide-react";
+import { ChevronLeft, MapPin, Building2, MapPinned, Calendar, Users, Edit } from "lucide-react";
+import { ResponsiveModal } from "@/components/ui/responsive-modal";
 import { type EstablishmentWithDetails, type VisitWithUser, type HouseholderWithDetails } from "@/lib/db/business";
 import { cn } from "@/lib/utils";
+import { EstablishmentForm } from "./BusinessFloatingButton";
 
 interface EstablishmentDetailsProps {
   establishment: EstablishmentWithDetails;
   visits: VisitWithUser[];
   householders: HouseholderWithDetails[];
   onBackClick: () => void;
+  onEstablishmentUpdated?: (establishment: EstablishmentWithDetails) => void;
 }
 
 export function EstablishmentDetails({ 
   establishment, 
   visits, 
   householders, 
-  onBackClick 
+  onBackClick,
+  onEstablishmentUpdated
 }: EstablishmentDetailsProps) {
+  const [isEditing, setIsEditing] = useState(false);
+
   const formatStatusText = (status: string) => {
     return status
       .split('_')
@@ -37,8 +44,10 @@ export function EstablishmentDetails({
     });
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
+  const getStatusColor = (statuses: string[]) => {
+    // Use the first status for color coding
+    const primaryStatus = statuses?.[0] || '';
+    switch (primaryStatus) {
       case 'for_follow_up':
         return 'border-orange-500/50 bg-orange-500/5';
       case 'has_bible_studies':
@@ -52,8 +61,10 @@ export function EstablishmentDetails({
     }
   };
 
-  const getStatusTextColor = (status: string) => {
-    switch (status) {
+  const getStatusTextColor = (statuses: string[]) => {
+    // Use the first status for color coding
+    const primaryStatus = statuses?.[0] || '';
+    switch (primaryStatus) {
       case 'for_follow_up':
         return 'text-orange-500 border-orange-500/50';
       case 'has_bible_studies':
@@ -67,12 +78,19 @@ export function EstablishmentDetails({
     }
   };
 
+  const handleEditSaved = (updatedEstablishment: any) => {
+    setIsEditing(false);
+    if (onEstablishmentUpdated) {
+      onEstablishmentUpdated(updatedEstablishment);
+    }
+  };
+
   return (
     <div className="space-y-6 w-full max-w-full">
-      {/* Header with back button */}
+      {/* Header with back button and edit button */}
       <motion.div 
         layout
-        className="flex items-center gap-4 w-full"
+        className="flex items-center justify-between gap-4 w-full"
         transition={{ 
           layout: { 
             type: "spring", 
@@ -81,47 +99,60 @@ export function EstablishmentDetails({
           }
         }}
       >
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onBackClick}
+            className="p-2 flex-shrink-0"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <motion.div layout className="min-w-0 flex-1">
+            <motion.h1 
+              layout 
+              className="text-2xl font-bold truncate"
+              transition={{ 
+                layout: { 
+                  type: "spring", 
+                  stiffness: 300, 
+                  damping: 30 
+                }
+              }}
+            >
+              {establishment.name}
+            </motion.h1>
+            <motion.p 
+              layout 
+              className="text-muted-foreground truncate"
+              transition={{ 
+                layout: { 
+                  type: "spring", 
+                  stiffness: 300, 
+                  damping: 30 
+                }
+              }}
+            >
+              {establishment.area || 'No area specified'}
+            </motion.p>
+          </motion.div>
+        </div>
+        
+        {/* Edit Button */}
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
-          onClick={onBackClick}
-          className="p-2 flex-shrink-0"
+          onClick={() => setIsEditing(true)}
+          className="flex-shrink-0"
         >
-          <ChevronLeft className="h-4 w-4" />
+          <Edit className="h-4 w-4 mr-2" />
+          Edit
         </Button>
-        <motion.div layout className="min-w-0 flex-1">
-          <motion.h1 
-            layout 
-            className="text-2xl font-bold truncate"
-            transition={{ 
-              layout: { 
-                type: "spring", 
-                stiffness: 300, 
-                damping: 30 
-              }
-            }}
-          >
-            {establishment.name}
-          </motion.h1>
-          <motion.p 
-            layout 
-            className="text-muted-foreground truncate"
-            transition={{ 
-              layout: { 
-                type: "spring", 
-                stiffness: 300, 
-                damping: 30 
-              }
-            }}
-          >
-            {establishment.area || 'No area specified'}
-          </motion.p>
-        </motion.div>
       </motion.div>
 
       {/* Basic Establishment Info with Direction Button */}
       <motion.div layout className="w-full">
-        <Card className={cn("w-full", getStatusColor(establishment.status))}>
+        <Card className={cn("w-full", getStatusColor(establishment.statuses))}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Building2 className="h-5 w-5 flex-shrink-0" />
@@ -132,12 +163,23 @@ export function EstablishmentDetails({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Status</p>
-                <Badge 
-                  variant="outline" 
-                  className={cn("flex-shrink-0", getStatusTextColor(establishment.status))}
-                >
-                  {establishment.status ? formatStatusText(establishment.status) : 'Unknown'}
-                </Badge>
+                <div className="flex flex-wrap gap-1">
+                  {establishment.statuses && establishment.statuses.length > 0 ? (
+                    establishment.statuses.map((status, index) => (
+                      <Badge 
+                        key={index}
+                        variant="outline" 
+                        className={cn("flex-shrink-0", getStatusTextColor([status]))}
+                      >
+                        {formatStatusText(status)}
+                      </Badge>
+                    ))
+                  ) : (
+                    <Badge variant="outline" className="text-gray-500 border-gray-500/50">
+                      Unknown
+                    </Badge>
+                  )}
+                </div>
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Floor</p>
@@ -256,34 +298,39 @@ export function EstablishmentDetails({
           <CardContent>
             {householders.length > 0 ? (
               <div className="space-y-3">
-                {householders.map((householder) => (
-                  <div key={householder.id} className="flex items-start gap-3 p-3 border rounded-lg">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-medium">{householder.name}</span>
-                        <Badge variant="outline" className="text-xs">
-                          {householder.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-                        </Badge>
-                        {householder.assigned_user && (
-                          <div className="flex items-center gap-1">
-                            <Avatar className="h-4 w-4">
-                              <AvatarImage src={householder.assigned_user.avatar_url} />
-                              <AvatarFallback className="text-xs">
-                                {`${householder.assigned_user.first_name} ${householder.assigned_user.last_name}`.charAt(0)}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="text-xs text-muted-foreground">
-                              {householder.assigned_user.first_name} {householder.assigned_user.last_name}
-                            </span>
-                          </div>
+                {householders
+                  .filter((householder, index, self) => 
+                    // Remove duplicates based on householder ID
+                    index === self.findIndex(h => h.id === householder.id)
+                  )
+                  .map((householder) => (
+                    <div key={householder.id} className="flex items-start gap-3 p-3 border rounded-lg">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm font-medium">{householder.name}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {householder.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                          </Badge>
+                          {householder.assigned_user && (
+                            <div className="flex items-center gap-1">
+                              <Avatar className="h-4 w-4">
+                                <AvatarImage src={householder.assigned_user.avatar_url} />
+                                <AvatarFallback className="text-xs">
+                                  {`${householder.assigned_user.first_name} ${householder.assigned_user.last_name}`.charAt(0)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-xs text-muted-foreground">
+                                {householder.assigned_user.first_name} {householder.assigned_user.last_name}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        {householder.note && (
+                          <p className="text-sm text-muted-foreground">{householder.note}</p>
                         )}
                       </div>
-                      {householder.note && (
-                        <p className="text-sm text-muted-foreground">{householder.note}</p>
-                      )}
                     </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             ) : (
               <p className="text-sm text-muted-foreground text-center py-4">No householders recorded yet</p>
@@ -291,6 +338,24 @@ export function EstablishmentDetails({
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* Edit Establishment Modal */}
+      <ResponsiveModal 
+        open={isEditing} 
+        onOpenChange={setIsEditing} 
+        title="Edit Establishment" 
+        description="Update establishment details" 
+        className="sm:max-w-[560px]"
+      >
+        <EstablishmentForm 
+          onSaved={handleEditSaved}
+          coords={null}
+          onGetLocation={() => {}}
+          selectedArea={establishment.area || undefined}
+          initialData={establishment}
+          isEditing={true}
+        />
+      </ResponsiveModal>
     </div>
   );
 }

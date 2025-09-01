@@ -705,72 +705,77 @@ do $$ begin
   end if;
 end $$;
 
-create table if not exists public.business_establishments (
-  id uuid primary key default gen_random_uuid(),
-  congregation_id uuid not null references public.congregations(id) on delete cascade,
-  name text not null,
-  description text,
-  area text,
-  lat numeric(9,6),
-  lng numeric(9,6),
-  floor text,
-  status public.business_establishment_status_t not null default 'for_scouting',
-  note text,
-  created_by uuid references public.profiles(id),
-  -- New fields for archiving and deletion
-  is_archived boolean not null default false,
-  archived_at timestamptz,
-  archived_by uuid references public.profiles(id),
-  is_deleted boolean not null default false,
-  deleted_at timestamptz,
-  deleted_by uuid references public.profiles(id),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
+-- Drop the existing table if it exists
+DROP TABLE IF EXISTS public.business_establishments CASCADE;
 
-drop trigger if exists trg_business_establishments_updated_at on public.business_establishments;
-create trigger trg_business_establishments_updated_at before update on public.business_establishments
-for each row execute function public.set_updated_at();
+-- Create the updated table with statuses array
+CREATE TABLE public.business_establishments (
+  id uuid NOT NULL DEFAULT gen_random_uuid(),
+  congregation_id uuid NOT NULL,
+  name text NOT NULL,
+  area text NULL,
+  lat numeric(9, 6) NULL,
+  lng numeric(9, 6) NULL,
+  floor text NULL,
+  statuses text[] NOT NULL DEFAULT ARRAY['for_scouting']::text[],
+  note text NULL,
+  created_by uuid NULL,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now(),
+  description text NULL,
+  is_archived boolean NOT NULL DEFAULT false,
+  archived_at timestamp with time zone NULL,
+  archived_by uuid NULL,
+  is_deleted boolean NOT NULL DEFAULT false,
+  deleted_at timestamp with time zone NULL,
+  deleted_by uuid NULL,
+  CONSTRAINT business_establishments_pkey PRIMARY KEY (id),
+  CONSTRAINT business_establishments_archived_by_fkey FOREIGN KEY (archived_by) REFERENCES profiles (id),
+  CONSTRAINT business_establishments_congregation_id_fkey FOREIGN KEY (congregation_id) REFERENCES congregations (id) ON DELETE CASCADE,
+  CONSTRAINT business_establishments_created_by_fkey FOREIGN KEY (created_by) REFERENCES profiles (id),
+  CONSTRAINT business_establishments_deleted_by_fkey FOREIGN KEY (deleted_by) REFERENCES profiles (id)
+) TABLESPACE pg_default;
 
--- Backfill-safe: add archive and deletion columns if not present
-do $$ begin
-  if not exists (
-    select 1 from information_schema.columns
-    where table_schema='public' and table_name='business_establishments' and column_name='is_archived'
-  ) then
-    alter table public.business_establishments add column is_archived boolean not null default false;
-  end if;
-  if not exists (
-    select 1 from information_schema.columns
-    where table_schema='public' and table_name='business_establishments' and column_name='archived_at'
-  ) then
-    alter table public.business_establishments add column archived_at timestamptz;
-  end if;
-  if not exists (
-    select 1 from information_schema.columns
-    where table_schema='public' and table_name='business_establishments' and column_name='archived_by'
-  ) then
-    alter table public.business_establishments add column archived_by uuid references public.profiles(id);
-  end if;
-  if not exists (
-    select 1 from information_schema.columns
-    where table_schema='public' and table_name='business_establishments' and column_name='is_deleted'
-  ) then
-    alter table public.business_establishments add column is_deleted boolean not null default false;
-  end if;
-  if not exists (
-    select 1 from information_schema.columns
-    where table_schema='public' and table_name='business_establishments' and column_name='deleted_at'
-  ) then
-    alter table public.business_establishments add column deleted_at timestamptz;
-  end if;
-  if not exists (
-    select 1 from information_schema.columns
-    where table_schema='public' and table_name='business_establishments' and column_name='deleted_by'
-  ) then
-    alter table public.business_establishments add column deleted_by uuid references public.profiles(id);
-  end if;
-end $$;
+-- Create the updated trigger
+CREATE TRIGGER trg_business_establishments_updated_at 
+  BEFORE UPDATE ON business_establishments 
+  FOR EACH ROW 
+  EXECUTE FUNCTION set_updated_at();
+
+-- Add RLS policies for the updated table
+ALTER TABLE public.business_establishments ENABLE ROW LEVEL SECURITY;
+
+-- Policy for users to see establishments in their congregation
+CREATE POLICY "Users can view establishments in their congregation" ON public.business_establishments
+  FOR SELECT USING (
+    congregation_id IN (
+      SELECT congregation_id FROM profiles WHERE id = auth.uid()
+    )
+  );
+
+-- Policy for users to insert establishments in their congregation
+CREATE POLICY "Users can insert establishments in their congregation" ON public.business_establishments
+  FOR INSERT WITH CHECK (
+    congregation_id IN (
+      SELECT congregation_id FROM profiles WHERE id = auth.uid()
+    )
+  );
+
+-- Policy for users to update establishments in their congregation
+CREATE POLICY "Users can update establishments in their congregation" ON public.business_establishments
+  FOR UPDATE USING (
+    congregation_id IN (
+      SELECT congregation_id FROM profiles WHERE id = auth.uid()
+    )
+  );
+
+-- Policy for users to delete establishments in their congregation
+CREATE POLICY "Users can delete establishments in their congregation" ON public.business_establishments
+  FOR DELETE USING (
+    congregation_id IN (
+      SELECT congregation_id FROM profiles WHERE id = auth.uid()
+    )
+  );
 
 -- Householders associated with an establishment
 do $$ begin
@@ -987,3 +992,13 @@ end;
 $$;
 
 grant execute on function public.toggle_business_participation() to authenticated;
+
+-- Add missing foreign key constraint for business_visits.establishment_id
+ALTER TABLE public.business_visits 
+ADD CONSTRAINT business_visits_establishment_id_fkey 
+FOREIGN KEY (establishment_id) REFERENCES business_establishments (id) ON DELETE SET NULL;
+
+-- Add missing foreign key constraint for business_householders.establishment_id
+ALTER TABLE public.business_householders 
+ADD CONSTRAINT business_householders_establishment_id_fkey 
+FOREIGN KEY (establishment_id) REFERENCES business_establishments (id) ON DELETE CASCADE;
