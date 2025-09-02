@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { getDailyRecord, listDailyByMonth, upsertDailyRecord, isDailyEmpty, deleteDailyRecord } from "@/lib/db/dailyRecords";
 import { useMobile } from "@/lib/hooks/use-mobile";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { FieldServiceForm } from "./FieldServiceForm";
 
 function toLocalStr(d: Date) {
   const y = d.getFullYear();
@@ -363,12 +364,11 @@ export function FieldServiceModal({ userId, open, onOpenChange }: FieldServiceMo
         description="Record your field service activity for the selected date"
         className={isMobile ? "p-0 w-full" : "w-[min(96vw,720px)]"}
       >
-        {Panel}
+        <FieldServiceForm userId={userId} onClose={() => setIsOpen(false)} />
       </ResponsiveModal>
     </>
   );
 }
-
 function MobileHours({
   value,
   onChange,
@@ -509,3 +509,4 @@ function MobileHours({
     </div>
   );
 }
+
