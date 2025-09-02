@@ -122,15 +122,21 @@ export function AccountView() {
               {profile?.username && (
                 <p className="text-sm text-muted-foreground">@{profile.username}</p>
               )}
-              {profile?.privileges && profile.privileges.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-2">
-                  {profile.privileges.map((privilege) => (
+              {/* Group name and privileges badges */}
+              <div className="flex flex-wrap gap-1 mt-2">
+                {profile?.group_name && (
+                  <Badge variant="outline" className="text-xs">
+                    {profile.group_name}
+                  </Badge>
+                )}
+                {profile?.privileges && profile.privileges.length > 0 && (
+                  profile.privileges.map((privilege) => (
                     <Badge key={privilege} variant="secondary" className="text-xs">
                       {privilege}
                     </Badge>
-                  ))}
-                </div>
-              )}
+                  ))
+                )}
+              </div>
             </div>
           </div>
 

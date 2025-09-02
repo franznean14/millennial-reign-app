@@ -24,6 +24,8 @@ export function ProfileForm({ userId, initialEmail, initialProfile, onSaved }: P
   const [saving, setSaving] = useState(false);
   const [bwiEnabled, setBwiEnabled] = useState(false);
   const [isBwiParticipant, setIsBwiParticipant] = useState(false);
+  const [groupOptions, setGroupOptions] = useState<string[]>([]);
+  const [showGroupInput, setShowGroupInput] = useState(false);
   const [formData, setFormData] = useState({
     first_name: initialProfile?.first_name || "",
     last_name: initialProfile?.last_name || "",
@@ -32,7 +34,25 @@ export function ProfileForm({ userId, initialEmail, initialProfile, onSaved }: P
     date_of_baptism: initialProfile?.date_of_baptism ? new Date(initialProfile.date_of_baptism) : undefined,
     gender: initialProfile?.gender || null,
     privileges: initialProfile?.privileges || [],
+    group_name: initialProfile?.group_name || "",
   });
+
+  // Load existing group names from congregation
+  useEffect(() => {
+    const loadGroupOptions = async () => {
+      const supabase = createSupabaseBrowserClient();
+      try {
+        const { data: groups } = await supabase.rpc('get_congregation_groups');
+        if (groups) {
+          const options = groups.map((group: any) => group.group_name).filter(Boolean);
+          setGroupOptions(options);
+        }
+      } catch (error) {
+        console.error('Error loading group options:', error);
+      }
+    };
+    loadGroupOptions();
+  }, []);
 
   // Check BWI status on component mount
   useEffect(() => {
@@ -67,6 +87,7 @@ export function ProfileForm({ userId, initialEmail, initialProfile, onSaved }: P
         time_zone: initialProfile?.time_zone || null,
         username: initialProfile?.username || null,
         role: "user",
+        group_name: formData.group_name || null,
       });
 
       toast.success("Profile updated successfully");
@@ -92,12 +113,43 @@ export function ProfileForm({ userId, initialEmail, initialProfile, onSaved }: P
   };
 
   const togglePrivilege = (privilege: Privilege) => {
-    setFormData(prev => ({
-      ...prev,
-      privileges: prev.privileges.includes(privilege)
-        ? prev.privileges.filter(p => p !== privilege)
-        : [...prev.privileges, privilege]
-    }));
+    setFormData(prev => {
+      let newPrivileges = [...prev.privileges];
+      
+      if (prev.privileges.includes(privilege)) {
+        // Remove privilege if already selected
+        newPrivileges = newPrivileges.filter(p => p !== privilege);
+      } else {
+        // Add privilege and handle conflicts
+        newPrivileges = [...newPrivileges, privilege];
+        
+        // Elder and Ministerial Servant are mutually exclusive
+        if (privilege === 'Elder') {
+          newPrivileges = newPrivileges.filter(p => p !== 'Ministerial Servant');
+        } else if (privilege === 'Ministerial Servant') {
+          newPrivileges = newPrivileges.filter(p => p !== 'Elder');
+        }
+        
+        // Regular Pioneer and Auxiliary Pioneer are mutually exclusive
+        if (privilege === 'Regular Pioneer') {
+          newPrivileges = newPrivileges.filter(p => p !== 'Auxiliary Pioneer');
+        } else if (privilege === 'Auxiliary Pioneer') {
+          newPrivileges = newPrivileges.filter(p => p !== 'Regular Pioneer');
+        }
+        
+        // Group Overseer and Group Assistant are mutually exclusive
+        if (privilege === 'Group Overseer') {
+          newPrivileges = newPrivileges.filter(p => p !== 'Group Assistant');
+        } else if (privilege === 'Group Assistant') {
+          newPrivileges = newPrivileges.filter(p => p !== 'Group Overseer');
+        }
+      }
+      
+      return {
+        ...prev,
+        privileges: newPrivileges
+      };
+    });
   };
 
   const allPrivileges: Privilege[] = [
@@ -107,7 +159,8 @@ export function ProfileForm({ userId, initialEmail, initialProfile, onSaved }: P
     "Auxiliary Pioneer",
     "Secretary",
     "Coordinator",
-    "Group Overseer"
+    "Group Overseer",
+    "Group Assistant"
   ];
 
   return (
@@ -175,6 +228,55 @@ export function ProfileForm({ userId, initialEmail, initialProfile, onSaved }: P
             <SelectItem value="female">Female</SelectItem>
           </SelectContent>
         </Select>
+      </div>
+
+      {/* Group Name Dropdown - Now matches area dropdown behavior */}
+      <div className="space-y-2">
+        <Label htmlFor="group_name">Group Name</Label>
+        {showGroupInput ? (
+          <div className="flex gap-2">
+            <Input
+              className="flex-1"
+              placeholder="Enter new group name"
+              value={formData.group_name}
+              onChange={(e) => setFormData(prev => ({ ...prev, group_name: e.target.value }))}
+              autoFocus
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setShowGroupInput(false)}
+            >
+              Cancel
+            </Button>
+          </div>
+        ) : (
+          <Select 
+            value={formData.group_name || ""} 
+            onValueChange={(value) => {
+              if (value === "__custom__") {
+                setShowGroupInput(true);
+                setFormData(prev => ({ ...prev, group_name: "" }));
+              } else {
+                setFormData(prev => ({ ...prev, group_name: value }));
+              }
+            }}
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Select group or add new" />
+            </SelectTrigger>
+            <SelectContent>
+              {groupOptions.map((group) => (
+                <SelectItem key={group} value={group}>
+                  {group}
+                </SelectItem>
+              ))}
+              <SelectItem value="__custom__">
+                + Add new group
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       <div className="space-y-2">

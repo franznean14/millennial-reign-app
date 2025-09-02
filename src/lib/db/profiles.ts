@@ -85,6 +85,7 @@ export async function upsertProfile(input: Omit<Profile, "id" | "role"> & { id: 
       return s === "male" || s === "female" ? (s as Gender) : null;
     })(),
     congregation_id: (input as any).congregation_id ?? null,
+    group_name: (input as any).group_name ? String((input as any).group_name) : null,
   } as const;
   // Ensure we always have a computed list for offline optimistic path
   let computedPrivs: string[] = sanitizePrivileges((input as any).privileges, norm.gender);
@@ -125,6 +126,7 @@ export async function upsertProfile(input: Omit<Profile, "id" | "role"> & { id: 
       time_zone: norm.time_zone,
       username: norm.username,
       gender: norm.gender as any,
+      group_name: norm.group_name as any,
     };
     // Only include congregation_id when explicitly provided by caller.
     if (Object.prototype.hasOwnProperty.call(input as any, 'congregation_id')) {
@@ -171,6 +173,7 @@ export async function upsertProfile(input: Omit<Profile, "id" | "role"> & { id: 
       username: norm.username,
       gender: norm.gender as any,
       congregation_id: (Object.prototype.hasOwnProperty.call(input as any, 'congregation_id') ? (norm.congregation_id as any) : (undefined as any)),
+      group_name: norm.group_name,
     };
     await cacheSet(`profile:${input.id}`, optimistic);
     toast.error("Working offline. Changes queued.", { description: msg });

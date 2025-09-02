@@ -7,7 +7,8 @@ export type Privilege =
   | "Auxiliary Pioneer"
   | "Secretary"
   | "Coordinator"
-  | "Group Overseer";
+  | "Group Overseer"
+  | "Group Assistant"; // Added Group Assistant
 
 export type Gender = "male" | "female";
 
@@ -26,6 +27,7 @@ export interface Profile {
   // Congregation and profile fields
   gender?: Gender | null; // optional; required when assigning male-only privileges
   congregation_id?: string | null;
+  group_name?: string | null; // Add group name field
 }
 
 export interface MonthlyRecord {

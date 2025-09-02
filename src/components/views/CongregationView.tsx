@@ -13,9 +13,6 @@ export function CongregationView() {
       transition={{ duration: 0.3 }}
       className="space-y-6"
     >
-      <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Congregation</h1>
-      </div>
       <CongregationClient />
     </motion.div>
   );

@@ -1,159 +1,249 @@
--- Profiles table stores user basic info and role
-create table if not exists public.profiles (
-  id uuid primary key references auth.users(id) on delete cascade,
-  first_name text not null,
-  last_name text not null,
+-- ==============================================
+-- Millennial Reign App - Safe Database Schema
+-- Can be run multiple times without data loss
+-- ==============================================
+
+-- Extensions
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- ==============================================
+-- Core Functions
+-- ==============================================
+
+CREATE OR REPLACE FUNCTION public.set_updated_at()
+RETURNS trigger AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- ==============================================
+-- Enums
+-- ==============================================
+
+DO $$ BEGIN
+  CREATE TYPE public.gender_t AS ENUM ('male','female');
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE public.business_establishment_status_t AS ENUM (
+    'for_scouting','for_follow_up','accepted_rack','declined_rack','has_bible_studies'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
+
+DO $$ BEGIN
+  CREATE TYPE public.business_householder_status_t AS ENUM (
+    'interested','return_visit','bible_study','do_not_call'
+  );
+EXCEPTION
+  WHEN duplicate_object THEN null;
+END $$;
+
+-- ==============================================
+-- Tables
+-- ==============================================
+
+-- Profiles table
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  first_name text NOT NULL,
+  last_name text NOT NULL,
   middle_name text,
   date_of_birth date,
   date_of_baptism date,
-  privileges text[] not null default '{}',
+  privileges text[] NOT NULL DEFAULT '{}',
   avatar_url text,
-  role text not null default 'user' check (role in ('user','admin','superadmin')),
+  role text NOT NULL DEFAULT 'user' CHECK (role IN ('user','admin','superadmin')),
   time_zone text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  username text,
+  congregation_id uuid,
+  gender public.gender_t,
+  group_name text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
 );
 
--- migrate existing schema if needed
-alter table public.profiles
-  add column if not exists date_of_birth date,
-  add column if not exists avatar_url text,
-  add column if not exists time_zone text;
--- Username (optional), unique case-insensitive
-alter table public.profiles
-  add column if not exists username text;
-create unique index if not exists profiles_username_unique_ci on public.profiles (lower(username)) where username is not null;
-alter table public.profiles
-  drop column if exists age;
-alter table public.profiles
-  add column if not exists role text not null default 'user' check (role in ('user','admin','superadmin'));
+-- Add columns if they don't exist (safe for existing tables)
+DO $$ BEGIN
+  ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS group_name text;
+EXCEPTION
+  WHEN duplicate_column THEN null;
+END $$;
 
-create or replace function public.set_updated_at()
-returns trigger as $$
-begin
-  new.updated_at = now();
-  return new;
-end;
-$$ language plpgsql;
+-- Username unique index
+CREATE UNIQUE INDEX IF NOT EXISTS profiles_username_unique_ci 
+ON public.profiles (lower(username)) WHERE username IS NOT NULL;
 
-drop trigger if exists trg_profiles_updated_at on public.profiles;
-create trigger trg_profiles_updated_at before update on public.profiles
-for each row execute function public.set_updated_at();
+-- Congregation index
+CREATE INDEX IF NOT EXISTS profiles_congregation_idx ON public.profiles(congregation_id);
 
-alter table public.profiles enable row level security;
+-- Group index
+CREATE INDEX IF NOT EXISTS profiles_group_idx ON public.profiles(group_name);
 
--- Reset all policies on profiles to avoid legacy recursion
-do $$
-declare p record;
-begin
-  for p in select policyname from pg_policies where schemaname='public' and tablename='profiles' loop
-    execute format('drop policy if exists %I on public.profiles', p.policyname);
-  end loop;
-end $$;
-
--- Re-create minimal, non-recursive policies on profiles
-create policy "Profiles: Read own" on public.profiles for select using (id = auth.uid());
-create policy "Profiles: Insert own" on public.profiles for insert with check (id = auth.uid());
-create policy "Profiles: Update own" on public.profiles for update using (id = auth.uid()) with check (id = auth.uid());
-
--- Admin users list (no RLS to avoid recursion in policies)
-create table if not exists public.admin_users (
-  user_id uuid primary key references auth.users(id) on delete cascade
+-- Admin users
+CREATE TABLE IF NOT EXISTS public.admin_users (
+  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE
 );
 
-create or replace function public.is_admin(uid uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select exists (
-    select 1 from public.admin_users a where a.user_id = uid
-  );
-$$;
+-- Congregations
+CREATE TABLE IF NOT EXISTS public.congregations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  name text NOT NULL UNIQUE,
+  address text,
+  lat numeric(9,6),
+  lng numeric(9,6),
+  midweek_day smallint NOT NULL CHECK (midweek_day BETWEEN 1 AND 5),
+  midweek_start time WITHOUT TIME ZONE NOT NULL DEFAULT '19:00',
+  weekend_day smallint NOT NULL CHECK (weekend_day IN (0,6)),
+  weekend_start time WITHOUT TIME ZONE NOT NULL DEFAULT '10:00',
+  meeting_duration_minutes integer NOT NULL DEFAULT 105,
+  business_witnessing_enabled boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
 
-grant execute on function public.is_admin(uuid) to anon, authenticated;
-
--- Allow admins to read/write any profile
-drop policy if exists "Profiles: Admin all" on public.profiles;
-create policy "Profiles: Admin all" on public.profiles
-  for all using (public.is_admin(auth.uid()))
-  with check (public.is_admin(auth.uid()));
-
--- (role change enforcement trigger is defined later together with congregation rules)
-
--- Monthly ministry records
-create extension if not exists pgcrypto;
-
-create table if not exists public.monthly_records (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.profiles(id) on delete cascade,
-  month text not null, -- YYYY-MM
-  hours numeric not null default 0,
-  bible_studies integer not null default 0,
+-- Monthly records
+CREATE TABLE IF NOT EXISTS public.monthly_records (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  month text NOT NULL CHECK (month ~ '^[0-9]{4}-[0-9]{2}$'),
+  hours numeric NOT NULL DEFAULT 0,
+  bible_studies integer NOT NULL DEFAULT 0,
   note text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint month_format check (month ~ '^[0-9]{4}-[0-9]{2}$')
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-create unique index if not exists monthly_records_user_month_idx on public.monthly_records(user_id, month);
+CREATE UNIQUE INDEX IF NOT EXISTS monthly_records_user_month_idx 
+ON public.monthly_records(user_id, month);
 
-drop trigger if exists trg_month_records_updated_at on public.monthly_records;
-create trigger trg_month_records_updated_at before update on public.monthly_records
-for each row execute function public.set_updated_at();
-
-alter table public.monthly_records enable row level security;
-
--- Owner policies
-drop policy if exists "Monthly: Read own" on public.monthly_records;
-create policy "Monthly: Read own" on public.monthly_records for select using (user_id = auth.uid());
-
-drop policy if exists "Monthly: Write own" on public.monthly_records;
-create policy "Monthly: Write own" on public.monthly_records for all using (user_id = auth.uid()) with check (user_id = auth.uid());
-
--- Admin policies
-drop policy if exists "Monthly: Admin read" on public.monthly_records;
-create policy "Monthly: Admin read" on public.monthly_records
-  for select using (public.is_admin(auth.uid()));
-
--- Daily field service records
-create table if not exists public.daily_records (
-  id uuid primary key default gen_random_uuid(),
-  user_id uuid not null references public.profiles(id) on delete cascade,
-  date date not null, -- YYYY-MM-DD
-  hours numeric not null default 0,
-  bible_studies text[] not null default '{}',
+-- Daily records
+CREATE TABLE IF NOT EXISTS public.daily_records (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  date date NOT NULL CHECK (date <= (CURRENT_DATE + INTERVAL '1 day')),
+  hours numeric NOT NULL DEFAULT 0,
+  bible_studies text[] NOT NULL DEFAULT '{}',
   note text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  constraint date_not_future check (date <= (current_date + interval '1 day'))
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-create unique index if not exists daily_records_user_date_idx on public.daily_records(user_id, date);
+CREATE UNIQUE INDEX IF NOT EXISTS daily_records_user_date_idx 
+ON public.daily_records(user_id, date);
 
-drop trigger if exists trg_daily_records_updated_at on public.daily_records;
-create trigger trg_daily_records_updated_at before update on public.daily_records
-for each row execute function public.set_updated_at();
+-- Business participants
+CREATE TABLE IF NOT EXISTS public.business_participants (
+  congregation_id uuid NOT NULL REFERENCES public.congregations(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  active boolean NOT NULL DEFAULT true,
+  added_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (congregation_id, user_id)
+);
 
-alter table public.daily_records enable row level security;
+-- Business establishments
+CREATE TABLE IF NOT EXISTS public.business_establishments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  congregation_id uuid NOT NULL REFERENCES public.congregations(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  area text,
+  lat numeric(9,6),
+  lng numeric(9,6),
+  floor text,
+  statuses text[] NOT NULL DEFAULT ARRAY['for_scouting']::text[],
+  note text,
+  description text,
+  created_by uuid REFERENCES public.profiles(id),
+  archived_by uuid REFERENCES public.profiles(id),
+  deleted_by uuid REFERENCES public.profiles(id),
+  is_archived boolean NOT NULL DEFAULT false,
+  is_deleted boolean NOT NULL DEFAULT false,
+  archived_at timestamptz,
+  deleted_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
 
--- Owner policies for daily
-drop policy if exists "Daily: Read own" on public.daily_records;
-create policy "Daily: Read own" on public.daily_records for select using (user_id = auth.uid());
+-- Add columns if they don't exist
+DO $$ BEGIN
+  ALTER TABLE public.business_establishments ADD COLUMN IF NOT EXISTS statuses text[] NOT NULL DEFAULT ARRAY['for_scouting']::text[];
+EXCEPTION
+  WHEN duplicate_column THEN null;
+END $$;
 
-drop policy if exists "Daily: Write own" on public.daily_records;
-create policy "Daily: Write own" on public.daily_records for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+-- Business householders
+CREATE TABLE IF NOT EXISTS public.business_householders (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  establishment_id uuid NOT NULL REFERENCES public.business_establishments(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  status public.business_householder_status_t NOT NULL DEFAULT 'interested',
+  note text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
 
--- Admin read (optional)
-drop policy if exists "Daily: Admin read" on public.daily_records;
-create policy "Daily: Admin read" on public.daily_records for select using (public.is_admin(auth.uid()));
+-- Business visits
+CREATE TABLE IF NOT EXISTS public.business_visits (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  congregation_id uuid NOT NULL REFERENCES public.congregations(id) ON DELETE CASCADE,
+  establishment_id uuid REFERENCES public.business_establishments(id) ON DELETE SET NULL,
+  householder_id uuid REFERENCES public.business_householders(id) ON DELETE SET NULL,
+  note text,
+  publisher_id uuid REFERENCES public.profiles(id),
+  partner_id uuid REFERENCES public.profiles(id),
+  visit_date date NOT NULL DEFAULT CURRENT_DATE,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
 
--- Auto-create a minimal profile row when a new auth.user is created
-create or replace function public.handle_new_user()
-returns trigger as $$
-declare
+-- ==============================================
+-- Triggers
+-- ==============================================
+
+-- Profiles updated_at trigger
+DROP TRIGGER IF EXISTS trg_profiles_updated_at ON public.profiles;
+CREATE TRIGGER trg_profiles_updated_at 
+  BEFORE UPDATE ON public.profiles 
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- Congregations updated_at trigger
+DROP TRIGGER IF EXISTS trg_congregations_updated_at ON public.congregations;
+CREATE TRIGGER trg_congregations_updated_at 
+  BEFORE UPDATE ON public.congregations 
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- Monthly records updated_at trigger
+DROP TRIGGER IF EXISTS trg_monthly_records_updated_at ON public.monthly_records;
+CREATE TRIGGER trg_monthly_records_updated_at 
+  BEFORE UPDATE ON public.monthly_records 
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- Daily records updated_at trigger
+DROP TRIGGER IF EXISTS trg_daily_records_updated_at ON public.daily_records;
+CREATE TRIGGER trg_daily_records_updated_at 
+  BEFORE UPDATE ON public.daily_records 
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- Business establishments updated_at trigger
+DROP TRIGGER IF EXISTS trg_business_establishments_updated_at ON public.business_establishments;
+CREATE TRIGGER trg_business_establishments_updated_at 
+  BEFORE UPDATE ON public.business_establishments 
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- Business householders updated_at trigger
+DROP TRIGGER IF EXISTS trg_business_householders_updated_at ON public.business_householders;
+CREATE TRIGGER trg_business_householders_updated_at 
+  BEFORE UPDATE ON public.business_householders 
+  FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
+
+-- Auto-create profile on auth.user creation
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+DECLARE
   meta jsonb;
   given text;
   family text;
@@ -163,842 +253,452 @@ declare
   pic text;
   bdate text;
   dob date;
-begin
-  meta := new.raw_user_meta_data;
-  given := coalesce(meta->>'given_name', meta->>'first_name');
-  family := coalesce(meta->>'family_name', meta->>'last_name');
-  full_name_str := coalesce(meta->>'name', meta->>'full_name');
+BEGIN
+  meta := NEW.raw_user_meta_data;
+  given := COALESCE(meta->>'given_name', meta->>'first_name');
+  family := COALESCE(meta->>'family_name', meta->>'last_name');
+  full_name_str := COALESCE(meta->>'name', meta->>'full_name');
   pic := meta->>'picture';
-  bdate := coalesce(meta->>'birthdate', meta->>'dob');
-  if bdate is not null and length(bdate) = 10 then
-    begin
+  bdate := COALESCE(meta->>'birthdate', meta->>'dob');
+  
+  IF bdate IS NOT NULL AND length(bdate) = 10 THEN
+    BEGIN
       dob := to_date(bdate, 'YYYY-MM-DD');
-    exception when others then
+    EXCEPTION WHEN others THEN
       dob := null;
-    end;
-  end if;
+    END;
+  END IF;
 
-  if given is not null and length(trim(given)) > 0 then
+  IF given IS NOT NULL AND length(trim(given)) > 0 THEN
     f := trim(given);
-  end if;
-  if family is not null and length(trim(family)) > 0 then
+  END IF;
+  IF family IS NOT NULL AND length(trim(family)) > 0 THEN
     l := trim(family);
-  end if;
-  if (f = '' or l = '') and full_name_str is not null and length(trim(full_name_str)) > 0 then
+  END IF;
+  IF (f = '' OR l = '') AND full_name_str IS NOT NULL AND length(trim(full_name_str)) > 0 THEN
     f := split_part(trim(full_name_str), ' ', 1);
     l := split_part(trim(full_name_str), ' ', array_length(string_to_array(trim(full_name_str), ' '), 1));
-    if l = '' then l := f; end if;
-  end if;
+    IF l = '' THEN l := f; END IF;
+  END IF;
 
-  insert into public.profiles (id, first_name, last_name, middle_name, date_of_birth, avatar_url)
-  values (new.id, f, l, null, dob, pic)
-  on conflict (id) do nothing;
-  return new;
-end;
-$$ language plpgsql security definer set search_path = public;
+  INSERT INTO public.profiles (id, first_name, last_name, middle_name, date_of_birth, avatar_url)
+  VALUES (NEW.id, f, l, null, dob, pic)
+  ON CONFLICT (id) DO NOTHING;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute function public.handle_new_user();
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
--- RPC: get current user's profile (bypasses policy complexity via SECURITY DEFINER)
-create or replace function public.get_my_profile()
-returns public.profiles
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select p.* from public.profiles p where p.id = auth.uid();
+-- ==============================================
+-- Constraints
+-- ==============================================
+
+-- Profiles privileges constraints
+DO $$
+BEGIN
+  -- Drop existing constraints if they exist
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'profiles_ck_privileges_allowed' AND conrelid = 'public.profiles'::regclass) THEN
+    ALTER TABLE public.profiles DROP CONSTRAINT profiles_ck_privileges_allowed;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'profiles_ck_pioneer_mutex' AND conrelid = 'public.profiles'::regclass) THEN
+    ALTER TABLE public.profiles DROP CONSTRAINT profiles_ck_pioneer_mutex;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'profiles_ck_ms_elder_mutex' AND conrelid = 'public.profiles'::regclass) THEN
+    ALTER TABLE public.profiles DROP CONSTRAINT profiles_ck_ms_elder_mutex;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'profiles_ck_elder_only_privs' AND conrelid = 'public.profiles'::regclass) THEN
+    ALTER TABLE public.profiles DROP CONSTRAINT profiles_ck_elder_only_privs;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'profiles_ck_male_required_for_ms_elder' AND conrelid = 'public.profiles'::regclass) THEN
+    ALTER TABLE public.profiles DROP CONSTRAINT profiles_ck_male_required_for_ms_elder;
+  END IF;
+
+  -- Add new constraints
+  ALTER TABLE public.profiles ADD CONSTRAINT profiles_ck_privileges_allowed
+  CHECK (privileges <@ array['Elder','Ministerial Servant','Regular Pioneer','Auxiliary Pioneer','Secretary','Coordinator','Group Overseer','Group Assistant']::text[]) NOT VALID;
+
+  ALTER TABLE public.profiles ADD CONSTRAINT profiles_ck_pioneer_mutex
+  CHECK (NOT (privileges @> array['Regular Pioneer']::text[] AND privileges @> array['Auxiliary Pioneer']::text[])) NOT VALID;
+
+  ALTER TABLE public.profiles ADD CONSTRAINT profiles_ck_ms_elder_mutex
+  CHECK (NOT (privileges @> array['Ministerial Servant']::text[] AND privileges @> array['Elder']::text[])) NOT VALID;
+
+  ALTER TABLE public.profiles ADD CONSTRAINT profiles_ck_elder_only_privs
+  CHECK (
+    (NOT privileges @> array['Secretary']::text[] OR privileges @> array['Elder']::text[]) AND
+    (NOT privileges @> array['Coordinator']::text[] OR privileges @> array['Elder']::text[]) AND
+    (NOT privileges @> array['Group Overseer']::text[] OR privileges @> array['Elder']::text[])
+  ) NOT VALID;
+
+  ALTER TABLE public.profiles ADD CONSTRAINT profiles_ck_male_required_for_ms_elder
+  CHECK (
+    CASE WHEN privileges @> array['Ministerial Servant']::text[] OR privileges @> array['Elder']::text[] 
+    THEN gender = 'male'::public.gender_t ELSE true END
+  ) NOT VALID;
+END $$;
+
+-- ==============================================
+-- Row Level Security
+-- ==============================================
+
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.congregations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.monthly_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.daily_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.business_participants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.business_establishments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.business_householders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.business_visits ENABLE ROW LEVEL SECURITY;
+
+-- ==============================================
+-- RLS Policies
+-- ==============================================
+
+-- Profiles policies
+DROP POLICY IF EXISTS "Profiles: Read own" ON public.profiles;
+CREATE POLICY "Profiles: Read own" ON public.profiles FOR SELECT USING (id = auth.uid());
+
+DROP POLICY IF EXISTS "Profiles: Insert own" ON public.profiles;
+CREATE POLICY "Profiles: Insert own" ON public.profiles FOR INSERT WITH CHECK (id = auth.uid());
+
+DROP POLICY IF EXISTS "Profiles: Update own" ON public.profiles;
+CREATE POLICY "Profiles: Update own" ON public.profiles FOR UPDATE USING (id = auth.uid()) WITH CHECK (id = auth.uid());
+
+DROP POLICY IF EXISTS "Profiles: Admin all" ON public.profiles;
+CREATE POLICY "Profiles: Admin all" ON public.profiles FOR ALL USING (public.is_admin(auth.uid())) WITH CHECK (public.is_admin(auth.uid()));
+
+-- Congregations policies
+DROP POLICY IF EXISTS "Congregations: Read own" ON public.congregations;
+CREATE POLICY "Congregations: Read own" ON public.congregations FOR SELECT USING (
+  public.is_admin(auth.uid()) OR EXISTS (
+    SELECT 1 FROM public.profiles me WHERE me.id = auth.uid() AND me.congregation_id = public.congregations.id
+  )
+);
+
+DROP POLICY IF EXISTS "Congregations: Admin write" ON public.congregations;
+CREATE POLICY "Congregations: Admin write" ON public.congregations FOR ALL USING (public.is_admin(auth.uid())) WITH CHECK (public.is_admin(auth.uid()));
+
+DROP POLICY IF EXISTS "Congregations: Elder update" ON public.congregations;
+CREATE POLICY "Congregations: Elder update" ON public.congregations FOR UPDATE USING (
+  EXISTS (
+    SELECT 1 FROM public.profiles me WHERE me.id = auth.uid() 
+    AND me.privileges @> array['Elder']::text[] AND me.congregation_id = public.congregations.id
+  )
+) WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.profiles me WHERE me.id = auth.uid() 
+    AND me.privileges @> array['Elder']::text[] AND me.congregation_id = public.congregations.id
+  )
+);
+
+-- Monthly records policies
+DROP POLICY IF EXISTS "Monthly: Read own" ON public.monthly_records;
+CREATE POLICY "Monthly: Read own" ON public.monthly_records FOR SELECT USING (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "Monthly: Write own" ON public.monthly_records;
+CREATE POLICY "Monthly: Write own" ON public.monthly_records FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "Monthly: Admin read" ON public.monthly_records;
+CREATE POLICY "Monthly: Admin read" ON public.monthly_records FOR SELECT USING (public.is_admin(auth.uid()));
+
+DROP POLICY IF EXISTS "Monthly: Elder read congregation" ON public.monthly_records;
+CREATE POLICY "Monthly: Elder read congregation" ON public.monthly_records FOR SELECT USING (
+  public.is_elder(auth.uid()) AND public.same_congregation(auth.uid(), public.monthly_records.user_id)
+);
+
+-- Daily records policies
+DROP POLICY IF EXISTS "Daily: Read own" ON public.daily_records;
+CREATE POLICY "Daily: Read own" ON public.daily_records FOR SELECT USING (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "Daily: Write own" ON public.daily_records;
+CREATE POLICY "Daily: Write own" ON public.daily_records FOR ALL USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "Daily: Admin read" ON public.daily_records;
+CREATE POLICY "Daily: Admin read" ON public.daily_records FOR SELECT USING (public.is_admin(auth.uid()));
+
+DROP POLICY IF EXISTS "Daily: Elder read congregation" ON public.daily_records;
+CREATE POLICY "Daily: Elder read congregation" ON public.daily_records FOR SELECT USING (
+  public.is_elder(auth.uid()) AND public.is_elder(auth.uid()) AND public.same_congregation(auth.uid(), public.daily_records.user_id)
+);
+
+-- Business policies
+DROP POLICY IF EXISTS "Business: participants read" ON public.business_participants;
+CREATE POLICY "Business: participants read" ON public.business_participants FOR SELECT USING (
+  EXISTS (SELECT 1 FROM public.profiles me WHERE me.id = auth.uid() AND me.congregation_id = public.business_participants.congregation_id)
+);
+
+DROP POLICY IF EXISTS "Business: participants write" ON public.business_participants;
+CREATE POLICY "Business: participants write" ON public.business_participants FOR INSERT WITH CHECK (public.is_admin(auth.uid()));
+
+DROP POLICY IF EXISTS "Business: est read" ON public.business_establishments;
+CREATE POLICY "Business: est read" ON public.business_establishments FOR SELECT USING (
+  EXISTS (SELECT 1 FROM public.profiles me WHERE me.id = auth.uid() AND me.congregation_id = public.business_establishments.congregation_id)
+  AND NOT public.business_establishments.is_deleted
+);
+
+DROP POLICY IF EXISTS "Business: est write" ON public.business_establishments;
+CREATE POLICY "Business: est write" ON public.business_establishments FOR ALL USING (
+  EXISTS (
+    SELECT 1 FROM public.business_participants bp JOIN public.profiles me ON me.id = auth.uid()
+    WHERE bp.congregation_id = public.business_establishments.congregation_id
+    AND bp.user_id = auth.uid() AND bp.active = true AND me.congregation_id = bp.congregation_id
+  )
+) WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.business_participants bp JOIN public.profiles me ON me.id = auth.uid()
+    WHERE bp.congregation_id = public.business_establishments.congregation_id
+    AND bp.user_id = auth.uid() AND bp.active = true AND me.congregation_id = bp.congregation_id
+  )
+);
+
+DROP POLICY IF EXISTS "Business: hh read" ON public.business_householders;
+CREATE POLICY "Business: hh read" ON public.business_householders FOR SELECT USING (
+  EXISTS (
+    SELECT 1 FROM public.business_establishments e, public.profiles me
+    WHERE e.id = public.business_householders.establishment_id AND me.id = auth.uid() AND me.congregation_id = e.congregation_id
+  )
+);
+
+DROP POLICY IF EXISTS "Business: hh write" ON public.business_householders;
+CREATE POLICY "Business: hh write" ON public.business_householders FOR ALL USING (
+  EXISTS (
+    SELECT 1 FROM public.business_establishments e, public.business_participants bp, public.profiles me
+    WHERE e.id = public.business_householders.establishment_id AND bp.user_id = auth.uid() AND me.id = auth.uid()
+    AND bp.congregation_id = e.congregation_id AND me.congregation_id = e.congregation_id AND bp.active = true
+  )
+) WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.business_establishments e, public.business_participants bp, public.profiles me
+    WHERE e.id = public.business_householders.establishment_id AND bp.user_id = auth.uid() AND me.id = auth.uid()
+    AND bp.congregation_id = e.congregation_id AND me.congregation_id = e.congregation_id AND bp.active = true
+  )
+);
+
+DROP POLICY IF EXISTS "Business: visit read" ON public.business_visits;
+CREATE POLICY "Business: visit read" ON public.business_visits FOR SELECT USING (
+  EXISTS (SELECT 1 FROM public.profiles me WHERE me.id = auth.uid() AND me.congregation_id = public.business_visits.congregation_id)
+);
+
+DROP POLICY IF EXISTS "Business: visit write" ON public.business_visits;
+CREATE POLICY "Business: visit write" ON public.business_visits FOR INSERT WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.business_participants bp, public.profiles me
+    WHERE bp.user_id = auth.uid() AND me.id = auth.uid()
+    AND me.congregation_id = bp.congregation_id AND bp.active = true
+    AND bp.congregation_id = public.business_visits.congregation_id
+  )
+);
+
+-- ==============================================
+-- Helper Functions
+-- ==============================================
+
+-- Admin check
+CREATE OR REPLACE FUNCTION public.is_admin(uid uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (SELECT 1 FROM public.admin_users a WHERE a.user_id = uid);
 $$;
 
-grant execute on function public.get_my_profile() to anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.is_admin(uuid) TO anon, authenticated;
 
--- Remove legacy profile upsert RPCs (client uses table upsert under RLS)
-do $$
-begin
-  begin
-    drop function if exists public.upsert_my_profile_v2(text, text, text, date, date, text[], text, text, text);
-  exception when undefined_function then null; end;
-  begin
-    drop function if exists public.upsert_my_profile(text, text, text, date, date, text[], text, text);
-  exception when undefined_function then null; end;
-  begin
-    drop function if exists public.upsert_my_profile_v3(text, text, text, date, date, text[], text, text, text, public.gender_t, boolean, public.pioneer_t);
-  exception when undefined_function then null; end;
-end $$;
+-- Elder check
+CREATE OR REPLACE FUNCTION public.is_elder(uid uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = uid AND p.privileges @> array['Elder']::text[]);
+$$;
 
--- Lookup email by username to support username login
-create or replace function public.get_email_by_username(u text)
-returns text
-language plpgsql
-stable
-security definer
-set search_path = public, auth
-as $$
-declare
+GRANT EXECUTE ON FUNCTION public.is_elder(uuid) TO anon, authenticated;
+
+-- Same congregation check
+CREATE OR REPLACE FUNCTION public.same_congregation(a uuid, b uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT COALESCE(pa.congregation_id = pb.congregation_id, false)
+  FROM public.profiles pa, public.profiles pb WHERE pa.id = a AND pb.id = b;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.same_congregation(uuid, uuid) TO anon, authenticated;
+
+-- My congregation ID
+CREATE OR REPLACE FUNCTION public.my_congregation_id()
+RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT p.congregation_id FROM public.profiles p WHERE p.id = auth.uid();
+$$;
+
+GRANT EXECUTE ON FUNCTION public.my_congregation_id() TO anon, authenticated;
+
+-- Get my profile
+CREATE OR REPLACE FUNCTION public.get_my_profile()
+RETURNS public.profiles LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT p.* FROM public.profiles p WHERE p.id = auth.uid();
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_my_profile() TO anon, authenticated;
+
+-- Username functions
+CREATE OR REPLACE FUNCTION public.get_email_by_username(u text)
+RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, auth AS $$
+DECLARE
   uid uuid;
   em text;
-begin
-  select id into uid from public.profiles where lower(username) = lower(u) limit 1;
-  if uid is null then
-    return null;
-  end if;
-  select email into em from auth.users where id = uid;
-  return em;
-end;
+BEGIN
+  SELECT id INTO uid FROM public.profiles WHERE lower(username) = lower(u) LIMIT 1;
+  IF uid IS NULL THEN RETURN NULL; END IF;
+  SELECT email INTO em FROM auth.users WHERE id = uid;
+  RETURN em;
+END;
 $$;
 
-grant execute on function public.get_email_by_username(text) to anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.get_email_by_username(text) TO anon, authenticated;
 
--- RPC: is a username available (case-insensitive)?
-create or replace function public.is_username_available(u text)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select not exists (
-    select 1 from public.profiles p
-    where lower(p.username) = lower(u)
-      and p.id <> auth.uid()
+CREATE OR REPLACE FUNCTION public.is_username_available(u text)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT NOT EXISTS (
+    SELECT 1 FROM public.profiles p WHERE lower(p.username) = lower(u) AND p.id <> auth.uid()
   );
 $$;
 
-grant execute on function public.is_username_available(text) to authenticated;
+GRANT EXECUTE ON FUNCTION public.is_username_available(text) TO authenticated;
 
--- RPC: does current user have an email/password identity?
-create or replace function public.has_password_auth()
-returns boolean
-language sql
-stable
-security definer
-set search_path = public, auth
-as $$
-  select exists (
-    select 1 from auth.identities i where i.user_id = auth.uid() and i.provider = 'email'
-  );
+-- Auth functions
+CREATE OR REPLACE FUNCTION public.has_password_auth()
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, auth AS $$
+  SELECT EXISTS (SELECT 1 FROM auth.identities i WHERE i.user_id = auth.uid() AND i.provider = 'email');
 $$;
 
-grant execute on function public.has_password_auth() to authenticated;
+GRANT EXECUTE ON FUNCTION public.has_password_auth() TO anon, authenticated;
 
--- RPC: does current user have a password set (encrypted_password not null)?
-create or replace function public.has_encrypted_password()
-returns boolean
-language sql
-stable
-security definer
-set search_path = public, auth
-as $$
-  select coalesce(u.encrypted_password is not null, false)
-  from auth.users u
-  where u.id = auth.uid();
+CREATE OR REPLACE FUNCTION public.has_encrypted_password()
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, auth AS $$
+  SELECT COALESCE(u.encrypted_password IS NOT NULL, false) FROM auth.users u WHERE u.id = auth.uid();
 $$;
 
-grant execute on function public.has_encrypted_password() to authenticated;
+GRANT EXECUTE ON FUNCTION public.has_encrypted_password() TO anon, authenticated;
 
--- ==============================================
--- Congregations, roles, and eligibility rules
--- ==============================================
-
--- Enums
-do $$ begin
-  if not exists (
-    select 1
-    from pg_type t
-    join pg_namespace n on n.oid = t.typnamespace
-    where t.typname = 'gender_t' and n.nspname = 'public'
-  ) then
-    create type public.gender_t as enum ('male','female');
-  end if;
-end $$;
-
-do $$ begin
-  if not exists (
-    select 1
-    from pg_type t
-    join pg_namespace n on n.oid = t.typnamespace
-    where t.typname = 'pioneer_t' and n.nspname = 'public'
-  ) then
-    create type public.pioneer_t as enum ('none','auxiliary','regular');
-  end if;
-end $$;
-
-do $$ begin
-  if not exists (
-    select 1
-    from pg_type t
-    join pg_namespace n on n.oid = t.typnamespace
-    where t.typname = 'congregation_role_t' and n.nspname = 'public'
-  ) then
-    create type public.congregation_role_t as enum ('unbaptized_publisher','publisher','ministerial_servant','elder');
-  end if;
-end $$;
-
--- Congregations
-create table if not exists public.congregations (
-  id uuid primary key default gen_random_uuid(),
-  name text not null unique,
-  address text,
-  -- Optional GPS coordinates for maps/directions
-  lat numeric(9,6),
-  lng numeric(9,6),
-  -- 0=Sun,1=Mon,...,6=Sat
-  midweek_day smallint not null check (midweek_day between 1 and 5),
-  midweek_start time without time zone not null default '19:00',
-  weekend_day smallint not null check (weekend_day in (0,6)),
-  weekend_start time without time zone not null default '10:00',
-  meeting_duration_minutes integer not null default 105,
-  -- Feature flags
-  business_witnessing_enabled boolean not null default false,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-drop trigger if exists trg_congregations_updated_at on public.congregations;
-create trigger trg_congregations_updated_at before update on public.congregations
-for each row execute function public.set_updated_at();
-
-alter table public.congregations enable row level security;
-
--- Backfill-safe: add columns if not present (idempotent)
-do $$ begin
-  if not exists (
-    select 1 from information_schema.columns
-    where table_schema='public' and table_name='congregations' and column_name='lat'
-  ) then
-    alter table public.congregations add column lat numeric(9,6);
-  end if;
-  if not exists (
-    select 1 from information_schema.columns
-    where table_schema='public' and table_name='congregations' and column_name='lng'
-  ) then
-    alter table public.congregations add column lng numeric(9,6);
-  end if;
-  if not exists (
-    select 1 from information_schema.columns
-    where table_schema='public' and table_name='congregations' and column_name='business_witnessing_enabled'
-  ) then
-    alter table public.congregations add column business_witnessing_enabled boolean not null default false;
-  end if;
-end $$;
-
--- Extend profiles with congregation fields and constraints (must exist before policies below)
-alter table public.profiles
-  add column if not exists congregation_id uuid references public.congregations(id),
-  add column if not exists gender public.gender_t;
-
--- Helpful index when scoping queries by congregation
-create index if not exists profiles_congregation_idx on public.profiles(congregation_id);
-
--- Only members of a congregation (or admins) can read it
-drop policy if exists "Congregations: Read own" on public.congregations;
-create policy "Congregations: Read own" on public.congregations
-  for select using (
-    public.is_admin(auth.uid())
-    or exists (
-      select 1 from public.profiles me
-      where me.id = auth.uid() and me.congregation_id = public.congregations.id
-    )
-  );
-
--- Only admins can create/delete congregations; elders can update their own congregation
-drop policy if exists "Congregations: Admin write" on public.congregations;
-create policy "Congregations: Admin write" on public.congregations
-  for all using (public.is_admin(auth.uid())) with check (public.is_admin(auth.uid()));
-
-drop policy if exists "Congregations: Elder update" on public.congregations;
-create policy "Congregations: Elder update" on public.congregations
-  for update using (
-    exists (
-      select 1 from public.profiles me
-      where me.id = auth.uid()
-        and me.privileges @> array['Elder']::text[]
-        and me.congregation_id = public.congregations.id
-    )
-  ) with check (
-    exists (
-      select 1 from public.profiles me
-      where me.id = auth.uid()
-        and me.privileges @> array['Elder']::text[]
-        and me.congregation_id = public.congregations.id
-    )
-  );
--- Eligibility rules (added NOT VALID to avoid breaking existing data before backfill)
--- Note: Postgres < 16 doesn't support IF NOT EXISTS on ADD CONSTRAINT, so
--- add them conditionally via a DO block for idempotency.
--- Remove legacy constraints/columns in favor of array-based privileges
-do $$
-begin
-  -- Drop old constraints if present
-  perform 1 from pg_constraint where conname = 'profiles_ck_pioneer_requires_baptized' and conrelid = 'public.profiles'::regclass;
-  if found then alter table public.profiles drop constraint profiles_ck_pioneer_requires_baptized; end if;
-  perform 1 from pg_constraint where conname = 'profiles_ck_role_requires_baptized' and conrelid = 'public.profiles'::regclass;
-  if found then alter table public.profiles drop constraint profiles_ck_role_requires_baptized; end if;
-  perform 1 from pg_constraint where conname = 'profiles_ck_ms_elder_male_baptized' and conrelid = 'public.profiles'::regclass;
-  if found then alter table public.profiles drop constraint profiles_ck_ms_elder_male_baptized; end if;
-  perform 1 from pg_constraint where conname = 'profiles_ck_unbap_no_pioneer' and conrelid = 'public.profiles'::regclass;
-  if found then alter table public.profiles drop constraint profiles_ck_unbap_no_pioneer; end if;
-
-  -- Drop redundant columns if they exist
-  if exists (select 1 from information_schema.columns where table_schema='public' and table_name='profiles' and column_name='baptized') then
-    alter table public.profiles drop column baptized;
-  end if;
-  if exists (select 1 from information_schema.columns where table_schema='public' and table_name='profiles' and column_name='pioneer_type') then
-    alter table public.profiles drop column pioneer_type;
-  end if;
-  if exists (select 1 from information_schema.columns where table_schema='public' and table_name='profiles' and column_name='congregation_role') then
-    alter table public.profiles drop column congregation_role;
-  end if;
-end $$;
-
--- New array-based privilege constraints
-do $$
-begin
-  -- Allowed values only
-  if not exists (
-    select 1 from pg_constraint where conname='profiles_ck_privileges_allowed' and conrelid='public.profiles'::regclass
-  ) then
-    alter table public.profiles add constraint profiles_ck_privileges_allowed
-    check (
-      privileges <@ array['Elder','Ministerial Servant','Regular Pioneer','Auxiliary Pioneer','Secretary','Coordinator','Group Overseer']::text[]
-    ) not valid;
-  end if;
-
-  -- Mutually exclusive: Regular vs Auxiliary Pioneer
-  if not exists (
-    select 1 from pg_constraint where conname='profiles_ck_pioneer_mutex' and conrelid='public.profiles'::regclass
-  ) then
-    alter table public.profiles add constraint profiles_ck_pioneer_mutex
-    check (
-      not (privileges @> array['Regular Pioneer']::text[] and privileges @> array['Auxiliary Pioneer']::text[])
-    ) not valid;
-  end if;
-
-  -- Mutually exclusive: MS vs Elder
-  if not exists (
-    select 1 from pg_constraint where conname='profiles_ck_ms_elder_mutex' and conrelid='public.profiles'::regclass
-  ) then
-    alter table public.profiles add constraint profiles_ck_ms_elder_mutex
-    check (
-      not (privileges @> array['Ministerial Servant']::text[] and privileges @> array['Elder']::text[])
-    ) not valid;
-  end if;
-
-  -- Elder-only privileges require Elder
-  if not exists (
-    select 1 from pg_constraint where conname='profiles_ck_elder_only_privs' and conrelid='public.profiles'::regclass
-  ) then
-    alter table public.profiles add constraint profiles_ck_elder_only_privs
-    check (
-      (not privileges @> array['Secretary']::text[] or privileges @> array['Elder']::text[]) and
-      (not privileges @> array['Coordinator']::text[] or privileges @> array['Elder']::text[]) and
-      (not privileges @> array['Group Overseer']::text[] or privileges @> array['Elder']::text[])
-    ) not valid;
-  end if;
-
-  -- Male required for MS/Elder
-  if not exists (
-    select 1 from pg_constraint where conname='profiles_ck_male_required_for_ms_elder' and conrelid='public.profiles'::regclass
-  ) then
-    alter table public.profiles add constraint profiles_ck_male_required_for_ms_elder
-    check (
-      case when privileges @> array['Ministerial Servant']::text[] or privileges @> array['Elder']::text[] then gender = 'male'::public.gender_t else true end
-    ) not valid;
-  end if;
-end $$;
-
--- Helper: is the caller an elder?
-create or replace function public.is_elder(uid uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select exists (
-    select 1 from public.profiles p where p.id = uid and p.privileges @> array['Elder']::text[]
-  );
-$$;
-
-grant execute on function public.is_elder(uuid) to anon, authenticated;
-
--- Helper: are two users in the same congregation?
-create or replace function public.same_congregation(a uuid, b uuid)
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select coalesce(pa.congregation_id = pb.congregation_id, false)
-  from public.profiles pa, public.profiles pb
-  where pa.id = a and pb.id = b;
-$$;
-
-grant execute on function public.same_congregation(uuid, uuid) to anon, authenticated;
-
--- Helper: get my congregation id (avoids recursive self-joins in policies)
-create or replace function public.my_congregation_id()
-returns uuid
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select p.congregation_id from public.profiles p where p.id = auth.uid();
-$$;
-
-grant execute on function public.my_congregation_id() to anon, authenticated;
-
--- Relax: drop strict gender requirement until data is backfilled
-do $$
-begin
-  if exists (
-    select 1 from pg_constraint
-    where conname = 'profiles_gender_required'
-      and conrelid = 'public.profiles'::regclass
-  ) then
-    alter table public.profiles drop constraint profiles_gender_required;
-  end if;
-end $$;
-
--- Tighten profile edit privileges: allow only admins or elders-in-congregation to change congregation_id / congregation_role
--- Simplify the trigger to avoid recursion
-create or replace function public.enforce_privileges_update_privilege()
-returns trigger
-language plpgsql
-security definer
-set search_path = public
-as $$
-begin
-  -- Only allow admins to change privileges (role escalation)
-  if new.privileges is distinct from old.privileges then
-    if not public.is_admin(auth.uid()) then
-      raise exception 'insufficient_privilege: cannot change privileges';
-    end if;
-  end if;
-  
-  -- For congregation changes, we'll rely on RLS policies instead of triggers
-  -- This avoids the infinite recursion issue
-  
-  return new;
-end;
-$$;
-
--- Remove the old trigger
-drop trigger if exists trg_profiles_enforce_role on public.profiles;
-drop trigger if exists trg_profiles_enforce_privileges on public.profiles;
-
--- Create the simplified trigger
-create trigger trg_profiles_enforce_privileges before update on public.profiles
-for each row execute function public.enforce_privileges_update_privilege();
-
--- Profiles: Elders may read/update members in their congregation (admins handled separately)
--- IMPORTANT: Avoid recursive references to public.profiles inside its own policies.
--- Elder policies removed to fix "infinite recursion detected in policy for relation 'profiles'".
-drop policy if exists "Profiles: Elder read congregation" on public.profiles;
-drop policy if exists "Profiles: Elder update congregation" on public.profiles;
-
--- Monthly/Daily records: elders can read within congregation
-drop policy if exists "Monthly: Elder read congregation" on public.monthly_records;
-create policy "Monthly: Elder read congregation" on public.monthly_records
-  for select using (
-    public.is_elder(auth.uid()) and public.same_congregation(auth.uid(), public.monthly_records.user_id)
-  );
-
-drop policy if exists "Daily: Elder read congregation" on public.daily_records;
-create policy "Daily: Elder read congregation" on public.daily_records
-  for select using (
-    public.is_elder(auth.uid()) and public.same_congregation(auth.uid(), public.daily_records.user_id)
-  );
-
--- Ensure policies referencing public.profiles can be evaluated by the authenticated role
-do $$ begin
-  begin
-    grant select on table public.profiles to authenticated;
-  exception when others then null;
-  end;
-end $$;
-
--- RPC: move a user to a different congregation (elder or admin only)
-create or replace function public.transfer_user_to_congregation(target_user uuid, new_congregation uuid)
-returns public.profiles
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
+-- Congregation functions
+CREATE OR REPLACE FUNCTION public.transfer_user_to_congregation(target_user uuid, new_congregation uuid)
+RETURNS public.profiles LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
   allowed boolean;
   res public.profiles;
-begin
-  -- Ensure target congregation exists
-  if not exists (select 1 from public.congregations c where c.id = new_congregation) then
-    raise exception 'invalid_congregation';
-  end if;
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM public.congregations c WHERE c.id = new_congregation) THEN
+    RAISE EXCEPTION 'invalid_congregation';
+  END IF;
 
-  -- Admins always allowed; elders only for their own congregation members
-  select (
-    public.is_admin(auth.uid())
-    or exists (
-      select 1 from public.profiles me, public.profiles p
-      where me.id = auth.uid() and p.id = target_user
-        and me.privileges @> array['Elder']::text[]
-        and me.congregation_id = p.congregation_id
+  SELECT (
+    public.is_admin(auth.uid()) OR EXISTS (
+      SELECT 1 FROM public.profiles me, public.profiles p
+      WHERE me.id = auth.uid() AND p.id = target_user
+      AND me.privileges @> array['Elder']::text[] AND me.congregation_id = p.congregation_id
     )
-  ) into allowed;
+  ) INTO allowed;
 
-  if not coalesce(allowed, false) then
-    raise exception 'insufficient_privilege: only an elder of the user''s current congregation or an admin may transfer';
-  end if;
+  IF NOT COALESCE(allowed, false) THEN
+    RAISE EXCEPTION 'insufficient_privilege: only an elder of the user''s current congregation or an admin may transfer';
+  END IF;
 
-  update public.profiles set congregation_id = new_congregation, updated_at = now()
-  where id = target_user
-  returning * into res;
-  return res;
-end;
+  UPDATE public.profiles SET congregation_id = new_congregation, updated_at = now()
+  WHERE id = target_user RETURNING * INTO res;
+  RETURN res;
+END;
 $$;
 
-grant execute on function public.transfer_user_to_congregation(uuid, uuid) to authenticated;
+GRANT EXECUTE ON FUNCTION public.transfer_user_to_congregation(uuid, uuid) TO authenticated;
 
--- RPC: fetch my congregation
-create or replace function public.get_my_congregation()
-returns public.congregations
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select c.* from public.congregations c
-  join public.profiles p on p.congregation_id = c.id
-  where p.id = auth.uid();
+CREATE OR REPLACE FUNCTION public.get_my_congregation()
+RETURNS public.congregations LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, auth AS $$
+  SELECT c.* FROM public.congregations c JOIN public.profiles p ON p.id = c.id WHERE p.id = auth.uid();
 $$;
 
-grant execute on function public.get_my_congregation() to authenticated;
+GRANT EXECUTE ON FUNCTION public.get_my_congregation() TO authenticated;
 
--- ==============================================
--- Business Witnessing
--- ==============================================
-
--- Participants who can access the feature in a congregation
-create table if not exists public.business_participants (
-  congregation_id uuid not null references public.congregations(id) on delete cascade,
-  user_id uuid not null references public.profiles(id) on delete cascade,
-  active boolean not null default true,
-  added_at timestamptz not null default now(),
-  primary key (congregation_id, user_id)
-);
-
--- Establishments tracked under a congregation
-do $$ begin
-  if not exists (
-    select 1
-    from pg_type t
-    join pg_namespace n on n.oid = t.typnamespace
-    where t.typname = 'business_establishment_status_t' and n.nspname = 'public'
-  ) then
-    create type public.business_establishment_status_t as enum (
-      'for_scouting','for_follow_up','accepted_rack','declined_rack','has_bible_studies'
-    );
-  end if;
-end $$;
-
--- Drop the existing table if it exists
-DROP TABLE IF EXISTS public.business_establishments CASCADE;
-
--- Create the updated table with statuses array
-CREATE TABLE public.business_establishments (
-  id uuid NOT NULL DEFAULT gen_random_uuid(),
-  congregation_id uuid NOT NULL,
-  name text NOT NULL,
-  area text NULL,
-  lat numeric(9, 6) NULL,
-  lng numeric(9, 6) NULL,
-  floor text NULL,
-  statuses text[] NOT NULL DEFAULT ARRAY['for_scouting']::text[],
-  note text NULL,
-  created_by uuid NULL,
-  created_at timestamp with time zone NOT NULL DEFAULT now(),
-  updated_at timestamp with time zone NOT NULL DEFAULT now(),
-  description text NULL,
-  is_archived boolean NOT NULL DEFAULT false,
-  archived_at timestamp with time zone NULL,
-  archived_by uuid NULL,
-  is_deleted boolean NOT NULL DEFAULT false,
-  deleted_at timestamp with time zone NULL,
-  deleted_by uuid NULL,
-  CONSTRAINT business_establishments_pkey PRIMARY KEY (id),
-  CONSTRAINT business_establishments_archived_by_fkey FOREIGN KEY (archived_by) REFERENCES profiles (id),
-  CONSTRAINT business_establishments_congregation_id_fkey FOREIGN KEY (congregation_id) REFERENCES congregations (id) ON DELETE CASCADE,
-  CONSTRAINT business_establishments_created_by_fkey FOREIGN KEY (created_by) REFERENCES profiles (id),
-  CONSTRAINT business_establishments_deleted_by_fkey FOREIGN KEY (deleted_by) REFERENCES profiles (id)
-) TABLESPACE pg_default;
-
--- Create the updated trigger
-CREATE TRIGGER trg_business_establishments_updated_at 
-  BEFORE UPDATE ON business_establishments 
-  FOR EACH ROW 
-  EXECUTE FUNCTION set_updated_at();
-
--- Add RLS policies for the updated table
-ALTER TABLE public.business_establishments ENABLE ROW LEVEL SECURITY;
-
--- Policy for users to see establishments in their congregation
-CREATE POLICY "Users can view establishments in their congregation" ON public.business_establishments
-  FOR SELECT USING (
-    congregation_id IN (
-      SELECT congregation_id FROM profiles WHERE id = auth.uid()
-    )
-  );
-
--- Policy for users to insert establishments in their congregation
-CREATE POLICY "Users can insert establishments in their congregation" ON public.business_establishments
-  FOR INSERT WITH CHECK (
-    congregation_id IN (
-      SELECT congregation_id FROM profiles WHERE id = auth.uid()
-    )
-  );
-
--- Policy for users to update establishments in their congregation
-CREATE POLICY "Users can update establishments in their congregation" ON public.business_establishments
-  FOR UPDATE USING (
-    congregation_id IN (
-      SELECT congregation_id FROM profiles WHERE id = auth.uid()
-    )
-  );
-
--- Policy for users to delete establishments in their congregation
-CREATE POLICY "Users can delete establishments in their congregation" ON public.business_establishments
-  FOR DELETE USING (
-    congregation_id IN (
-      SELECT congregation_id FROM profiles WHERE id = auth.uid()
-    )
-  );
-
--- Householders associated with an establishment
-do $$ begin
-  if not exists (
-    select 1
-    from pg_type t
-    join pg_namespace n on n.oid = t.typnamespace
-    where t.typname = 'business_householder_status_t' and n.nspname = 'public'
-  ) then
-    create type public.business_householder_status_t as enum (
-      'interested','return_visit','bible_study','do_not_call'
-    );
-  end if;
-end $$;
-
-create table if not exists public.business_householders (
-  id uuid primary key default gen_random_uuid(),
-  establishment_id uuid not null references public.business_establishments(id) on delete cascade,
-  name text not null,
-  status public.business_householder_status_t not null default 'interested',
-  note text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
-);
-
-drop trigger if exists trg_business_householders_updated_at on public.business_householders;
-create trigger trg_business_householders_updated_at before update on public.business_householders
-for each row execute function public.set_updated_at();
-
--- Visit updates applicable to either an establishment or a householder
-create table if not exists public.business_visits (
-  id uuid primary key default gen_random_uuid(),
-  congregation_id uuid not null references public.congregations(id) on delete cascade,
-  establishment_id uuid references public.business_establishments(id) on delete set null,
-  householder_id uuid references public.business_householders(id) on delete set null,
-  note text,
-  publisher_id uuid references public.profiles(id),
-  partner_id uuid references public.profiles(id),
-  visit_date date not null default (current_date),
-  created_at timestamptz not null default now()
-);
-
--- RLS: members of congregation only
-alter table public.business_participants enable row level security;
-alter table public.business_establishments enable row level security;
-alter table public.business_householders enable row level security;
-alter table public.business_visits enable row level security;
-
-drop policy if exists "Business: participants read" on public.business_participants;
-create policy "Business: participants read" on public.business_participants
-  for select using (
-    exists (
-      select 1 from public.profiles me
-      where me.id = auth.uid() and me.congregation_id = public.business_participants.congregation_id
-    )
-  );
-
-drop policy if exists "Business: participants write" on public.business_participants;
-create policy "Business: participants write" on public.business_participants
-  for insert with check (
-    public.is_admin(auth.uid())
-  );
-
-drop policy if exists "Business: est read" on public.business_establishments;
-create policy "Business: est read" on public.business_establishments
-  for select using (
-    exists (
-      select 1 from public.profiles me
-      where me.id = auth.uid() and me.congregation_id = public.business_establishments.congregation_id
-    )
-    and not public.business_establishments.is_deleted
-  );
-
-drop policy if exists "Business: est write" on public.business_establishments;
-create policy "Business: est write" on public.business_establishments
-  for all using (
-    exists (
-      select 1 from public.business_participants bp
-      join public.profiles me on me.id = auth.uid()
-      where bp.congregation_id = public.business_establishments.congregation_id
-        and bp.user_id = auth.uid() and bp.active = true and me.congregation_id = bp.congregation_id
-    )
-  ) with check (
-    exists (
-      select 1 from public.business_participants bp
-      join public.profiles me on me.id = auth.uid()
-      where bp.congregation_id = public.business_establishments.congregation_id
-        and bp.user_id = auth.uid() and bp.active = true and me.congregation_id = bp.congregation_id
-    )
-  );
-
-drop policy if exists "Business: hh read" on public.business_householders;
-create policy "Business: hh read" on public.business_householders
-  for select using (
-    exists (
-      select 1 from public.business_establishments e, public.profiles me
-      where e.id = public.business_householders.establishment_id and me.id = auth.uid() and me.congregation_id = e.congregation_id
-    )
-  );
-
-drop policy if exists "Business: hh write" on public.business_householders;
-create policy "Business: hh write" on public.business_householders
-  for all using (
-    exists (
-      select 1 from public.business_establishments e, public.business_participants bp, public.profiles me
-      where e.id = public.business_householders.establishment_id and bp.user_id = auth.uid() and me.id = auth.uid()
-        and bp.congregation_id = e.congregation_id and me.congregation_id = e.congregation_id and bp.active = true
-    )
-  ) with check (
-    exists (
-      select 1 from public.business_establishments e, public.business_participants bp, public.profiles me
-      where e.id = public.business_householders.establishment_id and bp.user_id = auth.uid() and me.id = auth.uid()
-        and bp.congregation_id = e.congregation_id and me.congregation_id = e.congregation_id and bp.active = true
-    )
-  );
-
-drop policy if exists "Business: visit read" on public.business_visits;
-create policy "Business: visit read" on public.business_visits
-  for select using (
-    exists (
-      select 1 from public.profiles me
-      where me.id = auth.uid() and me.congregation_id = public.business_visits.congregation_id
-    )
-  );
-
-drop policy if exists "Business: visit write" on public.business_visits;
-create policy "Business: visit write" on public.business_visits
-  for insert with check (
-    exists (
-      select 1 from public.business_participants bp, public.profiles me
-      where bp.user_id = auth.uid() and me.id = auth.uid()
-        and me.congregation_id = bp.congregation_id and bp.active = true
-        and bp.congregation_id = public.business_visits.congregation_id
-    )
-  );
-
--- Helper RPCs
-create or replace function public.is_business_enabled()
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select coalesce(c.business_witnessing_enabled, false)
-  from public.profiles p
-  left join public.congregations c on c.id = p.congregation_id
-  where p.id = auth.uid();
+-- Business functions
+CREATE OR REPLACE FUNCTION public.is_business_enabled()
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT COALESCE(c.business_witnessing_enabled, false)
+  FROM public.profiles p LEFT JOIN public.congregations c ON c.id = p.congregation_id WHERE p.id = auth.uid();
 $$;
 
-grant execute on function public.is_business_enabled() to authenticated;
+GRANT EXECUTE ON FUNCTION public.is_business_enabled() TO authenticated;
 
-create or replace function public.is_business_participant()
-returns boolean
-language sql
-stable
-security definer
-set search_path = public
-as $$
-  select exists (
-    select 1 from public.business_participants bp
-    join public.profiles p on p.id = auth.uid()
-    where bp.user_id = auth.uid() and bp.active = true and p.congregation_id = bp.congregation_id
+CREATE OR REPLACE FUNCTION public.is_business_participant()
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (
+    SELECT 1 FROM public.business_participants bp JOIN public.profiles p ON p.id = auth.uid()
+    WHERE bp.user_id = auth.uid() AND bp.active = true AND p.congregation_id = bp.congregation_id
   );
 $$;
 
-grant execute on function public.is_business_participant() to authenticated;
+GRANT EXECUTE ON FUNCTION public.is_business_participant() TO authenticated;
 
--- Legacy profile upsert RPCs removed; client performs table upsert under RLS
-
--- Function to toggle business participation for current user
-create or replace function public.toggle_business_participation()
-returns boolean
-language plpgsql
-security definer
-set search_path = public
-as $$
-declare
+CREATE OR REPLACE FUNCTION public.toggle_business_participation()
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
+DECLARE
   user_congregation_id uuid;
   is_participant boolean;
-begin
-  -- Get user's congregation
-  select congregation_id into user_congregation_id
-  from public.profiles
-  where id = auth.uid();
+BEGIN
+  SELECT congregation_id INTO user_congregation_id FROM public.profiles WHERE id = auth.uid();
+  IF user_congregation_id IS NULL THEN RAISE EXCEPTION 'User not assigned to a congregation'; END IF;
   
-  if user_congregation_id is null then
-    raise exception 'User not assigned to a congregation';
-  end if;
+  SELECT EXISTS (
+    SELECT 1 FROM public.business_participants
+    WHERE user_id = auth.uid() AND congregation_id = user_congregation_id AND active = true
+  ) INTO is_participant;
   
-  -- Check if user is already a participant
-  select exists (
-    select 1 from public.business_participants
-    where user_id = auth.uid() 
-    and congregation_id = user_congregation_id 
-    and active = true
-  ) into is_participant;
-  
-  if is_participant then
-    -- Remove participation
-    delete from public.business_participants
-    where user_id = auth.uid() 
-    and congregation_id = user_congregation_id;
-    return false;
-  else
-    -- Add participation
-    insert into public.business_participants (congregation_id, user_id, active)
-    values (user_congregation_id, auth.uid(), true)
-    on conflict (congregation_id, user_id) 
-    do update set active = true;
-    return true;
-  end if;
-end;
+  IF is_participant THEN
+    DELETE FROM public.business_participants WHERE user_id = auth.uid() AND congregation_id = user_congregation_id;
+    RETURN false;
+  ELSE
+    INSERT INTO public.business_participants (congregation_id, user_id, active)
+    VALUES (user_congregation_id, auth.uid(), true)
+    ON CONFLICT (congregation_id, user_id) DO UPDATE SET active = true;
+    RETURN true;
+  END IF;
+END;
 $$;
 
-grant execute on function public.toggle_business_participation() to authenticated;
+GRANT EXECUTE ON FUNCTION public.toggle_business_participation() TO authenticated;
 
--- Add missing foreign key constraint for business_visits.establishment_id
-ALTER TABLE public.business_visits 
-ADD CONSTRAINT business_visits_establishment_id_fkey 
-FOREIGN KEY (establishment_id) REFERENCES business_establishments (id) ON DELETE SET NULL;
+-- Group functions
+CREATE OR REPLACE FUNCTION public.get_users_by_group(group_name_param text)
+RETURNS TABLE (
+  id uuid, first_name text, last_name text, avatar_url text, privileges text[], congregation_id uuid
+) LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
+  SELECT p.id, p.first_name, p.last_name, p.avatar_url, p.privileges, p.congregation_id
+  FROM public.profiles p
+  WHERE p.group_name = group_name_param AND p.congregation_id = public.my_congregation_id()
+  ORDER BY 
+    CASE 
+      WHEN p.privileges @> array['Group Overseer']::text[] THEN 1
+      WHEN p.privileges @> array['Group Assistant']::text[] THEN 2
+      ELSE 3
+    END,
+    p.last_name, p.first_name;
+$$;
 
--- Add missing foreign key constraint for business_householders.establishment_id
-ALTER TABLE public.business_householders 
-ADD CONSTRAINT business_householders_establishment_id_fkey 
-FOREIGN KEY (establishment_id) REFERENCES business_establishments (id) ON DELETE CASCADE;
+GRANT EXECUTE ON FUNCTION public.get_users_by_group(text) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.get_congregation_groups()
+RETURNS TABLE (
+  group_name text, member_count bigint, overseer_name text, assistant_name text
+) LANGUAGE sql SECURITY DEFINER SET search_path = public AS $$
+  SELECT 
+    p.group_name, COUNT(*) as member_count,
+    MAX(CASE WHEN p.privileges @> array['Group Overseer']::text[] THEN p.first_name || ' ' || p.last_name END) as overseer_name,
+    MAX(CASE WHEN p.privileges @> array['Group Assistant']::text[] THEN p.first_name || ' ' || p.last_name END) as assistant_name
+  FROM public.profiles p
+  WHERE p.group_name IS NOT NULL AND p.congregation_id = public.my_congregation_id()
+  GROUP BY p.group_name ORDER BY p.group_name;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.get_congregation_groups() TO authenticated;
+
+-- ==============================================
+-- Grants
+-- ==============================================
+
+GRANT SELECT ON TABLE public.profiles TO authenticated;
