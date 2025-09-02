@@ -4,8 +4,7 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Users, Building2, FilePlus2, X, UserPlus } from "lucide-react";
-import { UserSearchDrawer } from "@/components/congregation/UserSearchDrawer";
-import { FieldServiceModal } from "./FieldServiceModal";
+import { AddUserToCongregationForm } from "@/components/congregation/AddUserToCongregationForm";
 import { ResponsiveModal } from "@/components/ui/responsive-modal";
 import { toast } from "@/components/ui/sonner";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -13,6 +12,7 @@ import { isBusinessEnabled, isBusinessParticipant, listEstablishments } from "@/
 import { EstablishmentForm } from "@/components/business/EstablishmentForm";
 import { HouseholderForm } from "@/components/business/HouseholderForm";
 import { VisitForm } from "@/components/business/VisitForm";
+import { FieldServiceForm } from "./FieldServiceForm";
 
 function FloatingBridgeContent() {
   const pathname = usePathname();
@@ -184,17 +184,22 @@ function FloatingBridgeContent() {
           <Users className="h-6 w-6" />
         </Button>
 
-        {/* User Search Drawer */}
-        <UserSearchDrawer
-          isOpen={searchDrawerOpen}
-          onClose={() => setSearchDrawerOpen(false)}
-          onUserAdded={(user) => {
-            // Trigger refresh of the members list
-            triggerCongregationRefresh();
-            // The drawer will stay open, user can close it manually
-          }}
-          currentCongregationId={congregationId}
-        />
+        {/* User Search Modal */}
+        <ResponsiveModal
+          open={searchDrawerOpen}
+          onOpenChange={setSearchDrawerOpen}
+          title="Add User to Congregation"
+          description="Search for users by username or email"
+        >
+          <AddUserToCongregationForm
+            congregationId={congregationId}
+            onUserAdded={(user) => {
+              triggerCongregationRefresh();
+              setSearchDrawerOpen(false);
+            }}
+            onClose={() => setSearchDrawerOpen(false)}
+          />
+        </ResponsiveModal>
       </>
     );
   }
@@ -213,7 +218,14 @@ function FloatingBridgeContent() {
         </Button>
 
         {/* Field Service Modal - rendered directly here */}
-        <FieldServiceModal userId={userId} />
+        <ResponsiveModal
+          open={fsModalOpen}
+          onOpenChange={setFsModalOpen}
+          title="Field Service"
+          description="Record your field service activity"
+        >
+          <FieldServiceForm userId={userId} onClose={() => setFsModalOpen(false)} />
+        </ResponsiveModal>
       </>
     );
   }

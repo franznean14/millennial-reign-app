@@ -164,3 +164,17 @@
     font-size: 16px !important;
   }
 }
+
+.pb-navbar {
+  padding-bottom: 6rem; /* 96px - accounts for bottom navbar */
+}
+
+.pb-navbar-mobile {
+  padding-bottom: 5rem; /* 80px - slightly less on mobile */
+}
+
+@media (min-width: 768px) {
+  .pb-navbar-mobile {
+    padding-bottom: 6rem; /* 96px on larger screens */
+  }
+}

@@ -9,12 +9,16 @@ import { List, Grid3X3 } from "lucide-react";
 import { type EstablishmentWithDetails } from "@/lib/db/business";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/sonner";
+import { Switch } from "@/components/ui/switch";
+import { getStatusColor, getStatusTextColor, getBestStatus } from "@/lib/utils/status-hierarchy";
 
 interface EstablishmentListProps {
   establishments: EstablishmentWithDetails[];
   onEstablishmentClick: (establishment: EstablishmentWithDetails) => void;
   onEstablishmentDelete?: (establishment: EstablishmentWithDetails) => void;
   onEstablishmentArchive?: (establishment: EstablishmentWithDetails) => void;
+  myEstablishmentsOnly?: boolean;
+  onMyEstablishmentsChange?: (checked: boolean) => void;
 }
 
 type ViewMode = 'detailed' | 'compact';
@@ -23,7 +27,9 @@ export function EstablishmentList({
   establishments, 
   onEstablishmentClick,
   onEstablishmentDelete,
-  onEstablishmentArchive
+  onEstablishmentArchive,
+  myEstablishmentsOnly,
+  onMyEstablishmentsChange
 }: EstablishmentListProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('detailed');
 
@@ -46,40 +52,6 @@ export function EstablishmentList({
       .split('_')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
-  };
-
-  const getStatusColor = (statuses: string[]) => {
-    // Use the first status for color coding
-    const primaryStatus = statuses?.[0] || '';
-    switch (primaryStatus) {
-      case 'for_follow_up':
-        return 'border-orange-500/50 bg-orange-500/5';
-      case 'has_bible_studies':
-        return 'border-green-500/50 bg-green-500/5';
-      case 'accepted_rack':
-        return 'border-blue-500/50 bg-blue-500/5';
-      case 'declined_rack':
-        return 'border-red-500/50 bg-red-500/5';
-      default:
-        return 'border-gray-500/50 bg-gray-500/5';
-    }
-  };
-
-  const getStatusTextColor = (statuses: string[]) => {
-    // Use the first status for color coding
-    const primaryStatus = statuses?.[0] || '';
-    switch (primaryStatus) {
-      case 'for_follow_up':
-        return 'text-orange-500 border-orange-500/50';
-      case 'has_bible_studies':
-        return 'text-green-500 border-green-500/50';
-      case 'accepted_rack':
-        return 'text-blue-500 border-blue-500/50';
-      case 'declined_rack':
-        return 'text-red-500 border-red-500/50';
-      default:
-        return 'text-gray-500 border-gray-500/50';
-    }
   };
 
   const renderDetailedView = (establishment: EstablishmentWithDetails, index: number) => (
@@ -108,15 +80,69 @@ export function EstablishmentList({
               <motion.div layout className="w-full">
                 <CardTitle className="text-2xl sm:text-3xl font-black flex flex-col sm:flex-row sm:items-center gap-2 w-full">
                   <span className="truncate">{establishment.name}</span>
-                  <Badge 
-                    variant="outline" 
-                    className={cn("flex-shrink-0", getStatusTextColor(establishment.statuses))}
-                  >
-                    {establishment.statuses && establishment.statuses.length > 0 
-                      ? formatStatusText(establishment.statuses[0]) 
-                      : 'Unknown'}
-                  </Badge>
+                  
+                  {/* Status Badge with Hierarchy */}
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Badge 
+                      variant="outline" 
+                      className={cn(getStatusTextColor(getBestStatus(establishment.statuses || [])))}
+                    >
+                      {establishment.statuses && establishment.statuses.length > 0 
+                        ? formatStatusText(getBestStatus(establishment.statuses))
+                        : 'Unknown'}
+                    </Badge>
+                    
+                    {/* Additional status dots - Fixed color logic */}
+                    {establishment.statuses && establishment.statuses.length > 1 && (
+                      <div className="flex gap-1">
+                        {establishment.statuses
+                          .filter(status => status !== getBestStatus(establishment.statuses))
+                          .map((status, index) => {
+                            // Get the solid color for the dot
+                            let dotColor = '';
+                            switch (status) {
+                              case 'declined_rack':
+                                dotColor = 'bg-red-500';
+                                break;
+                              case 'for_scouting':
+                                dotColor = 'bg-gray-500';
+                                break;
+                              case 'for_follow_up':
+                                dotColor = 'bg-orange-500';
+                                break;
+                              case 'accepted_rack':
+                                dotColor = 'bg-blue-500';
+                                break;
+                              case 'for_replenishment':
+                                dotColor = 'bg-purple-500';
+                                break;
+                              case 'has_bible_studies':
+                                dotColor = 'bg-emerald-500';
+                                break;
+                              default:
+                                dotColor = 'bg-gray-500';
+                            }
+                            
+                            return (
+                              <div
+                                key={status}
+                                className={cn("w-2 h-2 rounded-full", dotColor)}
+                                title={formatStatusText(status)}
+                              />
+                            );
+                          })}
+                      </div>
+                    )}
+                  </div>
                 </CardTitle>
+                
+                {/* Area label below the status badge */}
+                {establishment.area && (
+                  <div className="mt-2">
+                    <span className="text-sm text-muted-foreground">Area: </span>
+                    <span className="text-sm font-medium">{establishment.area}</span>
+                  </div>
+                )}
               </motion.div>
             </div>
             <div className="flex flex-col items-end gap-1 flex-shrink-0">
@@ -196,14 +222,60 @@ export function EstablishmentList({
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 <h3 className="font-semibold text-base truncate">{establishment.name}</h3>
-                <Badge 
-                  variant="outline" 
-                  className={cn("flex-shrink-0 text-xs", getStatusTextColor(establishment.statuses))}
-                >
-                  {establishment.statuses && establishment.statuses.length > 0 
-                    ? formatStatusText(establishment.statuses[0]) 
-                    : 'Unknown'}
-                </Badge>
+                
+                {/* Status Badge with Hierarchy */}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <Badge 
+                    variant="outline" 
+                    className={cn("text-xs", getStatusTextColor(getBestStatus(establishment.statuses || [])))}
+                  >
+                    {establishment.statuses && establishment.statuses.length > 0 
+                      ? formatStatusText(getBestStatus(establishment.statuses))
+                      : 'Unknown'}
+                  </Badge>
+                  
+                  {/* Additional status dots - Fixed color logic */}
+                  {establishment.statuses && establishment.statuses.length > 1 && (
+                    <div className="flex gap-1">
+                      {establishment.statuses
+                        .filter(status => status !== getBestStatus(establishment.statuses))
+                        .map((status, index) => {
+                          // Get the solid color for the dot
+                          let dotColor = '';
+                          switch (status) {
+                            case 'declined_rack':
+                              dotColor = 'bg-red-500';
+                              break;
+                            case 'for_scouting':
+                              dotColor = 'bg-gray-500';
+                              break;
+                            case 'for_follow_up':
+                              dotColor = 'bg-orange-500';
+                              break;
+                            case 'accepted_rack':
+                              dotColor = 'bg-blue-500';
+                              break;
+                            case 'for_replenishment':
+                              dotColor = 'bg-purple-500';
+                              break;
+                            case 'has_bible_studies':
+                              dotColor = 'bg-emerald-500';
+                              break;
+                            default:
+                              dotColor = 'bg-gray-500';
+                          }
+                          
+                          return (
+                            <div
+                              key={status}
+                              className={cn("w-1.5 h-1.5 rounded-full", dotColor)}
+                              title={formatStatusText(status)}
+                            />
+                          );
+                        })}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                 {establishment.area && (
@@ -259,8 +331,15 @@ export function EstablishmentList({
     <div className="w-full">
       {/* Controls Row - Toggle and Results Count on same line */}
       <div className="flex items-center justify-between mb-4">
-        <div className="text-sm text-muted-foreground">
-          Showing {establishments.length} establishments
+        <div className="flex items-center space-x-2">
+          <Switch
+            id="myEstablishments"
+            checked={myEstablishmentsOnly || false}
+            onCheckedChange={onMyEstablishmentsChange || (() => {})}
+          />
+          <label htmlFor="myEstablishments" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+            My Establishments
+          </label>
         </div>
         
         {/* View Toggle - Toggle switch with smooth layout animation */}
@@ -269,7 +348,7 @@ export function EstablishmentList({
           style={{
             width: 70,
             height: 36,
-            backgroundColor: "rgba(66, 153, 225, 0.2)",
+            backgroundColor: "#171717",
             borderRadius: 36,
             cursor: "pointer",
             display: "flex",
@@ -292,7 +371,7 @@ export function EstablishmentList({
             <Grid3X3 
               className="h-4 w-4" 
               style={{ 
-                color: viewMode === 'compact' ? "rgb(66, 153, 225)" : "rgba(66, 153, 225, 0.5)" 
+                color: viewMode === 'compact' ? "rgb(104,104,104)" : "rgb(10, 10, 10)" 
               }} 
             />
           </div>
@@ -310,7 +389,7 @@ export function EstablishmentList({
             <List 
               className="h-4 w-4" 
               style={{ 
-                color: viewMode === 'detailed' ? "rgb(66, 153, 225)" : "rgba(66, 153, 225, 0.5)" 
+                color: viewMode === 'detailed' ? "rgb(104,104,104)" : "rgb(10, 10, 10)"
               }} 
             />
           </div>
@@ -320,7 +399,7 @@ export function EstablishmentList({
             style={{
               width: 28,
               height: 28,
-              backgroundColor: "rgb(66, 153, 225)",
+              backgroundColor: "rgb(10, 10, 10)",
               borderRadius: "50%",
             }}
             layout

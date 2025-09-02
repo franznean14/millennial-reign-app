@@ -45,34 +45,42 @@ export function EstablishmentDetails({
   };
 
   const getStatusColor = (statuses: string[]) => {
-    // Use the first status for color coding
+    // Use the first status for color coding - consistent with EstablishmentList
     const primaryStatus = statuses?.[0] || '';
     switch (primaryStatus) {
+      case 'for_scouting':
+        return 'border-gray-500/50 bg-gray-500/5';
       case 'for_follow_up':
         return 'border-orange-500/50 bg-orange-500/5';
-      case 'has_bible_studies':
-        return 'border-green-500/50 bg-green-500/5';
+      case 'for_replenishment':
+        return 'border-purple-500/50 bg-purple-500/5'; // Better - purple
       case 'accepted_rack':
-        return 'border-blue-500/50 bg-blue-500/5';
+        return 'border-blue-500/50 bg-blue-500/5'; // Good - blue
       case 'declined_rack':
         return 'border-red-500/50 bg-red-500/5';
+      case 'has_bible_studies':
+        return 'border-emerald-500/50 bg-emerald-500/10'; // Best - emerald with more opacity
       default:
         return 'border-gray-500/50 bg-gray-500/5';
     }
   };
 
   const getStatusTextColor = (statuses: string[]) => {
-    // Use the first status for color coding
+    // Use the first status for color coding - consistent with EstablishmentList
     const primaryStatus = statuses?.[0] || '';
     switch (primaryStatus) {
+      case 'for_scouting':
+        return 'text-gray-500 border-gray-500/50';
       case 'for_follow_up':
         return 'text-orange-500 border-orange-500/50';
-      case 'has_bible_studies':
-        return 'text-green-500 border-green-500/50';
+      case 'for_replenishment':
+        return 'text-purple-500 border-purple-500/50'; // Better - purple
       case 'accepted_rack':
-        return 'text-blue-500 border-blue-500/50';
+        return 'text-blue-500 border-blue-500/50'; // Good - blue
       case 'declined_rack':
         return 'text-red-500 border-red-500/50';
+      case 'has_bible_studies':
+        return 'text-emerald-500 border-emerald-500/50'; // Best - emerald
       default:
         return 'text-gray-500 border-gray-500/50';
     }

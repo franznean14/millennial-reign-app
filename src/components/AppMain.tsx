@@ -2,18 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { HomeView } from "./views/HomeView";
-import { BusinessView } from "./views/BusinessView";
-import { CongregationView } from "./views/CongregationView";
-import { AccountView } from "./views/AccountView";
+import { AppClient } from "./AppClient";
 import { LoginView } from "./views/LoginView";
-import { 
-  SkeletonHomeView, 
-  SkeletonBusinessView, 
-  SkeletonCongregationView, 
-  SkeletonAccountView 
-} from "./views/SkeletonViews";
 import { AnimatePresence } from "motion/react";
+import { Label } from "@/components/ui/label";
 
 interface AppMainProps {
   currentSection: string;
@@ -34,55 +26,28 @@ export function AppMain({ currentSection }: AppMainProps) {
     fetchUser();
   }, []);
 
-  const renderCurrentSection = () => {
-    // Show login view if not authenticated
-    if (!userId) {
-      return <LoginView />;
-    }
+  // Show login view if not authenticated
+  if (!userId) {
+    return <LoginView />;
+  }
 
-    // Show skeleton loading while user data is loading
-    if (isLoadingUser) {
-      switch (currentSection) {
-        case 'home':
-          return <SkeletonHomeView />;
-        case 'business':
-          return <SkeletonBusinessView />;
-        case 'congregation':
-          return <SkeletonCongregationView />;
-        case 'account':
-          return <SkeletonAccountView />;
-        default:
-          return <SkeletonHomeView />;
-      }
-    }
+  // Show loading while user data is loading
+  if (isLoadingUser) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
-    // Render actual views
-    switch (currentSection) {
-      case 'home':
-        return (
-          <HomeView 
-            userId={userId}
-          />
-        );
-      case 'business':
-        return <BusinessView />;
-      case 'congregation':
-        return <CongregationView />;
-      case 'account':
-        return <AccountView />;
-      default:
-        return (
-          <HomeView 
-            userId={userId}
-          />
-        );
-    }
-  };
-
+  // Render AppClient which manages all the business logic and state
   return (
     <div className="flex-1 overflow-auto">
       <AnimatePresence mode="wait">
-        {renderCurrentSection()}
+        <AppClient currentSection={currentSection} />
       </AnimatePresence>
     </div>
   );

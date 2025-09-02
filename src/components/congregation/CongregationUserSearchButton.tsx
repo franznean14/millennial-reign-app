@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import { UserSearchDrawer } from "./UserSearchDrawer";
+import { ResponsiveModal } from "@/components/ui/responsive-modal";
+import { AddUserToCongregationForm } from "./AddUserToCongregationForm";
 
 interface CongregationUserSearchButtonProps {
   congregationId: string | null;
@@ -30,17 +31,22 @@ export function CongregationUserSearchButton({ congregationId, canEdit, onRefres
         <Plus className="h-6 w-6" />
       </Button>
 
-      {/* User Search Drawer */}
-      <UserSearchDrawer
-        isOpen={searchDrawerOpen}
-        onClose={() => setSearchDrawerOpen(false)}
-        onUserAdded={(user) => {
-          // Trigger refresh of the members list
-          onRefresh();
-          // The drawer will stay open, user can close it manually
-        }}
-        currentCongregationId={congregationId}
-      />
+      {/* User Search Modal */}
+      <ResponsiveModal
+        open={searchDrawerOpen}
+        onOpenChange={setSearchDrawerOpen}
+        title="Add User to Congregation"
+        description="Search for users by username or email"
+      >
+        <AddUserToCongregationForm
+          congregationId={congregationId}
+          onUserAdded={(user: any) => {
+            onRefresh();
+            setSearchDrawerOpen(false);
+          }}
+          onClose={() => setSearchDrawerOpen(false)}
+        />
+      </ResponsiveModal>
     </>
   );
 }
