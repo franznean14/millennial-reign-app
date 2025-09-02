@@ -35,7 +35,7 @@ export function AccountView() {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           setUid(user.id);
-          setEmail(user.email);
+          setEmail(user.email || null);
           try {
             localStorage.setItem("has_password", user.app_metadata?.provider === "email" ? "1" : "0");
             setHasPassword(user.app_metadata?.provider === "email");

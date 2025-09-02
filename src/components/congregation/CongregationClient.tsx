@@ -62,7 +62,7 @@ export function CongregationClient() {
   if (!uid) return <div className="text-sm opacity-70">Sign in to manage your congregation.</div>;
   
   // Show message for users without congregation assignment
-  if (!(profile as any)?.congregation_id) {
+  if (!(profile as any)?.congregation_id && !cong?.id) {
     return (
       <div className="rounded-md border p-4">
         <div className="text-base font-medium">No congregation assigned</div>
@@ -117,7 +117,6 @@ export function CongregationClient() {
         onOpenChange={setModalOpen}
         title={mode === "edit" ? "Edit Congregation" : "Create Congregation"}
         description={mode === "edit" ? "Update meeting times and details for your congregation." : "Only admins can create a new congregation."}
-        className="sm:max-w-[640px]"
       >
         <CongregationForm
           initial={initial}

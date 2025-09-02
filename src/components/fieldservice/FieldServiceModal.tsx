@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getDailyRecord, listDailyByMonth, upsertDailyRecord, isDailyEmpty, deleteDailyRecord } from "@/lib/db/dailyRecords";
 import { useMobile } from "@/lib/hooks/use-mobile";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 function toLocalStr(d: Date) {
   const y = d.getFullYear();
@@ -16,8 +17,14 @@ function toLocalStr(d: Date) {
   return `${y}-${m}-${day}`;
 }
 
-export function FieldServiceModal({ userId }: { userId: string }) {
-  const [open, setOpen] = useState(false);
+interface FieldServiceModalProps {
+  userId: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
+export function FieldServiceModal({ userId, open, onOpenChange }: FieldServiceModalProps) {
+  const [internalOpen, setInternalOpen] = useState(false);
   const isMobile = useMobile();
   const [view, setView] = useState<Date>(new Date());
   const [date, setDate] = useState<string>(toLocalStr(new Date()));
@@ -28,6 +35,17 @@ export function FieldServiceModal({ userId }: { userId: string }) {
   const notifyRef = useRef<any>(null);
   const [dirty, setDirty] = useState(false);
   const [monthMarks, setMonthMarks] = useState<Record<string, boolean>>({});
+  const [formData, setFormData] = useState({
+    date: new Date(),
+    hours: 0,
+    bibleStudies: [],
+    note: ""
+  });
+  const [saving, setSaving] = useState(false);
+
+  // Use external control if provided, otherwise use internal state
+  const isOpen = open !== undefined ? open : internalOpen;
+  const setIsOpen = onOpenChange || setInternalOpen;
 
   const monthLabel = useMemo(() => view.toLocaleString(undefined, { month: "long", year: "numeric" }), [view]);
 
@@ -122,6 +140,40 @@ export function FieldServiceModal({ userId }: { userId: string }) {
     const next = new Date(view);
     next.setMonth(next.getMonth() + delta);
     setView(next);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { error } = await supabase
+        .from('daily_records')
+        .insert({
+          user_id: userId,
+          date: formData.date.toISOString().split('T')[0],
+          hours: formData.hours,
+          bible_studies: formData.bibleStudies,
+          note: formData.note || null
+        });
+
+      if (error) throw error;
+      
+      toast.success("Daily record added successfully");
+      setIsOpen(false);
+      setFormData({
+        date: new Date(),
+        hours: 0,
+        bibleStudies: [],
+        note: ""
+      });
+    } catch (error: any) {
+      console.error('Error adding daily record:', error);
+      toast.error(error.message || "Failed to add daily record");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const Panel = (
@@ -276,11 +328,11 @@ export function FieldServiceModal({ userId }: { userId: string }) {
   );
 
   useEffect(() => {
-    if (open) {
+    if (isOpen) {
       loadMonthMarks();
       load(date);
     }
-  }, [open, view]);
+  }, [isOpen, view]);
 
   useEffect(() => {
     if (dirty) {
@@ -294,9 +346,9 @@ export function FieldServiceModal({ userId }: { userId: string }) {
 
   return (
     <>
-      {!open && (
+      {!isOpen && (
         <Button
-          onClick={() => setOpen(true)}
+          onClick={() => setIsOpen(true)}
           className="fixed right-4 z-40 h-14 w-14 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-200 hover:scale-110 active:scale-95 touch-manipulation md:right-6 bottom-[calc(max(env(safe-area-inset-bottom),0px)+80px)] md:bottom-[104px]"
           size="lg"
         >
@@ -305,8 +357,8 @@ export function FieldServiceModal({ userId }: { userId: string }) {
       )}
       
       <ResponsiveModal
-        open={open}
-        onOpenChange={setOpen}
+        open={isOpen}
+        onOpenChange={setIsOpen}
         title="Field Service"
         description="Record your field service activity for the selected date"
         className={isMobile ? "p-0 w-full" : "w-[min(96vw,720px)]"}

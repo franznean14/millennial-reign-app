@@ -609,9 +609,10 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.transfer_user_to_congregation(uuid, uuid) TO authenticated;
 
+-- Fix the get_my_congregation function
 CREATE OR REPLACE FUNCTION public.get_my_congregation()
 RETURNS public.congregations LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, auth AS $$
-  SELECT c.* FROM public.congregations c JOIN public.profiles p ON p.id = c.id WHERE p.id = auth.uid();
+  SELECT c.* FROM public.congregations c JOIN public.profiles p ON p.congregation_id = c.id WHERE p.id = auth.uid();
 $$;
 
 GRANT EXECUTE ON FUNCTION public.get_my_congregation() TO authenticated;
@@ -696,6 +697,37 @@ RETURNS TABLE (
 $$;
 
 GRANT EXECUTE ON FUNCTION public.get_congregation_groups() TO authenticated;
+
+-- User search function for elders (ultra-simple working version)
+CREATE OR REPLACE FUNCTION public.search_user_by_username_or_email(search_term text)
+RETURNS TABLE (
+  user_id uuid, first_name text, last_name text, email text, username text, 
+  avatar_url text, congregation_id uuid, group_name text
+) LANGUAGE sql SECURITY DEFINER SET search_path = public, auth AS $$
+  -- Check if current user is an elder
+  SELECT 
+    p.id as user_id,
+    p.first_name,
+    p.last_name,
+    u.email,
+    p.username,
+    p.avatar_url,
+    p.congregation_id,
+    p.group_name
+  FROM public.profiles p
+  LEFT JOIN auth.users u ON u.id = p.id
+  WHERE (p.username = search_term OR u.email = search_term)
+    AND EXISTS (
+      SELECT 1 FROM public.profiles 
+      WHERE id = auth.uid() 
+      AND privileges @> array['Elder']::text[]
+    )
+    AND p.congregation_id = (
+      SELECT congregation_id FROM public.profiles WHERE id = auth.uid()
+    )
+$$;
+
+GRANT EXECUTE ON FUNCTION public.search_user_by_username_or_email(text) TO authenticated;
 
 -- ==============================================
 -- Grants
