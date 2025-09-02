@@ -41,7 +41,7 @@ export function CongregationView({ data, onEdit, canEdit }: CongregationViewProp
   };
 
   return (
-    <div className="space-y-6 pb-4"> {/* Remove pb-24 since parent handles it */}
+    <div className="space-y-6"> {/* Remove pb-24 since parent handles it */}
       {/* Congregation Details Card */}
       <section className="rounded-md border p-4 space-y-4">
         <div className="flex items-center justify-between">

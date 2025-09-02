@@ -636,33 +636,56 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.is_business_participant() TO authenticated;
 
-CREATE OR REPLACE FUNCTION public.toggle_business_participation()
+-- Toggle BWI participation for a specific user (elders only)
+CREATE OR REPLACE FUNCTION public.toggle_user_business_participation(target_user_id uuid)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   user_congregation_id uuid;
   is_participant boolean;
+  can_manage boolean;
 BEGIN
-  SELECT congregation_id INTO user_congregation_id FROM public.profiles WHERE id = auth.uid();
-  IF user_congregation_id IS NULL THEN RAISE EXCEPTION 'User not assigned to a congregation'; END IF;
+  -- Check if current user can manage this user's BWI participation
+  SELECT (
+    public.is_admin(auth.uid()) OR EXISTS (
+      SELECT 1 FROM public.profiles me, public.profiles target
+      WHERE me.id = auth.uid() AND target.id = target_user_id
+      AND me.privileges @> array['Elder']::text[] 
+      AND me.congregation_id = target.congregation_id
+      AND me.congregation_id IS NOT NULL
+    )
+  ) INTO can_manage;
+
+  IF NOT COALESCE(can_manage, false) THEN
+    RAISE EXCEPTION 'insufficient_privilege: only an elder of the same congregation or an admin may manage BWI participation';
+  END IF;
+
+  -- Get the target user's congregation
+  SELECT congregation_id INTO user_congregation_id FROM public.profiles WHERE id = target_user_id;
+  IF user_congregation_id IS NULL THEN 
+    RAISE EXCEPTION 'User not assigned to a congregation'; 
+  END IF;
   
+  -- Check current participation status
   SELECT EXISTS (
     SELECT 1 FROM public.business_participants
-    WHERE user_id = auth.uid() AND congregation_id = user_congregation_id AND active = true
+    WHERE user_id = target_user_id AND congregation_id = user_congregation_id AND active = true
   ) INTO is_participant;
   
+  -- Toggle participation
   IF is_participant THEN
-    DELETE FROM public.business_participants WHERE user_id = auth.uid() AND congregation_id = user_congregation_id;
+    DELETE FROM public.business_participants 
+    WHERE user_id = target_user_id AND congregation_id = user_congregation_id;
     RETURN false;
   ELSE
     INSERT INTO public.business_participants (congregation_id, user_id, active)
-    VALUES (user_congregation_id, auth.uid(), true)
+    VALUES (user_congregation_id, target_user_id, true)
     ON CONFLICT (congregation_id, user_id) DO UPDATE SET active = true;
     RETURN true;
   END IF;
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.toggle_business_participation() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.toggle_user_business_participation(uuid) TO authenticated;
 
 -- Group functions
 CREATE OR REPLACE FUNCTION public.get_users_by_group(group_name_param text)
