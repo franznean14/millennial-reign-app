@@ -220,11 +220,11 @@ export function EstablishmentList({
           <div className="flex items-center justify-between gap-3 flex-wrap min-w-0">
             {/* Left side - Name and status */}
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
+              <div className="flex items-center gap-2 mb-1 flex-wrap min-w-0">
                 <h3 className="font-semibold text-base truncate">{establishment.name}</h3>
                 
                 {/* Status Badge with Hierarchy */}
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-2">
                   <Badge 
                     variant="outline" 
                     className={cn("text-xs", getStatusTextColor(getBestStatus(establishment.statuses || [])))}

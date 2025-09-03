@@ -58,7 +58,7 @@ export function AppMain({ currentSection }: AppMainProps) {
 
   // Render AppClient which manages all the business logic and state
   return (
-    <div className="flex-1 overflow-auto">
+    <div className="flex-1 overflow-auto w-full max-w-full overflow-x-hidden">
       <AnimatePresence mode="wait">
         <AppClient currentSection={currentSection} />
       </AnimatePresence>

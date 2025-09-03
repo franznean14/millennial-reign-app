@@ -62,7 +62,7 @@ export function AppChrome({ children }: AppChromeProps) {
         userPermissions={userPermissions}
       />
       
-      <div className="mx-auto flex max-w-screen-lg">
+      <div className="mx-auto flex max-w-screen-lg w-full overflow-x-hidden">
         {/* Desktop Sidebar Navigation */}
         <nav className="hidden lg:flex flex-col w-64 border-r border-border/50 bg-background/50 backdrop-blur">
           <div className="p-4 border-b border-border/50">
@@ -91,7 +91,7 @@ export function AppChrome({ children }: AppChromeProps) {
           </div>
         </nav>
         
-        <main className="min-h-[calc(100dvh-56px)] flex-1 px-4 py-6">{children}</main>
+        <main className="min-h-[calc(100dvh-56px)] flex-1 px-4 py-6 w-full overflow-x-hidden">{children}</main>
       </div>
       
       {/* Bottom Navigation (Mobile) */}

@@ -465,7 +465,7 @@ export function AppClient({ currentSection }: AppClientProps) {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 20 }}
           transition={{ duration: 0.3 }}
-          className="space-y-6 pb-24" // Add bottom padding for navbar
+          className="space-y-6 pb-24 w-full max-w-full overflow-x-hidden" // Ensure mobile width is respected
         >
           <HomeSummary
             userId={userId}
@@ -492,7 +492,7 @@ export function AppClient({ currentSection }: AppClientProps) {
         >
           {!selectedEstablishment && (
             <motion.div 
-              className="flex items-center justify-between overflow-hidden"
+              className="flex items-center justify-between overflow-hidden w-full max-w-full"
               layout
               animate={{ 
                 height: filtersModalOpen ? 0 : "auto",
@@ -504,7 +504,7 @@ export function AppClient({ currentSection }: AppClientProps) {
                 height: { duration: 0.3, ease: "easeOut" }
               }}
             >
-              <div className="relative flex-1 max-w-md">
+              <div className="relative flex-1 min-w-0">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search establishments..."
