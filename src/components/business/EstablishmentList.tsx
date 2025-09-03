@@ -130,7 +130,7 @@ export function EstablishmentList({
                             return (
                               <div
                                 key={status}
-                                className={cn("w-2 h-2 rounded-full", dotColor)}
+                                className={cn("w-3 h-3 rounded-full", dotColor)}
                                 title={formatStatusText(status)}
                               />
                             );
@@ -240,7 +240,7 @@ export function EstablishmentList({
                   
                   {/* Additional status dots - Fixed color logic */}
                   {establishment.statuses && establishment.statuses.length > 1 && (
-                    <div className="flex gap-0.5">
+                    <div className="flex gap-1">
                       {establishment.statuses
                         .filter(status => status !== getBestStatus(establishment.statuses))
                         .map((status, index) => {
@@ -272,7 +272,7 @@ export function EstablishmentList({
                           return (
                             <div
                               key={status}
-                              className={cn("w-1 h-1 rounded-full", dotColor)}
+                              className={cn("w-3 h-3 rounded-full", dotColor)}
                               title={formatStatusText(status)}
                             />
                           );

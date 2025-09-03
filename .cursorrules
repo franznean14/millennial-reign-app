@@ -38,6 +38,12 @@
 - **Server components** only for initial auth checks and static content
 - **State-driven rendering** - UI changes based on state, not route changes
 
+### Status Hierarchy (Business)
+- Always use `STATUS_HIERARCHY` and helpers from `src/lib/utils/status-hierarchy.ts` for any establishment status rendering.
+- Determine the primary status via `getBestStatus(statuses)`.
+- Use `getStatusColor(primaryStatus)` for card/background and `getStatusTextColor(primaryStatus)` for badges.
+- Do not hardcode status colors/order in components; import the helpers instead to keep list and details consistent.
+
 ## Styling & Theming
 - Use shadcn/ui's CSS variables for colors, spacing, and typography
 - Follow shadcn/ui's design system for consistent visual hierarchy

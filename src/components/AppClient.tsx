@@ -417,22 +417,16 @@ export function AppClient({ currentSection }: AppClientProps) {
       // My Establishments filter
       if (filters.myEstablishments) {
         // Show establishments where:
-        // 1. User created the establishment, OR
-        // 2. User has visited the establishment (check if user is in top_visitors)
+        // 1) User created the establishment, OR
+        // 2) User visited the establishment (based on full visit history, not just top_visitors)
         const isCreator = establishment.created_by === userId;
-        
-        // Check if current user is in the top_visitors array
-        const hasVisited = establishment.top_visitors && 
-          establishment.top_visitors.some(visitor => visitor.user_id === userId);
-        
-        if (!isCreator && !hasVisited) {
-          return false;
-        }
+        const visitedByUser = establishment.id ? userVisitedEstablishments.has(establishment.id) : false;
+        if (!isCreator && !visitedByUser) return false;
       }
       
       return true;
     });
-  }, [establishments, filters, userId]);
+  }, [establishments, filters, userId, userVisitedEstablishments]);
 
   const areaOptions = useMemo(() => {
     const areas = establishments
@@ -519,7 +513,6 @@ export function AppClient({ currentSection }: AppClientProps) {
           exit={{ opacity: 0, x: 20 }}
           transition={{ duration: 0.3 }}
           className="space-y-6 pb-24" // Add bottom padding for navbar
-          layout // Add layout animation to the entire business view
         >
           {!selectedEstablishment && (
             <motion.div 
@@ -558,7 +551,6 @@ export function AppClient({ currentSection }: AppClientProps) {
 
           <motion.div 
             className="w-full"
-            layout // Add layout animation to the content container
             transition={{ duration: 0.3, ease: "easeOut" }}
           >
             <AnimatePresence mode="wait">
@@ -570,7 +562,6 @@ export function AppClient({ currentSection }: AppClientProps) {
                   exit={{ opacity: 0, x: -20 }}
                   transition={{ duration: 0.3 }}
                   className="w-full"
-                  layout // Add layout animation to the list
                 >
                   <EstablishmentList
                     establishments={filteredEstablishments}

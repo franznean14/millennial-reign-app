@@ -100,7 +100,6 @@ export function BusinessFiltersForm({
             placeholder="Search establishments..."
             value={localFilters.search}
             onChange={(e) => handleSearchChange(e.target.value)}
-            autoFocus
           />
         </div>
 

@@ -10,6 +10,7 @@ import { ChevronLeft, MapPin, Building2, MapPinned, Calendar, Users, Edit } from
 import { ResponsiveModal } from "@/components/ui/responsive-modal";
 import { type EstablishmentWithDetails, type VisitWithUser, type HouseholderWithDetails } from "@/lib/db/business";
 import { cn } from "@/lib/utils";
+import { getBestStatus, getStatusColor, getStatusTextColor } from "@/lib/utils/status-hierarchy";
 import { EstablishmentForm } from "@/components/business/EstablishmentForm";
 
 interface EstablishmentDetailsProps {
@@ -44,47 +45,8 @@ export function EstablishmentDetails({
     });
   };
 
-  const getStatusColor = (statuses: string[]) => {
-    // Use the first status for color coding - consistent with EstablishmentList
-    const primaryStatus = statuses?.[0] || '';
-    switch (primaryStatus) {
-      case 'for_scouting':
-        return 'border-gray-500/50 bg-gray-500/5';
-      case 'for_follow_up':
-        return 'border-orange-500/50 bg-orange-500/5';
-      case 'for_replenishment':
-        return 'border-purple-500/50 bg-purple-500/5'; // Better - purple
-      case 'accepted_rack':
-        return 'border-blue-500/50 bg-blue-500/5'; // Good - blue
-      case 'declined_rack':
-        return 'border-red-500/50 bg-red-500/5';
-      case 'has_bible_studies':
-        return 'border-emerald-500/50 bg-emerald-500/10'; // Best - emerald with more opacity
-      default:
-        return 'border-gray-500/50 bg-gray-500/5';
-    }
-  };
-
-  const getStatusTextColor = (statuses: string[]) => {
-    // Use the first status for color coding - consistent with EstablishmentList
-    const primaryStatus = statuses?.[0] || '';
-    switch (primaryStatus) {
-      case 'for_scouting':
-        return 'text-gray-500 border-gray-500/50';
-      case 'for_follow_up':
-        return 'text-orange-500 border-orange-500/50';
-      case 'for_replenishment':
-        return 'text-purple-500 border-purple-500/50'; // Better - purple
-      case 'accepted_rack':
-        return 'text-blue-500 border-blue-500/50'; // Good - blue
-      case 'declined_rack':
-        return 'text-red-500 border-red-500/50';
-      case 'has_bible_studies':
-        return 'text-emerald-500 border-emerald-500/50'; // Best - emerald
-      default:
-        return 'text-gray-500 border-gray-500/50';
-    }
-  };
+  // Primary status by hierarchy for consistent coloring
+  const primaryStatus = getBestStatus(establishment.statuses || []);
 
   const handleEditSaved = (updatedEstablishment: any) => {
     setIsEditing(false);
@@ -160,7 +122,7 @@ export function EstablishmentDetails({
 
       {/* Basic Establishment Info with Direction Button */}
       <motion.div layout className="w-full">
-        <Card className={cn("w-full", getStatusColor(establishment.statuses))}>
+        <Card className={cn("w-full", getStatusColor(primaryStatus))}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Building2 className="h-5 w-5 flex-shrink-0" />
@@ -171,21 +133,46 @@ export function EstablishmentDetails({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Status</p>
-                <div className="flex flex-wrap gap-1">
-                  {establishment.statuses && establishment.statuses.length > 0 ? (
-                    establishment.statuses.map((status, index) => (
-                      <Badge 
-                        key={index}
-                        variant="outline" 
-                        className={cn("flex-shrink-0", getStatusTextColor([status]))}
-                      >
-                        {formatStatusText(status)}
-                      </Badge>
-                    ))
-                  ) : (
-                    <Badge variant="outline" className="text-gray-500 border-gray-500/50">
-                      Unknown
-                    </Badge>
+                <div className="flex items-center gap-2">
+                  <Badge 
+                    variant="outline" 
+                    className={cn("flex-shrink-0", getStatusTextColor(primaryStatus))}
+                  >
+                    {formatStatusText(primaryStatus)}
+                  </Badge>
+                  {establishment.statuses && establishment.statuses.length > 1 && (
+                    <div className="flex gap-1">
+                      {establishment.statuses
+                        .filter((s) => s !== primaryStatus)
+                        .map((status) => {
+                          let dotColor = '';
+                          switch (status) {
+                            case 'declined_rack':
+                              dotColor = 'bg-red-500';
+                              break;
+                            case 'for_scouting':
+                              dotColor = 'bg-gray-500';
+                              break;
+                            case 'for_follow_up':
+                              dotColor = 'bg-orange-500';
+                              break;
+                            case 'accepted_rack':
+                              dotColor = 'bg-blue-500';
+                              break;
+                            case 'for_replenishment':
+                              dotColor = 'bg-purple-500';
+                              break;
+                            case 'has_bible_studies':
+                              dotColor = 'bg-emerald-500';
+                              break;
+                            default:
+                              dotColor = 'bg-gray-500';
+                          }
+                          return (
+                            <div key={status} className={cn("w-2 h-2 rounded-full", dotColor)} title={formatStatusText(status)} />
+                          );
+                        })}
+                    </div>
                   )}
                 </div>
               </div>
