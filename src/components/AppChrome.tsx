@@ -1,15 +1,18 @@
 "use client";
 
-import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
-import { FloatingBridge } from "@/components/fieldservice/FloatingBridge";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
-import OfflineInit from "@/components/OfflineInit";
-import SyncBanner from "@/components/SyncBanner";
-import OnlineBanner from "@/components/OnlineBanner";
-import BiometricGate from "@/components/BiometricGate";
 import { AppTopbar } from "@/components/AppTopbar";
 import { Home, Landmark, Briefcase, User } from "lucide-react";
 import { useSPA } from "@/components/SPAProvider";
+
+// Defer non-critical chrome to reduce initial JS
+const OfflineInit = dynamic(() => import("@/components/OfflineInit"), { ssr: false });
+const ServiceWorkerRegister = dynamic(() => import("@/components/ServiceWorkerRegister"), { ssr: false });
+const SyncBanner = dynamic(() => import("@/components/SyncBanner"), { ssr: false });
+const OnlineBanner = dynamic(() => import("@/components/OnlineBanner"), { ssr: false });
+const BiometricGate = dynamic(() => import("@/components/BiometricGate"), { ssr: false });
+const FloatingBridge = dynamic(() => import("@/components/fieldservice/FloatingBridge").then(m => m.FloatingBridge), { ssr: false });
 
 interface AppChromeProps {
   children: React.ReactNode;
