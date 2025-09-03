@@ -217,7 +217,7 @@ export function EstablishmentList({
         onClick={() => onEstablishmentClick(establishment)}
       >
         <div className="p-3">
-          <div className="flex items-center justify-between gap-3 flex-wrap min-w-0">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3 min-w-0">
             {/* Left side - Name and status */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1 flex-wrap min-w-0">
@@ -310,7 +310,7 @@ export function EstablishmentList({
             </div>
 
             {/* Right side - Stats and avatars */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 w-full sm:w-auto">
               {/* Compact stats */}
               <div className="flex items-center gap-2 text-xs">
                 <div className="text-center">
