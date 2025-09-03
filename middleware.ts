@@ -37,6 +37,13 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(url);
   }
 
+  // SPA sections: rewrite known section paths (and subpaths) to root so refreshes don't 404
+  if (/^\/(congregation|business|account)(?:\/.*)?$/.test(pathname)) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/";
+    return NextResponse.rewrite(url);
+  }
+
   return NextResponse.next();
 }
 

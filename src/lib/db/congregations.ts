@@ -1,6 +1,7 @@
 "use client";
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { cacheGet, cacheSet } from "@/lib/offline/store";
 import { toast } from "@/components/ui/sonner";
 
 export interface Congregation {
@@ -23,10 +24,18 @@ export async function getMyCongregation(): Promise<Congregation | null> {
     await supabase.auth.getSession();
   } catch {}
   try {
+    // Serve cached immediately when offline
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      const cached = await cacheGet<Congregation>("cong:mine");
+      return cached ?? null;
+    }
     const { data } = await supabase.rpc("get_my_congregation");
-    return (data as any) ?? null;
+    const cong = (data as any) ?? null;
+    if (cong) await cacheSet("cong:mine", cong);
+    return cong;
   } catch {
-    return null;
+    const cached = await cacheGet<Congregation>("cong:mine");
+    return cached ?? null;
   }
 }
 

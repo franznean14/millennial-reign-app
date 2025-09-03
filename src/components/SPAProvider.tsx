@@ -80,6 +80,23 @@ export function SPAProvider({ children }: { children: ReactNode }) {
     checkAuth();
   }, []);
 
+  // Derive current section from URL on first load and on history navigation
+  useEffect(() => {
+    const syncFromPath = () => {
+      try {
+        const path = typeof window !== 'undefined' ? window.location.pathname : '/';
+        const seg = path === '/' ? 'home' : path.replace(/^\/+/, '').split('/')[0] || 'home';
+        const allowed = new Set(['home','congregation','business','account']);
+        if (allowed.has(seg) && seg !== currentSection) {
+          setCurrentSection(seg);
+        }
+      } catch {}
+    };
+    syncFromPath();
+    window.addEventListener('popstate', syncFromPath);
+    return () => window.removeEventListener('popstate', syncFromPath);
+  }, [currentSection]);
+
   const value: SPAContextType = {
     currentSection,
     userPermissions,

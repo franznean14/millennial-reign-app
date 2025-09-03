@@ -1,6 +1,7 @@
 "use client";
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { cacheGet, cacheSet } from "@/lib/offline/store";
 
 export interface BusinessFiltersState {
   search: string;
@@ -126,13 +127,26 @@ export async function isBusinessParticipant(): Promise<boolean> {
 export async function listEstablishments(): Promise<Establishment[]> {
   const supabase = createSupabaseBrowserClient();
   await supabase.auth.getSession().catch(() => {});
-  const { data } = await supabase
-    .from('business_establishments')
-    .select('*')
-    .eq('is_deleted', false)
-    .eq('is_archived', false)
-    .order('updated_at', { ascending: false });
-  return (data as any) ?? [];
+  const cacheKey = 'establishments:list';
+  try {
+    // If offline, serve from cache
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const cached = await cacheGet<Establishment[]>(cacheKey);
+      return cached ?? [];
+    }
+    const { data } = await supabase
+      .from('business_establishments')
+      .select('*')
+      .eq('is_deleted', false)
+      .eq('is_archived', false)
+      .order('updated_at', { ascending: false });
+    const list = (data as any) ?? [];
+    await cacheSet(cacheKey, list);
+    return list;
+  } catch {
+    const cached = await cacheGet<Establishment[]>(cacheKey);
+    return cached ?? [];
+  }
 }
 
 export async function upsertEstablishment(establishment: {
