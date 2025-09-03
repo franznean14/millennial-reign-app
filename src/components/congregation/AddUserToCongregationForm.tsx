@@ -229,7 +229,7 @@ export function AddUserToCongregationForm({ congregationId, onUserAdded, onClose
     searchResult.congregation_id !== congregationId;
 
   return (
-    <div className="space-y-6 pb-4">
+    <div className="space-y-6 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] max-h-[70vh] overflow-y-auto">
       <div className="space-y-4">
         <Label htmlFor="search">Search by Username or Email</Label>
         <Input

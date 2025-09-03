@@ -1,6 +1,5 @@
 -- ==============================================
--- Millennial Reign App - Safe Database Schema
--- Can be run multiple times without data loss
+-- Millennial Reign App - Complete Database Schema Restoration
 -- ==============================================
 
 -- Extensions
@@ -201,7 +200,44 @@ CREATE TABLE IF NOT EXISTS public.business_visits (
 );
 
 -- ==============================================
--- Triggers
+-- Helper Functions (MUST BE CREATED BEFORE POLICIES)
+-- ==============================================
+
+-- Admin check
+CREATE OR REPLACE FUNCTION public.is_admin(uid uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (SELECT 1 FROM public.admin_users a WHERE a.user_id = uid);
+$$;
+
+GRANT EXECUTE ON FUNCTION public.is_admin(uuid) TO anon, authenticated;
+
+-- Elder check
+CREATE OR REPLACE FUNCTION public.is_elder(uid uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = uid AND p.privileges @> array['Elder']::text[]);
+$$;
+
+GRANT EXECUTE ON FUNCTION public.is_elder(uuid) TO anon, authenticated;
+
+-- Same congregation check
+CREATE OR REPLACE FUNCTION public.same_congregation(a uuid, b uuid)
+RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT COALESCE(pa.congregation_id = pb.congregation_id, false)
+  FROM public.profiles pa, public.profiles pb WHERE pa.id = a AND pb.id = b;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.same_congregation(uuid, uuid) TO anon, authenticated;
+
+-- My congregation ID
+CREATE OR REPLACE FUNCTION public.my_congregation_id()
+RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT p.congregation_id FROM public.profiles p WHERE p.id = auth.uid();
+$$;
+
+GRANT EXECUTE ON FUNCTION public.my_congregation_id() TO anon, authenticated;
+
+-- ==============================================
+-- Triggers (AFTER TABLES AND FUNCTIONS)
 -- ==============================================
 
 -- Profiles updated_at trigger
@@ -294,54 +330,6 @@ CREATE TRIGGER on_auth_user_created
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
 -- ==============================================
--- Constraints
--- ==============================================
-
--- Profiles privileges constraints
-DO $$
-BEGIN
-  -- Drop existing constraints if they exist
-  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'profiles_ck_privileges_allowed' AND conrelid = 'public.profiles'::regclass) THEN
-    ALTER TABLE public.profiles DROP CONSTRAINT profiles_ck_privileges_allowed;
-  END IF;
-  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'profiles_ck_pioneer_mutex' AND conrelid = 'public.profiles'::regclass) THEN
-    ALTER TABLE public.profiles DROP CONSTRAINT profiles_ck_pioneer_mutex;
-  END IF;
-  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'profiles_ck_ms_elder_mutex' AND conrelid = 'public.profiles'::regclass) THEN
-    ALTER TABLE public.profiles DROP CONSTRAINT profiles_ck_ms_elder_mutex;
-  END IF;
-  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'profiles_ck_elder_only_privs' AND conrelid = 'public.profiles'::regclass) THEN
-    ALTER TABLE public.profiles DROP CONSTRAINT profiles_ck_elder_only_privs;
-  END IF;
-  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'profiles_ck_male_required_for_ms_elder' AND conrelid = 'public.profiles'::regclass) THEN
-    ALTER TABLE public.profiles DROP CONSTRAINT profiles_ck_male_required_for_ms_elder;
-  END IF;
-
-  -- Add new constraints
-  ALTER TABLE public.profiles ADD CONSTRAINT profiles_ck_privileges_allowed
-  CHECK (privileges <@ array['Elder','Ministerial Servant','Regular Pioneer','Auxiliary Pioneer','Secretary','Coordinator','Group Overseer','Group Assistant']::text[]) NOT VALID;
-
-  ALTER TABLE public.profiles ADD CONSTRAINT profiles_ck_pioneer_mutex
-  CHECK (NOT (privileges @> array['Regular Pioneer']::text[] AND privileges @> array['Auxiliary Pioneer']::text[])) NOT VALID;
-
-  ALTER TABLE public.profiles ADD CONSTRAINT profiles_ck_ms_elder_mutex
-  CHECK (NOT (privileges @> array['Ministerial Servant']::text[] AND privileges @> array['Elder']::text[])) NOT VALID;
-
-  ALTER TABLE public.profiles ADD CONSTRAINT profiles_ck_elder_only_privs
-  CHECK (
-    (NOT privileges @> array['Secretary']::text[] OR privileges @> array['Elder']::text[]) AND
-    (NOT privileges @> array['Coordinator']::text[] OR privileges @> array['Elder']::text[]) AND
-    (NOT privileges @> array['Group Overseer']::text[] OR privileges @> array['Elder']::text[])
-  ) NOT VALID;
-
-  ALTER TABLE public.profiles ADD CONSTRAINT profiles_ck_male_required_for_ms_elder
-  CHECK (
-    CASE WHEN privileges @> array['Ministerial Servant']::text[] OR privileges @> array['Elder']::text[] 
-    THEN gender = 'male'::public.gender_t ELSE true END
-  ) NOT VALID;
-END $$;
-
--- ==============================================
 -- Row Level Security
 -- ==============================================
 
@@ -355,7 +343,7 @@ ALTER TABLE public.business_householders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.business_visits ENABLE ROW LEVEL SECURITY;
 
 -- ==============================================
--- RLS Policies
+-- RLS Policies (AFTER HELPER FUNCTIONS)
 -- ==============================================
 
 -- Profiles policies
@@ -494,41 +482,8 @@ CREATE POLICY "Business: visit write" ON public.business_visits FOR INSERT WITH 
 );
 
 -- ==============================================
--- Helper Functions
+-- Additional Helper Functions
 -- ==============================================
-
--- Admin check
-CREATE OR REPLACE FUNCTION public.is_admin(uid uuid)
-RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  SELECT EXISTS (SELECT 1 FROM public.admin_users a WHERE a.user_id = uid);
-$$;
-
-GRANT EXECUTE ON FUNCTION public.is_admin(uuid) TO anon, authenticated;
-
--- Elder check
-CREATE OR REPLACE FUNCTION public.is_elder(uid uuid)
-RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  SELECT EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = uid AND p.privileges @> array['Elder']::text[]);
-$$;
-
-GRANT EXECUTE ON FUNCTION public.is_elder(uuid) TO anon, authenticated;
-
--- Same congregation check
-CREATE OR REPLACE FUNCTION public.same_congregation(a uuid, b uuid)
-RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  SELECT COALESCE(pa.congregation_id = pb.congregation_id, false)
-  FROM public.profiles pa, public.profiles pb WHERE pa.id = a AND pb.id = b;
-$$;
-
-GRANT EXECUTE ON FUNCTION public.same_congregation(uuid, uuid) TO anon, authenticated;
-
--- My congregation ID
-CREATE OR REPLACE FUNCTION public.my_congregation_id()
-RETURNS uuid LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  SELECT p.congregation_id FROM public.profiles p WHERE p.id = auth.uid();
-$$;
-
-GRANT EXECUTE ON FUNCTION public.my_congregation_id() TO anon, authenticated;
 
 -- Get my profile
 CREATE OR REPLACE FUNCTION public.get_my_profile()
@@ -750,6 +705,54 @@ RETURNS TABLE (
 $$;
 
 GRANT EXECUTE ON FUNCTION public.search_user_by_username_or_email(text) TO authenticated;
+
+-- ==============================================
+-- Constraints
+-- ==============================================
+
+-- Profiles privileges constraints
+DO $$
+BEGIN
+  -- Drop existing constraints if they exist
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'profiles_ck_privileges_allowed' AND conrelid = 'public.profiles'::regclass) THEN
+    ALTER TABLE public.profiles DROP CONSTRAINT profiles_ck_privileges_allowed;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'profiles_ck_pioneer_mutex' AND conrelid = 'public.profiles'::regclass) THEN
+    ALTER TABLE public.profiles DROP CONSTRAINT profiles_ck_pioneer_mutex;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'profiles_ck_ms_elder_mutex' AND conrelid = 'public.profiles'::regclass) THEN
+    ALTER TABLE public.profiles DROP CONSTRAINT profiles_ck_ms_elder_mutex;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'profiles_ck_elder_only_privs' AND conrelid = 'public.profiles'::regclass) THEN
+    ALTER TABLE public.profiles DROP CONSTRAINT profiles_ck_elder_only_privs;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'profiles_ck_male_required_for_ms_elder' AND conrelid = 'public.profiles'::regclass) THEN
+    ALTER TABLE public.profiles DROP CONSTRAINT profiles_ck_male_required_for_ms_elder;
+  END IF;
+
+  -- Add new constraints
+  ALTER TABLE public.profiles ADD CONSTRAINT profiles_ck_privileges_allowed
+  CHECK (privileges <@ array['Elder','Ministerial Servant','Regular Pioneer','Auxiliary Pioneer','Secretary','Coordinator','Group Overseer','Group Assistant']::text[]) NOT VALID;
+
+  ALTER TABLE public.profiles ADD CONSTRAINT profiles_ck_pioneer_mutex
+  CHECK (NOT (privileges @> array['Regular Pioneer']::text[] AND privileges @> array['Auxiliary Pioneer']::text[])) NOT VALID;
+
+  ALTER TABLE public.profiles ADD CONSTRAINT profiles_ck_ms_elder_mutex
+  CHECK (NOT (privileges @> array['Ministerial Servant']::text[] AND privileges @> array['Elder']::text[])) NOT VALID;
+
+  ALTER TABLE public.profiles ADD CONSTRAINT profiles_ck_elder_only_privs
+  CHECK (
+    (NOT privileges @> array['Secretary']::text[] OR privileges @> array['Elder']::text[]) AND
+    (NOT privileges @> array['Coordinator']::text[] OR privileges @> array['Elder']::text[]) AND
+    (NOT privileges @> array['Group Overseer']::text[] OR privileges @> array['Elder']::text[])
+  ) NOT VALID;
+
+  ALTER TABLE public.profiles ADD CONSTRAINT profiles_ck_male_required_for_ms_elder
+  CHECK (
+    CASE WHEN privileges @> array['Ministerial Servant']::text[] OR privileges @> array['Elder']::text[] 
+    THEN gender = 'male'::public.gender_t ELSE true END
+  ) NOT VALID;
+END $$;
 
 -- ==============================================
 -- Grants

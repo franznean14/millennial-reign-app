@@ -54,6 +54,10 @@ export function EstablishmentList({
       .join(' ');
   };
 
+  const truncateEstablishmentName = (name: string, maxLength: number = 20) => {
+    return name.length > maxLength ? name.substring(0, maxLength) + '...' : name;
+  };
+
   const renderDetailedView = (establishment: EstablishmentWithDetails, index: number) => (
     <motion.div
       key={establishment.id}
@@ -79,7 +83,7 @@ export function EstablishmentList({
             <div className="flex-1 min-w-0">
               <motion.div layout className="w-full">
                 <CardTitle className="text-2xl sm:text-3xl font-black flex flex-col sm:flex-row sm:items-center gap-2 w-full">
-                  <span className="truncate">{establishment.name}</span>
+                  <span className="truncate" title={establishment.name}>{truncateEstablishmentName(establishment.name)}</span>
                   
                   {/* Status Badge with Hierarchy */}
                   <div className="flex items-center gap-2 flex-shrink-0">
@@ -213,21 +217,21 @@ export function EstablishmentList({
       className="w-full"
     >
       <Card
-        className="cursor-pointer hover:shadow-md transition-all duration-300 hover:scale-[1.02]"
+        className="cursor-pointer hover:shadow-md transition-all duration-300 hover:scale-[1.02] overflow-hidden"
         onClick={() => onEstablishmentClick(establishment)}
       >
-        <div className="p-3">
-          <div className="flex items-center justify-between gap-3">
-            {/* Left side - Name and status */}
+        <div className="py-0 px-3">
+          <div className="flex items-center justify-between gap-2 min-w-0">
+            {/* Left side - Name, status, area, and avatars */}
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <h3 className="font-semibold text-base truncate">{establishment.name}</h3>
+              <div className="flex items-center gap-2 mb-1 flex-wrap min-w-0">
+                <h3 className="font-semibold text-sm truncate" title={establishment.name}>{truncateEstablishmentName(establishment.name)}</h3>
                 
                 {/* Status Badge with Hierarchy */}
-                <div className="flex items-center gap-2 flex-shrink-0">
+                <div className="flex items-center gap-1">
                   <Badge 
                     variant="outline" 
-                    className={cn("text-xs", getStatusTextColor(getBestStatus(establishment.statuses || [])))}
+                    className={cn("text-xs px-1.5 py-0.5", getStatusTextColor(getBestStatus(establishment.statuses || [])))}
                   >
                     {establishment.statuses && establishment.statuses.length > 0 
                       ? formatStatusText(getBestStatus(establishment.statuses))
@@ -236,7 +240,7 @@ export function EstablishmentList({
                   
                   {/* Additional status dots - Fixed color logic */}
                   {establishment.statuses && establishment.statuses.length > 1 && (
-                    <div className="flex gap-1">
+                    <div className="flex gap-0.5">
                       {establishment.statuses
                         .filter(status => status !== getBestStatus(establishment.statuses))
                         .map((status, index) => {
@@ -268,7 +272,7 @@ export function EstablishmentList({
                           return (
                             <div
                               key={status}
-                              className={cn("w-1.5 h-1.5 rounded-full", dotColor)}
+                              className={cn("w-1 h-1 rounded-full", dotColor)}
                               title={formatStatusText(status)}
                             />
                           );
@@ -277,47 +281,36 @@ export function EstablishmentList({
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+              
+              {/* Area and avatars in same line */}
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 {establishment.area && (
                   <span className="truncate">{establishment.area}</span>
                 )}
                 {establishment.floor && (
-                  <span className="flex-shrink-0">{establishment.floor}</span>
+                  <span className="flex-shrink-0">• {establishment.floor}</span>
                 )}
-              </div>
-            </div>
-
-            {/* Right side - Stats and avatars */}
-            <div className="flex items-center gap-3 flex-shrink-0">
-              {/* Compact stats */}
-              <div className="flex items-center gap-2 text-xs">
-                <div className="text-center">
-                  <p className="text-sm font-medium">{establishment.visit_count || 0}</p>
-                  <p className="text-xs text-muted-foreground">Visits</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-sm font-medium">{establishment.householder_count || 0}</p>
-                  <p className="text-xs text-muted-foreground">BS</p>
-                </div>
-              </div>
-
-              {/* Compact avatars */}
-              <div className="flex items-center">
-                {establishment.top_visitors?.slice(0, 5).map((visitor, index) => (
-                  <Avatar 
-                    key={visitor.user_id || index} 
-                    className={`h-5 w-5 ring-1 ring-background ${index > 0 ? '-ml-1' : ''}`}
-                  >
-                    <AvatarImage src={visitor.avatar_url} />
-                    <AvatarFallback className="text-xs">
-                      {`${visitor.first_name} ${visitor.last_name}`.charAt(0) || 'U'}
-                    </AvatarFallback>
-                  </Avatar>
-                ))}
-                {establishment.top_visitors && establishment.top_visitors.length > 5 && (
-                  <span className="text-xs text-muted-foreground ml-1">
-                    +{establishment.top_visitors.length - 5}
-                  </span>
+                
+                {/* Avatars inline with area */}
+                {(establishment.top_visitors && establishment.top_visitors.length > 0) && (
+                  <div className="flex items-center ml-2">
+                    {establishment.top_visitors.slice(0, 3).map((visitor, index) => (
+                      <Avatar 
+                        key={visitor.user_id || index} 
+                        className={`h-4 w-4 ring-1 ring-background ${index > 0 ? '-ml-1' : ''}`}
+                      >
+                        <AvatarImage src={visitor.avatar_url} />
+                        <AvatarFallback className="text-xs">
+                          {`${visitor.first_name} ${visitor.last_name}`.charAt(0) || 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                    ))}
+                    {establishment.top_visitors.length > 3 && (
+                      <span className="text-xs text-muted-foreground ml-1">
+                        +{establishment.top_visitors.length - 3}
+                      </span>
+                    )}
+                  </div>
                 )}
               </div>
             </div>

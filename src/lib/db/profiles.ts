@@ -29,6 +29,40 @@ export async function getProfile(userId: string): Promise<Profile | null> {
   }
 }
 
+// Admin function to update another user's profile (only specific fields)
+export async function updateUserProfile(targetUserId: string, updates: {
+  privileges?: string[];
+  group_name?: string | null;
+  congregation_id?: string | null;
+}) {
+  const supabase = createSupabaseBrowserClient();
+  try {
+    await supabase.auth.getSession();
+  } catch {}
+
+  try {
+    const { data, error } = await supabase
+      .from(TABLE)
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', targetUserId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    
+    const profile = data as Profile;
+    await cacheSet(`profile:${targetUserId}`, profile);
+    return profile;
+  } catch (e: any) {
+    const msg = e?.message || "Failed to update user profile";
+    console.error("Admin profile update error:", e);
+    throw new Error(msg);
+  }
+}
+
 export async function upsertProfile(input: Omit<Profile, "id" | "role"> & { id: string; role?: Role }) {
   const supabase = createSupabaseBrowserClient();
   try {

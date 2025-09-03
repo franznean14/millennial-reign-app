@@ -10,7 +10,7 @@ import { ChevronLeft, MapPin, Building2, MapPinned, Calendar, Users, Edit } from
 import { ResponsiveModal } from "@/components/ui/responsive-modal";
 import { type EstablishmentWithDetails, type VisitWithUser, type HouseholderWithDetails } from "@/lib/db/business";
 import { cn } from "@/lib/utils";
-import { EstablishmentForm } from "./BusinessFloatingButton";
+import { EstablishmentForm } from "@/components/business/EstablishmentForm";
 
 interface EstablishmentDetailsProps {
   establishment: EstablishmentWithDetails;
@@ -357,8 +357,6 @@ export function EstablishmentDetails({
       >
         <EstablishmentForm 
           onSaved={handleEditSaved}
-          coords={null}
-          onGetLocation={() => {}}
           selectedArea={establishment.area || undefined}
           initialData={establishment}
           isEditing={true}

@@ -1,11 +1,14 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { Label } from "@/components/ui/label";
 import type { Congregation } from "@/lib/db/congregations";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Pencil, MapPinned } from "lucide-react";
-import { CongregationMembers } from "../congregation/CongregationMembers";
+
+// Dynamic import to avoid circular dependencies
+const CongregationMembers = dynamic(() => import("../congregation/CongregationMembers").then(m => m.CongregationMembers), { ssr: false });
 
 function formatDay(d: number | undefined) {
   const names = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];

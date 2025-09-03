@@ -46,6 +46,7 @@
 - Use shadcn/ui's animation and transition utilities
 - **Dark theme preferred** - Use dark muted colors (1E201E, 3C3D37, ECDFCC)
 - **Mobile-first design** - All components must work on mobile
+- **Bottom spacing rule** - ALWAYS add bottom padding/margin equal to mobile nav height on forms, modals, and scrollable content: `pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]`
 
 ## Performance Patterns
 - **Business page pattern** - Use this as the template for all sections:
@@ -75,6 +76,32 @@
 - **TypeScript everywhere** - No `any` types unless absolutely necessary
 - **Error boundaries** - Handle errors gracefully
 - **Loading states** - Show appropriate loading indicators
+
+## React Rules of Hooks - CRITICAL
+- **NEVER place hooks inside conditional blocks** - This includes switch cases, if statements, or loops
+- **Hooks MUST be called at the top level** of React functions, always in the same order
+- **useEffect, useState, useCallback, useMemo** must be at component top level, never inside:
+  - ❌ switch cases
+  - ❌ if/else blocks  
+  - ❌ loops (for, while, etc.)
+  - ❌ nested functions
+- **Conditional logic goes INSIDE hooks**, not around them:
+  ```typescript
+  // ❌ WRONG - Hook inside conditional
+  if (condition) {
+    useEffect(() => {}, []);
+  }
+  
+  // ✅ CORRECT - Conditional inside hook
+  useEffect(() => {
+    if (condition) {
+      // logic here
+    }
+  }, [condition]);
+  ```
+- **Always audit for Rules of Hooks violations** before making changes
+- **Use ESLint react-hooks/rules-of-hooks** to catch violations
+- **This causes runtime errors and React state corruption** - treat as critical bug
 
 ## Database Schema Management
 

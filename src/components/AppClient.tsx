@@ -1,7 +1,18 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import dynamic from "next/dynamic";
+// Lazy-load Supabase client to keep initial bundle small
+let getSupabaseClientOnce: (() => Promise<import("@supabase/supabase-js").SupabaseClient>) | null = null;
+const getSupabaseClient = async () => {
+  if (!getSupabaseClientOnce) {
+    getSupabaseClientOnce = async () => {
+      const { createSupabaseBrowserClient } = await import("@/lib/supabase/client");
+      return createSupabaseBrowserClient();
+    };
+  }
+  return getSupabaseClientOnce();
+};
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +21,7 @@ import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { EditAccountDialog } from "@/components/account/EditAccountDialog";
+import { EditAccountForm } from "@/components/account/EditAccountForm";
 import { PasswordDialog } from "@/components/account/PasswordDialog";
 import { BiometricToggle } from "@/components/account/BiometricToggle";
 import { ProfileForm } from "@/components/account/ProfileForm";
@@ -27,17 +38,17 @@ import { getProfile } from "@/lib/db/profiles";
 import { archiveEstablishment, deleteEstablishment } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 
-// Import UI components
-import { HomeSummary } from "@/components/home/HomeSummary";
-import { TopStudies } from "@/components/home/TopStudies";
-import { EstablishmentList } from "@/components/business/EstablishmentList";
-import { EstablishmentDetails } from "@/components/business/EstablishmentDetails";
-import { CongregationForm } from "@/components/congregation/CongregationForm";
-import { ResponsiveModal } from "@/components/ui/responsive-modal";
-import { SwipeableCard } from "@/components/ui/swipeable-card";
-import { CongregationMembers } from "@/components/congregation/CongregationMembers";
-import { BusinessFiltersForm } from "@/components/business/BusinessFiltersForm";
-import { CongregationView } from "@/components/views/CongregationView";
+// Lazy-load heavy UI components to reduce initial bundle
+const HomeSummary = dynamic(() => import("@/components/home/HomeSummary").then(m => m.HomeSummary), { ssr: false });
+const TopStudies = dynamic(() => import("@/components/home/TopStudies").then(m => m.TopStudies), { ssr: false });
+const EstablishmentList = dynamic(() => import("@/components/business/EstablishmentList").then(m => m.EstablishmentList), { ssr: false });
+const EstablishmentDetails = dynamic(() => import("@/components/business/EstablishmentDetails").then(m => m.EstablishmentDetails), { ssr: false });
+const CongregationForm = dynamic(() => import("@/components/congregation/CongregationForm").then(m => m.CongregationForm), { ssr: false });
+const ResponsiveModal = dynamic(() => import("@/components/ui/responsive-modal").then(m => m.ResponsiveModal), { ssr: false });
+const SwipeableCard = dynamic(() => import("@/components/ui/swipeable-card").then(m => m.SwipeableCard), { ssr: false });
+const CongregationMembers = dynamic(() => import("@/components/congregation/CongregationMembers").then(m => m.CongregationMembers), { ssr: false });
+const BusinessFiltersForm = dynamic(() => import("@/components/business/BusinessFiltersForm").then(m => m.BusinessFiltersForm), { ssr: false });
+const CongregationView = dynamic(() => import("@/components/views/CongregationView").then(m => m.CongregationView), { ssr: false });
 
 interface AppClientProps {
   currentSection: string;
@@ -156,27 +167,38 @@ export function AppClient({ currentSection }: AppClientProps) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [hasPassword, setHasPassword] = useState<boolean>(false);
 
+  // BWI state (global to prevent layout shifts)
+  const [bwiEnabled, setBwiEnabled] = useState(false);
+  const [isBwiParticipant, setIsBwiParticipant] = useState(false);
+
   // Add this state to track user's visited establishments
   const [userVisitedEstablishments, setUserVisitedEstablishments] = useState<Set<string>>(new Set());
 
   // Load initial app data
   useEffect(() => {
     const loadAppData = async () => {
-      const supabase = createSupabaseBrowserClient();
+      const supabase = await getSupabaseClient();
       const { data: { session } } = await supabase.auth.getSession();
       const id = session?.user?.id || null;
       setUserId(id);
       
       if (id) {
-        const [profileData, adminStatus, congregationData] = await Promise.all([
+        const [profileData, adminStatus, congregationData, { data: { user } }, bwiEnabledData, bwiParticipantData] = await Promise.all([
           getProfile(id),
           isAdmin(id),
-          getMyCongregation()
+          getMyCongregation(),
+          supabase.auth.getUser(),
+          supabase.rpc('is_business_enabled'),
+          supabase.rpc('is_business_participant')
         ]);
         
-        setProfile(profileData);
+        // Add email from auth to profile data
+        const profileWithEmail = profileData ? { ...profileData, email: user?.email } : null;
+        setProfile(profileWithEmail);
         setAdmin(adminStatus);
         setCong(congregationData);
+        setBwiEnabled(!!bwiEnabledData.data);
+        setIsBwiParticipant(!!bwiParticipantData.data);
         
         // Auto-open create modal if no congregation exists and user can create
         if (!congregationData?.id && adminStatus) {
@@ -226,8 +248,9 @@ export function AppClient({ currentSection }: AppClientProps) {
   // Load account data
   useEffect(() => {
     if (userId) {
-      const supabase = createSupabaseBrowserClient();
-      supabase.auth.getUser().then(({ data: { user } }) => {
+      const loadAccountData = async () => {
+        const supabase = await getSupabaseClient();
+        supabase.auth.getUser().then(({ data: { user } }) => {
         if (user) {
           try {
             localStorage.setItem("has_password", user.app_metadata?.provider === "email" ? "1" : "0");
@@ -235,6 +258,8 @@ export function AppClient({ currentSection }: AppClientProps) {
           } catch {}
         }
       });
+      };
+      loadAccountData();
     }
   }, [userId]);
 
@@ -243,7 +268,7 @@ export function AppClient({ currentSection }: AppClientProps) {
     if (currentSection === 'business' && userId) {
       const loadUserVisits = async () => {
         try {
-          const supabase = createSupabaseBrowserClient();
+          const supabase = await getSupabaseClient();
           const { data: visits } = await supabase
             .from('business_visits')
             .select('establishment_id')
@@ -261,6 +286,23 @@ export function AppClient({ currentSection }: AppClientProps) {
       loadUserVisits();
     }
   }, [currentSection, userId]);
+
+  // Auto-open congregation form for admins without congregation (with proper timing)
+  const [hasTriedAutoOpen, setHasTriedAutoOpen] = useState(false);
+  useEffect(() => {
+    if (currentSection === 'congregation' && admin && !(profile as any)?.congregation_id && !cong?.id && !modalOpen && !hasTriedAutoOpen) {
+      setMode("create");
+      setModalOpen(true);
+      setHasTriedAutoOpen(true);
+    }
+  }, [currentSection, admin, (profile as any)?.congregation_id, cong?.id, modalOpen, hasTriedAutoOpen]);
+
+  // Reset auto-open flag when leaving congregation section
+  useEffect(() => {
+    if (currentSection !== 'congregation') {
+      setHasTriedAutoOpen(false);
+    }
+  }, [currentSection]);
 
   // Business functions
   const loadBusinessData = useCallback(async () => {
@@ -454,7 +496,7 @@ export function AppClient({ currentSection }: AppClientProps) {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 20 }}
           transition={{ duration: 0.3 }}
-          className="space-y-6 pb-24" // Add bottom padding for navbar
+          className="space-y-6 pb-24 w-full max-w-full overflow-x-hidden" // Ensure mobile width is respected
         >
           <HomeSummary
             userId={userId}
@@ -481,7 +523,7 @@ export function AppClient({ currentSection }: AppClientProps) {
         >
           {!selectedEstablishment && (
             <motion.div 
-              className="flex items-center justify-between overflow-hidden"
+              className="flex items-center justify-between overflow-hidden w-full max-w-full"
               layout
               animate={{ 
                 height: filtersModalOpen ? 0 : "auto",
@@ -493,7 +535,7 @@ export function AppClient({ currentSection }: AppClientProps) {
                 height: { duration: 0.3, ease: "easeOut" }
               }}
             >
-              <div className="relative flex-1 max-w-md">
+              <div className="relative flex-1 min-w-0">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search establishments..."
@@ -601,7 +643,7 @@ export function AppClient({ currentSection }: AppClientProps) {
       );
 
     case 'congregation':
-      if (!(profile as any)?.congregation_id && !cong?.id) {
+      if (!(profile as any)?.congregation_id && !cong?.id && !admin) {
         return (
           <div className="rounded-md border p-4">
             <div className="text-base font-medium">No congregation assigned</div>
@@ -618,6 +660,8 @@ export function AppClient({ currentSection }: AppClientProps) {
           </div>
         );
       }
+
+
 
       return (
         <motion.div
@@ -641,7 +685,7 @@ export function AppClient({ currentSection }: AppClientProps) {
           ) : (
             <section className="rounded-md border p-4 space-y-2">
               <div className="text-base font-medium">No congregation yet</div>
-              <div className="text-sm opacity-70">{admin ? "Create your congregation to get started." : "Ask an admin to create your congregation."}</div>
+              <div className="text-sm opacity-70">{admin ? "The congregation form will open automatically when you visit this page." : "Ask an admin to create your congregation."}</div>
             </section>
           )}
 
@@ -814,26 +858,46 @@ export function AppClient({ currentSection }: AppClientProps) {
                 userId={userId!}
                 initialEmail={profile?.email}
                 initialProfile={profile}
+                bwiEnabled={bwiEnabled}
+                isBwiParticipant={isBwiParticipant}
+                onBwiToggle={async () => {
+                  const supabase = await getSupabaseClient();
+                  try {
+                    const { data, error } = await supabase.rpc('toggle_user_business_participation', { target_user_id: userId });
+                    if (error) throw error;
+                    setIsBwiParticipant(!!data);
+                    return !!data;
+                  } catch (error) {
+                    throw error;
+                  }
+                }}
                 onSaved={(p) => {
                   setEditing(false);
-                  setProfile(p);
+                  // Preserve email when updating profile
+                  setProfile((prev: any) => ({ ...p, email: prev?.email }));
                   setRefreshKey((k) => k + 1);
                 }}
               />
             </ResponsiveModal>
 
             {!!userId && (
-              <EditAccountDialog
+              <ResponsiveModal
                 open={editAccountOpen}
                 onOpenChange={(o) => {
                   setEditAccountOpen(o);
                   if (!o) setRefreshKey((k) => k + 1);
                 }}
-                userId={userId}
-                initialEmail={profile?.email}
-                initialUsername={(profile as any)?.username}
-                currentProfile={profile}
-              />
+                title="Edit Account"
+                description="Update your email, username, and timezone"
+              >
+                <EditAccountForm
+                  userId={userId}
+                  initialEmail={profile?.email}
+                  initialUsername={(profile as any)?.username}
+                  currentProfile={profile}
+                  onSaved={() => setEditAccountOpen(false)}
+                />
+              </ResponsiveModal>
             )}
 
             <PasswordDialog

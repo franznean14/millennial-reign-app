@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -11,15 +11,35 @@ import { Crosshair, ChevronDown } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { upsertEstablishment, getUniqueAreas, getUniqueFloors } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
+import { cacheGet, cacheSet } from "@/lib/offline/store";
 
 interface EstablishmentFormProps {
   onSaved: (newEstablishment?: any) => void;
   selectedArea?: string;
   initialData?: any;
   isEditing?: boolean;
+  // Optional external draft from parent/global state (session-scoped persistence)
+  draft?: {
+    name?: string;
+    description?: string | null;
+    area?: string | null;
+    lat?: number | null;
+    lng?: number | null;
+    floor?: string | null;
+    statuses?: string[];
+    note?: string | null;
+    gps?: string | null;
+  } | null;
+  onDraftChange?: (draft: any) => void;
 }
 
-export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditing = false }: EstablishmentFormProps) {
+export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditing = false, draft: externalDraft, onDraftChange }: EstablishmentFormProps) {
+  // Persist unsaved draft locally to survive modal close
+  const draftKey = (isEditing && initialData?.id
+    ? `draft:establishment:edit:${initialData.id}`
+    : `draft:establishment:new`) + (selectedArea ? `:${selectedArea}` : "");
+  const draftAppliedRef = useRef(false);
+
   const [name, setName] = useState(initialData?.name || "");
   const [description, setDescription] = useState(initialData?.description || "");
   const [area, setArea] = useState(initialData?.area || selectedArea || "");
@@ -37,18 +57,60 @@ export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditin
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
+    let active = true;
     (async () => {
       setAreas(await getUniqueAreas());
       setFloors(await getUniqueFloors());
+      // Load any existing draft (if present)
+      try {
+        const persisted = await cacheGet<any>(draftKey);
+        const draft = externalDraft ?? persisted;
+        if (draft && active) {
+          draftAppliedRef.current = true;
+          setName(draft.name ?? "");
+          setDescription(draft.description ?? "");
+          setArea(draft.area ?? "");
+          setLat(typeof draft.lat === "number" ? draft.lat : null);
+          setLng(typeof draft.lng === "number" ? draft.lng : null);
+          setFloor(draft.floor ?? "");
+          setStatus(Array.isArray(draft.statuses) ? draft.statuses : []);
+          setNote(draft.note ?? "");
+          setGps(draft.gps ?? "");
+        }
+      } catch {}
     })();
-  }, []);
+    return () => { active = false };
+    // Re-load draft when the key changes (e.g., switching from new to edit or selectedArea changes)
+  }, [draftKey, externalDraft]);
 
-  // Update area when selectedArea prop changes
+  // Update area when selectedArea prop changes (but do not override loaded draft)
   useEffect(() => {
-    if (selectedArea) {
+    if (selectedArea && !draftAppliedRef.current && !area) {
       setArea(selectedArea);
     }
-  }, [selectedArea]);
+  }, [selectedArea, area]);
+
+  // Keep the latest draft in a ref and persist with debounce
+  const latestDraftRef = useRef<any>(null);
+  useEffect(() => {
+    latestDraftRef.current = { name, description, area, lat, lng, floor, statuses: status, note, gps };
+    // Emit to parent/global state immediately (session persistence)
+    if (onDraftChange) onDraftChange(latestDraftRef.current);
+    const id = setTimeout(() => {
+      cacheSet(draftKey, latestDraftRef.current).catch(() => {});
+    }, 150);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name, description, area, lat, lng, floor, status, note, gps]);
+
+  // Flush draft immediately on unmount to avoid losing the latest edits when closing the modal quickly
+  useEffect(() => {
+    return () => {
+      if (latestDraftRef.current) {
+        cacheSet(draftKey, latestDraftRef.current).catch(() => {});
+      }
+    };
+  }, [draftKey]);
 
   const getCurrentLocation = () => {
     if (!navigator?.geolocation) return;
@@ -109,6 +171,8 @@ export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditin
       if (result) {
         toast.success(isEditing ? "Establishment updated successfully!" : "Establishment saved successfully!");
         onSaved(result);
+        // Clear draft after successful save
+        try { await cacheSet(draftKey, null); } catch {}
         // Emit event for live update
         if (isEditing) {
           businessEventBus.emit('establishment-updated', result);
@@ -127,7 +191,7 @@ export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditin
   };
 
   return (
-    <form className="grid gap-3" onSubmit={handleSubmit}>
+    <form className="grid gap-3 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]" onSubmit={handleSubmit}>
       <div className="grid gap-1">
         <Label>Name</Label>
         <Input value={name} onChange={e=>setName(e.target.value)} required />

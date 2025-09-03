@@ -17,13 +17,14 @@ interface ProfileFormProps {
   userId: string;
   initialEmail: string | null;
   initialProfile: Profile | null;
+  bwiEnabled: boolean;
+  isBwiParticipant: boolean;
+  onBwiToggle: () => Promise<boolean>;
   onSaved: (profile: Profile) => void;
 }
 
-export function ProfileForm({ userId, initialEmail, initialProfile, onSaved }: ProfileFormProps) {
+export function ProfileForm({ userId, initialEmail, initialProfile, bwiEnabled, isBwiParticipant, onBwiToggle, onSaved }: ProfileFormProps) {
   const [saving, setSaving] = useState(false);
-  const [bwiEnabled, setBwiEnabled] = useState(false);
-  const [isBwiParticipant, setIsBwiParticipant] = useState(false);
   const [groupOptions, setGroupOptions] = useState<string[]>([]);
   const [showGroupInput, setShowGroupInput] = useState(false);
   const [formData, setFormData] = useState({
@@ -37,38 +38,81 @@ export function ProfileForm({ userId, initialEmail, initialProfile, onSaved }: P
     group_name: initialProfile?.group_name || "",
   });
 
-  // Load existing group names from congregation
+  // Update form data when initialProfile changes (async loading)
+  useEffect(() => {
+    if (initialProfile) {
+      console.log('Setting form data with profile:', initialProfile);
+      setFormData({
+        first_name: initialProfile.first_name || "",
+        last_name: initialProfile.last_name || "",
+        middle_name: initialProfile.middle_name || "",
+        date_of_birth: initialProfile.date_of_birth ? new Date(initialProfile.date_of_birth) : undefined,
+        date_of_baptism: initialProfile.date_of_baptism ? new Date(initialProfile.date_of_baptism) : undefined,
+        gender: initialProfile.gender || null,
+        privileges: initialProfile.privileges || [],
+        group_name: initialProfile.group_name || "",
+      });
+      console.log('Form data group_name set to:', initialProfile.group_name || "");
+    }
+  }, [initialProfile]);
+
+  // Load existing group names from congregation and profiles table
   useEffect(() => {
     const loadGroupOptions = async () => {
       const supabase = createSupabaseBrowserClient();
       try {
-        const { data: groups } = await supabase.rpc('get_congregation_groups');
-        if (groups) {
-          const options = groups.map((group: any) => group.group_name).filter(Boolean);
-          setGroupOptions(options);
+        // Get groups from congregation groups RPC
+        const [congregationGroupsResponse, profileGroupsResponse] = await Promise.all([
+          supabase.rpc('get_congregation_groups'),
+          // Get all unique group names from profiles table in the same congregation
+          supabase
+            .from('profiles')
+            .select('group_name')
+            .not('group_name', 'is', null)
+            .neq('group_name', '')
+            .eq('congregation_id', initialProfile!.congregation_id)
+        ]);
+
+        let options: string[] = [];
+
+        // Add groups from congregation groups RPC
+        if (congregationGroupsResponse.data) {
+          const congGroups = congregationGroupsResponse.data
+            .map((group: any) => group.group_name)
+            .filter(Boolean);
+          options.push(...congGroups);
         }
+
+        // Add groups from profiles table
+        if (profileGroupsResponse.data) {
+          const profileGroups = profileGroupsResponse.data
+            .map((profile: any) => profile.group_name)
+            .filter(Boolean);
+          options.push(...profileGroups);
+        }
+
+        // Add current user's group if it's not already in the list
+        if (initialProfile?.group_name && !options.includes(initialProfile.group_name)) {
+          options.push(initialProfile.group_name);
+        }
+
+        // Remove duplicates and sort alphabetically (ascending)
+        options = [...new Set(options)].sort();
+        console.log('Loaded group options:', options);
+        console.log('Current user group:', initialProfile?.group_name);
+        setGroupOptions(options);
       } catch (error) {
         console.error('Error loading group options:', error);
       }
     };
-    loadGroupOptions();
-  }, []);
+    
+    // Only load if we have both the profile data and congregation_id
+    if (initialProfile && initialProfile.congregation_id) {
+      loadGroupOptions();
+    }
+  }, [initialProfile]);
 
-  // Check BWI status on component mount
-  useEffect(() => {
-    const checkBwiStatus = async () => {
-      const supabase = createSupabaseBrowserClient();
-      try {
-        const { data: enabled } = await supabase.rpc('is_business_enabled');
-        const { data: participant } = await supabase.rpc('is_business_participant');
-        setBwiEnabled(!!enabled);
-        setIsBwiParticipant(!!participant);
-      } catch (error) {
-        console.error('Error checking BWI status:', error);
-      }
-    };
-    checkBwiStatus();
-  }, []);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,10 +128,12 @@ export function ProfileForm({ userId, initialEmail, initialProfile, onSaved }: P
         date_of_baptism: formData.date_of_baptism?.toISOString().split('T')[0] || null,
         gender: formData.gender,
         privileges: formData.privileges,
+        avatar_url: initialProfile?.avatar_url, // Preserve existing avatar
         time_zone: initialProfile?.time_zone || null,
         username: initialProfile?.username || null,
-        role: "user",
+        role: initialProfile?.role || "user", // Preserve existing role
         group_name: formData.group_name || null,
+        // Don't pass congregation_id - let upsertProfile preserve it automatically
       });
 
       toast.success("Profile updated successfully");
@@ -100,13 +146,9 @@ export function ProfileForm({ userId, initialEmail, initialProfile, onSaved }: P
   };
 
   const toggleBwiParticipation = async () => {
-    const supabase = createSupabaseBrowserClient();
     try {
-      const { data, error } = await supabase.rpc('toggle_business_participation');
-      if (error) throw error;
-      
-      setIsBwiParticipant(!!data);
-      toast.success(data ? "BWI participation enabled" : "BWI participation disabled");
+      const result = await onBwiToggle();
+      toast.success(result ? "BWI participation enabled" : "BWI participation disabled");
     } catch (error: any) {
       toast.error(error.message || "Failed to update BWI participation");
     }
@@ -164,7 +206,7 @@ export function ProfileForm({ userId, initialEmail, initialProfile, onSaved }: P
   ];
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="first_name">First Name *</Label>
@@ -252,10 +294,12 @@ export function ProfileForm({ userId, initialEmail, initialProfile, onSaved }: P
           </div>
         ) : (
           <Select 
-            value={formData.group_name || ""} 
+            value={formData.group_name ? formData.group_name : "__none__"} 
             onValueChange={(value) => {
               if (value === "__custom__") {
                 setShowGroupInput(true);
+                setFormData(prev => ({ ...prev, group_name: "" }));
+              } else if (value === "__none__") {
                 setFormData(prev => ({ ...prev, group_name: "" }));
               } else {
                 setFormData(prev => ({ ...prev, group_name: value }));
@@ -266,6 +310,7 @@ export function ProfileForm({ userId, initialEmail, initialProfile, onSaved }: P
               <SelectValue placeholder="Select group or add new" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="__none__">No group</SelectItem>
               {groupOptions.map((group) => (
                 <SelectItem key={group} value={group}>
                   {group}

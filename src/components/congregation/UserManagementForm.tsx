@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { upsertProfile } from "@/lib/db/profiles";
+import { updateUserProfile } from "@/lib/db/profiles";
 import type { Profile, Gender, Privilege } from "@/lib/db/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,8 @@ interface UserManagementFormProps {
   onClose: () => void;
 }
 
+// This form is only accessible to admin/superadmin users who are elders
+// Security is enforced at the database level via RLS policies
 export function UserManagementForm({ user, onSaved, onClose }: UserManagementFormProps) {
   const [saving, setSaving] = useState(false);
   const [bwiEnabled, setBwiEnabled] = useState(false);
@@ -108,26 +110,17 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
     setSaving(true);
 
     try {
-      const profile = await upsertProfile({
-        id: user.id,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        middle_name: user.middle_name,
-        date_of_birth: user.date_of_birth,
-        date_of_baptism: user.date_of_baptism,
-        gender: user.gender,
+      // Use the dedicated admin function for updating other users
+      const profile = await updateUserProfile(user.id, {
         privileges: formData.privileges,
-        time_zone: user.time_zone,
-        username: user.username,
-        role: user.role,
         group_name: formData.group_name || null,
         congregation_id: formData.congregation_id,
-        avatar_url: user.avatar_url, // Preserve existing avatar_url
       });
 
       toast.success("User updated successfully");
       onSaved(profile);
     } catch (error: any) {
+      console.error('User management error:', error);
       toast.error(error.message || "Failed to update user");
     } finally {
       setSaving(false);
@@ -208,18 +201,20 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
       {/* User Header */}
       <div className="flex items-center gap-4 p-4 border rounded-lg">
         <Avatar className="h-16 w-16">
-          <AvatarImage src={user.avatar_url} />
+          <AvatarImage src={user.avatar_url || undefined} />
           <AvatarFallback className="text-lg">
             {`${user.first_name?.[0] || ""}${user.last_name?.[0] || ""}`.toUpperCase()}
           </AvatarFallback>
         </Avatar>
         <div>
           <h2 className="text-xl font-semibold">{user.first_name} {user.last_name}</h2>
-          <p className="text-sm text-muted-foreground">{user.email}</p>
+          <p className="text-sm text-muted-foreground">
+            {user.username ? `@${user.username}` : "No username set"}
+          </p>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-6 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
         {/* Congregation Assignment */}
         <div className="space-y-2">
           <Label>Congregation Assignment</Label>

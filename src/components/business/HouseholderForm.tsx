@@ -61,7 +61,7 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
   };
   
   return (
-    <form className="grid gap-3" onSubmit={handleSubmit}>
+    <form className="grid gap-3 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]" onSubmit={handleSubmit}>
       <div className="grid gap-1">
         <Label>Establishment</Label>
         <Select value={estId} onValueChange={setEstId}>

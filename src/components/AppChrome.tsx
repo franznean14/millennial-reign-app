@@ -1,15 +1,18 @@
 "use client";
 
-import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
-import { FloatingBridge } from "@/components/fieldservice/FloatingBridge";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
-import OfflineInit from "@/components/OfflineInit";
-import SyncBanner from "@/components/SyncBanner";
-import OnlineBanner from "@/components/OnlineBanner";
-import BiometricGate from "@/components/BiometricGate";
 import { AppTopbar } from "@/components/AppTopbar";
 import { Home, Landmark, Briefcase, User } from "lucide-react";
 import { useSPA } from "@/components/SPAProvider";
+
+// Defer non-critical chrome to reduce initial JS
+const OfflineInit = dynamic(() => import("@/components/OfflineInit"), { ssr: false });
+const ServiceWorkerRegister = dynamic(() => import("@/components/ServiceWorkerRegister"), { ssr: false });
+const SyncBanner = dynamic(() => import("@/components/SyncBanner"), { ssr: false });
+const OnlineBanner = dynamic(() => import("@/components/OnlineBanner"), { ssr: false });
+const BiometricGate = dynamic(() => import("@/components/BiometricGate"), { ssr: false });
+const FloatingBridge = dynamic(() => import("@/components/fieldservice/FloatingBridge").then(m => m.FloatingBridge), { ssr: false });
 
 interface AppChromeProps {
   children: React.ReactNode;
@@ -59,7 +62,7 @@ export function AppChrome({ children }: AppChromeProps) {
         userPermissions={userPermissions}
       />
       
-      <div className="mx-auto flex max-w-screen-lg">
+      <div className="mx-auto flex max-w-screen-lg w-full overflow-x-hidden">
         {/* Desktop Sidebar Navigation */}
         <nav className="hidden lg:flex flex-col w-64 border-r border-border/50 bg-background/50 backdrop-blur">
           <div className="p-4 border-b border-border/50">
@@ -88,7 +91,7 @@ export function AppChrome({ children }: AppChromeProps) {
           </div>
         </nav>
         
-        <main className="min-h-[calc(100dvh-56px)] flex-1 px-4 py-6">{children}</main>
+        <main className="min-h-[calc(100dvh-56px)] flex-1 px-4 py-6 w-full overflow-x-hidden">{children}</main>
       </div>
       
       {/* Bottom Navigation (Mobile) */}

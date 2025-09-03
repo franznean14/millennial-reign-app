@@ -11,7 +11,7 @@ export function BusinessView() {
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 20 }}
       transition={{ duration: 0.3 }}
-      className="space-y-6 pb-24" // Add bottom padding for navbar
+      className="space-y-6 pb-24 overflow-x-hidden" // Add bottom padding for navbar
     >
       <AppClient currentSection="business" />
     </motion.div>

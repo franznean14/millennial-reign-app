@@ -75,7 +75,7 @@ export function CongregationForm({
 
   return (
     <form
-      className="grid gap-4"
+      className="grid gap-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]"
       onSubmit={(e) => {
         e.preventDefault();
         onSubmit({ ...form });
