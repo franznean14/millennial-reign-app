@@ -213,11 +213,11 @@ export function EstablishmentList({
       className="w-full"
     >
       <Card
-        className="cursor-pointer hover:shadow-md transition-all duration-300 hover:scale-[1.02]"
+        className="cursor-pointer hover:shadow-md transition-all duration-300 hover:scale-[1.02] overflow-hidden"
         onClick={() => onEstablishmentClick(establishment)}
       >
         <div className="p-3">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap min-w-0">
             {/* Left side - Name and status */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
@@ -285,10 +285,32 @@ export function EstablishmentList({
                   <span className="flex-shrink-0">{establishment.floor}</span>
                 )}
               </div>
+
+              {/* Avatars moved below the area label */}
+              {(establishment.top_visitors && establishment.top_visitors.length > 0) && (
+                <div className="mt-2 flex items-center">
+                  {establishment.top_visitors.slice(0, 5).map((visitor, index) => (
+                    <Avatar 
+                      key={visitor.user_id || index} 
+                      className={`h-5 w-5 ring-1 ring-background ${index > 0 ? '-ml-1' : ''}`}
+                    >
+                      <AvatarImage src={visitor.avatar_url} />
+                      <AvatarFallback className="text-xs">
+                        {`${visitor.first_name} ${visitor.last_name}`.charAt(0) || 'U'}
+                      </AvatarFallback>
+                    </Avatar>
+                  ))}
+                  {establishment.top_visitors.length > 5 && (
+                    <span className="text-xs text-muted-foreground ml-1">
+                      +{establishment.top_visitors.length - 5}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Right side - Stats and avatars */}
-            <div className="flex items-center gap-3 flex-shrink-0">
+            <div className="flex items-center gap-3">
               {/* Compact stats */}
               <div className="flex items-center gap-2 text-xs">
                 <div className="text-center">
@@ -299,26 +321,6 @@ export function EstablishmentList({
                   <p className="text-sm font-medium">{establishment.householder_count || 0}</p>
                   <p className="text-xs text-muted-foreground">BS</p>
                 </div>
-              </div>
-
-              {/* Compact avatars */}
-              <div className="flex items-center">
-                {establishment.top_visitors?.slice(0, 5).map((visitor, index) => (
-                  <Avatar 
-                    key={visitor.user_id || index} 
-                    className={`h-5 w-5 ring-1 ring-background ${index > 0 ? '-ml-1' : ''}`}
-                  >
-                    <AvatarImage src={visitor.avatar_url} />
-                    <AvatarFallback className="text-xs">
-                      {`${visitor.first_name} ${visitor.last_name}`.charAt(0) || 'U'}
-                    </AvatarFallback>
-                  </Avatar>
-                ))}
-                {establishment.top_visitors && establishment.top_visitors.length > 5 && (
-                  <span className="text-xs text-muted-foreground ml-1">
-                    +{establishment.top_visitors.length - 5}
-                  </span>
-                )}
               </div>
             </div>
           </div>
