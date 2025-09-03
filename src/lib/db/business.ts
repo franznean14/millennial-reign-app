@@ -195,6 +195,19 @@ export async function upsertEstablishment(establishment: {
       
       return data;
     } else {
+      // Prevent exact duplicate (same name + same area within congregation)
+      const { data: dup } = await supabase
+        .from('business_establishments')
+        .select('id')
+        .eq('congregation_id', establishmentData.congregation_id)
+        .eq('is_deleted', false)
+        .eq('is_archived', false)
+        .ilike('name', establishmentData.name)
+        [establishmentData.area ? 'eq' : 'is']('area', establishmentData.area ? establishmentData.area : null)
+        .limit(1);
+      if ((dup as any[])?.length) {
+        throw new Error('Duplicate: an establishment with this name already exists in this area.');
+      }
       // Insert new establishment
       const { data, error } = await supabase
         .from('business_establishments')
@@ -224,6 +237,34 @@ export async function upsertEstablishment(establishment: {
     console.error('Error upserting establishment:', error);
     throw error;
   }
+}
+
+// Find potential duplicates for a name within the same area (prefix match)
+export async function findEstablishmentDuplicates(name: string, area?: string | null, exact?: boolean): Promise<any[]> {
+  const supabase = createSupabaseBrowserClient();
+  await supabase.auth.getSession().catch(() => {});
+  if (!name) return [];
+  // Get congregation
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('congregation_id')
+    .eq('id', (await supabase.auth.getUser()).data.user?.id)
+    .single();
+  if (!profile?.congregation_id) return [];
+  const query = supabase
+    .from('business_establishments')
+    .select('id,name,area')
+    .eq('congregation_id', profile.congregation_id)
+    .eq('is_deleted', false)
+    .eq('is_archived', false)
+    [area ? 'eq' : 'is']('area', area ? area : null);
+  if (exact) {
+    query.ilike('name', name);
+  } else {
+    query.ilike('name', `${name}%`);
+  }
+  const { data } = await query.limit(5);
+  return (data as any[]) ?? [];
 }
 
 export async function upsertHouseholder(h: Householder): Promise<Householder | null> {

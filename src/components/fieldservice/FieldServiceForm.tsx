@@ -26,6 +26,7 @@ interface FieldServiceFormProps {
 export function FieldServiceForm({ userId, onClose }: FieldServiceFormProps) {
   const isMobile = useMobile();
   const [view, setView] = useState<Date>(new Date());
+  const [mode, setMode] = useState<"days"|"months"|"years">("days");
   const [date, setDate] = useState<string>(toLocalStr(new Date()));
   const [hours, setHours] = useState<string>("");
   const [studies, setStudies] = useState<string[]>([]);
@@ -35,7 +36,8 @@ export function FieldServiceForm({ userId, onClose }: FieldServiceFormProps) {
   const [dirty, setDirty] = useState(false);
   const [monthMarks, setMonthMarks] = useState<Record<string, boolean>>({});
 
-  const monthLabel = useMemo(() => view.toLocaleString(undefined, { month: "long", year: "numeric" }), [view]);
+  const monthLabel = useMemo(() => view.toLocaleString(undefined, { month: "long" }), [view]);
+  const yearLabel = useMemo(() => String(view.getFullYear()), [view]);
 
   // Build calendar grid
   const start = useMemo(() => {
@@ -124,11 +126,24 @@ export function FieldServiceForm({ userId, onClose }: FieldServiceFormProps) {
     setDirty(true);
   };
 
-  const changeMonth = (delta: number) => {
+  const changeStep = (delta: number) => {
     const next = new Date(view);
-    next.setMonth(next.getMonth() + delta);
+    if (mode === "days") next.setMonth(next.getMonth() + delta);
+    else if (mode === "months") next.setFullYear(next.getFullYear() + delta);
+    else next.setFullYear(next.getFullYear() + delta * 12);
     setView(next);
   };
+
+  const months = useMemo(() => Array.from({ length: 12 }, (_, i) => ({
+    idx: i,
+    label: new Date(2000, i, 1).toLocaleString(undefined, { month: "short" })
+  })), []);
+
+  const years = useMemo(() => {
+    const base = view.getFullYear();
+    const start = base - 7;
+    return Array.from({ length: 12 }, (_, i) => start + i);
+  }, [view]);
 
   useEffect(() => {
     loadMonthMarks();
@@ -149,45 +164,88 @@ export function FieldServiceForm({ userId, onClose }: FieldServiceFormProps) {
     <div className="grid md:grid-cols-2">
       <div className="p-4 border-b md:border-b-0 md:border-r">
         <div className="flex items-center justify-between pb-3">
-          <Button variant="ghost" size="sm" onClick={() => changeMonth(-1)}>
+          <Button variant="ghost" size="sm" onClick={() => changeStep(-1)}>
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <div className="text-sm font-medium">{monthLabel}</div>
-          <Button variant="ghost" size="sm" onClick={() => changeMonth(1)}>
+          <div className="text-sm font-medium flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => setMode("months")}>{monthLabel}</Button>
+            <Button variant="ghost" size="sm" onClick={() => setMode("years")}>{yearLabel}</Button>
+          </div>
+          <Button variant="ghost" size="sm" onClick={() => changeStep(1)}>
             <ChevronRight className="h-5 w-5" />
           </Button>
         </div>
-        <div className="grid grid-cols-7 gap-1 px-1 text-xs opacity-70">
-          {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
-            <div key={`${d}-${i}`} className="text-center">
-              {d}
+        {mode === "days" && (
+          <>
+            <div className="grid grid-cols-7 gap-1 px-1 text-xs opacity-70">
+              {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+                <div key={`${d}-${i}`} className="text-center">
+                  {d}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-        <div className="mt-1 grid grid-cols-7 gap-1 p-1">
-          {days.map((d, i) => {
-            const sel = isSelected(d);
-            const muted = !inMonth(d);
-            const ds = toLocalStr(d);
-            const hasData = !!monthMarks[ds];
-            return (
+            <div className="mt-1 grid grid-cols-7 gap-1 p-1">
+              {days.map((d, i) => {
+                const sel = isSelected(d);
+                const muted = !inMonth(d);
+                const ds = toLocalStr(d);
+                const hasData = !!monthMarks[ds];
+                return (
+                  <Button
+                    key={i}
+                    variant={sel ? "default" : "ghost"}
+                    size="sm"
+                    className={`relative h-10 ${muted ? "opacity-50" : ""}`}
+                    onClick={() => {
+                      setDate(ds);
+                      setView(d);
+                      load(ds);
+                    }}
+                  >
+                    {d.getDate()}
+                    {hasData && <span className="absolute bottom-1 right-1 h-1.5 w-1.5 rounded-full bg-primary" />}
+                  </Button>
+                );
+              })}
+            </div>
+          </>
+        )}
+        {mode === "months" && (
+          <div className="mt-1 grid grid-cols-3 gap-2 p-1">
+            {months.map((m) => (
               <Button
-                key={i}
-                variant={sel ? "default" : "ghost"}
-                size="sm"
-                className={`relative h-10 ${muted ? "opacity-50" : ""}`}
+                key={m.idx}
+                variant={m.idx === view.getMonth() ? "default" : "ghost"}
                 onClick={() => {
-                  setDate(ds);
-                  setView(d);
-                  load(ds);
+                  const n = new Date(view);
+                  n.setMonth(m.idx);
+                  setView(n);
+                  setMode("days");
                 }}
               >
-                {d.getDate()}
-                {hasData && <span className="absolute bottom-1 right-1 h-1.5 w-1.5 rounded-full bg-primary" />}
+                {m.label}
               </Button>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        )}
+        {mode === "years" && (
+          <div className="mt-1 grid grid-cols-3 gap-2 p-1">
+            {years.map((y) => (
+              <Button
+                key={y}
+                variant={y === view.getFullYear() ? "default" : "ghost"}
+                onClick={() => {
+                  const n = new Date(view);
+                  n.setFullYear(y);
+                  setView(n);
+                  setMode("months");
+                }}
+              >
+                {y}
+              </Button>
+            ))}
+          </div>
+        )}
       </div>
       <div className="p-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
         <div className="mt-0 grid gap-4">

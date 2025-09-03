@@ -27,12 +27,27 @@ export function ProfileForm({ userId, initialEmail, initialProfile, bwiEnabled, 
   const [saving, setSaving] = useState(false);
   const [groupOptions, setGroupOptions] = useState<string[]>([]);
   const [showGroupInput, setShowGroupInput] = useState(false);
+  // Helpers to handle YYYY-MM-DD safely in local time
+  const parseLocalYMD = (s?: string | null) => {
+    if (!s) return undefined as unknown as Date | undefined;
+    const [y, m, d] = s.split("-").map((v) => Number(v));
+    if (!y || !m || !d) return undefined as unknown as Date | undefined;
+    return new Date(y, m - 1, d);
+  };
+  const formatLocalYMD = (d?: Date) => {
+    if (!d) return null as unknown as string | null;
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
+
   const [formData, setFormData] = useState({
     first_name: initialProfile?.first_name || "",
     last_name: initialProfile?.last_name || "",
     middle_name: initialProfile?.middle_name || "",
-    date_of_birth: initialProfile?.date_of_birth ? new Date(initialProfile.date_of_birth) : undefined,
-    date_of_baptism: initialProfile?.date_of_baptism ? new Date(initialProfile.date_of_baptism) : undefined,
+    date_of_birth: parseLocalYMD(initialProfile?.date_of_birth),
+    date_of_baptism: parseLocalYMD(initialProfile?.date_of_baptism),
     gender: initialProfile?.gender || null,
     privileges: initialProfile?.privileges || [],
     group_name: initialProfile?.group_name || "",
@@ -46,8 +61,8 @@ export function ProfileForm({ userId, initialEmail, initialProfile, bwiEnabled, 
         first_name: initialProfile.first_name || "",
         last_name: initialProfile.last_name || "",
         middle_name: initialProfile.middle_name || "",
-        date_of_birth: initialProfile.date_of_birth ? new Date(initialProfile.date_of_birth) : undefined,
-        date_of_baptism: initialProfile.date_of_baptism ? new Date(initialProfile.date_of_baptism) : undefined,
+        date_of_birth: parseLocalYMD(initialProfile.date_of_birth),
+        date_of_baptism: parseLocalYMD(initialProfile.date_of_baptism),
         gender: initialProfile.gender || null,
         privileges: initialProfile.privileges || [],
         group_name: initialProfile.group_name || "",
@@ -124,8 +139,8 @@ export function ProfileForm({ userId, initialEmail, initialProfile, bwiEnabled, 
         first_name: formData.first_name,
         last_name: formData.last_name,
         middle_name: formData.middle_name || null,
-        date_of_birth: formData.date_of_birth?.toISOString().split('T')[0] || null,
-        date_of_baptism: formData.date_of_baptism?.toISOString().split('T')[0] || null,
+        date_of_birth: formatLocalYMD(formData.date_of_birth),
+        date_of_baptism: formatLocalYMD(formData.date_of_baptism),
         gender: formData.gender,
         privileges: formData.privileges,
         avatar_url: initialProfile?.avatar_url, // Preserve existing avatar

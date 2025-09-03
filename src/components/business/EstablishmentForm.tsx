@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
 import { Crosshair, ChevronDown } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
-import { upsertEstablishment, getUniqueAreas, getUniqueFloors } from "@/lib/db/business";
+import { upsertEstablishment, getUniqueAreas, getUniqueFloors, findEstablishmentDuplicates } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { cacheGet, cacheSet } from "@/lib/offline/store";
 
@@ -55,6 +55,7 @@ export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditin
   const [showAreaInput, setShowAreaInput] = useState(false);
   const [showFloorInput, setShowFloorInput] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [dupCandidates, setDupCandidates] = useState<any[]>([]);
 
   useEffect(() => {
     let active = true;
@@ -102,6 +103,23 @@ export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditin
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name, description, area, lat, lng, floor, status, note, gps]);
+
+  // Proactive duplicate detection as the user types (prefix match)
+  useEffect(() => {
+    const id = setTimeout(async () => {
+      try {
+        if (name && name.trim().length >= 2) {
+          const results = await findEstablishmentDuplicates(name.trim(), area || null, false);
+          setDupCandidates(results);
+        } else {
+          setDupCandidates([]);
+        }
+      } catch {
+        setDupCandidates([]);
+      }
+    }, 250);
+    return () => clearTimeout(id);
+  }, [name, area]);
 
   // Flush draft immediately on unmount to avoid losing the latest edits when closing the modal quickly
   useEffect(() => {
@@ -195,6 +213,16 @@ export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditin
       <div className="grid gap-1">
         <Label>Name</Label>
         <Input value={name} onChange={e=>setName(e.target.value)} required />
+        {dupCandidates.length > 0 && (
+          <div className="mt-1 text-xs text-orange-400">
+            Possible duplicates in this area:
+            <ul className="list-disc ml-4 mt-1 space-y-0.5">
+              {dupCandidates.map((d) => (
+                <li key={d.id}>{d.name}{d.area ? ` – ${d.area}` : ""}</li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
       
       <div className="grid gap-1">
