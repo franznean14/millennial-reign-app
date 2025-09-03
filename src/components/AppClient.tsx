@@ -1,7 +1,18 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import dynamic from "next/dynamic";
+// Lazy-load Supabase client to keep initial bundle small
+let getSupabaseClientOnce: (() => Promise<import("@supabase/supabase-js").SupabaseClient>) | null = null;
+const getSupabaseClient = async () => {
+  if (!getSupabaseClientOnce) {
+    getSupabaseClientOnce = async () => {
+      const { createSupabaseBrowserClient } = await import("@/lib/supabase/client");
+      return createSupabaseBrowserClient();
+    };
+  }
+  return getSupabaseClientOnce();
+};
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -27,17 +38,17 @@ import { getProfile } from "@/lib/db/profiles";
 import { archiveEstablishment, deleteEstablishment } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 
-// Import UI components
-import { HomeSummary } from "@/components/home/HomeSummary";
-import { TopStudies } from "@/components/home/TopStudies";
-import { EstablishmentList } from "@/components/business/EstablishmentList";
-import { EstablishmentDetails } from "@/components/business/EstablishmentDetails";
-import { CongregationForm } from "@/components/congregation/CongregationForm";
-import { ResponsiveModal } from "@/components/ui/responsive-modal";
-import { SwipeableCard } from "@/components/ui/swipeable-card";
-import { CongregationMembers } from "@/components/congregation/CongregationMembers";
-import { BusinessFiltersForm } from "@/components/business/BusinessFiltersForm";
-import { CongregationView } from "@/components/views/CongregationView";
+// Lazy-load heavy UI components to reduce initial bundle
+const HomeSummary = dynamic(() => import("@/components/home/HomeSummary").then(m => m.HomeSummary), { ssr: false });
+const TopStudies = dynamic(() => import("@/components/home/TopStudies").then(m => m.TopStudies), { ssr: false });
+const EstablishmentList = dynamic(() => import("@/components/business/EstablishmentList").then(m => m.EstablishmentList), { ssr: false });
+const EstablishmentDetails = dynamic(() => import("@/components/business/EstablishmentDetails").then(m => m.EstablishmentDetails), { ssr: false });
+const CongregationForm = dynamic(() => import("@/components/congregation/CongregationForm").then(m => m.CongregationForm), { ssr: false });
+const ResponsiveModal = dynamic(() => import("@/components/ui/responsive-modal").then(m => m.ResponsiveModal), { ssr: false });
+const SwipeableCard = dynamic(() => import("@/components/ui/swipeable-card").then(m => m.SwipeableCard), { ssr: false });
+const CongregationMembers = dynamic(() => import("@/components/congregation/CongregationMembers").then(m => m.CongregationMembers), { ssr: false });
+const BusinessFiltersForm = dynamic(() => import("@/components/business/BusinessFiltersForm").then(m => m.BusinessFiltersForm), { ssr: false });
+const CongregationView = dynamic(() => import("@/components/views/CongregationView").then(m => m.CongregationView), { ssr: false });
 
 interface AppClientProps {
   currentSection: string;
@@ -162,7 +173,7 @@ export function AppClient({ currentSection }: AppClientProps) {
   // Load initial app data
   useEffect(() => {
     const loadAppData = async () => {
-      const supabase = createSupabaseBrowserClient();
+      const supabase = await getSupabaseClient();
       const { data: { session } } = await supabase.auth.getSession();
       const id = session?.user?.id || null;
       setUserId(id);
@@ -454,7 +465,7 @@ export function AppClient({ currentSection }: AppClientProps) {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 20 }}
           transition={{ duration: 0.3 }}
-          className="space-y-6 pb-24" // Add bottom padding for navbar
+          className="space-y-6 pb-24 w-full max-w-full overflow-x-hidden" // Ensure mobile width is respected
         >
           <HomeSummary
             userId={userId}
@@ -481,7 +492,7 @@ export function AppClient({ currentSection }: AppClientProps) {
         >
           {!selectedEstablishment && (
             <motion.div 
-              className="flex items-center justify-between overflow-hidden"
+              className="flex items-center justify-between overflow-hidden w-full max-w-full"
               layout
               animate={{ 
                 height: filtersModalOpen ? 0 : "auto",
@@ -493,7 +504,7 @@ export function AppClient({ currentSection }: AppClientProps) {
                 height: { duration: 0.3, ease: "easeOut" }
               }}
             >
-              <div className="relative flex-1 max-w-md">
+              <div className="relative flex-1 min-w-0">
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search establishments..."
