@@ -13,6 +13,25 @@ import { upsertEstablishment, getUniqueAreas, getUniqueFloors, findEstablishment
 import { businessEventBus } from "@/lib/events/business-events";
 import { cacheGet, cacheSet } from "@/lib/offline/store";
 
+// Determine whether a draft object has any meaningful data
+function isNonEmptyDraft(d: any | null | undefined): boolean {
+  if (!d) return false;
+  const hasText = (v?: string | null) => typeof v === "string" && v.trim().length > 0;
+  const hasNum = (v?: number | null) => typeof v === "number" && !Number.isNaN(v);
+  const hasArray = (v?: any[]) => Array.isArray(v) && v.length > 0;
+  return (
+    hasText(d.name) ||
+    hasText(d.description) ||
+    hasText(d.area) ||
+    hasNum(d.lat) ||
+    hasNum(d.lng) ||
+    hasText(d.floor) ||
+    hasArray(d.statuses) ||
+    hasText(d.note) ||
+    hasText(d.gps)
+  );
+}
+
 interface EstablishmentFormProps {
   onSaved: (newEstablishment?: any) => void;
   selectedArea?: string;
@@ -56,6 +75,8 @@ export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditin
   const [showFloorInput, setShowFloorInput] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dupCandidates, setDupCandidates] = useState<any[]>([]);
+  // Prevent emitting/saving empty draft before initial load completes
+  const loadCompleteRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -65,7 +86,7 @@ export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditin
       // Load any existing draft (if present)
       try {
         const persisted = await cacheGet<any>(draftKey);
-        const draft = externalDraft ?? persisted;
+        const draft = isNonEmptyDraft(externalDraft) ? externalDraft : persisted;
         if (draft && active) {
           draftAppliedRef.current = true;
           setName(draft.name ?? "");
@@ -79,6 +100,8 @@ export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditin
           setGps(draft.gps ?? "");
         }
       } catch {}
+      // Mark initial load complete so subsequent changes can emit and persist
+      loadCompleteRef.current = true;
     })();
     return () => { active = false };
     // Re-load draft when the key changes (e.g., switching from new to edit or selectedArea changes)
@@ -95,7 +118,8 @@ export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditin
   const latestDraftRef = useRef<any>(null);
   useEffect(() => {
     latestDraftRef.current = { name, description, area, lat, lng, floor, statuses: status, note, gps };
-    // Emit to parent/global state immediately (session persistence)
+    // Do not emit/persist until initial load completes to avoid overwriting persisted data with empties
+    if (!loadCompleteRef.current) return;
     if (onDraftChange) onDraftChange(latestDraftRef.current);
     const id = setTimeout(() => {
       cacheSet(draftKey, latestDraftRef.current).catch(() => {});
