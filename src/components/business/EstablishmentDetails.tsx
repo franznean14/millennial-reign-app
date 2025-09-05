@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChevronLeft, MapPin, Building2, MapPinned, Calendar, Users, Edit } from "lucide-react";
+import { ChevronLeft, Building2, MapPinned, Calendar, Users, Edit } from "lucide-react";
 import { ResponsiveModal } from "@/components/ui/responsive-modal";
 import { type EstablishmentWithDetails, type VisitWithUser, type HouseholderWithDetails } from "@/lib/db/business";
 import { cn } from "@/lib/utils";
@@ -39,9 +39,12 @@ export function EstablishmentDetails({
       const container = titleContainerRef.current;
       const content = titleContentRef.current;
       if (!container || !content) return;
-      const distance = Math.max(content.scrollWidth - container.clientWidth, 0);
-      setScrollDistance(distance);
-      setShouldScroll(distance > 4); // small buffer to avoid micro scroll
+      const fadeWidthPx = 48; // matches w-12 gradient
+      const overshootPx = 8; // small overshoot so text clears the fade completely
+      const overflow = content.scrollWidth - container.clientWidth;
+      const willScroll = overflow > 4; // only scroll when content truly overflows
+      setShouldScroll(willScroll);
+      setScrollDistance(willScroll ? overflow + fadeWidthPx + overshootPx : 0);
     };
     measure();
     const onResize = () => measure();
@@ -103,7 +106,7 @@ export function EstablishmentDetails({
                 ref={titleContentRef}
                 className="whitespace-nowrap pr-12 text-2xl font-bold"
                 animate={shouldScroll ? { x: [0, -scrollDistance, 0] } : undefined}
-                transition={shouldScroll ? { duration: Math.max(scrollDistance / 60, 8), times: [0, 0.5, 1], repeat: Infinity, ease: "linear", repeatDelay: 1 } : undefined}
+                transition={shouldScroll ? { duration: Math.max(scrollDistance / 40, 10), times: [0, 0.6, 1], repeat: Infinity, ease: "linear", repeatDelay: 0.8 } : undefined}
               >
                 {establishment.name}
               </motion.div>
@@ -204,26 +207,37 @@ export function EstablishmentDetails({
                 <p className="break-words">{establishment.description}</p>
               </div>
             )}
-            {establishment.lat && establishment.lng && (
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Location</p>
-                <div className="flex items-center justify-between">
-                  <p className="flex items-center gap-1 text-sm">
-                    <MapPin className="h-3 w-3 flex-shrink-0" />
-                    <span className="break-all">{establishment.lat.toFixed(6)}, {establishment.lng.toFixed(6)}</span>
-                  </p>
-                  <a 
-                    className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs hover:bg-muted" 
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${establishment.lat},${establishment.lng}`}
-                    target="_blank" 
-                    rel="noreferrer"
-                  >
-                    <MapPinned className="h-3.5 w-3.5" />
-                    Directions
-                  </a>
-                </div>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">Note</p>
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-sm break-words flex-1 max-w-[70%]">
+                  {(() => {
+                    const raw = establishment.note ? String(establishment.note) : 'No notes added';
+                    return raw.length > 100 ? raw.slice(0, 100) + '…' : raw;
+                  })()}
+                </p>
+                {(() => {
+                  const hasCoords = !!establishment.lat && !!establishment.lng;
+                  const common = "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs whitespace-nowrap";
+                  return hasCoords ? (
+                    <a
+                      className={`${common} hover:bg-muted`}
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${establishment.lat},${establishment.lng}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <MapPinned className="h-3.5 w-3.5" />
+                      Directions
+                    </a>
+                  ) : (
+                    <span className={`${common} opacity-50 pointer-events-none`}>
+                      <MapPinned className="h-3.5 w-3.5" />
+                      Directions
+                    </span>
+                  );
+                })()}
               </div>
-            )}
+            </div>
           </CardContent>
         </Card>
       </motion.div>

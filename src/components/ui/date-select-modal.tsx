@@ -57,41 +57,41 @@ export function DateSelectModal({
   return (
     <ResponsiveModal open={open} onOpenChange={onOpenChange} title={title} description={description} className="sm:max-w-[640px]">
       <div className="p-4 pt-0">
-        <div className="flex items-center justify-between border-b pb-2">
-          <div className="flex items-center gap-2 text-sm font-medium">
+        <div className="flex items-center border-b pb-2">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="shrink-0"
+            onClick={() => setView((v) => {
+              const n = new Date(v);
+              if (mode === "days") n.setMonth(n.getMonth() - 1);
+              else if (mode === "months") n.setFullYear(n.getFullYear() - 1);
+              else n.setFullYear(n.getFullYear() - 12);
+              return n;
+            })}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+          <div className="flex-1 flex items-center justify-center gap-2 text-sm font-medium">
             <Button type="button" variant="ghost" size="sm" onClick={() => setMode("months")}>{monthLabel}</Button>
             <Button type="button" variant="ghost" size="sm" onClick={() => setMode("years")}>{yearLabel}</Button>
           </div>
-          <div className="flex items-center gap-1">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setView((v) => {
-                const n = new Date(v);
-                if (mode === "days") n.setMonth(n.getMonth() - 1);
-                else if (mode === "months") n.setFullYear(n.getFullYear() - 1);
-                else n.setFullYear(n.getFullYear() - 12);
-                return n;
-              })}
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setView((v) => {
-                const n = new Date(v);
-                if (mode === "days") n.setMonth(n.getMonth() + 1);
-                else if (mode === "months") n.setFullYear(n.getFullYear() + 1);
-                else n.setFullYear(n.getFullYear() + 12);
-                return n;
-              })}
-            >
-              <ChevronRight className="h-5 w-5" />
-            </Button>
-          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="shrink-0"
+            onClick={() => setView((v) => {
+              const n = new Date(v);
+              if (mode === "days") n.setMonth(n.getMonth() + 1);
+              else if (mode === "months") n.setFullYear(n.getFullYear() + 1);
+              else n.setFullYear(n.getFullYear() + 12);
+              return n;
+            })}
+          >
+            <ChevronRight className="h-5 w-5" />
+          </Button>
         </div>
 
         {mode === "days" && (

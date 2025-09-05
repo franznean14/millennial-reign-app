@@ -107,6 +107,10 @@ export function FieldServiceForm({ userId, onClose }: FieldServiceFormProps) {
           setMonthMarks((m) => ({ ...m, [date]: true }));
         }
         setDirty(false);
+        // Notify home summary to refresh
+        try {
+          window.dispatchEvent(new CustomEvent('daily-records-changed', { detail: { userId } }));
+        } catch {}
       } catch (e: any) {
         toast.error(e.message ?? "Failed to save");
       }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import NumberFlow from "@number-flow/react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatDateHuman } from "@/lib/utils";
 
@@ -172,6 +173,22 @@ export function HomeSummary({
     };
   }, [uid]);
 
+  // Listen to local app events (optimistic/offline updates)
+  useEffect(() => {
+    if (!uid) return;
+    const handler = (e: any) => {
+      if (!uid) return;
+      try {
+        const target = e?.detail?.userId;
+        if (!target || target === uid) refresh();
+      } catch {
+        refresh();
+      }
+    };
+    window.addEventListener("daily-records-changed", handler as any);
+    return () => window.removeEventListener("daily-records-changed", handler as any);
+  }, [uid, range.mStart, range.mNext, range.syStart, range.syEnd]);
+
   // Cleanup effect - reset state when user logs out
   useEffect(() => {
     if (!uid) {
@@ -190,13 +207,17 @@ export function HomeSummary({
         <div className="sm:col-span-3 rounded-lg border p-6">
           <div className="flex flex-row items-end justify-between gap-6">
             <div>
-              <div className="text-5xl font-semibold leading-tight">{fmtHours(monthHours)}</div>
+              <div className="text-5xl font-semibold leading-tight">
+                <NumberFlow value={Number(fmtHours(monthHours))} locales="en-US" format={{ useGrouping: false }} />
+              </div>
               <div className="mt-0.5 text-sm opacity-70">Hours</div>
             </div>
             {localPioneer ? (
               <div className="text-right">
                 <div className="text-xs opacity-70">This service year</div>
-                <div className="mt-1 text-2xl font-semibold leading-tight">{fmtHours(syHours)}</div>
+                <div className="mt-1 text-2xl font-semibold leading-tight">
+                  <NumberFlow value={Number(fmtHours(syHours))} locales="en-US" format={{ useGrouping: false }} />
+                </div>
                 <div className="text-xs opacity-70 mt-1">Since {formatDateHuman(serviceYearStart, timeZone || undefined)}</div>
               </div>
             ) : null}

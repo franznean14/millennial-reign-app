@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { motion } from "motion/react";
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { List, Grid3X3 } from "lucide-react";
+import { List, LayoutGrid, Table as TableIcon } from "lucide-react";
 import { type EstablishmentWithDetails } from "@/lib/db/business";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/sonner";
 import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
 import { getStatusColor, getStatusTextColor, getBestStatus } from "@/lib/utils/status-hierarchy";
 
 interface EstablishmentListProps {
@@ -21,7 +22,71 @@ interface EstablishmentListProps {
   onMyEstablishmentsChange?: (checked: boolean) => void;
 }
 
-type ViewMode = 'detailed' | 'compact';
+type ViewMode = 'detailed' | 'compact' | 'table';
+
+function NameWithAvatarsCell({
+  name,
+  visitors
+}: {
+  name: string;
+  visitors?: Array<{ user_id?: string; avatar_url?: string; first_name?: string; last_name?: string }>;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [scrollDistance, setScrollDistance] = useState(0);
+  const [shouldScroll, setShouldScroll] = useState(false);
+
+  useEffect(() => {
+    const measure = () => {
+      const container = containerRef.current;
+      const content = contentRef.current;
+      if (!container || !content) return;
+      const fadeWidthPx = 40; // width of gradient fade
+      const overshootPx = 6; // ensure text clears fade fully
+      const overflow = content.scrollWidth - container.clientWidth;
+      const willScroll = overflow > 4;
+      setShouldScroll(willScroll);
+      setScrollDistance(willScroll ? overflow + fadeWidthPx + overshootPx : 0);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [name]);
+
+  return (
+    <div className="flex items-center gap-2 min-w-0">
+      <div className="relative flex-1 min-w-0">
+        <div ref={containerRef} className="relative w-full overflow-hidden">
+          <motion.div
+            ref={contentRef}
+            className="whitespace-nowrap pr-10"
+            animate={shouldScroll ? { x: [0, -scrollDistance, 0] } : undefined}
+            transition={shouldScroll ? { duration: Math.max(scrollDistance / 40, 10), times: [0, 0.6, 1], repeat: Infinity, ease: "linear", repeatDelay: 0.8 } : undefined}
+            title={name}
+          >
+            {name}
+          </motion.div>
+          <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-background to-transparent" />
+        </div>
+      </div>
+      {visitors && visitors.length > 0 && (
+        <div className="flex items-center flex-shrink-0">
+          {visitors.slice(0, 3).map((visitor, i) => (
+            <Avatar key={visitor.user_id || i} className={`h-5 w-5 ring-1 ring-background ${i > 0 ? '-ml-2' : ''}`}>
+              <AvatarImage src={visitor.avatar_url} />
+              <AvatarFallback className="text-xs">
+                {`${visitor.first_name ?? ''} ${visitor.last_name ?? ''}`.trim().charAt(0) || 'U'}
+              </AvatarFallback>
+            </Avatar>
+          ))}
+          {visitors.length > 3 && (
+            <span className="text-xs text-muted-foreground ml-2">+{visitors.length - 3}</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function EstablishmentList({ 
   establishments, 
@@ -36,7 +101,7 @@ export function EstablishmentList({
   // Load view mode preference from localStorage
   useEffect(() => {
     const savedViewMode = localStorage.getItem('establishment-view-mode') as ViewMode;
-    if (savedViewMode && (savedViewMode === 'detailed' || savedViewMode === 'compact')) {
+    if (savedViewMode && (savedViewMode === 'detailed' || savedViewMode === 'compact' || savedViewMode === 'table')) {
       setViewMode(savedViewMode);
     }
   }, []);
@@ -44,7 +109,12 @@ export function EstablishmentList({
   // Save view mode preference to localStorage
   const handleViewModeChange = (newViewMode: ViewMode) => {
     setViewMode(newViewMode);
-    localStorage.setItem('establishment-view-mode', newViewMode);
+    try { localStorage.setItem('establishment-view-mode', newViewMode); } catch {}
+  };
+
+  const cycleViewMode = () => {
+    const next: ViewMode = viewMode === 'detailed' ? 'compact' : viewMode === 'compact' ? 'table' : 'detailed';
+    handleViewModeChange(next);
   };
 
   const formatStatusText = (status: string) => {
@@ -54,8 +124,47 @@ export function EstablishmentList({
       .join(' ');
   };
 
+  const formatStatusCompactText = (status: string) => {
+    // Make long statuses friendlier and shorter for tight spaces
+    switch (status) {
+      case 'for_follow_up':
+        return 'Follow Up';
+      case 'for_replenishment':
+        return 'Replenish';
+      case 'accepted_rack':
+        return 'Accepted';
+      case 'declined_rack':
+        return 'Declined';
+      case 'for_scouting':
+        return 'Scouting';
+      case 'has_bible_studies':
+        return 'BS';
+      default:
+        return formatStatusText(status);
+    }
+  };
+
   const truncateEstablishmentName = (name: string, maxLength: number = 20) => {
     return name.length > maxLength ? name.substring(0, maxLength) + '...' : name;
+  };
+
+  const getStatusDotColorClass = (status: string) => {
+    switch (status) {
+      case 'declined_rack':
+        return 'bg-red-500';
+      case 'for_scouting':
+        return 'bg-gray-500';
+      case 'for_follow_up':
+        return 'bg-orange-500';
+      case 'accepted_rack':
+        return 'bg-blue-500';
+      case 'for_replenishment':
+        return 'bg-purple-500';
+      case 'has_bible_studies':
+        return 'bg-emerald-500';
+      default:
+        return 'bg-gray-500';
+    }
   };
 
   const renderDetailedView = (establishment: EstablishmentWithDetails, index: number) => (
@@ -142,10 +251,7 @@ export function EstablishmentList({
                 
                 {/* Area label below the status badge */}
                 {establishment.area && (
-                  <div className="mt-2">
-                    <span className="text-sm text-muted-foreground">Area: </span>
-                    <span className="text-sm font-medium">{establishment.area}</span>
-                  </div>
+                  <div className="mt-2 text-sm font-medium">{establishment.area}</div>
                 )}
               </motion.div>
             </div>
@@ -320,6 +426,53 @@ export function EstablishmentList({
     </motion.div>
   );
 
+  const renderTableView = () => (
+    <div className="w-full overflow-x-auto">
+      <table className="w-full text-sm table-fixed">
+        <thead>
+          <tr className="border-b">
+            <th className="text-left p-3 w-[60%]">Name</th>
+            <th className="text-left p-3 w-[18%]">Status</th>
+            <th className="text-left p-3 w-[22%]">Area</th>
+          </tr>
+        </thead>
+        <tbody>
+          {establishments.map((establishment, index) => (
+            <tr key={establishment.id || index} className="border-b hover:bg-muted/30 cursor-pointer" onClick={() => onEstablishmentClick(establishment)}>
+              <td className="p-3 min-w-0">
+                <NameWithAvatarsCell name={establishment.name} visitors={establishment.top_visitors} />
+              </td>
+              <td className="p-3">
+                <div className="flex items-center gap-1 min-w-0">
+                  <Badge 
+                    variant="outline" 
+                    className={cn("text-[10px] leading-4 px-1.5 py-0.5 rounded-sm", getStatusTextColor(getBestStatus(establishment.statuses || [])))}
+                  >
+                    {formatStatusCompactText(getBestStatus(establishment.statuses || []))}
+                  </Badge>
+                  {(establishment.statuses && establishment.statuses.length > 1) && (
+                    <div className="flex items-center gap-0.5">
+                      {establishment.statuses
+                        ?.filter(s => s !== getBestStatus(establishment.statuses || []))
+                        .slice(0, 3)
+                        .map((status) => (
+                          <div key={status} className={cn("w-1.5 h-1.5 rounded-full", getStatusDotColorClass(status))} title={formatStatusText(status)} />
+                        ))}
+                      {establishment.statuses.filter(s => s !== getBestStatus(establishment.statuses || [])).length > 3 && (
+                        <span className="text-[10px] text-muted-foreground">+{establishment.statuses.filter(s => s !== getBestStatus(establishment.statuses || [])).length - 3}</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </td>
+              <td className="p-3 truncate">{establishment.area || '-'}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+
   return (
     <div className="w-full">
       {/* Controls Row - Toggle and Results Count on same line */}
@@ -335,84 +488,44 @@ export function EstablishmentList({
           </label>
         </div>
         
-        {/* View Toggle - Toggle switch with smooth layout animation */}
-        <button
-          className="toggle-container"
-          style={{
-            width: 70,
-            height: 36,
-            backgroundColor: "#171717",
-            borderRadius: 36,
-            cursor: "pointer",
-            display: "flex",
-            padding: 4,
-            justifyContent: viewMode === 'detailed' ? "flex-start" : "flex-end",
-            position: "relative",
-          }}
-          onClick={() => handleViewModeChange(viewMode === 'detailed' ? 'compact' : 'detailed')}
+        {/* View Toggle - circular icon button cycling detailed -> compact -> table */}
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-9 w-9 rounded-full"
+          onClick={cycleViewMode}
+          title={`View: ${viewMode}`}
         >
-          {/* Icon on the left side (Compact view) */}
-          <div 
-            style={{
-              position: "absolute",
-              left: 10,
-              top: "50%",
-              transform: "translateY(-50%)",
-              zIndex: 1,
-            }}
-          >
-            <Grid3X3 
-              className="h-4 w-4" 
-              style={{ 
-                color: viewMode === 'compact' ? "rgb(104,104,104)" : "rgb(10, 10, 10)" 
-              }} 
-            />
-          </div>
-
-          {/* Icon on the right side (Detailed view) */}
-          <div 
-            style={{
-              position: "absolute",
-              right: 10,
-              top: "50%",
-              transform: "translateY(-50%)",
-              zIndex: 1,
-            }}
-          >
-            <List 
-              className="h-4 w-4" 
-              style={{ 
-                color: viewMode === 'detailed' ? "rgb(104,104,104)" : "rgb(10, 10, 10)"
-              }} 
-            />
-          </div>
-
-          <motion.div
-            className="toggle-handle"
-            style={{
-              width: 28,
-              height: 28,
-              backgroundColor: "rgb(10, 10, 10)",
-              borderRadius: "50%",
-            }}
-            layout
-            transition={{
-              type: "spring",
-              visualDuration: 0.2,
-              bounce: 0.2,
-            }}
-          />
-        </button>
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.span
+              key={viewMode}
+              initial={{ opacity: 0, scale: 0.8, rotate: -90 }}
+              animate={{ opacity: 1, scale: 1, rotate: 0 }}
+              exit={{ opacity: 0, scale: 0.8, rotate: 90 }}
+              transition={{ duration: 0.18 }}
+              className="inline-flex"
+            >
+              {viewMode === 'detailed' && <LayoutGrid className="h-4 w-4" />}
+              {viewMode === 'compact' && <List className="h-4 w-4" />}
+              {viewMode === 'table' && <TableIcon className="h-4 w-4" />}
+            </motion.span>
+          </AnimatePresence>
+        </Button>
       </div>
 
-      {/* Establishment List */}
-      <div className="grid gap-4 mt-6 w-full">
-        {establishments.map((establishment, index) => 
-          viewMode === 'detailed' 
-            ? renderDetailedView(establishment, index)
-            : renderCompactView(establishment, index)
-        )}
-      </div>
+      {/* Establishments */}
+      {viewMode === 'table' ? (
+        <div className="mt-6 w-full">{renderTableView()}</div>
+      ) : (
+        <div className="grid gap-4 mt-6 w-full">
+          {establishments.map((establishment, index) => 
+            viewMode === 'detailed' 
+              ? renderDetailedView(establishment, index)
+              : renderCompactView(establishment, index)
+          )}
+        </div>
+      )}
     </div>
   );
 }
