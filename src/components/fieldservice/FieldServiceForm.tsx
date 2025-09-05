@@ -247,7 +247,7 @@ export function FieldServiceForm({ userId, onClose }: FieldServiceFormProps) {
           </div>
         )}
       </div>
-      <div className="p-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
+      <div className="p-4">
         <div className="mt-0 grid gap-4">
           <div className="grid gap-1 text-sm place-items-center">
             <span className="opacity-70">Hours</span>

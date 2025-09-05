@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +29,25 @@ export function EstablishmentDetails({
   onEstablishmentUpdated
 }: EstablishmentDetailsProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const titleContainerRef = useRef<HTMLDivElement>(null);
+  const titleContentRef = useRef<HTMLDivElement>(null);
+  const [scrollDistance, setScrollDistance] = useState(0);
+  const [shouldScroll, setShouldScroll] = useState(false);
+
+  useEffect(() => {
+    const measure = () => {
+      const container = titleContainerRef.current;
+      const content = titleContentRef.current;
+      if (!container || !content) return;
+      const distance = Math.max(content.scrollWidth - container.clientWidth, 0);
+      setScrollDistance(distance);
+      setShouldScroll(distance > 4); // small buffer to avoid micro scroll
+    };
+    measure();
+    const onResize = () => measure();
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [establishment.name]);
 
   const formatStatusText = (status: string) => {
     return status
@@ -69,7 +88,7 @@ export function EstablishmentDetails({
           }
         }}
       >
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 flex-1 min-w-0">
           <Button
             variant="ghost"
             size="sm"
@@ -78,20 +97,18 @@ export function EstablishmentDetails({
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <motion.div layout className="min-w-0 flex-1">
-            <motion.h1 
-              layout 
-              className="text-2xl font-bold truncate"
-              transition={{ 
-                layout: { 
-                  type: "spring", 
-                  stiffness: 300, 
-                  damping: 30 
-                }
-              }}
-            >
-              {establishment.name}
-            </motion.h1>
+          <motion.div layout className="min-w-0 flex-1 relative z-0 max-w-[calc(100%-112px)]">
+            <div ref={titleContainerRef} className="relative w-full overflow-hidden">
+              <motion.div
+                ref={titleContentRef}
+                className="whitespace-nowrap pr-12 text-2xl font-bold"
+                animate={shouldScroll ? { x: [0, -scrollDistance, 0] } : undefined}
+                transition={shouldScroll ? { duration: Math.max(scrollDistance / 60, 8), times: [0, 0.5, 1], repeat: Infinity, ease: "linear", repeatDelay: 1 } : undefined}
+              >
+                {establishment.name}
+              </motion.div>
+              <div className="pointer-events-none absolute right-0 top-0 h-full w-12 bg-gradient-to-l from-background to-transparent" />
+            </div>
             <motion.p 
               layout 
               className="text-muted-foreground truncate"
@@ -113,7 +130,7 @@ export function EstablishmentDetails({
           variant="outline"
           size="sm"
           onClick={() => setIsEditing(true)}
-          className="flex-shrink-0"
+          className="flex-shrink-0 relative z-10 ml-2"
         >
           <Edit className="h-4 w-4 mr-2" />
           Edit

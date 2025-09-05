@@ -83,21 +83,35 @@ export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditin
     (async () => {
       setAreas(await getUniqueAreas());
       setFloors(await getUniqueFloors());
-      // Load any existing draft (if present)
+      // Prefill from active business filters if available
+      try {
+        const filters = await cacheGet<any>("business:filters");
+        if (filters) {
+          if (!draftAppliedRef.current) {
+            if (!area && Array.isArray(filters.areas) && filters.areas.length > 0) {
+              setArea(filters.areas[0]);
+            }
+            if (Array.isArray(filters.statuses) && filters.statuses.length > 0 && (!status || status.length === 0)) {
+              setStatus([...filters.statuses]);
+            }
+          }
+        }
+      } catch {}
+      // Load any existing draft (if present) - only apply non-empty fields to avoid wiping prefill
       try {
         const persisted = await cacheGet<any>(draftKey);
         const draft = isNonEmptyDraft(externalDraft) ? externalDraft : persisted;
         if (draft && active) {
           draftAppliedRef.current = true;
-          setName(draft.name ?? "");
-          setDescription(draft.description ?? "");
-          setArea(draft.area ?? "");
-          setLat(typeof draft.lat === "number" ? draft.lat : null);
-          setLng(typeof draft.lng === "number" ? draft.lng : null);
-          setFloor(draft.floor ?? "");
-          setStatus(Array.isArray(draft.statuses) ? draft.statuses : []);
-          setNote(draft.note ?? "");
-          setGps(draft.gps ?? "");
+          if (typeof draft.name === "string" && draft.name.trim().length > 0) setName(draft.name);
+          if (typeof draft.description === "string") setDescription(draft.description);
+          if (typeof draft.area === "string" && draft.area.trim().length > 0) setArea(draft.area);
+          if (typeof draft.lat === "number") setLat(draft.lat);
+          if (typeof draft.lng === "number") setLng(draft.lng);
+          if (typeof draft.floor === "string") setFloor(draft.floor);
+          if (Array.isArray(draft.statuses) && draft.statuses.length > 0) setStatus(draft.statuses);
+          if (typeof draft.note === "string") setNote(draft.note);
+          if (typeof draft.gps === "string") setGps(draft.gps);
         }
       } catch {}
       // Mark initial load complete so subsequent changes can emit and persist
@@ -107,12 +121,12 @@ export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditin
     // Re-load draft when the key changes (e.g., switching from new to edit or selectedArea changes)
   }, [draftKey, externalDraft]);
 
-  // Update area when selectedArea prop changes (but do not override loaded draft)
+  // Update area when selectedArea prop changes (but do not override explicit user input)
   useEffect(() => {
-    if (selectedArea && !draftAppliedRef.current && !area) {
+    if (selectedArea && !area) {
       setArea(selectedArea);
     }
-  }, [selectedArea, area]);
+  }, [selectedArea]);
 
   // Keep the latest draft in a ref and persist with debounce
   const latestDraftRef = useRef<any>(null);
@@ -122,14 +136,21 @@ export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditin
     if (!loadCompleteRef.current) return;
     if (onDraftChange) onDraftChange(latestDraftRef.current);
     const id = setTimeout(() => {
-      cacheSet(draftKey, latestDraftRef.current).catch(() => {});
+      // Only persist non-empty drafts to avoid clearing prefills
+      if (isNonEmptyDraft(latestDraftRef.current)) {
+        cacheSet(draftKey, latestDraftRef.current).catch(() => {});
+      }
     }, 150);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [name, description, area, lat, lng, floor, status, note, gps]);
 
-  // Proactive duplicate detection as the user types (prefix match)
+  // Proactive duplicate detection as the user types (prefix match) - only for NEW establishments
   useEffect(() => {
+    if (isEditing) {
+      setDupCandidates([]);
+      return;
+    }
     const id = setTimeout(async () => {
       try {
         if (name && name.trim().length >= 2) {
@@ -143,7 +164,7 @@ export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditin
       }
     }, 250);
     return () => clearTimeout(id);
-  }, [name, area]);
+  }, [name, area, isEditing]);
 
   // Flush draft immediately on unmount to avoid losing the latest edits when closing the modal quickly
   useEffect(() => {
@@ -213,8 +234,11 @@ export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditin
       if (result) {
         toast.success(isEditing ? "Establishment updated successfully!" : "Establishment saved successfully!");
         onSaved(result);
-        // Clear draft after successful save
-        try { await cacheSet(draftKey, null); } catch {}
+        // Clear draft after successful save and invalidate establishments cache
+        try { 
+          await cacheSet(draftKey, null);
+          await cacheSet('establishments:list', null);
+        } catch {}
         // Emit event for live update
         if (isEditing) {
           businessEventBus.emit('establishment-updated', result);
@@ -233,7 +257,7 @@ export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditin
   };
 
   return (
-    <form className="grid gap-3 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]" onSubmit={handleSubmit}>
+    <form className="grid gap-3" onSubmit={handleSubmit}>
       <div className="grid gap-1">
         <Label>Name</Label>
         <Input value={name} onChange={e=>setName(e.target.value)} required />

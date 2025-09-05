@@ -8,6 +8,7 @@ export interface BusinessFiltersState {
   statuses: string[];
   areas: string[];
   myEstablishments: boolean;
+  sort?: 'name_asc' | 'name_desc' | 'last_visit_desc' | 'last_visit_asc' | 'area_asc' | 'area_desc';
 }
 
 export type EstablishmentStatus = 
@@ -66,6 +67,7 @@ export interface EstablishmentWithDetails {
   updated_by?: string;
   visit_count?: number;
   householder_count?: number;
+  last_visit_at?: string | null;
   top_visitors?: Array<{
     user_id: string;
     first_name: string;
@@ -432,6 +434,7 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
         *,
         visits:business_visits!business_visits_establishment_id_fkey(
           id,
+          visit_date,
           publisher:profiles!business_visits_publisher_id_fkey(
             id,
             first_name,
@@ -467,6 +470,10 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
       // Count visits and householders
       const visit_count = establishment.visits?.length || 0;
       const householder_count = establishment.householders?.length || 0;
+      const last_visit_at = (establishment.visits || [])
+        .map((v: any) => v?.visit_date)
+        .filter(Boolean)
+        .sort((a: string, b: string) => (a < b ? 1 : a > b ? -1 : 0))[0] || null;
       
       // Get top visitors (publishers and partners who visited most)
       const visitorCounts = new Map<string, { count: number; profile: any }>();
@@ -506,6 +513,7 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
         ...establishment,
         visit_count,
         householder_count,
+        last_visit_at,
         top_visitors
       };
     }) || [];

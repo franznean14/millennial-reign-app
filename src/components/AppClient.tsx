@@ -29,6 +29,7 @@ import { LogoutButton } from "@/components/account/LogoutButton";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
+import { cacheSet } from "@/lib/offline/store";
 
 // Import all the data and business logic functions
 import { getDailyRecord, listDailyByMonth, upsertDailyRecord, isDailyEmpty, deleteDailyRecord } from "@/lib/db/dailyRecords";
@@ -149,10 +150,18 @@ export function AppClient({ currentSection }: AppClientProps) {
     search: "",
     statuses: [],
     areas: [],
-    myEstablishments: false
+    myEstablishments: false,
+    sort: 'last_visit_desc'
   });
   const [filtersModalOpen, setFiltersModalOpen] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
+
+  // Persist business filters globally for form auto-population
+  useEffect(() => {
+    try {
+      cacheSet("business:filters", filters);
+    } catch {}
+  }, [filters]);
 
   // Congregation state
   const [cong, setCong] = useState<Congregation | null>(null);
@@ -312,11 +321,13 @@ export function AppClient({ currentSection }: AppClientProps) {
 
       // Set up business event listeners
       businessEventBus.subscribe('establishment-added', addNewEstablishment);
+      businessEventBus.subscribe('establishment-updated', updateEstablishment);
       businessEventBus.subscribe('householder-added', addNewHouseholder);
       businessEventBus.subscribe('visit-added', addNewVisit);
 
       return () => {
         businessEventBus.unsubscribe('establishment-added', addNewEstablishment);
+        businessEventBus.unsubscribe('establishment-updated', updateEstablishment);
         businessEventBus.unsubscribe('householder-added', addNewHouseholder);
         businessEventBus.unsubscribe('visit-added', addNewVisit);
       };
@@ -340,6 +351,29 @@ export function AppClient({ currentSection }: AppClientProps) {
       if (establishmentExists) return prev;
       return [establishment, ...prev];
     });
+  }, []);
+  // Live update an establishment in list and details
+  const updateEstablishment = useCallback((updated: Partial<EstablishmentWithDetails> & { id: string }) => {
+    const merge = (target: EstablishmentWithDetails | null) => {
+      if (!target || target.id !== updated.id) return target;
+      const fields: Partial<EstablishmentWithDetails> = {
+        name: updated.name as any,
+        description: updated.description as any,
+        area: updated.area as any,
+        lat: updated.lat as any,
+        lng: updated.lng as any,
+        floor: updated.floor as any,
+        statuses: (updated as any).statuses as any,
+        note: updated.note as any,
+        updated_at: (updated as any).updated_at as any,
+      };
+      const merged = { ...target, ...Object.fromEntries(Object.entries(fields).filter(([_, v]) => v !== undefined)) } as EstablishmentWithDetails;
+      return merged;
+    };
+
+    setEstablishments(prev => prev.map(e => e.id === updated.id ? (merge(e) as EstablishmentWithDetails) : e));
+    setSelectedEstablishment(prev => merge(prev));
+    setSelectedEstablishmentDetails(prev => prev ? ({ ...prev, establishment: merge(prev.establishment)! }) : prev);
   }, []);
 
   const addNewHouseholder = useCallback((householder: HouseholderWithDetails) => {
@@ -398,7 +432,7 @@ export function AppClient({ currentSection }: AppClientProps) {
 
   // Business filtering logic
   const filteredEstablishments = useMemo(() => {
-    return establishments.filter(establishment => {
+    const base = establishments.filter(establishment => {
       // Search filter
       if (filters.search && !establishment.name.toLowerCase().includes(filters.search.toLowerCase())) {
         return false;
@@ -414,18 +448,52 @@ export function AppClient({ currentSection }: AppClientProps) {
         return false;
       }
       
-      // My Establishments filter
+      // My Establishments filter: show only establishments the user has visited
       if (filters.myEstablishments) {
-        // Show establishments where:
-        // 1) User created the establishment, OR
-        // 2) User visited the establishment (based on full visit history, not just top_visitors)
-        const isCreator = establishment.created_by === userId;
         const visitedByUser = establishment.id ? userVisitedEstablishments.has(establishment.id) : false;
-        if (!isCreator && !visitedByUser) return false;
+        if (!visitedByUser) return false;
       }
       
       return true;
     });
+    // Sorting
+    const sorted = [...base];
+    const compareLastVisit = (a?: string | null, b?: string | null, asc: boolean = false) => {
+      const ahas = !!a;
+      const bhas = !!b;
+      if (ahas && !bhas) return -1; // visited first
+      if (!ahas && bhas) return 1;  // never-visited last
+      if (!ahas && !bhas) return 0;
+      // When both have dates, sort by date string (YYYY-MM-DD)
+      if (asc) {
+        return (a! < b! ? -1 : a! > b! ? 1 : 0);
+      } else {
+        return (a! > b! ? -1 : a! < b! ? 1 : 0);
+      }
+    };
+
+    switch (filters.sort) {
+      case 'name_asc':
+        sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        break;
+      case 'name_desc':
+        sorted.sort((a, b) => (b.name || '').localeCompare(a.name || ''));
+        break;
+      case 'area_asc':
+        sorted.sort((a, b) => (a.area || '').localeCompare(b.area || ''));
+        break;
+      case 'area_desc':
+        sorted.sort((a, b) => (b.area || '').localeCompare(a.area || ''));
+        break;
+      case 'last_visit_asc':
+        sorted.sort((a, b) => compareLastVisit(a.last_visit_at, b.last_visit_at, true));
+        break;
+      case 'last_visit_desc':
+      default:
+        sorted.sort((a, b) => compareLastVisit(a.last_visit_at, b.last_visit_at, false));
+        break;
+    }
+    return sorted;
   }, [establishments, filters, userId, userVisitedEstablishments]);
 
   const areaOptions = useMemo(() => {
@@ -503,7 +571,7 @@ export function AppClient({ currentSection }: AppClientProps) {
       );
 
     case 'business':
-      const hasActiveFilters = filters.search !== "" || filters.statuses.length > 0 || filters.areas.length > 0 || filters.myEstablishments;
+      const hasActiveFilters = filters.search !== "" || filters.statuses.length > 0 || filters.areas.length > 0 || filters.myEstablishments || !!filters.sort;
       
       return (
         <motion.div
@@ -538,11 +606,7 @@ export function AppClient({ currentSection }: AppClientProps) {
                   className="pl-10 cursor-pointer"
                   readOnly
                 />
-                {hasActiveFilters && (
-                  <Badge variant="secondary" className="absolute -top-2 -right-2 text-xs">
-                    {Object.values(filters).filter(Boolean).length}
-                  </Badge>
-                )}
+                {/* Removed active filters count badge */}
               </div>
               
               {/* Remove the My Establishments toggle section entirely */}
@@ -595,6 +659,7 @@ export function AppClient({ currentSection }: AppClientProps) {
                       setSelectedEstablishment(null);
                       setSelectedEstablishmentDetails(null);
                     }}
+                    onEstablishmentUpdated={(est) => est?.id && updateEstablishment({ id: est.id!, ...est })}
                   />
                 </motion.div>
               )}
@@ -605,8 +670,7 @@ export function AppClient({ currentSection }: AppClientProps) {
           <ResponsiveModal
             open={filtersModalOpen}
             onOpenChange={setFiltersModalOpen}
-            title="Business Filters"
-            description="Filter establishments by search, status, area, and more"
+            title="Sort and Filter"
           >
             <BusinessFiltersForm
               filters={filters}
@@ -615,7 +679,8 @@ export function AppClient({ currentSection }: AppClientProps) {
                 search: "",
                 statuses: [],
                 areas: [],
-                myEstablishments: false
+                myEstablishments: false,
+                sort: 'last_visit_desc'
               })}
               hasActiveFilters={hasActiveFilters}
               statusOptions={[

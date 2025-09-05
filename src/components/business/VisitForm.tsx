@@ -13,6 +13,7 @@ import { toast } from "@/components/ui/sonner";
 import { addVisit, getBwiParticipants } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { cacheGet } from "@/lib/offline/store";
 
 interface VisitFormProps {
   establishments: any[];
@@ -42,6 +43,23 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved }: 
       setEstId(establishments[0]?.id || "none");
     }
   }, [selectedEstablishmentId, establishments]);
+
+  // Prefill from active business filters (status not relevant; prefill area via establishment if possible)
+  useEffect(() => {
+    (async () => {
+      try {
+        const filters = await cacheGet<any>("business:filters");
+        if (filters && Array.isArray(filters.areas) && filters.areas.length > 0) {
+          const area = filters.areas[0];
+          // If there is an establishment list, pick one that matches the area
+          const match = establishments.find(e => e.area === area);
+          if (match?.id) {
+            setEstId(match.id);
+          }
+        }
+      } catch {}
+    })();
+  }, [establishments]);
 
   useEffect(() => {
     const loadParticipants = async () => {
@@ -123,7 +141,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved }: 
   const availableParticipants = participants.filter(p => !publishers.includes(p.id));
   
   return (
-    <form className="grid gap-3 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]" onSubmit={handleSubmit}>
+    <form className="grid gap-3" onSubmit={handleSubmit}>
       <div className="grid gap-1">
         <Label>Establishment (optional)</Label>
         <Select value={estId} onValueChange={setEstId}>

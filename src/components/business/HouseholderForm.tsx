@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { cacheGet } from "@/lib/offline/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,6 +33,19 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
       setEstId(establishments[0]?.id || "");
     }
   }, [selectedEstablishmentId, establishments]);
+
+  // Prefill from active business filters (area doesn't apply here; status can)
+  useEffect(() => {
+    (async () => {
+      try {
+        const filters = await cacheGet<any>("business:filters");
+        if (filters && Array.isArray(filters.statuses) && filters.statuses.length > 0) {
+          const preferred = filters.statuses[0] as any;
+          setStatus(preferred);
+        }
+      } catch {}
+    })();
+  }, []);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,7 +75,7 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
   };
   
   return (
-    <form className="grid gap-3 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]" onSubmit={handleSubmit}>
+    <form className="grid gap-3" onSubmit={handleSubmit}>
       <div className="grid gap-1">
         <Label>Establishment</Label>
         <Select value={estId} onValueChange={setEstId}>

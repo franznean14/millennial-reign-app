@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
+import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { ArrowDownAZ, ArrowUpAZ, ArrowDownWideNarrow, ArrowUpWideNarrow } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -94,6 +96,7 @@ export function BusinessFiltersForm({
   return (
     <div className="space-y-6">
       <div className="space-y-4">
+        {/* Sort moved below Area */}
         <div className="space-y-2">
           <Label>Search</Label>
           <Input
@@ -135,6 +138,56 @@ export function BusinessFiltersForm({
               </Button>
             ))}
           </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Sort by</Label>
+          {(() => {
+            const current = (localFilters.sort as string) || 'last_visit_desc';
+            const underscoreIndex = current.lastIndexOf('_');
+            const key = underscoreIndex >= 0 ? (current.slice(0, underscoreIndex)) : 'last_visit';
+            const dir = underscoreIndex >= 0 ? (current.slice(underscoreIndex + 1)) : 'desc';
+            const isAsc = dir === 'asc';
+            const makeSort = (k: string, d: 'asc'|'desc') => `${k}_${d}` as const;
+            return (
+              <div className="flex items-center gap-2">
+                <Select
+                  value={key as any}
+                  onValueChange={(newKey) => {
+                    const next = { ...localFilters, sort: makeSort(newKey, isAsc ? 'asc' : 'desc') as any };
+                    setLocalFilters(next);
+                    applyFiltersImmediately(next);
+                  }}
+                >
+                  <SelectTrigger className="min-w-[180px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="last_visit">Last Visit</SelectItem>
+                    <SelectItem value="name">Name</SelectItem>
+                    <SelectItem value="area">Area</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label={`Toggle ${isAsc ? 'descending' : 'ascending'}`}
+                  onClick={() => {
+                    const next = { ...localFilters, sort: makeSort(key, isAsc ? 'desc' : 'asc') as any };
+                    setLocalFilters(next);
+                    applyFiltersImmediately(next);
+                  }}
+                >
+                  {key === 'name' ? (
+                    isAsc ? <ArrowUpAZ className="h-4 w-4" /> : <ArrowDownAZ className="h-4 w-4" />
+                  ) : (
+                    isAsc ? <ArrowUpWideNarrow className="h-4 w-4" /> : <ArrowDownWideNarrow className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            );
+          })()}
         </div>
       </div>
 
