@@ -25,7 +25,7 @@ export function CongregationUserSearchButton({ congregationId, canEdit, onRefres
       {/* Floating Action Button - same positioning as BusinessFloatingButton */}
       <Button
         onClick={() => setSearchDrawerOpen(true)}
-        className="fixed right-4 z-40 h-14 w-14 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-110 active:scale-95 touch-manipulation md:right-6 bottom-[calc(max(env(safe-area-inset-bottom),0px)+80px)] md:bottom-[104px]"
+        className="fixed right-4 z-40 h-14 w-14 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-110 active:scale-95 touch-manipulation md:right-6 bottom-[calc(max(env(safe-area-inset-bottom),0px)+80px)]"
         size="lg"
       >
         <Plus className="h-6 w-6" />
