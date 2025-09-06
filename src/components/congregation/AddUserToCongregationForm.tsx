@@ -16,7 +16,6 @@ interface AddUserToCongregationFormProps {
 }
 
 export function AddUserToCongregationForm({ congregationId, onUserAdded, onClose }: AddUserToCongregationFormProps) {
-  const searchInputRef = useRef<HTMLInputElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResult, setSearchResult] = useState<any>(null);
   const [searching, setSearching] = useState(false);
@@ -24,7 +23,6 @@ export function AddUserToCongregationForm({ congregationId, onUserAdded, onClose
   const [groupOptions, setGroupOptions] = useState<string[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<string>("");
   const [showGroupInput, setShowGroupInput] = useState(false);
-  const hasFocused = useRef(false);
 
   // Load existing group names
   useEffect(() => {
@@ -42,14 +40,6 @@ export function AddUserToCongregationForm({ congregationId, onUserAdded, onClose
     };
     loadGroupOptions();
   }, []);
-
-  // Auto-focus search input when component mounts
-  useEffect(() => {
-    if (searchInputRef.current && !hasFocused.current) {
-      searchInputRef.current.focus();
-      hasFocused.current = true;
-    }
-  }, [congregationId]); // Add congregationId as dependency
 
   // Search for user as they type (with debouncing)
   useEffect(() => {
@@ -233,12 +223,10 @@ export function AddUserToCongregationForm({ congregationId, onUserAdded, onClose
       <div className="space-y-4">
         <Label htmlFor="search">Search by Username or Email</Label>
         <Input
-          ref={searchInputRef}
           id="search"
           placeholder="Enter username or email"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          autoFocus
         />
         {searching && (
           <div className="text-sm text-muted-foreground">Searching...</div>
@@ -285,7 +273,6 @@ export function AddUserToCongregationForm({ congregationId, onUserAdded, onClose
                   placeholder="Enter new group name"
                   value={selectedGroup}
                   onChange={(e) => setSelectedGroup(e.target.value)}
-                  autoFocus
                 />
                 <Button
                   type="button"

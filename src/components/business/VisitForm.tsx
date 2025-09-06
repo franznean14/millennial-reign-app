@@ -15,6 +15,7 @@ import { addVisit, getBwiParticipants, updateVisit, deleteVisit } from "@/lib/db
 import { businessEventBus } from "@/lib/events/business-events";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cacheGet } from "@/lib/offline/store";
+import { useMobile } from "@/lib/hooks/use-mobile";
 
 interface VisitFormProps {
   establishments: any[];
@@ -35,6 +36,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
   const [estId, setEstId] = useState<string>(
     selectedEstablishmentId || initialVisit?.establishment_id || establishments[0]?.id || "none"
   );
+  const isMobile = useMobile();
 
   // Keep estId in sync when props change with clear priority
   useEffect(() => {
@@ -190,7 +192,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
       <div className="grid gap-1">
         <Label>Establishment (optional)</Label>
         <Select value={estId} onValueChange={setEstId}>
-          <SelectTrigger><SelectValue placeholder="Select establishment"/></SelectTrigger>
+          <SelectTrigger className={isMobile ? "text-[16px]" : undefined}><SelectValue placeholder="Select establishment"/></SelectTrigger>
           <SelectContent>
             <SelectItem value="none">None</SelectItem>
             {establishments.map((e)=> <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
@@ -238,7 +240,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
 
         {publishers.length < 2 && (
           <Select onValueChange={addPublisher}>
-            <SelectTrigger className="w-full">
+            <SelectTrigger className={isMobile ? "w-full text-[16px]" : "w-full"}>
               <SelectValue placeholder="Add publisher" />
             </SelectTrigger>
             <SelectContent>

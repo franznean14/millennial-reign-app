@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/components/ui/sonner";
 import { upsertHouseholder } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
+import { useMobile } from "@/lib/hooks/use-mobile";
 
 interface HouseholderFormProps {
   establishments: any[];
@@ -25,6 +26,7 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
   const [status, setStatus] = useState<'interested'|'return_visit'|'bible_study'|'do_not_call'>("interested");
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const isMobile = useMobile();
   
   useEffect(() => {
     if (selectedEstablishmentId) {
@@ -87,7 +89,7 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
       </div>
       <div className="grid gap-1">
         <Label>Name</Label>
-        <Input value={name} onChange={e=>setName(e.target.value)} required />
+        <Input value={name} onChange={e=>setName(e.target.value)} required className={isMobile ? "text-[16px]" : undefined} />
       </div>
       <div className="grid gap-1">
         <Label>Status</Label>

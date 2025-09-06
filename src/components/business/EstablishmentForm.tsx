@@ -12,6 +12,7 @@ import { toast } from "@/components/ui/sonner";
 import { upsertEstablishment, getUniqueAreas, getUniqueFloors, findEstablishmentDuplicates } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { cacheGet, cacheSet } from "@/lib/offline/store";
+import { useMobile } from "@/lib/hooks/use-mobile";
 
 // Determine whether a draft object has any meaningful data
 function isNonEmptyDraft(d: any | null | undefined): boolean {
@@ -58,6 +59,7 @@ export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditin
     ? `draft:establishment:edit:${initialData.id}`
     : `draft:establishment:new`) + (selectedArea ? `:${selectedArea}` : "");
   const draftAppliedRef = useRef(false);
+  const isMobile = useMobile();
 
   const [name, setName] = useState(initialData?.name || "");
   const [description, setDescription] = useState(initialData?.description || "");
@@ -315,7 +317,7 @@ export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditin
               value={area} 
               onChange={e=>setArea(e.target.value)}
               placeholder="Enter area name"
-              autoFocus
+              autoFocus={!isMobile}
             />
             <Button 
               type="button" 
@@ -429,7 +431,7 @@ export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditin
               value={floor} 
               onChange={e=>setFloor(e.target.value)}
               placeholder="Enter floor name"
-              autoFocus
+              autoFocus={!isMobile}
             />
             <Button 
               type="button" 
