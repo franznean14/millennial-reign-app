@@ -3,6 +3,8 @@
 import * as React from "react";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -11,7 +13,7 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { NumberFlowInput } from "@/components/ui/number-flow-input";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
 interface FieldServiceDrawerDialogProps {
   userId: string;
@@ -35,14 +37,16 @@ export function FieldServiceDrawerDialog({ userId, triggerLabel = "Field Service
             <Button variant="outline">{triggerLabel}</Button>
           </DialogTrigger>
         )}
-        <DialogContent>
-          <DialogHeader className="text-center">
+        <DialogContent className="flex max-h-[85vh] flex-col p-0">
+          <DialogHeader className="text-center flex-shrink-0">
             <DialogTitle>Field Service</DialogTitle>
             <DialogDescription>
               Record your daily activity.
             </DialogDescription>
           </DialogHeader>
-          <MinimalFieldService />
+          <div className="p-4 pt-0 flex-1 min-h-0 overflow-y-auto ios-touch">
+            <MinimalFieldService />
+          </div>
         </DialogContent>
       </Dialog>
     );
@@ -56,11 +60,13 @@ export function FieldServiceDrawerDialog({ userId, triggerLabel = "Field Service
         </DrawerTrigger>
       )}
       <DrawerContent>
-        <DrawerHeader className="text-center">
+        <DrawerHeader className="text-center flex-shrink-0">
           <DrawerTitle>Field Service</DrawerTitle>
           <DrawerDescription>Record your daily activity.</DrawerDescription>
         </DrawerHeader>
-        <MinimalFieldService />
+        <div className="p-4 pt-0 flex-1 min-h-0 overflow-y-auto ios-touch">
+          <MinimalFieldService />
+        </div>
       </DrawerContent>
     </Drawer>
   );
@@ -77,10 +83,19 @@ function isSameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
 
+const fsSchema = z.object({
+  hours: z.number().min(0, "Must be ≥ 0").max(24, "Must be ≤ 24"),
+  bibleStudies: z.string().max(200),
+  note: z.string().max(1000),
+});
+
+type FsFormValues = z.infer<typeof fsSchema>;
+
 function MinimalFieldService() {
   const [view, setView] = useState<Date>(new Date());
   const [selected, setSelected] = useState<Date>(new Date());
-  const form = useForm<{ hours: number; bibleStudies: string; note: string }>({
+  const form = useForm<FsFormValues>({
+    resolver: zodResolver(fsSchema),
     defaultValues: { hours: 0, bibleStudies: "", note: "" },
   });
 
@@ -159,6 +174,7 @@ function MinimalFieldService() {
                       className="mx-auto"
                     />
                   </FormControl>
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -172,6 +188,7 @@ function MinimalFieldService() {
                   <FormControl>
                     <Input {...field} placeholder="Names, comma-separated (optional)" className="px-3" />
                   </FormControl>
+                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -185,6 +202,7 @@ function MinimalFieldService() {
                   <FormControl>
                     <Textarea {...field} placeholder="Optional note for this day" className="px-3" />
                   </FormControl>
+                  <FormMessage />
                 </FormItem>
               )}
             />
