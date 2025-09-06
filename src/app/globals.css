@@ -143,10 +143,6 @@
     user-select: text;
   }
   
-  /* Prevent iOS Safari auto-zoom on inputs by keeping a minimum font-size */
-  input, select, textarea, button {
-    font-size: 16px;
-  }
   
   /* Disable double-tap zoom on all elements */
   * {
