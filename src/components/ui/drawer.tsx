@@ -32,7 +32,7 @@ const DrawerContent = React.forwardRef<
     <DrawerPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed inset-x-0 bottom-0 z-50 flex h-[85vh] md:h-auto max-h-[100vh] flex-col overflow-hidden rounded-t-[10px] border bg-background",
+        "fixed inset-x-0 bottom-0 z-50 flex h-auto max-h-[100vh] flex-col overflow-hidden rounded-t-[10px] border bg-background",
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
         "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
         className
@@ -42,7 +42,7 @@ const DrawerContent = React.forwardRef<
       <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />
       <div className="min-h-0 flex-1 overflow-y-auto">
         {/* Prevent scroll chaining to outside when focusing inputs on mobile */}
-        <div className="overscroll-contain no-scrollbar">
+        <div className="overscroll-contain no-scrollbar pb-10">
           {children}
         </div>
       </div>
