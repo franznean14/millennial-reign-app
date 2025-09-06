@@ -1,12 +1,14 @@
 "use client";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getDailyRecord, listDailyByMonth, upsertDailyRecord, isDailyEmpty, deleteDailyRecord } from "@/lib/db/dailyRecords";
+import { useMobile } from "@/lib/hooks/use-mobile";
+import { motion } from "framer-motion";
 import { NumberFlowInput } from "@/components/ui/number-flow-input";
 
 function toLocalStr(d: Date) {
@@ -22,6 +24,7 @@ interface FieldServiceFormProps {
 }
 
 export function FieldServiceForm({ userId, onClose }: FieldServiceFormProps) {
+  const isMobile = useMobile();
   const [view, setView] = useState<Date>(new Date());
   const [mode, setMode] = useState<"days"|"months"|"years">("days");
   const [date, setDate] = useState<string>(toLocalStr(new Date()));
@@ -113,14 +116,6 @@ export function FieldServiceForm({ userId, onClose }: FieldServiceFormProps) {
       }
     }, 1000);
   };
-
-  // Live update Home summary when hours change (optimistic refresh)
-  useEffect(() => {
-    try {
-      window.dispatchEvent(new CustomEvent('daily-records-changed', { detail: { userId } }));
-    } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hours]);
 
   const addStudy = (name: string) => {
     const trimmed = name.trim();
@@ -256,7 +251,7 @@ export function FieldServiceForm({ userId, onClose }: FieldServiceFormProps) {
           </div>
         )}
       </div>
-      <div className="p-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+64px)]">
+      <div className="p-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
         <div className="mt-0 grid gap-4">
           <div className="grid gap-1 text-sm place-items-center">
             <span className="opacity-70">Hours</span>
