@@ -1,7 +1,6 @@
 "use client";
 
 import { useMobile } from "@/lib/hooks/use-mobile";
-import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { ReactNode } from "react";
@@ -24,25 +23,6 @@ export function ResponsiveModal({
   className
 }: ResponsiveModalProps) {
   const isMobile = useMobile();
-  const [keyboardOpen, setKeyboardOpen] = useState(false);
-
-  useEffect(() => {
-    if (!isMobile || typeof window === "undefined" || !(window as any).visualViewport) return;
-    const vv: VisualViewport = (window as any).visualViewport;
-    const handler = () => {
-      try {
-        const gap = window.innerHeight - vv.height;
-        setKeyboardOpen(gap > 120); // treat >120px reduction as keyboard open
-      } catch {}
-    };
-    vv.addEventListener("resize", handler);
-    vv.addEventListener("scroll", handler);
-    handler();
-    return () => {
-      vv.removeEventListener("resize", handler);
-      vv.removeEventListener("scroll", handler);
-    };
-  }, [isMobile]);
 
   if (isMobile) {
     return (
@@ -52,10 +32,7 @@ export function ResponsiveModal({
             <DrawerTitle>{title}</DrawerTitle>
             {description && <DrawerDescription>{description}</DrawerDescription>}
           </DrawerHeader>
-          <div
-            className="p-4 pt-0 overscroll-contain no-scrollbar"
-            style={{ paddingBottom: keyboardOpen ? "calc(env(safe-area-inset-bottom, 0px) + 12px)" : "calc(env(safe-area-inset-bottom, 0px) + 80px)" }}
-          >
+          <div className="p-4 pt-0 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] overscroll-contain no-scrollbar">
             {children}
           </div>
         </DrawerContent>
