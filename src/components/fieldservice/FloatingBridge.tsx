@@ -13,7 +13,7 @@ import { EstablishmentForm } from "@/components/business/EstablishmentForm";
 import { HouseholderForm } from "@/components/business/HouseholderForm";
 import { VisitForm } from "@/components/business/VisitForm";
 import { FieldServiceForm } from "./FieldServiceForm";
-import { FieldServiceFloatingButton } from "@/components/fieldservice/FieldServiceFloatingButton";
+// FieldService FAB is now rendered in AppClient (home section)
 
 function FloatingBridgeContent() {
   const pathname = usePathname();
@@ -207,11 +207,7 @@ function FloatingBridgeContent() {
   
   // For other views (home, account, etc.), render the button directly like congregation view
   if (userId) {
-    return (
-      <>
-        <FieldServiceFloatingButton userId={userId} />
-      </>
-    );
+    return null;
   }
   
   return null;

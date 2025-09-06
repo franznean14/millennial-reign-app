@@ -52,6 +52,7 @@ const CongregationMembers = dynamic(() => import("@/components/congregation/Cong
 const BusinessFiltersForm = dynamic(() => import("@/components/business/BusinessFiltersForm").then(m => m.BusinessFiltersForm), { ssr: false });
 const CongregationView = dynamic(() => import("@/components/views/CongregationView").then(m => m.CongregationView), { ssr: false });
 const FieldServiceDrawerDialog = dynamic(() => import("@/components/fieldservice/FieldServiceDrawerDialog").then(m => m.FieldServiceDrawerDialog), { ssr: false });
+const FieldServiceFloatingButton = dynamic(() => import("@/components/fieldservice/FieldServiceFloatingButton").then(m => m.FieldServiceFloatingButton), { ssr: false });
 
 interface AppClientProps {
   currentSection: string;
@@ -622,7 +623,8 @@ export function AppClient({ currentSection }: AppClientProps) {
             serviceYearStart={dateRanges.serviceYearStart}
             serviceYearEnd={dateRanges.serviceYearEnd}
           />
-          {/* Field Service inline trigger removed for Home */}
+          {/* Field Service FAB (bottom-right, above navbar) */}
+          <FieldServiceFloatingButton userId={userId} />
         </motion.div>
       );
 
