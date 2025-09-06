@@ -13,6 +13,7 @@ import { EstablishmentForm } from "@/components/business/EstablishmentForm";
 import { HouseholderForm } from "@/components/business/HouseholderForm";
 import { VisitForm } from "@/components/business/VisitForm";
 import { FieldServiceForm } from "./FieldServiceForm";
+import { FieldServiceDrawerDialog } from "@/components/fieldservice/FieldServiceDrawerDialog";
 
 function FloatingBridgeContent() {
   const pathname = usePathname();
@@ -218,14 +219,7 @@ function FloatingBridgeContent() {
         </Button>
 
         {/* Field Service Modal - rendered directly here */}
-        <ResponsiveModal
-          open={fsModalOpen}
-          onOpenChange={setFsModalOpen}
-          title="Field Service"
-          description="Record your field service activity"
-        >
-          <FieldServiceForm userId={userId} onClose={() => setFsModalOpen(false)} />
-        </ResponsiveModal>
+        <FieldServiceDrawerDialog userId={userId} open={fsModalOpen} onOpenChange={setFsModalOpen} showTrigger={false} />
       </>
     );
   }

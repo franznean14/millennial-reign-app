@@ -259,7 +259,7 @@ export function FieldServiceForm({ userId, onClose }: FieldServiceFormProps) {
         )}
       </div>
       <div>
-        <div className="grid gap-4">
+        <div className="grid gap-4 px-4">
           <div className="grid gap-2 place-items-center">
             <Label>Hours</Label>
             <NumberFlowInput
@@ -288,6 +288,7 @@ export function FieldServiceForm({ userId, onClose }: FieldServiceFormProps) {
               ))}
             </div>
             <Input 
+              className="px-3"
               placeholder="Type a name and press Enter"
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -303,6 +304,7 @@ export function FieldServiceForm({ userId, onClose }: FieldServiceFormProps) {
           <div className="grid gap-2">
             <Label>Note</Label>
             <Textarea
+              className="px-3"
               value={note}
               onChange={(e) => {
                 setNote(e.target.value);
