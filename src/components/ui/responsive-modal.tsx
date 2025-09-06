@@ -34,7 +34,7 @@ export function ResponsiveModal({
             <DrawerTitle>{title}</DrawerTitle>
             {description && <DrawerDescription>{description}</DrawerDescription>}
           </DrawerHeader>
-          <div className="p-4 pt-0 flex-1 min-h-0 overflow-y-auto max-h-[95vh]">
+          <div className="p-4 pt-0 flex-1 min-h-0 overflow-y-auto">
 
             {children}
           </div>
