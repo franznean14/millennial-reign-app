@@ -187,8 +187,3 @@
 .no-scrollbar::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Opera */
 }
-
-/* iOS momentum scrolling helper */
-.ios-touch {
-  -webkit-overflow-scrolling: touch;
-}
