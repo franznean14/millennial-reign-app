@@ -622,7 +622,10 @@ export function AppClient({ currentSection }: AppClientProps) {
             serviceYearStart={dateRanges.serviceYearStart}
             serviceYearEnd={dateRanges.serviceYearEnd}
           />
-          {/* Removed test button; FieldService is opened via FloatingBridge FAB */}
+          {/* Simple trigger button for Field Service drawer */}
+          <div className="px-4">
+            <FieldServiceDrawerDialog userId={userId} />
+          </div>
         </motion.div>
       );
 
