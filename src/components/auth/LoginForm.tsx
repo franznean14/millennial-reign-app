@@ -37,11 +37,9 @@ export function LoginForm({ isLoading = false }: LoginFormProps) {
         try { localStorage.setItem("has_password", "1"); } catch {}
         try {
           // Offer storing credentials in browser password manager (best-effort)
-          // @ts-ignore
-          if (window.PasswordCredential) {
-            const cred = new window.PasswordCredential({ id: identifier, password } as any);
-            // @ts-ignore
-            await navigator.credentials.store(cred);
+          if ("credentials" in navigator && "PasswordCredential" in window) {
+            const cred = new (window as any).PasswordCredential({ id: identifier, password });
+            await (navigator as any).credentials.store(cred);
           }
         } catch {}
         toast.success("Signed in");

@@ -100,7 +100,7 @@ function FloatingBridgeContent() {
         {/* Main floating button - same positioning as other floating buttons */}
         <Button
           onClick={() => setBusinessExpanded(!businessExpanded)}
-          className={`fixed right-4 z-40 h-14 w-14 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-110 active:scale-95 touch-manipulation md:right-6 bottom-[calc(max(env(safe-area-inset-bottom),0px)+80px)] md:bottom-[104px] ${
+          className={`fixed right-4 z-40 h-14 w-14 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-110 active:scale-95 touch-manipulation md:right-6 bottom-24 ${
             businessExpanded ? 'rotate-45' : ''
           }`}
           size="lg"
@@ -109,7 +109,7 @@ function FloatingBridgeContent() {
         </Button>
 
         {/* Expandable buttons - positioned above main button */}
-        <div className={`fixed right-4 z-40 flex flex-col gap-2 transition-all duration-300 ease-out items-end bottom-[calc(max(env(safe-area-inset-bottom),0px)+144px)] md:right-6 md:bottom-[168px] ${
+        <div className={`fixed right-4 z-40 flex flex-col gap-2 transition-all duration-300 ease-out items-end bottom-36 md:right-6 md:bottom-36 ${
           businessExpanded 
             ? 'opacity-100 translate-y-0 pointer-events-auto' 
             : 'opacity-0 translate-y-4 pointer-events-none'
@@ -179,7 +179,7 @@ function FloatingBridgeContent() {
         {/* Floating Action Button - same positioning as BusinessFloatingButton */}
         <Button
           onClick={() => setSearchDrawerOpen(true)}
-          className="fixed right-4 z-40 h-14 w-14 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-110 active:scale-95 touch-manipulation md:right-6 bottom-[calc(max(env(safe-area-inset-bottom),0px)+80px)] md:bottom-[104px]"
+          className="fixed right-4 z-40 h-14 w-14 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-110 active:scale-95 touch-manipulation md:right-6 bottom-24"
           size="lg"
         >
           <Users className="h-6 w-6" />
