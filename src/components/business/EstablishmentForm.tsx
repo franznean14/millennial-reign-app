@@ -283,7 +283,7 @@ export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditin
   };
 
   return (
-    <form className="grid gap-3" onSubmit={handleSubmit}>
+    <form className="grid gap-3 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px]" onSubmit={handleSubmit}>
       <div className="grid gap-1">
         <Label>Name</Label>
         <Input value={name} onChange={e=>setName(e.target.value)} required />
@@ -317,7 +317,6 @@ export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditin
               value={area} 
               onChange={e=>setArea(e.target.value)}
               placeholder="Enter area name"
-              autoFocus={!isMobile}
             />
             <Button 
               type="button" 
@@ -431,7 +430,6 @@ export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditin
               value={floor} 
               onChange={e=>setFloor(e.target.value)}
               placeholder="Enter floor name"
-              autoFocus={!isMobile}
             />
             <Button 
               type="button" 

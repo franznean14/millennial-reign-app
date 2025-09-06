@@ -182,7 +182,7 @@ export function FieldServiceForm({ userId, onClose }: FieldServiceFormProps) {
         {mode === "days" && (
           <>
             <div className="grid grid-cols-7 gap-1 px-1 text-xs opacity-70">
-              {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
+              {"S,M,T,W,T,F,S".split(",").map((d, i) => (
                 <div key={`${d}-${i}`} className="text-center">
                   {d}
                 </div>
@@ -251,7 +251,7 @@ export function FieldServiceForm({ userId, onClose }: FieldServiceFormProps) {
           </div>
         )}
       </div>
-      <div className="p-4">
+      <div className="p-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
         <div className="mt-0 grid gap-4">
           <div className="grid gap-1 text-sm place-items-center">
             <span className="opacity-70">Hours</span>

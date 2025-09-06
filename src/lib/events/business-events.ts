@@ -5,7 +5,9 @@ export type BusinessEventType =
   | 'householder-added'
   | 'visit-added'
   | 'visit-updated'
-  | 'visit-deleted';
+  | 'visit-deleted'
+  | 'business_controls_state'
+  | 'business_controls_action';
 
 interface BusinessEvent {
   type: BusinessEventType;

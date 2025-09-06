@@ -32,7 +32,7 @@ export function ResponsiveModal({
             <DrawerTitle>{title}</DrawerTitle>
             {description && <DrawerDescription>{description}</DrawerDescription>}
           </DrawerHeader>
-          <div className="p-4 pt-0 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] overscroll-contain no-scrollbar">
+          <div className="p-4 pt-0 overscroll-contain no-scrollbar">
             {children}
           </div>
         </DrawerContent>
