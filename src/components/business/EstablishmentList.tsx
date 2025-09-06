@@ -109,6 +109,8 @@ export function EstablishmentList({
   onRemoveArea
 }: EstablishmentListProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('detailed');
+  const [visibleCount, setVisibleCount] = useState<number>(0);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   // Load view mode preference from localStorage
   useEffect(() => {
@@ -117,6 +119,30 @@ export function EstablishmentList({
       setViewMode(savedViewMode);
     }
   }, []);
+
+  // Reset initial visible count whenever the view or data changes
+  useEffect(() => {
+    const initial = viewMode === 'detailed' ? 7 : viewMode === 'compact' ? 10 : 20;
+    setVisibleCount(Math.min(initial, establishments.length));
+  }, [viewMode, establishments.length]);
+
+  // Observe sentinel to progressively render more items as the user scrolls
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const step = viewMode === 'detailed' ? 5 : viewMode === 'compact' ? 10 : 20;
+
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          setVisibleCount((prev) => Math.min(prev + step, establishments.length));
+        }
+      }
+    }, { root: null, rootMargin: '200px', threshold: 0 });
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [viewMode, establishments.length]);
 
   // Save view mode preference to localStorage
   const handleViewModeChange = (newViewMode: ViewMode) => {
@@ -453,7 +479,7 @@ export function EstablishmentList({
           </tr>
         </thead>
         <tbody>
-          {establishments.map((establishment, index) => (
+          {establishments.slice(0, visibleCount).map((establishment, index) => (
             <tr key={establishment.id || index} className="border-b hover:bg-muted/30 cursor-pointer" onClick={() => onEstablishmentClick(establishment)}>
               <td className="p-3 min-w-0">
                 <NameWithAvatarsCell name={establishment.name} visitors={establishment.top_visitors} />
@@ -600,12 +626,16 @@ export function EstablishmentList({
         <div className="mt-6 w-full">{renderTableView()}</div>
       ) : (
         <div className="grid gap-4 mt-6 w-full">
-          {establishments.map((establishment, index) => 
+          {establishments.slice(0, visibleCount).map((establishment, index) => 
             viewMode === 'detailed' 
               ? renderDetailedView(establishment, index)
               : renderCompactView(establishment, index)
           )}
         </div>
+      )}
+
+      {visibleCount < establishments.length && (
+        <div ref={sentinelRef} className="h-10" />
       )}
     </div>
   );
