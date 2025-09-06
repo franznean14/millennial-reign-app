@@ -9,7 +9,7 @@ import { useMediaQuery } from "@/hooks/use-media-query";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger, DrawerClose } from "@/components/ui/drawer";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, FilePlus2 } from "lucide-react";
 import { NumberFlowInput } from "@/components/ui/number-flow-input";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,7 +34,14 @@ export function FieldServiceDrawerDialog({ userId, triggerLabel = "Field Service
       <Dialog open={open} onOpenChange={setOpen}>
         {showTrigger && (
           <DialogTrigger asChild>
-            <Button variant="outline">{triggerLabel}</Button>
+            <Button
+              aria-label={triggerLabel}
+              title={triggerLabel}
+              className="fixed right-4 bottom-24 md:right-6 z-40 h-14 w-14 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-110 active:scale-95 touch-manipulation"
+              size="lg"
+            >
+              <FilePlus2 className="h-6 w-6" />
+            </Button>
           </DialogTrigger>
         )}
         <DialogContent className="flex max-h-[85vh] flex-col p-0">
@@ -56,7 +63,14 @@ export function FieldServiceDrawerDialog({ userId, triggerLabel = "Field Service
     <Drawer open={open} onOpenChange={setOpen}>
       {showTrigger && (
         <DrawerTrigger asChild>
-          <Button variant="outline">{triggerLabel}</Button>
+          <Button
+            aria-label={triggerLabel}
+            title={triggerLabel}
+            className="fixed right-4 bottom-24 md:right-6 z-40 h-14 w-14 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-110 active:scale-95 touch-manipulation"
+            size="lg"
+          >
+            <FilePlus2 className="h-6 w-6" />
+          </Button>
         </DrawerTrigger>
       )}
       <DrawerContent>
