@@ -33,8 +33,25 @@ interface VisitFormProps {
 
 export function VisitForm({ establishments, selectedEstablishmentId, onSaved, initialVisit }: VisitFormProps) {
   const [estId, setEstId] = useState<string>(
-    initialVisit?.establishment_id || selectedEstablishmentId || establishments[0]?.id || "none"
+    selectedEstablishmentId || initialVisit?.establishment_id || establishments[0]?.id || "none"
   );
+
+  // Keep estId in sync when props change with clear priority
+  useEffect(() => {
+    if (selectedEstablishmentId) {
+      setEstId(selectedEstablishmentId);
+      return;
+    }
+    if (initialVisit?.establishment_id) {
+      setEstId(initialVisit.establishment_id);
+      return;
+    }
+    if (establishments.length > 0) {
+      setEstId(establishments[0]?.id || "none");
+      return;
+    }
+    setEstId("none");
+  }, [selectedEstablishmentId, initialVisit?.establishment_id, establishments]);
   const [note, setNote] = useState(initialVisit?.note || "");
   const [visitDate, setVisitDate] = useState<Date>(initialVisit?.visit_date ? new Date(initialVisit.visit_date) : new Date());
   const [saving, setSaving] = useState(false);
@@ -52,22 +69,16 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
   }>>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   
-  useEffect(() => {
-    if (selectedEstablishmentId) {
-      setEstId(selectedEstablishmentId);
-    } else if (establishments.length > 0) {
-      setEstId(establishments[0]?.id || "none");
-    }
-  }, [selectedEstablishmentId, establishments]);
+  // (Removed duplicate sync effect; handled by the prioritized effect above)
 
-  // Prefill from active business filters (status not relevant; prefill area via establishment if possible)
+  // Prefill from active business filters ONLY when creating and no explicit selection
   useEffect(() => {
+    if (initialVisit?.id || selectedEstablishmentId) return;
     (async () => {
       try {
         const filters = await cacheGet<any>("business:filters");
         if (filters && Array.isArray(filters.areas) && filters.areas.length > 0) {
           const area = filters.areas[0];
-          // If there is an establishment list, pick one that matches the area
           const match = establishments.find(e => e.area === area);
           if (match?.id) {
             setEstId(match.id);
@@ -75,7 +86,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
         }
       } catch {}
     })();
-  }, [establishments]);
+  }, [establishments, initialVisit?.id, selectedEstablishmentId]);
 
   useEffect(() => {
     const loadParticipants = async () => {
@@ -125,15 +136,15 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
         // Create mode: background add
         onSaved();
         addVisit(payload)
-          .then((ok) => {
-            if (ok) {
+          .then((created) => {
+            if (created && created.id) {
               const newVisit = {
-                id: `temp-${Date.now()}`,
-                establishment_id: estId === "none" ? undefined : estId,
-                note: note || null,
-                visit_date: payload.visit_date!,
-                publisher_id: publishers[0] || undefined,
-                partner_id: publishers[1] || undefined,
+                id: created.id,
+                establishment_id: created.establishment_id || (estId === "none" ? undefined : estId),
+                note: created.note || null,
+                visit_date: created.visit_date!,
+                publisher_id: created.publisher_id || (publishers[0] || undefined),
+                partner_id: created.partner_id || (publishers[1] || undefined),
               };
               businessEventBus.emit('visit-added', newVisit);
               toast.success("Visit recorded successfully!");
@@ -257,7 +268,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
       
       <div className="grid gap-1">
         <Label>Update Note</Label>
-        <Textarea value={note} onChange={e=>setNote(e.target.value)} className="min-h-[120px]" />
+        <Textarea value={note} onChange={e=>setNote(e.target.value)} className="min-h-[120px] text-[16px]" />
       </div>
       <div className="flex justify-between">
         {initialVisit?.id ? (

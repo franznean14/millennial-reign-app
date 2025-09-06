@@ -41,7 +41,10 @@ const DrawerContent = React.forwardRef<
     >
       <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {children}
+        {/* Prevent scroll chaining to outside when focusing inputs on mobile */}
+        <div className="overscroll-contain no-scrollbar">
+          {children}
+        </div>
       </div>
     </DrawerPrimitive.Content>
   </DrawerPortal>

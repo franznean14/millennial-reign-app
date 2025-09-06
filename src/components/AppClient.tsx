@@ -636,31 +636,20 @@ export function AppClient({ currentSection }: AppClientProps) {
           className="space-y-6 pb-24" // Add bottom padding for navbar
         >
           {!selectedEstablishment && (
-            <motion.div 
-              className="flex items-center justify-between overflow-hidden w-full max-w-full"
-              layout
-              animate={{ 
-                height: filtersModalOpen ? 0 : "auto",
-                opacity: filtersModalOpen ? 0 : 1
-              }}
-              transition={{ 
-                duration: 0.4, 
-                ease: "easeOut",
-                height: { duration: 0.3, ease: "easeOut" }
-              }}
-            >
-              <div className="relative flex-1 min-w-0">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search establishments..."
-                  value={filters.search}
-                  onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                  onClick={() => setFiltersModalOpen(true)}
-                  className="pl-10 cursor-pointer"
-                  readOnly
-                />
-                {/* Active filter badges row */}
+            <div className="flex items-center justify-between overflow-hidden w-full max-w-full">
+              <div className="flex-1 min-w-0">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Search establishments..."
+                    value={filters.search}
+                    onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                    className="pl-10"
+                  />
+                </div>
                 {(filters.search || filters.statuses.length > 0 || filters.areas.length > 0 || filters.myEstablishments) && (
+                  /* moved to EstablishmentList inline with controls */
+                  false && (
                   <div className="flex flex-wrap items-center gap-2 mt-2">
                     {filters.search && (
                       <Badge variant="secondary" className="px-2 py-1 text-xs inline-flex items-center gap-1">
@@ -702,12 +691,10 @@ export function AppClient({ currentSection }: AppClientProps) {
                       <span>Clear</span>
                       <X className="h-3 w-3" />
                     </Badge>
-                  </div>
-                )}
+                  </div>))
+                }
               </div>
-              
-              {/* Remove the My Establishments toggle section entirely */}
-            </motion.div>
+            </div>
           )}
 
           <motion.div 
@@ -734,8 +721,14 @@ export function AppClient({ currentSection }: AppClientProps) {
                     }}
                     onEstablishmentDelete={handleDeleteEstablishment}
                     onEstablishmentArchive={handleArchiveEstablishment}
-                    myEstablishmentsOnly={filters.myEstablishments} // Add this prop
-                    onMyEstablishmentsChange={(checked) => setFilters(prev => ({ ...prev, myEstablishments: checked }))} // Add this prop
+                    myEstablishmentsOnly={filters.myEstablishments}
+                    onMyEstablishmentsChange={(checked) => setFilters(prev => ({ ...prev, myEstablishments: checked }))}
+                    onOpenFilters={() => setFiltersModalOpen(true)}
+                    filters={filters}
+                    onClearAllFilters={handleClearAllFilters}
+                    onClearSearch={handleClearSearch}
+                    onRemoveStatus={handleRemoveStatus}
+                    onRemoveArea={handleRemoveArea}
                   />
                 </motion.div>
               ) : (

@@ -4,10 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { ArrowDownAZ, ArrowUpAZ, ArrowDownWideNarrow, ArrowUpWideNarrow } from "lucide-react";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { X } from "lucide-react";
 import type { BusinessFiltersState } from "@/lib/db/business";
 
 interface BusinessFiltersFormProps {
@@ -36,21 +33,7 @@ export function BusinessFiltersForm({
     setLocalFilters(filters);
   }, [filters]);
 
-  // Debounced function to apply filters
-  const debouncedApplyFilters = useCallback(
-    (() => {
-      let timeoutId: NodeJS.Timeout;
-      return (newFilters: BusinessFiltersState) => {
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(() => {
-          onFiltersChange(newFilters);
-        }, 300); // 300ms delay
-      };
-    })(),
-    [onFiltersChange]
-  );
-
-  // Apply filters immediately for non-search fields
+  // Apply filters immediately for all fields
   const applyFiltersImmediately = useCallback((newFilters: BusinessFiltersState) => {
     onFiltersChange(newFilters);
   }, [onFiltersChange]);
@@ -87,25 +70,11 @@ export function BusinessFiltersForm({
     applyFiltersImmediately(newFilters); // Apply immediately for area changes
   };
 
-  const handleSearchChange = (searchValue: string) => {
-    const newFilters = { ...localFilters, search: searchValue };
-    setLocalFilters(newFilters);
-    debouncedApplyFilters(newFilters); // Debounced for search
-  };
+  // Search field removed from filters form
 
   return (
     <div className="space-y-6">
       <div className="space-y-4">
-        {/* Sort moved below Area */}
-        <div className="space-y-2">
-          <Label>Search</Label>
-          <Input
-            placeholder="Search establishments..."
-            value={localFilters.search}
-            onChange={(e) => handleSearchChange(e.target.value)}
-          />
-        </div>
-
         <div className="space-y-2">
           <Label>Status</Label>
           <div className="flex flex-wrap gap-2">

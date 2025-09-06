@@ -5,8 +5,8 @@ import { motion, AnimatePresence } from "motion/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { List, LayoutGrid, Table as TableIcon } from "lucide-react";
-import { type EstablishmentWithDetails } from "@/lib/db/business";
+import { List, LayoutGrid, Table as TableIcon, Filter, User, UserCheck, X } from "lucide-react";
+import { type EstablishmentWithDetails, type BusinessFiltersState } from "@/lib/db/business";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/sonner";
 import { Switch } from "@/components/ui/switch";
@@ -20,6 +20,12 @@ interface EstablishmentListProps {
   onEstablishmentArchive?: (establishment: EstablishmentWithDetails) => void;
   myEstablishmentsOnly?: boolean;
   onMyEstablishmentsChange?: (checked: boolean) => void;
+  onOpenFilters?: () => void;
+  filters?: BusinessFiltersState;
+  onClearAllFilters?: () => void;
+  onClearSearch?: () => void;
+  onRemoveStatus?: (status: string) => void;
+  onRemoveArea?: (area: string) => void;
 }
 
 type ViewMode = 'detailed' | 'compact' | 'table';
@@ -94,7 +100,13 @@ export function EstablishmentList({
   onEstablishmentDelete,
   onEstablishmentArchive,
   myEstablishmentsOnly,
-  onMyEstablishmentsChange
+  onMyEstablishmentsChange,
+  onOpenFilters,
+  filters,
+  onClearAllFilters,
+  onClearSearch,
+  onRemoveStatus,
+  onRemoveArea
 }: EstablishmentListProps) {
   const [viewMode, setViewMode] = useState<ViewMode>('detailed');
 
@@ -116,6 +128,10 @@ export function EstablishmentList({
     const next: ViewMode = viewMode === 'detailed' ? 'compact' : viewMode === 'compact' ? 'table' : 'detailed';
     handleViewModeChange(next);
   };
+
+  const hasActiveFilters = !!filters && (
+    !!filters.search || (filters.statuses?.length ?? 0) > 0 || (filters.areas?.length ?? 0) > 0 || !!filters.myEstablishments
+  );
 
   const formatStatusText = (status: string) => {
     return status
@@ -427,7 +443,7 @@ export function EstablishmentList({
   );
 
   const renderTableView = () => (
-    <div className="w-full overflow-x-auto">
+    <div className="w-full overflow-x-auto no-scrollbar">
       <table className="w-full text-sm table-fixed">
         <thead>
           <tr className="border-b">
@@ -475,43 +491,108 @@ export function EstablishmentList({
 
   return (
     <div className="w-full">
-      {/* Controls Row - Toggle and Results Count on same line */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center space-x-2">
-          <Switch
-            id="myEstablishments"
-            checked={myEstablishmentsOnly || false}
-            onCheckedChange={onMyEstablishmentsChange || (() => {})}
-          />
-          <label htmlFor="myEstablishments" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-            My Establishments
-          </label>
-        </div>
-        
-        {/* View Toggle - circular icon button cycling detailed -> compact -> table */}
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="h-9 w-9 rounded-full"
-          onClick={cycleViewMode}
-          title={`View: ${viewMode}`}
-        >
-          <AnimatePresence mode="wait" initial={false}>
-            <motion.span
-              key={viewMode}
-              initial={{ opacity: 0, scale: 0.8, rotate: -90 }}
-              animate={{ opacity: 1, scale: 1, rotate: 0 }}
-              exit={{ opacity: 0, scale: 0.8, rotate: 90 }}
-              transition={{ duration: 0.18 }}
-              className="inline-flex"
+      {/* Controls Row: Left = Clear + scrollable badges, Right = buttons */}
+      <div className="flex items-center justify-between gap-2 mb-4">
+        {/* Left: Clear + badges */}
+        <div className="flex-1 min-w-0 flex items-center gap-2">
+          {hasActiveFilters && (
+            <Badge
+              variant="outline"
+              className="px-2 py-1 text-xs inline-flex items-center gap-1 cursor-pointer flex-shrink-0"
+              onClick={onClearAllFilters}
             >
-              {viewMode === 'detailed' && <LayoutGrid className="h-4 w-4" />}
-              {viewMode === 'compact' && <List className="h-4 w-4" />}
-              {viewMode === 'table' && <TableIcon className="h-4 w-4" />}
-            </motion.span>
-          </AnimatePresence>
-        </Button>
+              <span>Clear</span>
+              <X className="h-3 w-3" />
+            </Badge>
+          )}
+          <div className="relative flex-1 min-w-0">
+            <div className="overflow-x-auto whitespace-nowrap pr-6 no-scrollbar">
+              {filters?.search && (
+                <Badge variant="secondary" className="mr-2 px-2 py-1 text-xs inline-flex items-center gap-1 align-middle">
+                  <span>Search: {filters.search}</span>
+                  <button type="button" onClick={onClearSearch} aria-label="Clear search" className="ml-1 rounded hover:bg-muted p-0.5">
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+              {(filters?.statuses || []).map((s) => (
+                <Badge key={s} variant="secondary" className="mr-2 px-2 py-1 text-xs inline-flex items-center gap-1 align-middle">
+                  <span>{formatStatusText(s)}</span>
+                  <button type="button" onClick={() => onRemoveStatus && onRemoveStatus(s)} aria-label={`Remove ${formatStatusText(s)}`} className="ml-1 rounded hover:bg-muted p-0.5">
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+              {(filters?.areas || []).map((a) => (
+                <Badge key={a} variant="secondary" className="mr-2 px-2 py-1 text-xs inline-flex items-center gap-1 align-middle">
+                  <span>{a}</span>
+                  <button type="button" onClick={() => onRemoveArea && onRemoveArea(a)} aria-label={`Remove ${a}`} className="ml-1 rounded hover:bg-muted p-0.5">
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+              {filters?.myEstablishments && (
+                <Badge variant="secondary" className="mr-2 px-2 py-1 text-xs inline-flex items-center gap-1 align-middle">
+                  <span>My Establishments</span>
+                  <button type="button" onClick={() => onMyEstablishmentsChange && onMyEstablishmentsChange(false)} aria-label="Remove My Establishments" className="ml-1 rounded hover:bg-muted p-0.5">
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              )}
+            </div>
+            {/* Right fade to hint overflow */}
+            <div className="pointer-events-none absolute right-0 top-0 h-full w-6 bg-gradient-to-l from-background to-transparent" />
+          </div>
+        </div>
+
+        {/* Right: Buttons cluster */}
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <Button
+            type="button"
+            variant={myEstablishmentsOnly ? "default" : "outline"}
+            size="icon"
+            className="h-9 w-9 rounded-full"
+            onClick={() => (onMyEstablishmentsChange ? onMyEstablishmentsChange(!myEstablishmentsOnly) : undefined)}
+            aria-pressed={!!myEstablishmentsOnly}
+            aria-label="My establishments"
+            title="My establishments"
+          >
+            {myEstablishmentsOnly ? <UserCheck className="h-4 w-4" /> : <User className="h-4 w-4" />}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 rounded-full"
+            onClick={() => (onOpenFilters ? onOpenFilters() : undefined)}
+            title="Filters"
+          >
+            <Filter className="h-4 w-4" />
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 rounded-full"
+            onClick={cycleViewMode}
+            title={`View: ${viewMode}`}
+          >
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.span
+                key={viewMode}
+                initial={{ opacity: 0, scale: 0.8, rotate: -90 }}
+                animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                exit={{ opacity: 0, scale: 0.8, rotate: 90 }}
+                transition={{ duration: 0.18 }}
+                className="inline-flex"
+              >
+                {viewMode === 'detailed' && <LayoutGrid className="h-4 w-4" />}
+                {viewMode === 'compact' && <List className="h-4 w-4" />}
+                {viewMode === 'table' && <TableIcon className="h-4 w-4" />}
+              </motion.span>
+            </AnimatePresence>
+          </Button>
+        </div>
       </div>
 
       {/* Establishments */}

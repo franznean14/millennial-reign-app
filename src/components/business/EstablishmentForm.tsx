@@ -239,6 +239,30 @@ export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditin
           await cacheSet(draftKey, null);
           await cacheSet('establishments:list', null);
         } catch {}
+        // For new entries, reset the form and reapply active filters prefill
+        if (!isEditing) {
+          setName("");
+          setDescription("");
+          setArea("");
+          setLat(null);
+          setLng(null);
+          setFloor("");
+          setStatus([]);
+          setNote("");
+          setGps("");
+          draftAppliedRef.current = false;
+          try {
+            const filters = await cacheGet<any>("business:filters");
+            if (filters) {
+              if (Array.isArray(filters.areas) && filters.areas.length > 0) {
+                setArea(filters.areas[0]);
+              }
+              if (Array.isArray(filters.statuses) && filters.statuses.length > 0) {
+                setStatus([...filters.statuses]);
+              }
+            }
+          } catch {}
+        }
         // Emit event for live update
         if (isEditing) {
           businessEventBus.emit('establishment-updated', result);
@@ -444,7 +468,7 @@ export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditin
 
       <div className="grid gap-1">
         <Label>Note</Label>
-        <Textarea value={note} onChange={e=>setNote(e.target.value)} />
+        <Textarea value={note} onChange={e=>setNote(e.target.value)} className="text-[16px]" />
       </div>
       <div className="flex justify-end">
         <Button type="submit" disabled={saving}>

@@ -103,7 +103,7 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
       </div>
       <div className="grid gap-1">
         <Label>Note</Label>
-        <Textarea value={note} onChange={e=>setNote(e.target.value)} />
+        <Textarea value={note} onChange={e=>setNote(e.target.value)} className="text-[16px]" />
       </div>
       <div className="flex justify-end">
         <Button type="submit" disabled={saving}>

@@ -304,7 +304,15 @@ export async function addVisit(visit: {
   publisher_id?: string;
   partner_id?: string;
   visit_date?: string;
-}): Promise<boolean> {
+}): Promise<{
+  id: string;
+  establishment_id?: string | null;
+  householder_id?: string | null;
+  note?: string | null;
+  publisher_id?: string | null;
+  partner_id?: string | null;
+  visit_date: string;
+} | null> {
   const supabase = createSupabaseBrowserClient();
   
   try {
@@ -317,7 +325,7 @@ export async function addVisit(visit: {
     
     if (!profile?.congregation_id) {
       console.error('User not associated with a congregation');
-      return false;
+      return null;
     }
 
     // If establishment_id is provided, verify it exists
@@ -331,7 +339,7 @@ export async function addVisit(visit: {
       
       if (!establishment) {
         console.error('Establishment not found:', visit.establishment_id);
-        return false;
+        return null;
       }
     }
 
@@ -345,7 +353,7 @@ export async function addVisit(visit: {
       visit_date: visit.visit_date || new Date().toISOString().split('T')[0]
     });
 
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('business_visits')
       .insert({
         congregation_id: profile.congregation_id,
@@ -355,18 +363,20 @@ export async function addVisit(visit: {
         publisher_id: visit.publisher_id || null,
         partner_id: visit.partner_id || null,
         visit_date: visit.visit_date || new Date().toISOString().split('T')[0]
-      });
+      })
+      .select('id, establishment_id, householder_id, note, publisher_id, partner_id, visit_date')
+      .single();
 
     if (error) {
       console.error('Error adding visit:', error);
       console.error('Error details:', error.message, error.details, error.hint);
-      return false;
+      return null;
     }
 
-    return true;
+    return (data as any) ?? null;
   } catch (error) {
     console.error('Unexpected error in addVisit:', error);
-    return false;
+    return null;
   }
 }
 
@@ -408,12 +418,12 @@ export async function deleteVisit(visitId: string, _establishmentId?: string | n
   const supabase = createSupabaseBrowserClient();
   try {
     await supabase.auth.getSession().catch(() => {});
-    const { error } = await supabase
+    const { error, status } = await supabase
       .from('business_visits')
       .delete()
       .eq('id', visitId);
     if (error) {
-      console.error('Error deleting visit:', error);
+      console.error('Error deleting visit:', { status, error });
       return false;
     }
     return true;
