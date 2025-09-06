@@ -2,9 +2,7 @@
 
 import { useMobile } from "@/lib/hooks/use-mobile";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
-
 import { ReactNode } from "react";
 
 interface ResponsiveModalProps {
@@ -16,26 +14,18 @@ interface ResponsiveModalProps {
   className?: string;
 }
 
-export function ResponsiveModal({
-  open,
-  onOpenChange,
-  title,
-  description,
-  children,
-  className
-}: ResponsiveModalProps) {
+export function ResponsiveModal({ open, onOpenChange, title, description, children, className }: ResponsiveModalProps) {
   const isMobile = useMobile();
 
   if (isMobile) {
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className={`${className || ""}`}>
-          <DrawerHeader className="flex-shrink-0">
+        <DrawerContent className={className}>
+          <DrawerHeader>
             <DrawerTitle>{title}</DrawerTitle>
             {description && <DrawerDescription>{description}</DrawerDescription>}
           </DrawerHeader>
           <div className="p-4 pt-0">
-
             {children}
           </div>
         </DrawerContent>
