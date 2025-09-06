@@ -30,6 +30,7 @@ import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Search } from "lucide-react";
 import { cacheSet } from "@/lib/offline/store";
+import { LoginView } from "@/components/views/LoginView";
 
 // Import all the data and business logic functions
 import { getDailyRecord, listDailyByMonth, upsertDailyRecord, isDailyEmpty, deleteDailyRecord } from "@/lib/db/dailyRecords";
@@ -50,6 +51,7 @@ const SwipeableCard = dynamic(() => import("@/components/ui/swipeable-card").the
 const CongregationMembers = dynamic(() => import("@/components/congregation/CongregationMembers").then(m => m.CongregationMembers), { ssr: false });
 const BusinessFiltersForm = dynamic(() => import("@/components/business/BusinessFiltersForm").then(m => m.BusinessFiltersForm), { ssr: false });
 const CongregationView = dynamic(() => import("@/components/views/CongregationView").then(m => m.CongregationView), { ssr: false });
+const DrawerDialogDemo = dynamic(() => import("@/components/ui/drawer-dialog").then(m => m.DrawerDialogDemo), { ssr: false });
 
 interface AppClientProps {
   currentSection: string;
@@ -598,7 +600,7 @@ export function AppClient({ currentSection }: AppClientProps) {
   }
 
   if (!userId) {
-    return <div className="text-sm opacity-70">Please sign in.</div>;
+    return <LoginView />;
   }
 
   // Render based on current section
@@ -620,6 +622,9 @@ export function AppClient({ currentSection }: AppClientProps) {
             serviceYearStart={dateRanges.serviceYearStart}
             serviceYearEnd={dateRanges.serviceYearEnd}
           />
+          <div className="px-4">
+            <DrawerDialogDemo />
+          </div>
         </motion.div>
       );
 
