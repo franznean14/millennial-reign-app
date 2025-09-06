@@ -159,10 +159,6 @@
     -webkit-overflow-scrolling: touch;
   }
   
-  /* Ensure no zoom on focus for inputs */
-  input:focus, textarea:focus, select:focus {
-    font-size: 16px !important;
-  }
 }
 
 .pb-navbar {
