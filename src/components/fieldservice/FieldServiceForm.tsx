@@ -171,7 +171,7 @@ export function FieldServiceForm({ userId, onClose }: FieldServiceFormProps) {
   }, [dirty, hours, studies, note]);
 
   return (
-    <div className="grid md:grid-cols-2 gap-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
+    <div className="grid md:grid-cols-2 gap-4 pb-10">
       <div className="p-4 border-b md:border-b-0 md:border-r">
         <div className="flex items-center justify-between pb-3">
           <Button variant="ghost" size="sm" onClick={() => changeStep(-1)}>
