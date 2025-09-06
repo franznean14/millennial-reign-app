@@ -214,7 +214,7 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
+      <form onSubmit={handleSubmit} className="space-y-6 pb-10">
         {/* Congregation Assignment */}
         <div className="space-y-2">
           <Label>Congregation Assignment</Label>

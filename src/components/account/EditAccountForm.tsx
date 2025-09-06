@@ -82,7 +82,7 @@ export function EditAccountForm({ userId, initialEmail, initialUsername, current
   ];
 
   return (
-    <div className="grid gap-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
+    <div className="grid gap-4 pb-10">
       <div className="grid gap-2">
         <Label htmlFor="email">Email</Label>
         <Input

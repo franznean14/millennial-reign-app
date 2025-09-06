@@ -221,7 +221,7 @@ export function ProfileForm({ userId, initialEmail, initialProfile, bwiEnabled, 
   ];
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
+    <form onSubmit={handleSubmit} className="space-y-4 pb-10">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="first_name">First Name *</Label>

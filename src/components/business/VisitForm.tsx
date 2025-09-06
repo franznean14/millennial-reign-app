@@ -188,11 +188,11 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
   const availableParticipants = participants.filter(p => !publishers.includes(p.id));
   
   return (
-    <form className="grid gap-3 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]" onSubmit={handleSubmit}>
+    <form className="grid gap-3 pb-10" onSubmit={handleSubmit}>
       <div className="grid gap-1">
         <Label>Establishment (optional)</Label>
         <Select value={estId} onValueChange={setEstId}>
-          <SelectTrigger className={isMobile ? "text-[16px]" : undefined}><SelectValue placeholder="Select establishment"/></SelectTrigger>
+          <SelectTrigger><SelectValue placeholder="Select establishment"/></SelectTrigger>
           <SelectContent>
             <SelectItem value="none">None</SelectItem>
             {establishments.map((e)=> <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
@@ -240,9 +240,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
 
         {publishers.length < 2 && (
           <Select onValueChange={addPublisher}>
-            <SelectTrigger className={isMobile ? "w-full text-[16px]" : "w-full"}>
-              <SelectValue placeholder="Add publisher" />
-            </SelectTrigger>
+            <SelectTrigger className="w-full"><SelectValue placeholder="Add publisher" /></SelectTrigger>
             <SelectContent>
               {availableParticipants.length > 0 ? (
                 availableParticipants.map((participant) => (
@@ -270,7 +268,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
       
       <div className="grid gap-1">
         <Label>Update Note</Label>
-        <Textarea value={note} onChange={e=>setNote(e.target.value)} className="min-h-[120px] text-[16px]" />
+        <Textarea value={note} onChange={e=>setNote(e.target.value)} className="min-h-[120px]" />
       </div>
       <div className="flex justify-between">
         {initialVisit?.id ? (

@@ -35,7 +35,7 @@ export function MonthlyRecordForm({ userId, onSaved }: { userId: string; onSaved
   };
 
   return (
-    <div className="space-y-3 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
+    <div className="space-y-3 pb-10">
       <h3 className="font-medium">Add/Update Monthly Record</h3>
       {error ? <div className="text-sm text-red-500">{error}</div> : null}
       <div className="grid gap-3 sm:grid-cols-4">

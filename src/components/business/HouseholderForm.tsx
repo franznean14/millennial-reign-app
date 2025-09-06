@@ -77,7 +77,7 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
   };
   
   return (
-    <form className="grid gap-3 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]" onSubmit={handleSubmit}>
+    <form className="grid gap-3 pb-10" onSubmit={handleSubmit}>
       <div className="grid gap-1">
         <Label>Establishment</Label>
         <Select value={estId} onValueChange={setEstId}>
@@ -89,7 +89,7 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
       </div>
       <div className="grid gap-1">
         <Label>Name</Label>
-        <Input value={name} onChange={e=>setName(e.target.value)} required className={isMobile ? "text-[16px]" : undefined} />
+        <Input value={name} onChange={e=>setName(e.target.value)} required />
       </div>
       <div className="grid gap-1">
         <Label>Status</Label>
@@ -105,7 +105,7 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
       </div>
       <div className="grid gap-1">
         <Label>Note</Label>
-        <Textarea value={note} onChange={e=>setNote(e.target.value)} className="text-[16px]" />
+        <Textarea value={note} onChange={e=>setNote(e.target.value)} />
       </div>
       <div className="flex justify-end">
         <Button type="submit" disabled={saving}>
