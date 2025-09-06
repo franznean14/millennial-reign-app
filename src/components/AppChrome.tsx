@@ -80,7 +80,7 @@ export function AppChrome({ children }: AppChromeProps) {
           </div>
         </nav>
         
-        <main className="min-h-[calc(100dvh-56px)] flex-1 px-4 py-6 w-full overflow-x-hidden">{children}</main>
+        <main className="flex-1 px-4 py-6 w-full overflow-x-hidden">{children}</main>
       </div>
       
       {/* Bottom Navigation (Mobile) */}
