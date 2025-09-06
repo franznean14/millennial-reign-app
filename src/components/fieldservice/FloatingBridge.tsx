@@ -211,7 +211,10 @@ function FloatingBridgeContent() {
       <>
         {/* Floating Action Button - same positioning as other floating buttons */}
         <Button
-          onClick={() => setFsModalOpen(true)}
+          onClick={() => {
+            setFsModalOpen(true);
+            try { window.dispatchEvent(new Event('fieldservice:open')); } catch {}
+          }}
           className="fixed right-4 z-40 h-14 w-14 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-110 active:scale-95 touch-manipulation md:right-6 bottom-[calc(max(env(safe-area-inset-bottom),0px)+80px)] md:bottom-[104px]"
           size="lg"
         >
@@ -219,7 +222,10 @@ function FloatingBridgeContent() {
         </Button>
 
         {/* Field Service Modal - rendered directly here */}
-        <FieldServiceDrawerDialog userId={userId} open={fsModalOpen} onOpenChange={setFsModalOpen} showTrigger={false} />
+        <FieldServiceDrawerDialog userId={userId} open={fsModalOpen} onOpenChange={(o)=>{
+          setFsModalOpen(o);
+          try { window.dispatchEvent(new Event(o ? 'fieldservice:open' : 'fieldservice:close')); } catch {}
+        }} showTrigger={false} />
       </>
     );
   }
