@@ -80,6 +80,8 @@ export interface VisitWithUser {
   id: string;
   note?: string | null;
   visit_date: string;
+  publisher_id?: string | null;
+  partner_id?: string | null;
   publisher?: {
     id: string;
     first_name: string;
@@ -368,6 +370,59 @@ export async function addVisit(visit: {
   }
 }
 
+export async function updateVisit(visit: {
+  id: string;
+  establishment_id?: string | null;
+  householder_id?: string | null;
+  note?: string | null;
+  publisher_id?: string | null;
+  partner_id?: string | null;
+  visit_date?: string;
+}): Promise<boolean> {
+  const supabase = createSupabaseBrowserClient();
+  try {
+    await supabase.auth.getSession().catch(() => {});
+    const { error } = await supabase
+      .from('business_visits')
+      .update({
+        establishment_id: visit.establishment_id ?? null,
+        householder_id: visit.householder_id ?? null,
+        note: visit.note ?? null,
+        publisher_id: visit.publisher_id ?? null,
+        partner_id: visit.partner_id ?? null,
+        visit_date: visit.visit_date ?? undefined
+      })
+      .eq('id', visit.id);
+    if (error) {
+      console.error('Error updating visit:', error);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error('Unexpected error in updateVisit:', error);
+    return false;
+  }
+}
+
+export async function deleteVisit(visitId: string, _establishmentId?: string | null): Promise<boolean> {
+  const supabase = createSupabaseBrowserClient();
+  try {
+    await supabase.auth.getSession().catch(() => {});
+    const { error } = await supabase
+      .from('business_visits')
+      .delete()
+      .eq('id', visitId);
+    if (error) {
+      console.error('Error deleting visit:', error);
+      return false;
+    }
+    return true;
+  } catch (error) {
+    console.error('Unexpected error in deleteVisit:', error);
+    return false;
+  }
+}
+
 export async function getUniqueAreas(): Promise<string[]> {
   const supabase = createSupabaseBrowserClient();
   await supabase.auth.getSession().catch(() => {});
@@ -561,7 +616,7 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
   console.log('Raw visits data:', visits); // Debug log
 
   // Transform visits to match VisitWithUser type
-  const transformedVisits = visits?.map(visit => {
+  const transformedVisits = (visits as any[])?.map((visit: any) => {
     console.log('Processing visit:', visit); // Debug log
     console.log('Visit publisher data:', visit.publisher); // Debug publisher data
     console.log('Visit partner data:', visit.partner); // Debug partner data
@@ -569,6 +624,8 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
       id: visit.id,
       note: visit.note,
       visit_date: visit.visit_date,
+      publisher_id: visit.publisher_id ?? (Array.isArray(visit.publisher) ? (visit.publisher[0]?.id ?? null) : (visit.publisher?.id ?? null)),
+      partner_id: visit.partner_id ?? (Array.isArray(visit.partner) ? (visit.partner[0]?.id ?? null) : (visit.partner?.id ?? null)),
       publisher: Array.isArray(visit.publisher) ? visit.publisher[0] || null : visit.publisher || null,
       partner: Array.isArray(visit.partner) ? visit.partner[0] || null : visit.partner || null
     };

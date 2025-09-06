@@ -431,9 +431,9 @@ export function EstablishmentList({
       <table className="w-full text-sm table-fixed">
         <thead>
           <tr className="border-b">
-            <th className="text-left p-3 w-[60%]">Name</th>
-            <th className="text-left p-3 w-[18%]">Status</th>
-            <th className="text-left p-3 w-[22%]">Area</th>
+            <th className="text-left p-3 w-[50%]">Name</th>
+            <th className="text-left p-3 w-[23%]">Status</th>
+            <th className="text-left p-3 w-[27%]">Area</th>
           </tr>
         </thead>
         <tbody>

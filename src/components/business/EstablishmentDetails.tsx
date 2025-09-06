@@ -12,6 +12,8 @@ import { type EstablishmentWithDetails, type VisitWithUser, type HouseholderWith
 import { cn } from "@/lib/utils";
 import { getBestStatus, getStatusColor, getStatusTextColor } from "@/lib/utils/status-hierarchy";
 import { EstablishmentForm } from "@/components/business/EstablishmentForm";
+import { VisitForm } from "@/components/business/VisitForm";
+import { getBwiParticipants } from "@/lib/db/business";
 
 interface EstablishmentDetailsProps {
   establishment: EstablishmentWithDetails;
@@ -29,6 +31,7 @@ export function EstablishmentDetails({
   onEstablishmentUpdated
 }: EstablishmentDetailsProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [editVisit, setEditVisit] = useState<{ id: string; establishment_id?: string | null; householder_id?: string | null; note?: string | null; publisher_id?: string | null; partner_id?: string | null; visit_date?: string } | null>(null);
   const titleContainerRef = useRef<HTMLDivElement>(null);
   const titleContentRef = useRef<HTMLDivElement>(null);
   const [scrollDistance, setScrollDistance] = useState(0);
@@ -264,7 +267,7 @@ export function EstablishmentDetails({
                     console.log('Publisher:', visit.publisher); // Debug publisher
                     console.log('Partner:', visit.partner); // Debug partner
                     return (
-                      <div key={visit.id} className="flex items-start justify-between gap-3 p-3 border rounded-lg">
+                      <button onClick={() => setEditVisit({ id: visit.id, note: visit.note || null, visit_date: visit.visit_date, establishment_id: establishment.id })} key={visit.id} className="flex items-start justify-between gap-3 p-3 border rounded-lg w-full text-left hover:bg-muted/50">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-sm font-medium">{formatDate(visit.visit_date)}</span>
@@ -301,7 +304,7 @@ export function EstablishmentDetails({
                             </Avatar>
                           ) : null}
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
               </div>
@@ -379,6 +382,24 @@ export function EstablishmentDetails({
           initialData={establishment}
           isEditing={true}
         />
+      </ResponsiveModal>
+
+      {/* Edit Visit Modal */}
+      <ResponsiveModal
+        open={!!editVisit}
+        onOpenChange={(o) => setEditVisit(o ? editVisit : null)}
+        title="Edit Visit"
+        description="Update visit details"
+        className="sm:max-w-[560px]"
+      >
+        {editVisit && (
+          <VisitForm
+            establishments={[{ id: establishment.id, name: establishment.name }]}
+            selectedEstablishmentId={establishment.id}
+            initialVisit={editVisit}
+            onSaved={() => setEditVisit(null)}
+          />
+        )}
       </ResponsiveModal>
     </div>
   );

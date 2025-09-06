@@ -3,7 +3,9 @@ export type BusinessEventType =
   | 'establishment-added'
   | 'establishment-updated'
   | 'householder-added'
-  | 'visit-added';
+  | 'visit-added'
+  | 'visit-updated'
+  | 'visit-deleted';
 
 interface BusinessEvent {
   type: BusinessEventType;

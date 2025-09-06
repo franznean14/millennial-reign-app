@@ -9,8 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DatePicker } from "@/components/ui/date-picker";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { X } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "@/components/ui/sonner";
-import { addVisit, getBwiParticipants } from "@/lib/db/business";
+import { addVisit, getBwiParticipants, updateVisit, deleteVisit } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cacheGet } from "@/lib/offline/store";
@@ -19,22 +20,37 @@ interface VisitFormProps {
   establishments: any[];
   selectedEstablishmentId?: string;
   onSaved: (newVisit?: any) => void;
+  initialVisit?: {
+    id: string;
+    establishment_id?: string | null;
+    householder_id?: string | null;
+    note?: string | null;
+    publisher_id?: string | null;
+    partner_id?: string | null;
+    visit_date?: string;
+  };
 }
 
-export function VisitForm({ establishments, selectedEstablishmentId, onSaved }: VisitFormProps) {
+export function VisitForm({ establishments, selectedEstablishmentId, onSaved, initialVisit }: VisitFormProps) {
   const [estId, setEstId] = useState<string>(
-    selectedEstablishmentId || establishments[0]?.id || "none"
+    initialVisit?.establishment_id || selectedEstablishmentId || establishments[0]?.id || "none"
   );
-  const [note, setNote] = useState("");
-  const [visitDate, setVisitDate] = useState<Date>(new Date());
+  const [note, setNote] = useState(initialVisit?.note || "");
+  const [visitDate, setVisitDate] = useState<Date>(initialVisit?.visit_date ? new Date(initialVisit.visit_date) : new Date());
   const [saving, setSaving] = useState(false);
-  const [publishers, setPublishers] = useState<string[]>([]);
+  const [publishers, setPublishers] = useState<string[]>(() => {
+    const initial: string[] = [];
+    if (initialVisit?.publisher_id) initial.push(initialVisit.publisher_id);
+    if (initialVisit?.partner_id && initialVisit.partner_id !== initialVisit.publisher_id) initial.push(initialVisit.partner_id);
+    return initial;
+  });
   const [participants, setParticipants] = useState<Array<{
     id: string;
     first_name: string;
     last_name: string;
     avatar_url?: string;
   }>>([]);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   
   useEffect(() => {
     if (selectedEstablishmentId) {
@@ -69,7 +85,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved }: 
         
         const supabase = createSupabaseBrowserClient();
         const { data: profile } = await supabase.rpc('get_my_profile');
-        if (profile) {
+        if (profile && (!initialVisit || publishers.length === 0)) {
           const currentUserData = participantsList.find(p => p.id === profile.id);
           if (currentUserData) {
             setPublishers([currentUserData.id]);
@@ -86,35 +102,53 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved }: 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
-    
     try {
-      const ok = await addVisit({ 
+      const payload = { 
         establishment_id: estId === "none" ? undefined : estId || undefined, 
         note: note||null,
         visit_date: visitDate.toISOString().split('T')[0],
         publisher_id: publishers[0] || undefined,
         partner_id: publishers[1] || undefined
-      }); 
-      
-      if (ok) {
-        toast.success("Visit recorded successfully!");
-        onSaved(ok);
-        const newVisit = {
-          id: Date.now().toString(),
-          establishment_id: estId === "none" ? undefined : estId,
-          note: note || null,
-          visit_date: visitDate.toISOString().split('T')[0],
-          publisher_id: publishers[0] || undefined,
-          partner_id: publishers[1] || undefined,
-          created_at: new Date().toISOString()
-        };
-        businessEventBus.emit('visit-added', newVisit);
+      };
+
+      if (initialVisit?.id) {
+        // Edit mode: update visit
+        const ok = await updateVisit({ id: initialVisit.id, ...payload });
+        if (ok) {
+          toast.success("Visit updated.");
+          onSaved({ id: initialVisit.id, ...payload });
+          businessEventBus.emit('visit-updated', { id: initialVisit.id, ...payload });
+        } else {
+          toast.error("Failed to update visit");
+        }
       } else {
-        toast.error("Failed to record visit");
+        // Create mode: background add
+        onSaved();
+        addVisit(payload)
+          .then((ok) => {
+            if (ok) {
+              const newVisit = {
+                id: `temp-${Date.now()}`,
+                establishment_id: estId === "none" ? undefined : estId,
+                note: note || null,
+                visit_date: payload.visit_date!,
+                publisher_id: publishers[0] || undefined,
+                partner_id: publishers[1] || undefined,
+              };
+              businessEventBus.emit('visit-added', newVisit);
+              toast.success("Visit recorded successfully!");
+            } else {
+              toast.error("Failed to record visit");
+            }
+          })
+          .catch((e) => {
+            console.error('addVisit error', e);
+            toast.error("Error recording visit");
+          });
       }
     } catch (error) {
-      toast.error("Error recording visit");
-      console.error('Error recording visit:', error);
+      toast.error("Error saving visit");
+      console.error('Error saving visit:', error);
     } finally {
       setSaving(false);
     }
@@ -223,11 +257,51 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved }: 
       
       <div className="grid gap-1">
         <Label>Update Note</Label>
-        <Textarea value={note} onChange={e=>setNote(e.target.value)} />
+        <Textarea value={note} onChange={e=>setNote(e.target.value)} className="min-h-[120px]" />
       </div>
-      <div className="flex justify-end">
+      <div className="flex justify-between">
+        {initialVisit?.id ? (
+          <Popover open={confirmOpen} onOpenChange={setConfirmOpen}>
+            <PopoverTrigger asChild>
+              <Button type="button" variant="destructive" disabled={saving}>Delete</Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56" align="start">
+              <div className="space-y-3">
+                <p className="text-sm">Delete this visit update?</p>
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => setConfirmOpen(false)}>Cancel</Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    disabled={saving}
+                    onClick={async () => {
+                      if (!initialVisit?.id) return;
+                      setSaving(true);
+                      try {
+                        const ok = await deleteVisit(initialVisit.id);
+                        if (ok) {
+                          businessEventBus.emit('visit-deleted', { id: initialVisit.id });
+                          toast.success('Visit deleted');
+                          setConfirmOpen(false);
+                          onSaved();
+                        } else {
+                          toast.error('Failed to delete visit');
+                        }
+                      } finally {
+                        setSaving(false);
+                      }
+                    }}
+                  >
+                    Confirm
+                  </Button>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+        ) : <span />}
         <Button type="submit" disabled={saving}>
-          {saving ? "Saving..." : "Save"}
+          {saving ? "Saving..." : (initialVisit?.id ? 'Update' : 'Save')}
         </Button>
       </div>
     </form>

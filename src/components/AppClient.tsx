@@ -16,7 +16,7 @@ const getSupabaseClient = async () => {
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Filter } from "lucide-react";
+import { Filter, X } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
@@ -324,12 +324,32 @@ export function AppClient({ currentSection }: AppClientProps) {
       businessEventBus.subscribe('establishment-updated', updateEstablishment);
       businessEventBus.subscribe('householder-added', addNewHouseholder);
       businessEventBus.subscribe('visit-added', addNewVisit);
+      businessEventBus.subscribe('visit-updated', (v: any) => {
+        setSelectedEstablishmentDetails(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            visits: prev.visits.map((existing) => existing.id === v.id ? {
+              ...existing,
+              note: v.note ?? existing.note,
+              visit_date: v.visit_date ?? existing.visit_date,
+            } : existing)
+          };
+        });
+      });
+      businessEventBus.subscribe('visit-deleted', (v: any) => {
+        setSelectedEstablishmentDetails(prev => {
+          if (!prev) return prev;
+          return { ...prev, visits: prev.visits.filter(ex => ex.id !== v.id) };
+        });
+      });
 
       return () => {
         businessEventBus.unsubscribe('establishment-added', addNewEstablishment);
         businessEventBus.unsubscribe('establishment-updated', updateEstablishment);
         businessEventBus.unsubscribe('householder-added', addNewHouseholder);
         businessEventBus.unsubscribe('visit-added', addNewVisit);
+        // Note: inline callbacks cannot be unsubscribed reliably; in a real setup, keep named refs
       };
     } catch (error) {
       console.error('Failed to load business data:', error);
@@ -496,6 +516,39 @@ export function AppClient({ currentSection }: AppClientProps) {
     return sorted;
   }, [establishments, filters, userId, userVisitedEstablishments]);
 
+  // Helpers for displaying active filter badges
+  const formatStatusLabel = (status: string) =>
+    status
+      .split('_')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+
+  const handleRemoveStatus = (status: string) => {
+    setFilters((prev) => ({ ...prev, statuses: prev.statuses.filter((s) => s !== status) }));
+  };
+
+  const handleRemoveArea = (area: string) => {
+    setFilters((prev) => ({ ...prev, areas: prev.areas.filter((a) => a !== area) }));
+  };
+
+  const handleClearSearch = () => {
+    setFilters((prev) => ({ ...prev, search: "" }));
+  };
+
+  const handleClearMyEstablishments = () => {
+    setFilters((prev) => ({ ...prev, myEstablishments: false }));
+  };
+
+  const handleClearAllFilters = () => {
+    setFilters((prev) => ({
+      search: "",
+      statuses: [],
+      areas: [],
+      myEstablishments: false,
+      sort: prev.sort || 'last_visit_desc',
+    }));
+  };
+
   const areaOptions = useMemo(() => {
     const areas = establishments
       .map(e => e.area)
@@ -606,7 +659,51 @@ export function AppClient({ currentSection }: AppClientProps) {
                   className="pl-10 cursor-pointer"
                   readOnly
                 />
-                {/* Removed active filters count badge */}
+                {/* Active filter badges row */}
+                {(filters.search || filters.statuses.length > 0 || filters.areas.length > 0 || filters.myEstablishments) && (
+                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                    {filters.search && (
+                      <Badge variant="secondary" className="px-2 py-1 text-xs inline-flex items-center gap-1">
+                        <span>Search: {filters.search}</span>
+                        <button type="button" onClick={handleClearSearch} aria-label="Clear search" className="ml-1 rounded hover:bg-muted p-0.5">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    )}
+                    {filters.statuses.map((s) => (
+                      <Badge key={s} variant="secondary" className="px-2 py-1 text-xs inline-flex items-center gap-1">
+                        <span>{formatStatusLabel(s)}</span>
+                        <button type="button" onClick={() => handleRemoveStatus(s)} aria-label={`Remove ${formatStatusLabel(s)}`} className="ml-1 rounded hover:bg-muted p-0.5">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                    {filters.areas.map((a) => (
+                      <Badge key={a} variant="secondary" className="px-2 py-1 text-xs inline-flex items-center gap-1">
+                        <span>{a}</span>
+                        <button type="button" onClick={() => handleRemoveArea(a)} aria-label={`Remove ${a}`} className="ml-1 rounded hover:bg-muted p-0.5">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                    {filters.myEstablishments && (
+                      <Badge variant="secondary" className="px-2 py-1 text-xs inline-flex items-center gap-1">
+                        <span>My Establishments</span>
+                        <button type="button" onClick={handleClearMyEstablishments} aria-label="Remove My Establishments" className="ml-1 rounded hover:bg-muted p-0.5">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    )}
+                    <Badge
+                      variant="outline"
+                      className="px-2 py-1 text-xs inline-flex items-center gap-1 cursor-pointer"
+                      onClick={handleClearAllFilters}
+                    >
+                      <span>Clear</span>
+                      <X className="h-3 w-3" />
+                    </Badge>
+                  </div>
+                )}
               </div>
               
               {/* Remove the My Establishments toggle section entirely */}
