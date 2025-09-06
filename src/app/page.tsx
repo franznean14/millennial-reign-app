@@ -1,21 +1,17 @@
 "use client";
 
-import { AppMain } from "@/components/AppMain";
+import dynamic from "next/dynamic";
 import { useSPA } from "@/components/SPAProvider";
-import ThemeInit, { initializeTheme } from "@/components/ThemeInit";
+import { AppChrome } from "@/components/AppChrome";
 
-// Initialize theme immediately when this module loads
-if (typeof window !== 'undefined') {
-  initializeTheme();
-}
+const AppClient = dynamic(() => import("@/components/AppClient").then(m => m.AppClient), { ssr: false });
 
 export default function Home() {
-  const { currentSection, isAuthenticated } = useSPA();
+  const { currentSection } = useSPA();
 
   return (
-    <>
-      <ThemeInit />
-      <AppMain currentSection={!isAuthenticated ? 'login' : currentSection} />
-    </>
+    <AppChrome>
+      <AppClient currentSection={currentSection} />
+    </AppChrome>
   );
 }

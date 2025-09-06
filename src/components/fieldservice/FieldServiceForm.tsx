@@ -171,7 +171,7 @@ export function FieldServiceForm({ userId, onClose }: FieldServiceFormProps) {
   }, [dirty, hours, studies, note]);
 
   return (
-    <div className="grid md:grid-cols-2 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
+    <div className="grid md:grid-cols-2 gap-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
       <div className="p-4 border-b md:border-b-0 md:border-r">
         <div className="flex items-center justify-between pb-3">
           <Button variant="ghost" size="sm" onClick={() => changeStep(-1)}>
@@ -258,9 +258,8 @@ export function FieldServiceForm({ userId, onClose }: FieldServiceFormProps) {
           </div>
         )}
       </div>
-      <div className="p-4">
+      <div>
         <div className="grid gap-4">
-          
           <div className="grid gap-2 place-items-center">
             <Label>Hours</Label>
             <NumberFlowInput
