@@ -51,7 +51,6 @@ const SwipeableCard = dynamic(() => import("@/components/ui/swipeable-card").the
 const CongregationMembers = dynamic(() => import("@/components/congregation/CongregationMembers").then(m => m.CongregationMembers), { ssr: false });
 const BusinessFiltersForm = dynamic(() => import("@/components/business/BusinessFiltersForm").then(m => m.BusinessFiltersForm), { ssr: false });
 const CongregationView = dynamic(() => import("@/components/views/CongregationView").then(m => m.CongregationView), { ssr: false });
-const FieldServiceDrawerDialog = dynamic(() => import("@/components/fieldservice/FieldServiceDrawerDialog").then(m => m.FieldServiceDrawerDialog), { ssr: false });
 
 interface AppClientProps {
   currentSection: string;
@@ -622,10 +621,6 @@ export function AppClient({ currentSection }: AppClientProps) {
             serviceYearStart={dateRanges.serviceYearStart}
             serviceYearEnd={dateRanges.serviceYearEnd}
           />
-          {/* Simple trigger button for Field Service drawer */}
-          <div className="px-4">
-            <FieldServiceDrawerDialog userId={userId} />
-          </div>
         </motion.div>
       );
 
