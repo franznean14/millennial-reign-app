@@ -179,3 +179,7 @@
 .no-scrollbar::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Opera */
 }
+
+.ios-touch {
+  -webkit-overflow-scrolling: touch;
+}

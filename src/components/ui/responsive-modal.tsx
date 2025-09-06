@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useState } from "react";
 
 interface ResponsiveModalProps {
   open: boolean;
@@ -25,17 +25,27 @@ export function ResponsiveModal({
   className
 }: ResponsiveModalProps) {
   const isMobile = useMobile();
+  const [isOpen, setIsOpen] = useState(open);
+
+  useEffect(() => setIsOpen(open), [open]);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (isOpen) {
+      root.classList.add("overscroll-none", "touch-none", "dialog-open");
+    } else {
+      root.classList.remove("overscroll-none", "touch-none", "dialog-open");
+    }
+  }, [isOpen]);
 
   if (isMobile) {
     return (
-      <Drawer open={open} onOpenChange={onOpenChange}>
+      <Drawer open={isOpen} onOpenChange={(o) => { setIsOpen(o); onOpenChange(o); }}>
         <DrawerContent className={`${className || ""}`}>
           <DrawerHeader className="flex-shrink-0">
             <DrawerTitle>{title}</DrawerTitle>
             {description && <DrawerDescription>{description}</DrawerDescription>}
           </DrawerHeader>
-          <div className="p-4 pt-0">
-
+          <div className="p-4 pt-0 flex-1 min-h-0 overflow-y-auto ios-touch">
             {children}
           </div>
         </DrawerContent>

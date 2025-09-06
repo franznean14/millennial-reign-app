@@ -299,7 +299,7 @@ export function FieldServiceForm({ userId, onClose }: FieldServiceFormProps) {
           <div className="grid gap-1 text-sm">
             <span className="opacity-70">Note</span>
             <Textarea 
-              className="min-h-[96px]" 
+              className="min-h-[196px]" 
               value={note} 
               onChange={(e) => { 
                 setNote(e.target.value); 
