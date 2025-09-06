@@ -182,9 +182,6 @@ export function AppClient({ currentSection }: AppClientProps) {
   const [bwiEnabled, setBwiEnabled] = useState(false);
   const [isBwiParticipant, setIsBwiParticipant] = useState(false);
 
-  // Field Service drawer open state (mounted here, triggered by FAB via window events)
-  const [fsOpen, setFsOpen] = useState(false);
-
   // Add this state to track user's visited establishments
   const [userVisitedEstablishments, setUserVisitedEstablishments] = useState<Set<string>>(new Set());
 
@@ -250,18 +247,6 @@ export function AppClient({ currentSection }: AppClientProps) {
       serviceYearStart,
       serviceYearEnd,
     });
-  }, []);
-
-  // Listen for global events to open/close Field Service drawer from FAB
-  useEffect(() => {
-    const handleFsOpen = (_e: Event) => setFsOpen(true);
-    const handleFsClose = (_e: Event) => setFsOpen(false);
-    window.addEventListener('fieldservice:open', handleFsOpen as EventListener);
-    window.addEventListener('fieldservice:close', handleFsClose as EventListener);
-    return () => {
-      window.removeEventListener('fieldservice:open', handleFsOpen as EventListener);
-      window.removeEventListener('fieldservice:close', handleFsClose as EventListener);
-    };
   }, []);
 
   // Load business data when on business section
@@ -637,10 +622,7 @@ export function AppClient({ currentSection }: AppClientProps) {
             serviceYearStart={dateRanges.serviceYearStart}
             serviceYearEnd={dateRanges.serviceYearEnd}
           />
-          {/* Field Service drawer mounted here; opened by FAB via window event */}
-          <div className="px-4">
-            <FieldServiceDrawerDialog userId={userId} open={fsOpen} onOpenChange={setFsOpen} showTrigger={false} />
-          </div>
+          {/* Field Service inline trigger removed for Home */}
         </motion.div>
       );
 
