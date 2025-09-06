@@ -2,15 +2,16 @@
 
 import * as React from "react";
 import { useMemo, useState } from "react";
+import { useForm } from "react-hook-form";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger, DrawerClose } from "@/components/ui/drawer";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Label } from "@/components/ui/label";
 import { NumberFlowInput } from "@/components/ui/number-flow-input";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
 
 interface FieldServiceDrawerDialogProps {
   userId: string;
@@ -79,9 +80,9 @@ function isSameDay(a: Date, b: Date) {
 function MinimalFieldService() {
   const [view, setView] = useState<Date>(new Date());
   const [selected, setSelected] = useState<Date>(new Date());
-  const [hours, setHours] = useState<number>(0);
-  const [bibleStudies, setBibleStudies] = useState<string>("");
-  const [note, setNote] = useState<string>("");
+  const form = useForm<{ hours: number; bibleStudies: string; note: string }>({
+    defaultValues: { hours: 0, bibleStudies: "", note: "" },
+  });
 
   const monthLabel = useMemo(() => view.toLocaleString(undefined, { month: "long" }), [view]);
   const yearLabel = useMemo(() => String(view.getFullYear()), [view]);
@@ -140,39 +141,55 @@ function MinimalFieldService() {
 
       {/* Hours */}
       <div>
-        <div className="grid gap-4 px-4">
-          <div className="grid gap-2 place-items-center">
-            <Label>Hours</Label>
-            <NumberFlowInput
-              value={hours}
-              onChange={(v) => setHours(v)}
-              min={0}
-              max={24}
-              size="lg"
-              className="mx-auto"
+        <Form {...form}>
+          <form className="grid gap-4 px-4" onSubmit={(e) => e.preventDefault()}>
+            <FormField
+              control={form.control}
+              name="hours"
+              render={({ field }) => (
+                <FormItem className="grid gap-2 place-items-center">
+                  <FormLabel>Hours</FormLabel>
+                  <FormControl>
+                    <NumberFlowInput
+                      value={field.value ?? 0}
+                      onChange={(v) => field.onChange(v)}
+                      min={0}
+                      max={24}
+                      size="lg"
+                      className="mx-auto"
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
             />
-          </div>
 
-          <div className="grid gap-2">
-            <Label>Bible Studies</Label>
-            <Input
-              value={bibleStudies}
-              onChange={(e) => setBibleStudies(e.target.value)}
-              placeholder="Names, comma-separated (optional)"
-              className="px-3"
+            <FormField
+              control={form.control}
+              name="bibleStudies"
+              render={({ field }) => (
+                <FormItem className="grid gap-2">
+                  <FormLabel>Bible Studies</FormLabel>
+                  <FormControl>
+                    <Input {...field} placeholder="Names, comma-separated (optional)" className="px-3" />
+                  </FormControl>
+                </FormItem>
+              )}
             />
-          </div>
 
-          <div className="grid gap-2">
-            <Label>Notes</Label>
-            <Textarea
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              placeholder="Optional note for this day"
-              className="px-3"
+            <FormField
+              control={form.control}
+              name="note"
+              render={({ field }) => (
+                <FormItem className="grid gap-2">
+                  <FormLabel>Notes</FormLabel>
+                  <FormControl>
+                    <Textarea {...field} placeholder="Optional note for this day" className="px-3" />
+                  </FormControl>
+                </FormItem>
+              )}
             />
-          </div>
-        </div>
+          </form>
+        </Form>
       </div>
     </div>
   );
