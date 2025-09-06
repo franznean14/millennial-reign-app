@@ -52,6 +52,10 @@ const CongregationMembers = dynamic(() => import("@/components/congregation/Cong
 const BusinessFiltersForm = dynamic(() => import("@/components/business/BusinessFiltersForm").then(m => m.BusinessFiltersForm), { ssr: false });
 const CongregationView = dynamic(() => import("@/components/views/CongregationView").then(m => m.CongregationView), { ssr: false });
 const FieldServiceDrawerDialog = dynamic(() => import("@/components/fieldservice/FieldServiceDrawerDialog").then(m => m.FieldServiceDrawerDialog), { ssr: false });
+const EstablishmentDrawerDialog = dynamic(() => import("@/components/business/EstablishmentDrawerDialog").then(m => m.EstablishmentDrawerDialog), { ssr: false });
+const HouseholderDrawerDialog = dynamic(() => import("@/components/business/HouseholderDrawerDialog").then(m => m.HouseholderDrawerDialog), { ssr: false });
+const VisitDrawerDialog = dynamic(() => import("@/components/business/VisitDrawerDialog").then(m => m.VisitDrawerDialog), { ssr: false });
+const AddUserToCongregationDrawerDialog = dynamic(() => import("@/components/congregation/AddUserToCongregationDrawerDialog").then(m => m.AddUserToCongregationDrawerDialog), { ssr: false });
 
 interface AppClientProps {
   currentSection: string;
@@ -791,6 +795,35 @@ export function AppClient({ currentSection }: AppClientProps) {
               onClose={() => setFiltersModalOpen(false)}
             />
           </ResponsiveModal>
+
+          {/* Business local floating triggers */}
+          {bwiEnabled && isBwiParticipant && (
+            <>
+              <EstablishmentDrawerDialog
+                selectedArea={filters.areas[0] || undefined}
+                positionOffset={0}
+                onSaved={() => {
+                  loadBusinessData();
+                }}
+              />
+              <HouseholderDrawerDialog
+                establishments={establishments as any}
+                selectedEstablishmentId={selectedEstablishment?.id}
+                positionOffset={1}
+                onSaved={() => {
+                  // No-op; list updates via event bus
+                }}
+              />
+              <VisitDrawerDialog
+                establishments={establishments as any}
+                selectedEstablishmentId={selectedEstablishment?.id}
+                positionOffset={2}
+                onSaved={() => {
+                  // No-op; list updates via event bus
+                }}
+              />
+            </>
+          )}
         </motion.div>
       );
 
@@ -869,6 +902,18 @@ export function AppClient({ currentSection }: AppClientProps) {
               }}
             />
           </ResponsiveModal>
+
+          {/* Congregation local floating trigger (elders/admins only) */}
+          {canEdit && (cong?.id || (profile as any)?.congregation_id) && (
+            <AddUserToCongregationDrawerDialog
+              congregationId={(cong?.id || (profile as any)?.congregation_id)!}
+              onUserAdded={() => {
+                try {
+                  window.dispatchEvent(new CustomEvent('congregation-refresh'));
+                } catch {}
+              }}
+            />
+          )}
         </motion.div>
       );
 
