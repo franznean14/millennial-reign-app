@@ -29,12 +29,12 @@ export function ResponsiveModal({
   if (isMobile) {
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className={`max-h-[95vh] ${className || ""}`}>
+        <DrawerContent className={`${className || ""}`}>
           <DrawerHeader className="flex-shrink-0">
             <DrawerTitle>{title}</DrawerTitle>
             {description && <DrawerDescription>{description}</DrawerDescription>}
           </DrawerHeader>
-          <div className="p-4 pt-0 flex-1 min-h-0 overflow-y-auto">
+          <div className="p-4 pt-0 flex-1 min-h-0 overflow-y-auto max-h-[95vh]">
 
             {children}
           </div>
