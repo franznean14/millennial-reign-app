@@ -12,7 +12,6 @@ import { isBusinessEnabled, isBusinessParticipant, listEstablishments } from "@/
 import { EstablishmentForm } from "@/components/business/EstablishmentForm";
 import { HouseholderForm } from "@/components/business/HouseholderForm";
 import { VisitForm } from "@/components/business/VisitForm";
-import { FieldServiceForm } from "./FieldServiceForm";
 // FieldService FAB is now rendered in AppClient (home section)
 
 function FloatingBridgeContent() {
