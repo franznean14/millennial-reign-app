@@ -30,9 +30,13 @@ interface VisitFormProps {
     partner_id?: string | null;
     visit_date?: string;
   };
+  // Householder context
+  householderId?: string;
+  // Optional prefill for note (used when creating)
+  prefillNote?: string;
 }
 
-export function VisitForm({ establishments, selectedEstablishmentId, onSaved, initialVisit }: VisitFormProps) {
+export function VisitForm({ establishments, selectedEstablishmentId, onSaved, initialVisit, householderId, prefillNote }: VisitFormProps) {
   const [estId, setEstId] = useState<string>(
     selectedEstablishmentId || initialVisit?.establishment_id || establishments[0]?.id || "none"
   );
@@ -81,6 +85,12 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
   const [confirmOpen, setConfirmOpen] = useState(false);
   
   // (Removed duplicate sync effect; handled by the prioritized effect above)
+  // Prefill note when creating a visit with a provided prefill
+  useEffect(() => {
+    if (!initialVisit?.id && prefillNote && !note) {
+      setNote(prefillNote);
+    }
+  }, [initialVisit?.id, prefillNote]);
 
   // Prefill from active business filters ONLY when creating and no explicit selection
   useEffect(() => {
@@ -137,11 +147,18 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
     try {
       const payload = { 
         establishment_id: estId === "none" ? undefined : estId || undefined, 
-        note: note||null,
+        note: note?.trim() || null,
         visit_date: visitDate.toISOString().split('T')[0],
         publisher_id: publishers[0] || undefined,
-        partner_id: publishers[1] || undefined
+        partner_id: publishers[1] || undefined,
+        householder_id: householderId || initialVisit?.householder_id || undefined,
       };
+
+      if (!payload.note) {
+        toast.error('Visit note is required');
+        setSaving(false);
+        return;
+      }
 
       if (initialVisit?.id) {
         // Edit mode: update visit

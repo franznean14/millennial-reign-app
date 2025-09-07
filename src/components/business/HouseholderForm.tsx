@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { upsertHouseholder } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { useMobile } from "@/lib/hooks/use-mobile";
@@ -16,25 +17,40 @@ interface HouseholderFormProps {
   establishments: any[];
   selectedEstablishmentId?: string;
   onSaved: (newHouseholder?: any) => void;
+  // Edit mode props
+  isEditing?: boolean;
+  initialData?: {
+    id: string;
+    establishment_id: string;
+    name: string;
+    status: 'interested'|'return_visit'|'bible_study'|'do_not_call';
+    note?: string | null;
+  } | null;
+  onDelete?: () => Promise<void> | void;
 }
 
-export function HouseholderForm({ establishments, selectedEstablishmentId, onSaved }: HouseholderFormProps) {
+export function HouseholderForm({ establishments, selectedEstablishmentId, onSaved, isEditing = false, initialData = null, onDelete }: HouseholderFormProps) {
   const [estId, setEstId] = useState<string>(
-    selectedEstablishmentId || establishments[0]?.id || ""
+    initialData?.establishment_id || selectedEstablishmentId || establishments[0]?.id || ""
   );
-  const [name, setName] = useState("");
-  const [status, setStatus] = useState<'interested'|'return_visit'|'bible_study'|'do_not_call'>("interested");
-  const [note, setNote] = useState("");
+  const [name, setName] = useState(initialData?.name || "");
+  const [status, setStatus] = useState<'interested'|'return_visit'|'bible_study'|'do_not_call'>(initialData?.status || "interested");
+  const [note, setNote] = useState(initialData?.note || "");
   const [saving, setSaving] = useState(false);
   const isMobile = useMobile();
+  const [confirmOpen, setConfirmOpen] = useState(false);
   
   useEffect(() => {
+    if (initialData?.establishment_id) {
+      setEstId(initialData.establishment_id);
+      return;
+    }
     if (selectedEstablishmentId) {
       setEstId(selectedEstablishmentId);
     } else if (establishments.length > 0) {
       setEstId(establishments[0]?.id || "");
     }
-  }, [selectedEstablishmentId, establishments]);
+  }, [initialData?.establishment_id, selectedEstablishmentId, establishments]);
 
   // Prefill from active business filters (area doesn't apply here; status can)
   useEffect(() => {
@@ -55,6 +71,7 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
     
     try {
       const result = await upsertHouseholder({ 
+        id: initialData?.id,
         establishment_id: estId, 
         name, 
         status, 
@@ -62,15 +79,15 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
       });
       
       if (result) {
-        toast.success("Householder saved successfully!");
+        toast.success(isEditing ? "Householder updated successfully!" : "Householder saved successfully!");
         onSaved(result);
-        businessEventBus.emit('householder-added', result);
+        businessEventBus.emit(isEditing ? 'householder-updated' : 'householder-added', result);
       } else {
-        toast.error("Failed to save householder");
+        toast.error(isEditing ? "Failed to update householder" : "Failed to save householder");
       }
     } catch (error) {
-      toast.error("Error saving householder");
-      console.error('Error saving householder:', error);
+      toast.error(isEditing ? "Error updating householder" : "Error saving householder");
+      console.error('Error saving/updating householder:', error);
     } finally {
       setSaving(false);
     }
@@ -107,9 +124,41 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
         <Label>Note</Label>
         <Textarea value={note} onChange={e=>setNote(e.target.value)} />
       </div>
-      <div className="flex justify-end">
+      <div className={`flex py-4 ${isEditing && onDelete ? "justify-between" : "justify-end"}`}>
+        {isEditing && onDelete && (
+          <Popover open={confirmOpen} onOpenChange={setConfirmOpen}>
+            <PopoverTrigger asChild>
+              <Button type="button" variant="destructive" disabled={saving}>Delete</Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-56" align="start">
+              <div className="space-y-3">
+                <p className="text-sm">Delete this householder?</p>
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="outline" size="sm" onClick={() => setConfirmOpen(false)}>Cancel</Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    disabled={saving}
+                    onClick={async () => {
+                      try {
+                        setSaving(true);
+                        await onDelete();
+                        setConfirmOpen(false);
+                      } finally {
+                        setSaving(false);
+                      }
+                    }}
+                  >
+                    Confirm
+                  </Button>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
         <Button type="submit" disabled={saving}>
-          {saving ? "Saving..." : "Save"}
+          {saving ? (isEditing ? "Updating..." : "Saving...") : (isEditing ? "Update" : "Save")}
         </Button>
       </div>
     </form>
