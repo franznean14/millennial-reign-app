@@ -24,25 +24,9 @@ export function ResponsiveModal({
   className
 }: ResponsiveModalProps) {
   const isMobile = useMobile();
-  const [keyboardInset, setKeyboardInset] = useState(0);
+  // No dynamic keyboard handling: keep initial layout
 
-  useEffect(() => {
-    if (!isMobile || typeof window === "undefined" || !(window as any).visualViewport) return;
-    const vv: VisualViewport = (window as any).visualViewport;
-    const handler = () => {
-      try {
-        const gap = Math.max(0, window.innerHeight - (vv.height + (vv as any).offsetTop || 0));
-        setKeyboardInset(gap);
-      } catch {}
-    };
-    vv.addEventListener("resize", handler);
-    vv.addEventListener("scroll", handler);
-    handler();
-    return () => {
-      vv.removeEventListener("resize", handler);
-      vv.removeEventListener("scroll", handler);
-    };
-  }, [isMobile]);
+  // Intentionally removed visualViewport listeners to avoid live layout adjustments
 
   if (isMobile) {
     return (
@@ -54,7 +38,7 @@ export function ResponsiveModal({
           </DrawerHeader>
           <div
             className="p-4 pt-0 overscroll-contain no-scrollbar"
-            style={{ paddingBottom: keyboardInset > 0 ? "calc(env(safe-area-inset-bottom, 0px) + 12px)" : "calc(env(safe-area-inset-bottom, 0px) + 24px)" }}
+            style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)" }}
           >
             {children}
           </div>

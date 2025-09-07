@@ -27,26 +27,6 @@ const DrawerContent = React.forwardRef<
   React.ElementRef<typeof DrawerPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content>
 >(({ className, children, ...props }, ref) => {
-  const [keyboardInset, setKeyboardInset] = React.useState(0);
-
-  React.useEffect(() => {
-    if (typeof window === "undefined" || !(window as any).visualViewport) return;
-    const vv = (window as any).visualViewport as VisualViewport;
-    const handler = () => {
-      try {
-        const gap = Math.max(0, window.innerHeight - (vv.height + (vv as any).offsetTop || 0));
-        setKeyboardInset(gap);
-      } catch {}
-    };
-    vv.addEventListener("resize", handler);
-    vv.addEventListener("scroll", handler);
-    handler();
-    return () => {
-      vv.removeEventListener("resize", handler);
-      vv.removeEventListener("scroll", handler);
-    };
-  }, []);
-
   return (
     <DrawerPortal>
       <DrawerOverlay />
@@ -65,7 +45,7 @@ const DrawerContent = React.forwardRef<
           {/* Prevent scroll chaining to outside when focusing inputs on mobile */}
           <div
             className="overscroll-contain no-scrollbar"
-            style={{ paddingBottom: keyboardInset > 0 ? "calc(env(safe-area-inset-bottom, 0px) + 12px)" : "calc(env(safe-area-inset-bottom, 0px) + 24px)" }}
+            style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)" }}
           >
             {children}
           </div>
