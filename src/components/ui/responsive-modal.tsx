@@ -54,7 +54,7 @@ export function ResponsiveModal({
           </DrawerHeader>
           <div
             className="p-4 pt-0 overscroll-contain no-scrollbar"
-            style={{ paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${Math.max(12, Math.min(240, keyboardInset))}px)` }}
+            style={{ paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + max(env(keyboard-inset-height, 0px), ${Math.max(12, Math.min(240, keyboardInset))}px))` }}
           >
             {children}
           </div>
