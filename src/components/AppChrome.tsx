@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { AppTopbar } from "@/components/AppTopbar";
 import { Home, Landmark, Briefcase, User } from "lucide-react";
@@ -13,6 +14,8 @@ const SyncBanner = dynamic(() => import("@/components/SyncBanner"), { ssr: false
 const OnlineBanner = dynamic(() => import("@/components/OnlineBanner"), { ssr: false });
 const BiometricGate = dynamic(() => import("@/components/BiometricGate"), { ssr: false });
 const FloatingBridge = dynamic(() => import("@/components/fieldservice/FloatingBridge").then(m => m.FloatingBridge), { ssr: false });
+import { Drawer } from "@/components/ui/drawer";
+import { DrawerContent } from "@/components/ui/drawer";
 
 interface AppChromeProps {
   children: React.ReactNode;
@@ -22,6 +25,15 @@ export function AppChrome({ children }: AppChromeProps) {
   const pathname = usePathname();
   const { currentSection, userPermissions, onSectionChange, isLoading, isAuthenticated } = useSPA();
   const hideChrome = pathname === "/login" || pathname.startsWith("/auth/") || !isAuthenticated;
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Hide bottom nav + lock background when any drawer is open
+  useEffect(() => {
+    const root = document.documentElement;
+    root.classList.toggle("dialog-open", drawerOpen);
+    root.classList.toggle("overscroll-none", drawerOpen);
+    root.classList.toggle("touch-none", drawerOpen);
+  }, [drawerOpen]);
 
   if (isLoading) {
     return (
@@ -121,6 +133,15 @@ export function AppChrome({ children }: AppChromeProps) {
       </nav>
       
       <FloatingBridge />
+
+      {/* Global drawer mounted once; control with local state */}
+      <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+        <DrawerContent>
+          <div className="p-4 pt-0">
+            {/* TODO: render desired content here (e.g., EstablishmentForm wrapper) */}
+          </div>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 }
