@@ -626,6 +626,8 @@ export function AppClient({ currentSection }: AppClientProps) {
             serviceYearEnd={dateRanges.serviceYearEnd}
           />
           {/* Field Service trigger handled by portaled global trigger; no per-view trigger here */}
+          {/* Render the trigger button for Home view */}
+          <DrawerDialogTriggerButton label="Field Service" />
         </motion.div>
       );
 

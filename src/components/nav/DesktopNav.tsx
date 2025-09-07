@@ -63,7 +63,7 @@ export default function DesktopNav() {
     { href: "/account", label: "Account", icon: User },
   ];
   return (
-    <aside className="sticky top-14 hidden h-[calc(100dvh-56px)] w-60 shrink-0 border-r border-border/70 md:block">
+    <aside className="sticky top-14 hidden w-60 shrink-0 border-r border-border/70 md:block">
       <nav className="p-3 grid gap-1">
         {links.map(({ href, label, icon: Icon }) => {
           const active = pathname === href;

@@ -30,7 +30,7 @@ export function FieldServiceDrawerDialog({ userId, triggerLabel = "Field Service
         {showTrigger && (
           <DrawerDialogTriggerButton label={triggerLabel} icon={<FilePlus2 className="h-6 w-6" />} />
         )}
-        <DialogContent className="flex max-h-[85vh] flex-col p-0">
+        <DialogContent className="flex flex-col p-0">
           <DialogHeader className="text-center flex-shrink-0">
             <DialogTitle>Field Service</DialogTitle>
             <DialogDescription>
