@@ -102,7 +102,7 @@ function HomeTrigger({ label, icon, className, size, userId }: { label: string; 
       <Button
         aria-label={label}
         title={label}
-        className={`fixed right-4 bottom-[calc(max(env(safe-area-inset-bottom),0px)+80px)] md:right-6 z-40 h-14 w-14 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-110 active:scale-95 touch-manipulation ${className || ""}`}
+        className={`fixed right-4 bottom-[80px] md:right-6 z-40 h-14 w-14 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-110 active:scale-95 touch-manipulation ${className || ""}`}
         size={size}
         onClick={() => setOpen(true)}
       >
@@ -153,12 +153,12 @@ function BusinessTrigger({ canUse, className, size, establishments, selectedArea
     <div ref={containerRef}>
       <Button
         onClick={() => setExpanded(!expanded)}
-        className={`fixed right-4 z-40 h-14 w-14 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-110 active:scale-95 touch-manipulation md:right-6 bottom-[calc(max(env(safe-area-inset-bottom),0px)+80px)] ${expanded ? "rotate-90" : ""}`}
+        className={`fixed right-4 z-40 h-14 w-14 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-110 active:scale-95 touch-manipulation md:right-6 bottom-[80px] ${expanded ? "rotate-90" : ""}`}
         size={size}
       >
         {expanded ? <X className="h-6 w-6" /> : <Plus className="h-6 w-6" />}
       </Button>
-      <div className={`fixed right-4 z-40 flex flex-col gap-2 transition-all duration-300 ease-out items-end bottom-[calc(max(env(safe-area-inset-bottom),0px)+144px)] md:right-6 ${expanded ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+      <div className={`fixed right-4 z-40 flex flex-col gap-2 transition-all duration-300 ease-out items-end bottom-[144px] md:right-6 ${expanded ? 'opacity-100 translate-y-0 pointer-events-auto' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
         <Button variant="outline" className="rounded-full shadow-lg transition-all duration-200 hover:scale-105 active:scale-95" onClick={() => setOpen("est")}>
           <Building2 className="h-4 w-4 mr-2" />
           Establishment

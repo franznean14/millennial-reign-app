@@ -56,7 +56,7 @@ export function BusinessActionFab({
         {/* Main floating button - same positioning as elsewhere */}
         <Button
           onClick={() => setExpanded(!expanded)}
-          className={`fixed right-4 z-40 h-14 w-14 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-110 active:scale-95 touch-manipulation md:right-6 bottom-[calc(max(env(safe-area-inset-bottom),0px)+80px)] ${expanded ? "rotate-45" : ""}`}
+          className={`fixed right-4 z-40 h-14 w-14 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-110 active:scale-95 touch-manipulation md:right-6 bottom-[80px] ${expanded ? "rotate-45" : ""}`}
           size="lg"
         >
           {expanded ? <X className="h-6 w-6" /> : <Plus className="h-6 w-6" />}
@@ -64,7 +64,7 @@ export function BusinessActionFab({
 
         {/* Expandable buttons above */}
         <div
-          className={`fixed right-4 z-40 flex flex-col gap-2 transition-all duration-300 ease-out items-end bottom-[calc(max(env(safe-area-inset-bottom),0px)+144px)] md:right-6 ${
+          className={`fixed right-4 z-40 flex flex-col gap-2 transition-all duration-300 ease-out items-end bottom-[144px] md:right-6 ${
             expanded ? "opacity-100 translate-y-0 pointer-events-auto" : "opacity-0 translate-y-4 pointer-events-none"
           }`}
         >

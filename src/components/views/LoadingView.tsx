@@ -10,7 +10,7 @@ export function LoadingView() {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
-      className="min-h-screen flex items-center justify-center bg-background"
+      className="flex min-h-0 items-center justify-center bg-background"
     >
       <div className="text-center space-y-6">
         {/* Logo/Brand */}
