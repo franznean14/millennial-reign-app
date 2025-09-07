@@ -116,7 +116,10 @@ function FloatingBridgeContent() {
           <Button
             variant="outline"
             className="rounded-full shadow-lg transition-all duration-200 hover:scale-105 active:scale-95"
-            onClick={() => setBusinessModalOpen('est')}
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('drawer:est:open'));
+              setBusinessExpanded(false);
+            }}
           >
             <Building2 className="h-4 w-4 mr-2"/>
             Establishment
@@ -124,7 +127,10 @@ function FloatingBridgeContent() {
           <Button
             variant="outline"
             className="rounded-full shadow-lg transition-all duration-200 hover:scale-105 active:scale-95"
-            onClick={() => setBusinessModalOpen('hh')}
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('drawer:hh:open'));
+              setBusinessExpanded(false);
+            }}
           >
             <UserPlus className="h-4 w-4 mr-2"/>
             Householder
@@ -132,7 +138,10 @@ function FloatingBridgeContent() {
           <Button
             variant="default"
             className="rounded-full shadow-lg transition-all duration-200 hover:scale-105 active:scale-95"
-            onClick={() => setBusinessModalOpen('visit')}
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent('drawer:visit:open'));
+              setBusinessExpanded(false);
+            }}
           >
             <FilePlus2 className="h-4 w-4 mr-2"/>
             Visit
@@ -140,33 +149,7 @@ function FloatingBridgeContent() {
         </div>
 
         {/* Business Modals */}
-        <ResponsiveModal open={businessModalOpen==='est'} onOpenChange={(o)=> setBusinessModalOpen(o? 'est': null)} title="New Establishment" description="Add a business establishment" className="sm:max-w-[560px]">
-          <EstablishmentForm 
-            onSaved={async () => { 
-              setBusinessModalOpen(null); 
-              setEstablishments(await listEstablishments());
-            }} 
-            selectedArea={selectedArea}
-          />
-        </ResponsiveModal>
-        <ResponsiveModal open={businessModalOpen==='hh'} onOpenChange={(o)=> setBusinessModalOpen(o? 'hh': null)} title="New Householder" description="Add a householder for an establishment" className="sm:max-w-[560px]">
-          <HouseholderForm 
-            establishments={establishments} 
-            selectedEstablishmentId={selectedEstablishmentId}
-            onSaved={() => {
-              setBusinessModalOpen(null);
-            }} 
-          />
-        </ResponsiveModal>
-        <ResponsiveModal open={businessModalOpen==='visit'} onOpenChange={(o)=> setBusinessModalOpen(o? 'visit': null)} title="Visit Update" description="Record a visit note" className="sm:max-w-[560px]">
-          <VisitForm 
-            establishments={establishments} 
-            selectedEstablishmentId={selectedEstablishmentId}
-            onSaved={() => {
-              setBusinessModalOpen(null);
-            }} 
-          />
-        </ResponsiveModal>
+        {/* Remove business ResponsiveModals; controlled by AppClient drawers now */}
       </>
     );
   }
@@ -210,22 +193,14 @@ function FloatingBridgeContent() {
       <>
         {/* Floating Action Button - same positioning as other floating buttons */}
         <Button
-          onClick={() => setFsModalOpen(true)}
+          onClick={() => {
+            window.dispatchEvent(new CustomEvent('drawer:home:open'));
+          }}
           className="fixed right-4 z-40 h-14 w-14 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-110 active:scale-95 touch-manipulation md:right-6 bottom-[calc(max(env(safe-area-inset-bottom),0px)+80px)] md:bottom-[104px]"
           size="lg"
         >
           <FilePlus2 className="h-6 w-6" />
         </Button>
-
-        {/* Field Service Modal - rendered directly here */}
-        <ResponsiveModal
-          open={fsModalOpen}
-          onOpenChange={setFsModalOpen}
-          title="Field Service"
-          description="Record your field service activity"
-        >
-          <FieldServiceForm userId={userId} onClose={() => setFsModalOpen(false)} />
-        </ResponsiveModal>
       </>
     );
   }

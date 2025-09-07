@@ -50,6 +50,13 @@ const SwipeableCard = dynamic(() => import("@/components/ui/swipeable-card").the
 const CongregationMembers = dynamic(() => import("@/components/congregation/CongregationMembers").then(m => m.CongregationMembers), { ssr: false });
 const BusinessFiltersForm = dynamic(() => import("@/components/business/BusinessFiltersForm").then(m => m.BusinessFiltersForm), { ssr: false });
 const CongregationView = dynamic(() => import("@/components/views/CongregationView").then(m => m.CongregationView), { ssr: false });
+// Per-view drawer form content
+const FieldServiceForm = dynamic(() => import("@/components/fieldservice/FieldServiceForm").then(m => m.FieldServiceForm), { ssr: false });
+const EstablishmentForm = dynamic(() => import("@/components/business/EstablishmentForm").then(m => m.EstablishmentForm), { ssr: false });
+const HouseholderForm = dynamic(() => import("@/components/business/HouseholderForm").then(m => m.HouseholderForm), { ssr: false });
+const VisitForm = dynamic(() => import("@/components/business/VisitForm").then(m => m.VisitForm), { ssr: false });
+import { Drawer } from "@/components/ui/drawer";
+import { DrawerContent } from "@/components/ui/drawer";
 
 interface AppClientProps {
   currentSection: string;
@@ -155,6 +162,29 @@ export function AppClient({ currentSection }: AppClientProps) {
   });
   const [filtersModalOpen, setFiltersModalOpen] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
+  // Per-view drawers
+  const [homeDrawerOpen, setHomeDrawerOpen] = useState(false);
+  const [estDrawerOpen, setEstDrawerOpen] = useState(false);
+  const [hhDrawerOpen, setHhDrawerOpen] = useState(false);
+  const [visitDrawerOpen, setVisitDrawerOpen] = useState(false);
+
+  // Wire global drawer open events (from FloatingBridge)
+  useEffect(() => {
+    const openHome = () => setHomeDrawerOpen(true);
+    const openEst = () => setEstDrawerOpen(true);
+    const openHh = () => setHhDrawerOpen(true);
+    const openVisit = () => setVisitDrawerOpen(true);
+    window.addEventListener('drawer:home:open', openHome as any);
+    window.addEventListener('drawer:est:open', openEst as any);
+    window.addEventListener('drawer:hh:open', openHh as any);
+    window.addEventListener('drawer:visit:open', openVisit as any);
+    return () => {
+      window.removeEventListener('drawer:home:open', openHome as any);
+      window.removeEventListener('drawer:est:open', openEst as any);
+      window.removeEventListener('drawer:hh:open', openHh as any);
+      window.removeEventListener('drawer:visit:open', openVisit as any);
+    };
+  }, []);
 
   // Persist business filters globally for form auto-population
   useEffect(() => {
@@ -620,6 +650,14 @@ export function AppClient({ currentSection }: AppClientProps) {
             serviceYearStart={dateRanges.serviceYearStart}
             serviceYearEnd={dateRanges.serviceYearEnd}
           />
+          {/* Home view drawer: Field Service */}
+          <Drawer open={homeDrawerOpen} onOpenChange={setHomeDrawerOpen}>
+            <DrawerContent>
+              <div className="p-4 pt-0">
+                <FieldServiceForm userId={userId} onClose={() => setHomeDrawerOpen(false)} />
+              </div>
+            </DrawerContent>
+          </Drawer>
         </motion.div>
       );
 
@@ -785,6 +823,28 @@ export function AppClient({ currentSection }: AppClientProps) {
               onClose={() => setFiltersModalOpen(false)}
             />
           </ResponsiveModal>
+          {/* Business view drawers */}
+          <Drawer open={estDrawerOpen} onOpenChange={setEstDrawerOpen}>
+            <DrawerContent>
+              <div className="p-4 pt-0">
+                <EstablishmentForm selectedArea={undefined} onSaved={() => setEstDrawerOpen(false)} />
+              </div>
+            </DrawerContent>
+          </Drawer>
+          <Drawer open={hhDrawerOpen} onOpenChange={setHhDrawerOpen}>
+            <DrawerContent>
+              <div className="p-4 pt-0">
+                <HouseholderForm establishments={establishments} selectedEstablishmentId={selectedEstablishment?.id} onSaved={() => setHhDrawerOpen(false)} />
+              </div>
+            </DrawerContent>
+          </Drawer>
+          <Drawer open={visitDrawerOpen} onOpenChange={setVisitDrawerOpen}>
+            <DrawerContent>
+              <div className="p-4 pt-0">
+                <VisitForm establishments={establishments} selectedEstablishmentId={selectedEstablishment?.id} onSaved={() => setVisitDrawerOpen(false)} />
+              </div>
+            </DrawerContent>
+          </Drawer>
         </motion.div>
       );
 
