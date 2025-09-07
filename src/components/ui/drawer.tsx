@@ -32,26 +32,46 @@ const DrawerContent = React.forwardRef<
     <DrawerPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed inset-x-0 bottom-0 z-50 flex h-auto max-h-[100svh] flex-col overflow-hidden rounded-t-[10px] border bg-background",
+        "fixed inset-x-0 z-[80] flex h-auto flex-col overflow-hidden rounded-t-[10px] border bg-background",
+        // keep safe areas; max height subtracts keyboard
+        "pt-[env(safe-area-inset-top)]",
+        "max-h-[calc(100svh-var(--kb-safe,0px))]",
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
         "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
         className
       )}
+      style={{ bottom: "var(--kb-safe, 0px)" }}
       {...props}
     >
-      {/* Lock background scroll while drawer is open */}
+      {/* Lock background scroll while drawer is open and set keyboard-safe inset */}
       {(() => {
         React.useEffect(() => {
           const html = document.documentElement;
-          html.classList.add("overscroll-none", "touch-none");
+          html.classList.add("overscroll-none", "touch-none", "dialog-open");
+
+          const vv: VisualViewport | undefined = (window as any).visualViewport;
+          const update = () => {
+            try {
+              if (!vv) return html.style.setProperty("--kb-safe", "0px");
+              const covered = Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
+              html.style.setProperty("--kb-safe", `${Math.round(covered)}px`);
+            } catch {}
+          };
+          update();
+          vv?.addEventListener("resize", update);
+          vv?.addEventListener("scroll", update);
+
           return () => {
-            html.classList.remove("overscroll-none", "touch-none");
+            vv?.removeEventListener("resize", update);
+            vv?.removeEventListener("scroll", update);
+            html.classList.remove("overscroll-none", "touch-none", "dialog-open");
+            html.style.removeProperty("--kb-safe");
           };
         }, []);
         return null;
       })()}
       <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto ios-touch" style={{ scrollPaddingBottom: 24 }}>
         {/* Prevent scroll chaining to outside when focusing inputs on mobile */}
         <div className="overscroll-contain no-scrollbar">
           {children}

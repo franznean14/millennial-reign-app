@@ -95,7 +95,7 @@ export function AppChrome({ children }: AppChromeProps) {
       </div>
       
       {/* Bottom Navigation (Mobile) */}
-      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-background/80 backdrop-blur lg:hidden pb-[max(env(safe-area-inset-bottom),0.5rem)]">
+      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-background/80 backdrop-blur lg:hidden dialog-open:hidden pb-[max(env(safe-area-inset-bottom),0.5rem)]">
         <div className="mx-auto flex max-w-screen-sm items-stretch justify-around">
           {[
             { id: 'home', label: "Home", icon: Home },
