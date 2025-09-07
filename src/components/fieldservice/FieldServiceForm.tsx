@@ -1,14 +1,15 @@
 "use client";
 
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { getDailyRecord, listDailyByMonth, upsertDailyRecord, isDailyEmpty, deleteDailyRecord } from "@/lib/db/dailyRecords";
+import { useMobile } from "@/lib/hooks/use-mobile";
+import { motion } from "framer-motion";
 import { NumberFlowInput } from "@/components/ui/number-flow-input";
-import { Label } from "@/components/ui/label";
 
 function toLocalStr(d: Date) {
   const y = d.getFullYear();
@@ -22,7 +23,8 @@ interface FieldServiceFormProps {
   onClose: () => void;
 }
 
-export function FieldServiceForm({ userId, onClose }: FieldServiceFormProps) {
+export default function FieldServiceForm({ userId, onClose }: FieldServiceFormProps) {
+  const isMobile = useMobile();
   const [view, setView] = useState<Date>(new Date());
   const [mode, setMode] = useState<"days"|"months"|"years">("days");
   const [date, setDate] = useState<string>(toLocalStr(new Date()));
@@ -37,7 +39,6 @@ export function FieldServiceForm({ userId, onClose }: FieldServiceFormProps) {
   const monthLabel = useMemo(() => view.toLocaleString(undefined, { month: "long" }), [view]);
   const yearLabel = useMemo(() => String(view.getFullYear()), [view]);
 
-  // Build calendar grid
   const start = useMemo(() => {
     const first = new Date(view.getFullYear(), view.getMonth(), 1);
     const s = new Date(first);
@@ -105,7 +106,6 @@ export function FieldServiceForm({ userId, onClose }: FieldServiceFormProps) {
           setMonthMarks((m) => ({ ...m, [date]: true }));
         }
         setDirty(false);
-        // Notify home summary to refresh
         try {
           window.dispatchEvent(new CustomEvent('daily-records-changed', { detail: { userId } }));
         } catch {}
@@ -114,14 +114,6 @@ export function FieldServiceForm({ userId, onClose }: FieldServiceFormProps) {
       }
     }, 1000);
   };
-
-  // Live update Home summary when hours change (optimistic refresh)
-  useEffect(() => {
-    try {
-      window.dispatchEvent(new CustomEvent('daily-records-changed', { detail: { userId } }));
-    } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hours]);
 
   const addStudy = (name: string) => {
     const trimmed = name.trim();
@@ -171,13 +163,12 @@ export function FieldServiceForm({ userId, onClose }: FieldServiceFormProps) {
   }, [dirty, hours, studies, note]);
 
   return (
-    <div className="grid md:grid-cols-2 gap-4 pb-10">
+    <div className="grid md:grid-cols-2">
       <div className="p-4 border-b md:border-b-0 md:border-r">
         <div className="flex items-center justify-between pb-3">
           <Button variant="ghost" size="sm" onClick={() => changeStep(-1)}>
             <ChevronLeft className="h-5 w-5" />
           </Button>
-        
           <div className="text-sm font-medium flex items-center gap-2">
             <Button variant="ghost" size="sm" onClick={() => setMode("months")}>{monthLabel}</Button>
             <Button variant="ghost" size="sm" onClick={() => setMode("years")}>{yearLabel}</Button>
@@ -258,10 +249,10 @@ export function FieldServiceForm({ userId, onClose }: FieldServiceFormProps) {
           </div>
         )}
       </div>
-      <div>
-        <div className="grid gap-4 px-4">
-          <div className="grid gap-2 place-items-center">
-            <Label>Hours</Label>
+      <div className="p-4 pb-10">
+        <div className="mt-0 grid gap-4">
+          <div className="grid gap-1 text-sm place-items-center">
+            <span className="opacity-70">Hours</span>
             <NumberFlowInput
               value={parseInt(hours) || 0}
               onChange={(newValue) => {
@@ -274,43 +265,45 @@ export function FieldServiceForm({ userId, onClose }: FieldServiceFormProps) {
               className="mx-auto"
             />
           </div>
-
-          <div className="grid gap-2">
-            <Label>Bible Studies</Label>
+          <div className="grid gap-1 text-sm">
+            <span className="opacity-70">Bible Studies</span>
             <div className="flex flex-wrap gap-2">
               {studies.map((s) => (
                 <span key={s} className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs">
                   {s}
-                  <Button variant="ghost" size="sm" className="h-auto p-0.5" onClick={() => removeStudy(s)}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto p-0.5"
+                    onClick={() => removeStudy(s)}
+                  >
                     ×
                   </Button>
                 </span>
               ))}
             </div>
             <Input 
-              className="px-3"
-              placeholder="Type a name and press Enter"
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  const v = (e.target as HTMLInputElement).value;
-                  addStudy(v);
-                  (e.target as HTMLInputElement).value = "";
-                }
-              }}
+              placeholder="Type a name and press Enter" 
+              onKeyDown={(e) => { 
+                if (e.key === "Enter") { 
+                  e.preventDefault(); 
+                  const v = (e.target as HTMLInputElement).value; 
+                  addStudy(v); 
+                  (e.target as HTMLInputElement).value = ""; 
+                } 
+              }} 
             />
           </div>
-
-          <div className="grid gap-2">
-            <Label>Note</Label>
-            <Textarea
-              className="px-3"
-              value={note}
-              onChange={(e) => {
-                setNote(e.target.value);
-                setDirty(true);
-              }}
-              placeholder="Optional note for this day"
+          <div className="grid gap-1 text-sm">
+            <span className="opacity-70">Note</span>
+            <Textarea 
+              className="min-h-[112px]" 
+              value={note} 
+              onChange={(e) => { 
+                setNote(e.target.value); 
+                setDirty(true); 
+              }} 
+              placeholder="Optional note for this day" 
             />
           </div>
         </div>

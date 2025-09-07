@@ -45,13 +45,14 @@ const HomeSummary = dynamic(() => import("@/components/home/HomeSummary").then(m
 const TopStudies = dynamic(() => import("@/components/home/TopStudies").then(m => m.TopStudies), { ssr: false });
 const EstablishmentList = dynamic(() => import("@/components/business/EstablishmentList").then(m => m.EstablishmentList), { ssr: false });
 const EstablishmentDetails = dynamic(() => import("@/components/business/EstablishmentDetails").then(m => m.EstablishmentDetails), { ssr: false });
+const BusinessDrawerDialogs = dynamic(() => import("@/components/business/BusinessDrawerDialogs").then(m => m.BusinessDrawerDialogs), { ssr: false });
 const CongregationForm = dynamic(() => import("@/components/congregation/CongregationForm").then(m => m.CongregationForm), { ssr: false });
 const ResponsiveModal = dynamic(() => import("@/components/ui/responsive-modal").then(m => m.ResponsiveModal), { ssr: false });
-const SwipeableCard = dynamic(() => import("@/components/ui/swipeable-card").then(m => m.SwipeableCard), { ssr: false });
 const CongregationMembers = dynamic(() => import("@/components/congregation/CongregationMembers").then(m => m.CongregationMembers), { ssr: false });
 const BusinessFiltersForm = dynamic(() => import("@/components/business/BusinessFiltersForm").then(m => m.BusinessFiltersForm), { ssr: false });
 const CongregationView = dynamic(() => import("@/components/views/CongregationView").then(m => m.CongregationView), { ssr: false });
 const FieldServiceDrawerDialog = dynamic(() => import("@/components/fieldservice/FieldServiceDrawerDialog").then(m => m.FieldServiceDrawerDialog), { ssr: false });
+const CongregationDrawerDialog = dynamic(() => import("@/components/congregation/CongregationDrawerDialog").then(m => m.CongregationDrawerDialog), { ssr: false });
 
 interface AppClientProps {
   currentSection: string;
@@ -335,6 +336,10 @@ export function AppClient({ currentSection }: AppClientProps) {
               ...existing,
               note: v.note ?? existing.note,
               visit_date: v.visit_date ?? existing.visit_date,
+              publisher_id: v.publisher_id ?? existing.publisher_id,
+              partner_id: v.partner_id ?? existing.partner_id,
+              publisher: v.publisher ?? existing.publisher,
+              partner: v.partner ?? existing.partner,
             } : existing)
           };
         });
@@ -791,6 +796,13 @@ export function AppClient({ currentSection }: AppClientProps) {
               onClose={() => setFiltersModalOpen(false)}
             />
           </ResponsiveModal>
+
+          {/* Expandable Business FAB + Drawers */}
+          <BusinessDrawerDialogs
+            establishments={establishments}
+            selectedEstablishmentId={selectedEstablishment?.id}
+            selectedArea={filters.areas[0]}
+          />
         </motion.div>
       );
 
@@ -839,6 +851,12 @@ export function AppClient({ currentSection }: AppClientProps) {
               <div className="text-base font-medium">No congregation yet</div>
               <div className="text-sm opacity-70">{admin ? "The congregation form will open automatically when you visit this page." : "Ask an admin to create your congregation."}</div>
             </section>
+          )}
+
+          {cong?.id && (isElder || admin) && (
+            <div className="px-4">
+              <CongregationDrawerDialog congregationId={cong.id} />
+            </div>
           )}
 
           <ResponsiveModal

@@ -54,6 +54,15 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
     }
     setEstId("none");
   }, [selectedEstablishmentId, initialVisit?.establishment_id, establishments]);
+  
+  // Ensure partner shows immediately even if participants have not loaded yet
+  useEffect(() => {
+    if (!initialVisit?.id) return;
+    const next: string[] = [];
+    if (initialVisit.publisher_id) next.push(initialVisit.publisher_id);
+    if (initialVisit.partner_id && initialVisit.partner_id !== initialVisit.publisher_id) next.push(initialVisit.partner_id);
+    setPublishers(next);
+  }, [initialVisit?.id, initialVisit?.publisher_id, initialVisit?.partner_id]);
   const [note, setNote] = useState(initialVisit?.note || "");
   const [visitDate, setVisitDate] = useState<Date>(initialVisit?.visit_date ? new Date(initialVisit.visit_date) : new Date());
   const [saving, setSaving] = useState(false);
@@ -111,6 +120,16 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
     
     loadParticipants();
   }, []);
+
+  // Sync publishers when editing a specific visit (ensures partner pre-fills)
+  useEffect(() => {
+    if (initialVisit?.id) {
+      const next: string[] = [];
+      if (initialVisit.publisher_id) next.push(initialVisit.publisher_id);
+      if (initialVisit.partner_id && initialVisit.partner_id !== initialVisit.publisher_id) next.push(initialVisit.partner_id);
+      setPublishers(next);
+    }
+  }, [initialVisit?.id, initialVisit?.publisher_id, initialVisit?.partner_id]);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -130,7 +149,26 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
         if (ok) {
           toast.success("Visit updated.");
           onSaved({ id: initialVisit.id, ...payload });
-          businessEventBus.emit('visit-updated', { id: initialVisit.id, ...payload });
+          const publisherId = payload.publisher_id;
+          const partnerId = payload.partner_id;
+          const publisher = publisherId ? participants.find(p => p.id === publisherId) : undefined;
+          const partner = partnerId ? participants.find(p => p.id === partnerId) : undefined;
+          businessEventBus.emit('visit-updated', {
+            id: initialVisit.id,
+            ...payload,
+            publisher: publisher ? {
+              id: publisher.id,
+              first_name: publisher.first_name,
+              last_name: publisher.last_name,
+              avatar_url: publisher.avatar_url,
+            } : undefined,
+            partner: partner ? {
+              id: partner.id,
+              first_name: partner.first_name,
+              last_name: partner.last_name,
+              avatar_url: partner.avatar_url,
+            } : undefined,
+          });
         } else {
           toast.error("Failed to update visit");
         }
@@ -140,14 +178,31 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
         addVisit(payload)
           .then((created) => {
             if (created && created.id) {
+              const publisherId = created.publisher_id || (publishers[0] || undefined);
+              const partnerId = created.partner_id || (publishers[1] || undefined);
+              const publisher = publisherId ? participants.find(p => p.id === publisherId) : undefined;
+              const partner = partnerId ? participants.find(p => p.id === partnerId) : undefined;
+
               const newVisit = {
                 id: created.id,
                 establishment_id: created.establishment_id || (estId === "none" ? undefined : estId),
                 note: created.note || null,
                 visit_date: created.visit_date!,
-                publisher_id: created.publisher_id || (publishers[0] || undefined),
-                partner_id: created.partner_id || (publishers[1] || undefined),
-              };
+                publisher_id: publisherId,
+                partner_id: partnerId,
+                publisher: publisher ? {
+                  id: publisher.id,
+                  first_name: publisher.first_name,
+                  last_name: publisher.last_name,
+                  avatar_url: publisher.avatar_url,
+                } : undefined,
+                partner: partner ? {
+                  id: partner.id,
+                  first_name: partner.first_name,
+                  last_name: partner.last_name,
+                  avatar_url: partner.avatar_url,
+                } : undefined,
+              } as any;
               businessEventBus.emit('visit-added', newVisit);
               toast.success("Visit recorded successfully!");
             } else {
@@ -213,17 +268,19 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
         <Label>Publishers ({publishers.length}/2)</Label>
         
         <div className="flex flex-wrap gap-2 mb-2">
-          {publishers.map((publisherId) => {
+          {publishers.map((publisherId, index) => {
             const user = getSelectedUser(publisherId);
-            return user ? (
-              <div key={publisherId} className="flex items-center gap-2 bg-muted px-2 py-1 rounded-md">
+            return (
+              <div key={publisherId || index} className="flex items-center gap-2 bg-muted px-2 py-1 rounded-md">
                 <Avatar className="h-6 w-6">
-                  <AvatarImage src={user.avatar_url} />
+                  {user?.avatar_url && <AvatarImage src={user.avatar_url} />}
                   <AvatarFallback className="text-xs">
-                    {getInitials(user.first_name, user.last_name)}
+                    {user ? getInitials(user.first_name, user.last_name) : 'U'}
                   </AvatarFallback>
                 </Avatar>
-                <span className="text-sm">{user.first_name} {user.last_name}</span>
+                <span className="text-sm">
+                  {user ? `${user.first_name} ${user.last_name}` : 'Publisher'}
+                </span>
                 <Button
                   type="button"
                   variant="ghost"
@@ -234,7 +291,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
                   <X className="h-3 w-3" />
                 </Button>
               </div>
-            ) : null;
+            );
           })}
         </div>
 
@@ -270,7 +327,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
         <Label>Update Note</Label>
         <Textarea value={note} onChange={e=>setNote(e.target.value)} className="min-h-[120px]" />
       </div>
-      <div className="flex justify-between">
+      <div className="flex justify-between py-4">
         {initialVisit?.id ? (
           <Popover open={confirmOpen} onOpenChange={setConfirmOpen}>
             <PopoverTrigger asChild>

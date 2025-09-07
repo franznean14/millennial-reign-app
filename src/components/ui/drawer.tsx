@@ -26,50 +26,26 @@ DrawerOverlay.displayName = DrawerPrimitive.Overlay.displayName;
 export const DrawerContent = React.forwardRef<
   React.ElementRef<typeof DrawerPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content>
->(({ className, children, ...props }, ref) => {
-  // Update a CSS variable with the keyboard-covered height using visualViewport
-  React.useEffect(() => {
-    const html = document.documentElement;
-    const vv: VisualViewport | undefined = (window as any).visualViewport;
-    const update = () => {
-      try {
-        if (!vv) return html.style.setProperty("--kb-safe", "0px");
-        const covered = Math.max(0, window.innerHeight - (vv.height + vv.offsetTop));
-        html.style.setProperty("--kb-safe", `${Math.round(covered)}px`);
-      } catch {}
-    };
-    update();
-    vv?.addEventListener("resize", update);
-    vv?.addEventListener("scroll", update);
-    return () => {
-      vv?.removeEventListener("resize", update);
-      vv?.removeEventListener("scroll", update);
-      html.style.removeProperty("--kb-safe");
-    };
-  }, []);
-
-  return (
-    <DrawerPortal>
-      <DrawerOverlay />
-      <DrawerPrimitive.Content
-        ref={ref}
-        className={cn(
-          "fixed inset-x-0 z-[80] mt-24 flex h-auto max-h-[calc(100svh-var(--kb-safe,0px))] flex-col overflow-hidden rounded-t-[10px] border bg-background pt-[env(safe-area-inset-top)]",
-          "data-[state=open]:animate-in data-[state=closed]:animate-out",
-          "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
-          className
-        )}
-        style={{ bottom: "var(--kb-safe, 0px)" }}
-        {...props}
-      >
-        <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />
-        <div className="min-h-0 flex-1 overflow-y-auto ios-touch" style={{ scrollPaddingBottom: 24 }}>
-          {children}
-        </div>
-      </DrawerPrimitive.Content>
-    </DrawerPortal>
-  );
-});
+>(({ className, children, ...props }, ref) => (
+  <DrawerPortal>
+    <DrawerOverlay />
+    <DrawerPrimitive.Content
+      ref={ref}
+      className={cn(
+        "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto max-h-[100svh] flex-col overflow-hidden rounded-t-[10px] border bg-background",
+        "data-[state=open]:animate-in data-[state=closed]:animate-out",
+        "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
+        className
+      )}
+      {...props}
+    >
+      <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />
+      <div className="min-h-0 flex-1 overflow-y-auto" style={{ scrollPaddingBottom: 24 }}>
+        {children}
+      </div>
+    </DrawerPrimitive.Content>
+  </DrawerPortal>
+));
 DrawerContent.displayName = DrawerPrimitive.Content.displayName;
 
 export function DrawerHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {

@@ -219,7 +219,7 @@ export function AddUserToCongregationForm({ congregationId, onUserAdded, onClose
     searchResult.congregation_id !== congregationId;
 
   return (
-    <div className="space-y-6 pb-10">
+    <div className="space-y-6 pb-100">
       <div className="space-y-4">
         <Label htmlFor="search">Search by Username or Email</Label>
         <Input

@@ -13,6 +13,7 @@ import { upsertEstablishment, getUniqueAreas, getUniqueFloors, findEstablishment
 import { businessEventBus } from "@/lib/events/business-events";
 import { cacheGet, cacheSet } from "@/lib/offline/store";
 import { useMobile } from "@/lib/hooks/use-mobile";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 // Determine whether a draft object has any meaningful data
 function isNonEmptyDraft(d: any | null | undefined): boolean {
@@ -35,6 +36,7 @@ function isNonEmptyDraft(d: any | null | undefined): boolean {
 
 interface EstablishmentFormProps {
   onSaved: (newEstablishment?: any) => void;
+  onDelete?: () => Promise<void> | void;
   selectedArea?: string;
   initialData?: any;
   isEditing?: boolean;
@@ -53,7 +55,7 @@ interface EstablishmentFormProps {
   onDraftChange?: (draft: any) => void;
 }
 
-export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditing = false, draft: externalDraft, onDraftChange }: EstablishmentFormProps) {
+export function EstablishmentForm({ onSaved, onDelete, selectedArea, initialData, isEditing = false, draft: externalDraft, onDraftChange }: EstablishmentFormProps) {
   // Persist unsaved draft locally to survive modal close
   const draftKey = (isEditing && initialData?.id
     ? `draft:establishment:edit:${initialData.id}`
@@ -77,6 +79,9 @@ export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditin
   const [showFloorInput, setShowFloorInput] = useState(false);
   const [saving, setSaving] = useState(false);
   const [dupCandidates, setDupCandidates] = useState<any[]>([]);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   // Prevent emitting/saving empty draft before initial load completes
   const loadCompleteRef = useRef(false);
 
@@ -177,14 +182,68 @@ export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditin
     };
   }, [draftKey]);
 
-  const getCurrentLocation = () => {
-    if (!navigator?.geolocation) return;
-    navigator.geolocation.getCurrentPosition((p) => {
-      const coords = { lat: p.coords.latitude, lng: p.coords.longitude };
-      setLat(coords.lat);
-      setLng(coords.lng);
-      setGps(`${coords.lat}, ${coords.lng}`);
-    });
+  const getCurrentLocation = async () => {
+    if (!navigator?.geolocation) {
+      toast.error("Geolocation is not supported by this browser");
+      return;
+    }
+
+    // Check if we're in a secure context
+    if (!window.isSecureContext) {
+      toast.error("Location access requires HTTPS. Please use a secure connection.");
+      return;
+    }
+
+    // Check current permission state
+    try {
+      const permission = await navigator.permissions.query({ name: 'geolocation' });
+      if (permission.state === 'denied') {
+        toast.error("Location access is blocked. Please enable location permissions in your browser settings.");
+        return;
+      }
+    } catch (e) {
+      // Permissions API not supported, continue anyway
+      console.log("Permissions API not supported, proceeding with geolocation request");
+    }
+    
+    setGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const coords = { 
+          lat: position.coords.latitude, 
+          lng: position.coords.longitude 
+        };
+        setLat(coords.lat);
+        setLng(coords.lng);
+        setGps(`${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`);
+        setGpsLoading(false);
+        toast.success("Location obtained successfully");
+      },
+      (error) => {
+        setGpsLoading(false);
+        let errorMessage = "Failed to get location";
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = "Location access denied. Please check your browser settings and allow location access for this site.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = "Location information unavailable. Please check your device's location settings.";
+            break;
+          case error.TIMEOUT:
+            errorMessage = "Location request timed out. Please try again.";
+            break;
+          default:
+            errorMessage = `Location error: ${error.message}`;
+        }
+        toast.error(errorMessage);
+        console.error("Geolocation error:", error);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 60000 // 1 minute
+      }
+    );
   };
 
   const parseGps = (input: string): { lat: number; lng: number } | null => {
@@ -375,9 +434,14 @@ export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditin
             variant="outline" 
             size="icon"
             onClick={getCurrentLocation}
-            title="Use current location"
+            disabled={gpsLoading}
+            title={gpsLoading ? "Getting location..." : "Use current location"}
           >
-            <Crosshair className="h-4 w-4" />
+            {gpsLoading ? (
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            ) : (
+              <Crosshair className="h-4 w-4" />
+            )}
           </Button>
         </div>
       </div>
@@ -470,7 +534,41 @@ export function EstablishmentForm({ onSaved, selectedArea, initialData, isEditin
         <Label>Note</Label>
         <Textarea value={note} onChange={e=>setNote(e.target.value)} />
       </div>
-      <div className="flex justify-end">
+      <div className={`flex py-4 ${isEditing && onDelete ? "justify-between" : "justify-end"}`}>
+        {isEditing && onDelete && (
+          <Popover open={confirmOpen} onOpenChange={setConfirmOpen}>
+            <PopoverTrigger asChild>
+              <Button type="button" variant="destructive" disabled={saving}>
+                Delete
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-64 text-center">
+              <div className="space-y-2">
+                <div className="font-medium">Delete Establishment?</div>
+                <p className="text-sm text-muted-foreground">This action cannot be undone.</p>
+                <div className="flex items-center justify-center gap-2 pt-1">
+                  <Button variant="outline" size="sm" onClick={() => setConfirmOpen(false)} disabled={deleting}>Cancel</Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        setDeleting(true);
+                        await onDelete();
+                        setConfirmOpen(false);
+                      } finally {
+                        setDeleting(false);
+                      }
+                    }}
+                    disabled={deleting}
+                  >
+                    {deleting ? "Deleting..." : "Delete"}
+                  </Button>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+        )}
         <Button type="submit" disabled={saving}>
           {saving ? (isEditing ? "Updating..." : "Saving...") : (isEditing ? "Update" : "Save")}
         </Button>
