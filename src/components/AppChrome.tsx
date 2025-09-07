@@ -13,7 +13,7 @@ const ServiceWorkerRegister = dynamic(() => import("@/components/ServiceWorkerRe
 const SyncBanner = dynamic(() => import("@/components/SyncBanner"), { ssr: false });
 const OnlineBanner = dynamic(() => import("@/components/OnlineBanner"), { ssr: false });
 const BiometricGate = dynamic(() => import("@/components/BiometricGate"), { ssr: false });
-const FloatingBridge = dynamic(() => import("@/components/fieldservice/FloatingBridge").then(m => m.FloatingBridge), { ssr: false });
+const FloatButton = dynamic(() => import("@/components/fieldservice/FloatButton").then(m => m.FloatButton), { ssr: false });
 import { Drawer } from "@/components/ui/drawer";
 import { DrawerContent } from "@/components/ui/drawer";
 
@@ -132,7 +132,7 @@ export function AppChrome({ children }: AppChromeProps) {
         </div>
       </nav>
       
-      <FloatingBridge />
+      <FloatButton />
 
       {/* Global drawer mounted once; control with local state */}
       <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
