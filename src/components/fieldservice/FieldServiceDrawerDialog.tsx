@@ -21,7 +21,9 @@ export function FieldServiceDrawerDialog({ userId, triggerLabel = "Field Service
   const [uncontrolledOpen, setUncontrolledOpen] = React.useState(false);
   const open = controlledOpen ?? uncontrolledOpen;
   const setOpen = onOpenChange ?? setUncontrolledOpen;
-  const isDesktop = useMediaQuery("(min-width: 768px)");
+  // Treat true desktop at >=1280px so medium tablets (e.g., iPad landscape)
+  // still use the floating circular trigger like Business view
+  const isDesktop = useMediaQuery("(min-width: 1280px)");
 
   if (isDesktop) {
     return (
@@ -53,7 +55,7 @@ export function FieldServiceDrawerDialog({ userId, triggerLabel = "Field Service
               type="button"
               aria-label={triggerLabel}
               title={triggerLabel}
-              className="fixed right-4 z-40 h-14 w-14 rounded-full shadow-2xl bg-primary text-primary-foreground hover:shadow-3xl transition-all duration-300 hover:scale-110 active:scale-95 touch-manipulation md:right-6 bottom-[calc(max(env(safe-area-inset-bottom),0px)+80px)] md:bottom-[104px]"
+              className="fixed right-4 z-40 h-14 w-14 rounded-full shadow-2xl bg-primary text-primary-foreground hover:shadow-3xl transition-all duration-300 hover:scale-110 active:scale-95 touch-manipulation md:right-6 bottom-[calc(max(env(safe-area-inset-bottom),0px)+80px)] md:bottom-[104px] lg:h-16 lg:w-16 lg:right-8 lg:bottom-8"
             >
               <FilePlus2 className="h-6 w-6" />
             </Button>
