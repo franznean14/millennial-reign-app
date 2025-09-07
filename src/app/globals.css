@@ -143,11 +143,6 @@
     user-select: text;
   }
   
-  /* Prevent iOS Safari auto-zoom on inputs by keeping a minimum font-size */
-  input, select, textarea, button {
-    font-size: 16px;
-  }
-  
   /* Disable double-tap zoom on all elements */
   * {
     touch-action: manipulation;
@@ -159,10 +154,6 @@
     -webkit-overflow-scrolling: touch;
   }
   
-  /* Ensure no zoom on focus for inputs */
-  input:focus, textarea:focus, select:focus {
-    font-size: 16px !important;
-  }
 }
 
 .pb-navbar {
