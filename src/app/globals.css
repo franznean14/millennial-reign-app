@@ -121,13 +121,6 @@
     @apply bg-background text-foreground;
   }
   
-  /* Stable viewport height: prefer large viewport to avoid keyboard shrink on mobile */
-  :root {
-    --app-vh: 100dvh;
-  }
-  @supports (height: 100lvh) {
-    :root { --app-vh: 100lvh; }
-  }
   
   /* Comprehensive zoom prevention for PWA */
   html {
