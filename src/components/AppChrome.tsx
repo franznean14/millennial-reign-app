@@ -13,7 +13,6 @@ const SyncBanner = dynamic(() => import("@/components/SyncBanner"), { ssr: false
 const OnlineBanner = dynamic(() => import("@/components/OnlineBanner"), { ssr: false });
 const BiometricGate = dynamic(() => import("@/components/BiometricGate"), { ssr: false });
 const FloatingBridge = dynamic(() => import("@/components/fieldservice/FloatingBridge").then(m => m.FloatingBridge), { ssr: false });
-const DrawerDialogTriggerButton = dynamic(() => import("@/components/ui/drawer-dialog-trigger-button").then(m => m.DrawerDialogTriggerButton), { ssr: false });
 
 interface AppChromeProps {
   children: React.ReactNode;
@@ -110,9 +109,6 @@ export function AppChrome({ children }: AppChromeProps) {
         </div>
       </nav>
       
-      {/* Global portaled trigger that adapts by view (home/business) */}
-      <DrawerDialogTriggerButton label="Action" />
-
     </>
   );
 }

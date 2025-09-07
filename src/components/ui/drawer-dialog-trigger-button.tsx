@@ -41,6 +41,8 @@ export function DrawerDialogTriggerButton({
   const { currentSection } = useSPA();
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const effectiveMode = mode ?? (currentSection === "business" ? "business" : currentSection === "home" ? "home" : "hidden");
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
 
   const [userId, setUserId] = React.useState<string | null>(null);
   React.useEffect(() => {
@@ -67,10 +69,10 @@ export function DrawerDialogTriggerButton({
     })();
   }, [effectiveMode]);
 
-  if (!show || effectiveMode === "hidden") return null;
+  if (!show || effectiveMode === "hidden" || !mounted) return null;
 
   return (
-    <RadixPortal container={typeof document !== "undefined" ? document.body : undefined}>
+    <RadixPortal container={document.body}>
       {effectiveMode === "home" ? (
         <HomeTrigger
           label={label}
