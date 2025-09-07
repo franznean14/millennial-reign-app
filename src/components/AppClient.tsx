@@ -625,9 +625,8 @@ export function AppClient({ currentSection }: AppClientProps) {
             serviceYearStart={dateRanges.serviceYearStart}
             serviceYearEnd={dateRanges.serviceYearEnd}
           />
-          {/* Field Service trigger handled by portaled global trigger; no per-view trigger here */}
-          {/* Render the trigger button for Home view */}
-          <DrawerDialogTriggerButton label="Field Service" />
+          {/* Portal root for DrawerDialog content (targeted by global trigger) */}
+          <div id="drawer-root" />
         </motion.div>
       );
 
@@ -793,7 +792,8 @@ export function AppClient({ currentSection }: AppClientProps) {
               onClose={() => setFiltersModalOpen(false)}
             />
           </ResponsiveModal>
-          {/* Business actions handled by global DrawerDialogTriggerButton */}
+          {/* Portal root for DrawerDialog content */}
+          <div id="drawer-root" />
         </motion.div>
       );
 
@@ -872,6 +872,8 @@ export function AppClient({ currentSection }: AppClientProps) {
               }}
             />
           </ResponsiveModal>
+          {/* Portal root for DrawerDialog content */}
+          <div id="drawer-root" />
         </motion.div>
       );
 
@@ -1068,6 +1070,8 @@ export function AppClient({ currentSection }: AppClientProps) {
               }}
             />
           </div>
+          {/* Portal root for DrawerDialog content */}
+          <div id="drawer-root" />
         </motion.div>
       );
 
@@ -1088,6 +1092,8 @@ export function AppClient({ currentSection }: AppClientProps) {
             serviceYearStart={dateRanges.serviceYearStart}
             serviceYearEnd={dateRanges.serviceYearEnd}
           />
+          {/* Portal root for DrawerDialog content */}
+          <div id="drawer-root" />
         </motion.div>
       );
   }

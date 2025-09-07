@@ -12,7 +12,7 @@ const ServiceWorkerRegister = dynamic(() => import("@/components/ServiceWorkerRe
 const SyncBanner = dynamic(() => import("@/components/SyncBanner"), { ssr: false });
 const OnlineBanner = dynamic(() => import("@/components/OnlineBanner"), { ssr: false });
 const BiometricGate = dynamic(() => import("@/components/BiometricGate"), { ssr: false });
-const FloatingBridge = dynamic(() => import("@/components/fieldservice/FloatingBridge").then(m => m.FloatingBridge), { ssr: false });
+import DrawerDialogTriggerButton from "@/components/ui/drawer-dialog-trigger-button";
 
 interface AppChromeProps {
   children: React.ReactNode;
@@ -108,6 +108,8 @@ export function AppChrome({ children }: AppChromeProps) {
           })}
         </div>
       </nav>
+      {/* Global trigger button (portaled) */}
+      <DrawerDialogTriggerButton label="Action" />
       
     </>
   );

@@ -2,7 +2,6 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AppChrome } from "@/components/AppChrome";
-import GlobalTriggersClient from "@/components/GlobalTriggersClient";
 import ThemeInit from "@/components/ThemeInit";
 import { Toaster } from "@/components/ui/sonner";
 import { SPAProvider } from "@/components/SPAProvider";
@@ -50,8 +49,6 @@ export default function RootLayout({
         <ThemeInit />
         <SPAProvider>
           <AppChrome>{children}</AppChrome>
-          {/* Global client-side triggers (portaled) */}
-          <GlobalTriggersClient />
         </SPAProvider>
         {/* Toast notifications (auto dark/light) */}
         <Toaster position="top-center" richColors closeButton theme="system" />

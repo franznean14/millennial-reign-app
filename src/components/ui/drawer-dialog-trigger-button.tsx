@@ -115,7 +115,7 @@ function HomeTrigger({ label, icon, className, size, userId }: { label: string; 
         open={open}
         onOpenChange={setOpen}
       >
-        <div className="p-4 pt-0 flex-1 min-h-0 overflow-y-auto ios-touch">
+        <div className="p-4 pt-0 flex-1 min-h-0 overflow-y-auto">
           {userId && <FieldServiceForm userId={userId} />}
         </div>
       </DrawerDialog>
