@@ -134,14 +134,6 @@ export function AppChrome({ children }: AppChromeProps) {
       
       <FloatButton />
 
-      {/* Global drawer mounted once; control with local state */}
-      <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
-        <DrawerContent>
-          <div className="p-4 pt-0">
-            {/* TODO: render desired content here (e.g., EstablishmentForm wrapper) */}
-          </div>
-        </DrawerContent>
-      </Drawer>
     </>
   );
 }

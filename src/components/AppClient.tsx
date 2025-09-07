@@ -57,6 +57,7 @@ const HouseholderForm = dynamic(() => import("@/components/business/HouseholderF
 const VisitForm = dynamic(() => import("@/components/business/VisitForm").then(m => m.VisitForm), { ssr: false });
 import { Drawer } from "@/components/ui/drawer";
 import { DrawerContent } from "@/components/ui/drawer";
+import { DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 
 interface AppClientProps {
   currentSection: string;
@@ -653,6 +654,10 @@ export function AppClient({ currentSection }: AppClientProps) {
           {/* Home view drawer: Field Service */}
           <Drawer open={homeDrawerOpen} onOpenChange={setHomeDrawerOpen}>
             <DrawerContent>
+              <DrawerHeader className="flex-shrink-0 text-center">
+                <DrawerTitle>Field Service</DrawerTitle>
+                <DrawerDescription>Record your field service activity</DrawerDescription>
+              </DrawerHeader>
               <div className="p-4 pt-0">
                 <FieldServiceForm userId={userId} onClose={() => setHomeDrawerOpen(false)} />
               </div>
@@ -826,6 +831,10 @@ export function AppClient({ currentSection }: AppClientProps) {
           {/* Business view drawers */}
           <Drawer open={estDrawerOpen} onOpenChange={setEstDrawerOpen}>
             <DrawerContent>
+              <DrawerHeader className="flex-shrink-0 text-center">
+                <DrawerTitle>New Establishment</DrawerTitle>
+                <DrawerDescription>Add a business establishment</DrawerDescription>
+              </DrawerHeader>
               <div className="p-4 pt-0">
                 <EstablishmentForm selectedArea={undefined} onSaved={() => setEstDrawerOpen(false)} />
               </div>
@@ -833,6 +842,10 @@ export function AppClient({ currentSection }: AppClientProps) {
           </Drawer>
           <Drawer open={hhDrawerOpen} onOpenChange={setHhDrawerOpen}>
             <DrawerContent>
+              <DrawerHeader className="flex-shrink-0 text-center">
+                <DrawerTitle>New Householder</DrawerTitle>
+                <DrawerDescription>Add a householder for an establishment</DrawerDescription>
+              </DrawerHeader>
               <div className="p-4 pt-0">
                 <HouseholderForm establishments={establishments} selectedEstablishmentId={selectedEstablishment?.id} onSaved={() => setHhDrawerOpen(false)} />
               </div>
@@ -840,6 +853,10 @@ export function AppClient({ currentSection }: AppClientProps) {
           </Drawer>
           <Drawer open={visitDrawerOpen} onOpenChange={setVisitDrawerOpen}>
             <DrawerContent>
+              <DrawerHeader className="flex-shrink-0 text-center">
+                <DrawerTitle>Visit Update</DrawerTitle>
+                <DrawerDescription>Record a visit note</DrawerDescription>
+              </DrawerHeader>
               <div className="p-4 pt-0">
                 <VisitForm establishments={establishments} selectedEstablishmentId={selectedEstablishment?.id} onSaved={() => setVisitDrawerOpen(false)} />
               </div>
