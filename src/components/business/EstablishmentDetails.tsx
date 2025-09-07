@@ -26,6 +26,7 @@ interface EstablishmentDetailsProps {
   householders: HouseholderWithDetails[];
   onBackClick: () => void;
   onEstablishmentUpdated?: (establishment: EstablishmentWithDetails) => void;
+  onHouseholderClick?: (householder: HouseholderWithDetails) => void;
 }
 
 export function EstablishmentDetails({ 
@@ -33,7 +34,8 @@ export function EstablishmentDetails({
   visits, 
   householders, 
   onBackClick,
-  onEstablishmentUpdated
+  onEstablishmentUpdated,
+  onHouseholderClick
 }: EstablishmentDetailsProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -359,7 +361,7 @@ export function EstablishmentDetails({
                     index === self.findIndex(h => h.id === householder.id)
                   )
                   .map((householder) => (
-                    <div key={householder.id} className="flex items-start gap-3 p-3 border rounded-lg">
+                    <button onClick={() => onHouseholderClick && onHouseholderClick(householder)} key={householder.id} className="flex items-start gap-3 p-3 border rounded-lg w-full text-left hover:bg-muted/50">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-sm font-medium">{householder.name}</span>
@@ -384,7 +386,7 @@ export function EstablishmentDetails({
                           <p className="text-sm text-muted-foreground">{householder.note}</p>
                         )}
                       </div>
-                    </div>
+                    </button>
                   ))}
               </div>
             ) : (
