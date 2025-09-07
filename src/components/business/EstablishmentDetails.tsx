@@ -8,6 +8,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChevronLeft, Building2, MapPinned, Calendar, Users, Edit } from "lucide-react";
 import { ResponsiveModal } from "@/components/ui/responsive-modal";
+import { useMobile } from "@/lib/hooks/use-mobile";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { toast } from "@/components/ui/sonner";
+import { deleteEstablishment } from "@/lib/db/business";
 import { type EstablishmentWithDetails, type VisitWithUser, type HouseholderWithDetails } from "@/lib/db/business";
 import { cn } from "@/lib/utils";
 import { getBestStatus, getStatusColor, getStatusTextColor } from "@/lib/utils/status-hierarchy";
@@ -31,11 +36,13 @@ export function EstablishmentDetails({
   onEstablishmentUpdated
 }: EstablishmentDetailsProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [editVisit, setEditVisit] = useState<{ id: string; establishment_id?: string | null; householder_id?: string | null; note?: string | null; publisher_id?: string | null; partner_id?: string | null; visit_date?: string } | null>(null);
   const titleContainerRef = useRef<HTMLDivElement>(null);
   const titleContentRef = useRef<HTMLDivElement>(null);
   const [scrollDistance, setScrollDistance] = useState(0);
   const [shouldScroll, setShouldScroll] = useState(false);
+  const isMobile = useMobile();
 
   useEffect(() => {
     const measure = () => {
@@ -77,6 +84,25 @@ export function EstablishmentDetails({
     setIsEditing(false);
     if (onEstablishmentUpdated) {
       onEstablishmentUpdated(updatedEstablishment);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!establishment?.id) return;
+    setDeleting(true);
+    try {
+      const ok = await deleteEstablishment(establishment.id);
+      if (ok) {
+        toast.success("Establishment deleted successfully");
+        setIsEditing(false);
+        onBackClick();
+      } else {
+        toast.error("Failed to delete establishment");
+      }
+    } catch (e) {
+      toast.error("Error deleting establishment");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -267,7 +293,7 @@ export function EstablishmentDetails({
                     console.log('Publisher:', visit.publisher); // Debug publisher
                     console.log('Partner:', visit.partner); // Debug partner
                     return (
-                      <button onClick={() => setEditVisit({ id: visit.id, note: visit.note || null, visit_date: visit.visit_date, establishment_id: establishment.id })} key={visit.id} className="flex items-start justify-between gap-3 p-3 border rounded-lg w-full text-left hover:bg-muted/50">
+                      <button onClick={() => setEditVisit({ id: visit.id, note: visit.note || null, visit_date: visit.visit_date, establishment_id: establishment.id, publisher_id: (visit as any).publisher_id ?? visit.publisher?.id ?? null, partner_id: (visit as any).partner_id ?? visit.partner?.id ?? null })} key={visit.id} className="flex items-start justify-between gap-3 p-3 border rounded-lg w-full text-left hover:bg-muted/50">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-sm font-medium">{formatDate(visit.visit_date)}</span>
@@ -368,39 +394,85 @@ export function EstablishmentDetails({
         </Card>
       </motion.div>
 
-      {/* Edit Establishment Modal */}
-      <ResponsiveModal 
-        open={isEditing} 
-        onOpenChange={setIsEditing} 
-        title="Edit Establishment" 
-        description="Update establishment details" 
-        className="sm:max-w-[560px]"
-      >
-        <EstablishmentForm 
-          onSaved={handleEditSaved}
-          selectedArea={establishment.area || undefined}
-          initialData={establishment}
-          isEditing={true}
-        />
-      </ResponsiveModal>
+      {/* Edit Establishment Modal (consistent with BusinessDrawerDialogs) */}
+      {isMobile ? (
+        <Drawer open={isEditing} onOpenChange={setIsEditing}>
+          <DrawerContent>
+            <DrawerHeader className="text-center">
+              <DrawerTitle>Edit Establishment</DrawerTitle>
+              <DrawerDescription>Update establishment details</DrawerDescription>
+            </DrawerHeader>
+            <div className="px-4">
+              <EstablishmentForm 
+                onSaved={handleEditSaved}
+                onDelete={handleDelete}
+                selectedArea={establishment.area || undefined}
+                initialData={establishment}
+                isEditing={true}
+              />
+            </div>
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        <Dialog open={isEditing} onOpenChange={setIsEditing}>
+          <DialogContent>
+            <DialogHeader className="text-center">
+              <DialogTitle>Edit Establishment</DialogTitle>
+              <DialogDescription>Update establishment details</DialogDescription>
+            </DialogHeader>
+            <div className="px-4">
+              <EstablishmentForm 
+                onSaved={handleEditSaved}
+                onDelete={handleDelete}
+                selectedArea={establishment.area || undefined}
+                initialData={establishment}
+                isEditing={true}
+              />
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
 
-      {/* Edit Visit Modal */}
-      <ResponsiveModal
-        open={!!editVisit}
-        onOpenChange={(o) => setEditVisit(o ? editVisit : null)}
-        title="Edit Visit"
-        description="Update visit details"
-        className="sm:max-w-[560px]"
-      >
-        {editVisit && (
-          <VisitForm
-            establishments={[{ id: establishment.id, name: establishment.name }]}
-            selectedEstablishmentId={establishment.id}
-            initialVisit={editVisit}
-            onSaved={() => setEditVisit(null)}
-          />
-        )}
-      </ResponsiveModal>
+      {/* Edit Visit Modal (consistent with BusinessDrawerDialogs) */}
+      {isMobile ? (
+        <Drawer open={!!editVisit} onOpenChange={(o) => setEditVisit(o ? editVisit : null)}>
+          <DrawerContent>
+            <DrawerHeader className="text-center">
+              <DrawerTitle>Edit Visit</DrawerTitle>
+              <DrawerDescription>Update visit details</DrawerDescription>
+            </DrawerHeader>
+            <div className="px-4">
+              {editVisit && (
+                <VisitForm
+                  establishments={[{ id: establishment.id, name: establishment.name }]}
+                  selectedEstablishmentId={establishment.id}
+                  initialVisit={editVisit}
+                  onSaved={() => setEditVisit(null)}
+                />
+              )}
+            </div>
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        <Dialog open={!!editVisit} onOpenChange={(o) => setEditVisit(o ? editVisit : null)}>
+          <DialogContent>
+            <DialogHeader className="text-center">
+              <DialogTitle>Edit Visit</DialogTitle>
+              <DialogDescription>Update visit details</DialogDescription>
+            </DialogHeader>
+            <div className="px-4">
+              {editVisit && (
+                <VisitForm
+                  establishments={[{ id: establishment.id, name: establishment.name }]}
+                  selectedEstablishmentId={establishment.id}
+                  initialVisit={editVisit}
+                  onSaved={() => setEditVisit(null)}
+                />
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

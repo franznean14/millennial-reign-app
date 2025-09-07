@@ -46,6 +46,8 @@ export default function RootLayout({
         <meta name="theme-color" content="#000000" />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        {/* FAB portal root, placed first in body for highest paint priority */}
+        <div id="fab-root" />
         <ThemeInit />
         <SPAProvider>
           <AppChrome>{children}</AppChrome>
