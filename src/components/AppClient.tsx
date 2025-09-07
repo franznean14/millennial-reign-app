@@ -34,7 +34,7 @@ import { LoginView } from "@/components/views/LoginView";
 
 // Import all the data and business logic functions
 import { getDailyRecord, listDailyByMonth, upsertDailyRecord, isDailyEmpty, deleteDailyRecord } from "@/lib/db/dailyRecords";
-import { getEstablishmentsWithDetails, getEstablishmentDetails, type EstablishmentWithDetails, type VisitWithUser, type HouseholderWithDetails, type BusinessFiltersState } from "@/lib/db/business";
+import { getEstablishmentsWithDetails, getEstablishmentDetails, getHouseholderDetails, type EstablishmentWithDetails, type VisitWithUser, type HouseholderWithDetails, type BusinessFiltersState } from "@/lib/db/business";
 import { getMyCongregation, saveCongregation, isAdmin, type Congregation } from "@/lib/db/congregations";
 import { getProfile } from "@/lib/db/profiles";
 import { archiveEstablishment, deleteEstablishment } from "@/lib/db/business";
@@ -45,6 +45,7 @@ const HomeSummary = dynamic(() => import("@/components/home/HomeSummary").then(m
 const TopStudies = dynamic(() => import("@/components/home/TopStudies").then(m => m.TopStudies), { ssr: false });
 const EstablishmentList = dynamic(() => import("@/components/business/EstablishmentList").then(m => m.EstablishmentList), { ssr: false });
 const EstablishmentDetails = dynamic(() => import("@/components/business/EstablishmentDetails").then(m => m.EstablishmentDetails), { ssr: false });
+const HouseholderDetails = dynamic(() => import("@/components/business/HouseholderDetails").then(m => m.HouseholderDetails), { ssr: false });
 const BusinessDrawerDialogs = dynamic(() => import("@/components/business/BusinessDrawerDialogs").then(m => m.BusinessDrawerDialogs), { ssr: false });
 const CongregationForm = dynamic(() => import("@/components/congregation/CongregationForm").then(m => m.CongregationForm), { ssr: false });
 const ResponsiveModal = dynamic(() => import("@/components/ui/responsive-modal").then(m => m.ResponsiveModal), { ssr: false });
@@ -147,6 +148,12 @@ export function AppClient({ currentSection }: AppClientProps) {
     establishment: EstablishmentWithDetails;
     visits: VisitWithUser[];
     householders: HouseholderWithDetails[];
+  } | null>(null);
+  const [selectedHouseholder, setSelectedHouseholder] = useState<HouseholderWithDetails | null>(null);
+  const [selectedHouseholderDetails, setSelectedHouseholderDetails] = useState<{
+    householder: HouseholderWithDetails;
+    visits: VisitWithUser[];
+    establishment?: { id: string; name: string } | null;
   } | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<BusinessFiltersState>({
@@ -343,12 +350,47 @@ export function AppClient({ currentSection }: AppClientProps) {
             } : existing)
           };
         });
+        setSelectedHouseholderDetails(prev => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            visits: prev.visits.map((existing) => existing.id === v.id ? {
+              ...existing,
+              note: v.note ?? existing.note,
+              visit_date: v.visit_date ?? existing.visit_date,
+              publisher_id: v.publisher_id ?? existing.publisher_id,
+              partner_id: v.partner_id ?? existing.partner_id,
+              publisher: v.publisher ?? existing.publisher,
+              partner: v.partner ?? existing.partner,
+            } : existing)
+          };
+        });
       });
       businessEventBus.subscribe('visit-deleted', (v: any) => {
         setSelectedEstablishmentDetails(prev => {
           if (!prev) return prev;
           return { ...prev, visits: prev.visits.filter(ex => ex.id !== v.id) };
         });
+        setSelectedHouseholderDetails(prev => {
+          if (!prev) return prev;
+          return { ...prev, visits: prev.visits.filter(ex => ex.id !== v.id) };
+        });
+      });
+      businessEventBus.subscribe('householder-updated', (hh: any) => {
+        setSelectedEstablishmentDetails(prev => {
+          if (!prev) return prev;
+          return { ...prev, householders: prev.householders.map(h => h.id === hh.id ? { ...h, ...hh } : h) };
+        });
+        setSelectedHouseholder(prev => prev && prev.id === hh.id ? { ...prev, ...hh } : prev);
+        setSelectedHouseholderDetails(prev => prev && prev.householder.id === hh.id ? { ...prev, householder: { ...prev.householder, ...hh } } : prev);
+      });
+      businessEventBus.subscribe('householder-deleted', (hh: any) => {
+        setSelectedEstablishmentDetails(prev => {
+          if (!prev) return prev;
+          return { ...prev, householders: prev.householders.filter(h => h.id !== hh.id) };
+        });
+        setSelectedHouseholder(null);
+        setSelectedHouseholderDetails(null);
       });
 
       return () => {
@@ -369,6 +411,15 @@ export function AppClient({ currentSection }: AppClientProps) {
       setSelectedEstablishmentDetails(details);
     } catch (error) {
       console.error('Failed to load establishment details:', error);
+    }
+  }, []);
+
+  const loadHouseholderDetails = useCallback(async (householderId: string) => {
+    try {
+      const details = await getHouseholderDetails(householderId);
+      setSelectedHouseholderDetails(details);
+    } catch (error) {
+      console.error('Failed to load householder details:', error);
     }
   }, []);
 
@@ -713,7 +764,7 @@ export function AppClient({ currentSection }: AppClientProps) {
             transition={{ duration: 0.3, ease: "easeOut" }}
           >
             <AnimatePresence mode="wait">
-              {!selectedEstablishment ? (
+              {!selectedEstablishment && !selectedHouseholder ? (
                 <motion.div
                   key="establishment-list"
                   initial={{ opacity: 0, x: -20 }}
@@ -742,6 +793,27 @@ export function AppClient({ currentSection }: AppClientProps) {
                     onRemoveArea={handleRemoveArea}
                   />
                 </motion.div>
+              ) : selectedHouseholder ? (
+                <motion.div
+                  key="householder-details"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.3 }}
+                  className="w-full"
+                  layout
+                >
+                  <HouseholderDetails
+                    householder={selectedHouseholder}
+                    visits={selectedHouseholderDetails?.visits || []}
+                    establishment={selectedHouseholderDetails?.establishment || null}
+                    establishments={establishments}
+                    onBackClick={() => {
+                      setSelectedHouseholder(null);
+                      setSelectedHouseholderDetails(null);
+                    }}
+                  />
+                </motion.div>
               ) : (
                 <motion.div
                   key="establishment-details"
@@ -761,6 +833,10 @@ export function AppClient({ currentSection }: AppClientProps) {
                       setSelectedEstablishmentDetails(null);
                     }}
                     onEstablishmentUpdated={(est) => est?.id && updateEstablishment({ id: est.id!, ...est })}
+                    onHouseholderClick={(hh) => {
+                      setSelectedHouseholder(hh);
+                      if (hh.id) loadHouseholderDetails(hh.id);
+                    }}
                   />
                 </motion.div>
               )}

@@ -101,6 +101,8 @@ export interface HouseholderWithDetails {
   name: string;
   status: HouseholderStatus;
   note?: string | null;
+  establishment_id?: string;
+  establishment_name?: string;
   assigned_user?: {
     id: string;
     first_name: string;
@@ -295,6 +297,17 @@ export async function upsertHouseholder(h: Householder): Promise<Householder | n
   }
   const { data, error } = await supabase.from('business_householders').insert(payload).select().single();
   if (error) return null; return data as any;
+}
+
+export async function deleteHouseholder(householderId: string): Promise<boolean> {
+  const supabase = createSupabaseBrowserClient();
+  await supabase.auth.getSession().catch(() => {});
+  const { error } = await supabase.from('business_householders').delete().eq('id', householderId);
+  if (error) {
+    console.error('Error deleting householder:', error);
+    return false;
+  }
+  return true;
 }
 
 export async function addVisit(visit: {
@@ -694,6 +707,67 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
     },
     visits: transformedVisits,
     householders: householders || []
+  };
+}
+
+export async function getHouseholderDetails(householderId: string): Promise<{
+  householder: HouseholderWithDetails;
+  visits: VisitWithUser[];
+  establishment?: { id: string; name: string } | null;
+} | null> {
+  const supabase = createSupabaseBrowserClient();
+  await supabase.auth.getSession().catch(() => {});
+
+  // Householder with establishment
+  const { data: hh } = await supabase
+    .from('business_householders')
+    .select('id,name,status,note,establishment_id, establishment:business_establishments(id,name)')
+    .eq('id', householderId)
+    .single();
+
+  if (!hh) return null;
+
+  // Visits for householder with publisher/partner
+  const { data: visits } = await supabase
+    .from('business_visits')
+    .select(`
+      id,
+      note,
+      visit_date,
+      publisher_id,
+      partner_id,
+      establishment_id,
+      publisher:profiles!business_visits_publisher_id_fkey(id, first_name, last_name, avatar_url),
+      partner:profiles!business_visits_partner_id_fkey(id, first_name, last_name, avatar_url)
+    `)
+    .eq('householder_id', householderId)
+    .order('visit_date', { ascending: false });
+
+  const transformedVisits = (visits as any[])?.map((visit: any) => ({
+    id: visit.id,
+    note: visit.note,
+    visit_date: visit.visit_date,
+    publisher_id: visit.publisher_id ?? (Array.isArray(visit.publisher) ? (visit.publisher[0]?.id ?? null) : (visit.publisher?.id ?? null)),
+    partner_id: visit.partner_id ?? (Array.isArray(visit.partner) ? (visit.partner[0]?.id ?? null) : (visit.partner?.id ?? null)),
+    publisher: Array.isArray(visit.publisher) ? visit.publisher[0] || null : visit.publisher || null,
+    partner: Array.isArray(visit.partner) ? visit.partner[0] || null : visit.partner || null,
+  })) || [];
+
+  const establishment = Array.isArray((hh as any).establishment) ? (hh as any).establishment[0] : (hh as any).establishment;
+
+  const householder: HouseholderWithDetails = {
+    id: hh.id,
+    name: hh.name,
+    status: hh.status,
+    note: hh.note,
+    establishment_id: hh.establishment_id,
+    establishment_name: establishment?.name,
+  };
+
+  return {
+    householder,
+    visits: transformedVisits,
+    establishment: establishment ? { id: establishment.id, name: establishment.name } : null,
   };
 }
 
