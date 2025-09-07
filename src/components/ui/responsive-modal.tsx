@@ -24,15 +24,15 @@ export function ResponsiveModal({
   className
 }: ResponsiveModalProps) {
   const isMobile = useMobile();
-  const [keyboardOpen, setKeyboardOpen] = useState(false);
+  const [keyboardInset, setKeyboardInset] = useState(0);
 
   useEffect(() => {
     if (!isMobile || typeof window === "undefined" || !(window as any).visualViewport) return;
     const vv: VisualViewport = (window as any).visualViewport;
     const handler = () => {
       try {
-        const gap = window.innerHeight - vv.height;
-        setKeyboardOpen(gap > 120); // treat >120px reduction as keyboard open
+        const gap = Math.max(0, window.innerHeight - (vv.height + (vv as any).offsetTop || 0));
+        setKeyboardInset(gap);
       } catch {}
     };
     vv.addEventListener("resize", handler);
@@ -54,7 +54,7 @@ export function ResponsiveModal({
           </DrawerHeader>
           <div
             className="p-4 pt-0 overscroll-contain no-scrollbar"
-            style={{ paddingBottom: keyboardOpen ? "calc(env(safe-area-inset-bottom, 0px) + 12px)" : "calc(env(safe-area-inset-bottom, 0px) + 80px)" }}
+            style={{ paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${Math.max(12, Math.min(240, keyboardInset))}px)` }}
           >
             {children}
           </div>
