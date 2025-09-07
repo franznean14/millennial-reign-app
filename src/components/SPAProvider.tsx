@@ -11,6 +11,7 @@ interface SPAContextType {
   };
   onSectionChange: (section: string) => void;
   isAuthenticated: boolean;
+  isLoading: boolean;
   refreshAuth: () => void;
 }
 
@@ -19,6 +20,7 @@ const SPAContext = createContext<SPAContextType | undefined>(undefined);
 export function SPAProvider({ children }: { children: ReactNode }) {
   const [currentSection, setCurrentSection] = useState('home'); // Default to home
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [userPermissions, setUserPermissions] = useState({
     showCongregation: false,
     showBusiness: false,
@@ -38,6 +40,7 @@ export function SPAProvider({ children }: { children: ReactNode }) {
   };
 
   const checkAuth = async () => {
+    setIsLoading(true);
     try {
       const supabase = createSupabaseBrowserClient();
       const { data: { session } } = await supabase.auth.getSession();
@@ -73,6 +76,8 @@ export function SPAProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Auth check error:', error);
       setIsAuthenticated(false);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -102,6 +107,7 @@ export function SPAProvider({ children }: { children: ReactNode }) {
     userPermissions,
     onSectionChange: handleSectionChange,
     isAuthenticated,
+    isLoading,
     refreshAuth,
   };
 

@@ -61,7 +61,24 @@ export default function ThemeInit() {
       attributeFilter: ['class']
     });
 
-    return () => observer.disconnect();
+    // Keyboard inset variable and overlay scroll lock
+    const vv = (window as any).visualViewport as VisualViewport | undefined;
+    const setKbVar = () => {
+      try {
+        const height = vv?.height ?? window.innerHeight;
+        const kb = Math.max(0, window.innerHeight - height);
+        document.documentElement.style.setProperty("--kb", `${kb}px`);
+      } catch {}
+    };
+    setKbVar();
+    vv?.addEventListener("resize", setKbVar);
+    vv?.addEventListener("scroll", setKbVar);
+
+    return () => {
+      observer.disconnect();
+      vv?.removeEventListener("resize", setKbVar);
+      vv?.removeEventListener("scroll", setKbVar);
+    };
   }, []);
   
   return null;

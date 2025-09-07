@@ -44,6 +44,8 @@ export default function RootLayout({
         {/* Explicitly include manifest link to ensure it loads on all routes */}
         <link rel="manifest" href="/manifest.webmanifest" />
         <meta name="theme-color" content="#000000" />
+        {/* Android IME behavior */}
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, interactive-widget=overlays-content" />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         <ThemeInit />

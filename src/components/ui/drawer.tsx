@@ -26,41 +26,40 @@ DrawerOverlay.displayName = DrawerPrimitive.Overlay.displayName;
 const DrawerContent = React.forwardRef<
   React.ElementRef<typeof DrawerPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content>
->(({ className, children, ...props }, ref) => {
-  const [isIOS, setIsIOS] = React.useState(false);
-  React.useEffect(() => {
-    try {
-      const ua = (typeof navigator !== "undefined" ? navigator.userAgent || navigator.platform || "" : "").toString();
-      setIsIOS(/iPad|iPhone|iPod/.test(ua));
-    } catch {}
-  }, []);
-  return (
-    <DrawerPortal>
-      <DrawerOverlay />
-      <DrawerPrimitive.Content
-        ref={ref}
-        className={cn(
-          isIOS ? "sticky bottom-0 z-50 flex h-auto flex-col overflow-hidden rounded-t-[10px] border bg-background" : "fixed inset-x-0 bottom-0 z-50 flex h-auto flex-col overflow-hidden rounded-t-[10px] border bg-background",
-          "data-[state=open]:animate-in data-[state=closed]:animate-out",
-          "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
-          className
-        )}
-        {...props}
-      >
-        <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          {/* Prevent scroll chaining to outside when focusing inputs on mobile */}
-          <div
-            className="overscroll-contain no-scrollbar"
-            style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 24px)" }}
-          >
-            {children}
-          </div>
+>(({ className, children, ...props }, ref) => (
+  <DrawerPortal>
+    <DrawerOverlay />
+    <DrawerPrimitive.Content
+      ref={ref}
+      className={cn(
+        "fixed inset-x-0 bottom-0 z-50 flex h-auto max-h-[100svh] flex-col overflow-hidden rounded-t-[10px] border bg-background",
+        "data-[state=open]:animate-in data-[state=closed]:animate-out",
+        "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
+        className
+      )}
+      {...props}
+    >
+      {/* Lock background scroll while drawer is open */}
+      {(() => {
+        React.useEffect(() => {
+          const html = document.documentElement;
+          html.classList.add("overscroll-none", "touch-none");
+          return () => {
+            html.classList.remove("overscroll-none", "touch-none");
+          };
+        }, []);
+        return null;
+      })()}
+      <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {/* Prevent scroll chaining to outside when focusing inputs on mobile */}
+        <div className="overscroll-contain no-scrollbar">
+          {children}
         </div>
-      </DrawerPrimitive.Content>
-    </DrawerPortal>
-  );
-});
+      </div>
+    </DrawerPrimitive.Content>
+  </DrawerPortal>
+));
 DrawerContent.displayName = DrawerPrimitive.Content.displayName;
 
 function DrawerHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {

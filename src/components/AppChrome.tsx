@@ -20,10 +20,19 @@ interface AppChromeProps {
 
 export function AppChrome({ children }: AppChromeProps) {
   const pathname = usePathname();
-  const { currentSection, userPermissions, onSectionChange, isAuthenticated } = useSPA();
+  const { currentSection, userPermissions, onSectionChange, isLoading, isAuthenticated } = useSPA();
   const hideChrome = pathname === "/login" || pathname.startsWith("/auth/") || !isAuthenticated;
 
-  
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   // If not authenticated, just show the children (login view)
   if (!isAuthenticated) {
@@ -53,7 +62,7 @@ export function AppChrome({ children }: AppChromeProps) {
         userPermissions={userPermissions}
       />
       
-      <div className="mx-auto flex max-w-screen-lg w-full overflow-x-hidden">
+      <div className="mx-auto flex max-w-screen-lg w-full overflow-x-hidden min-h-[100svh]">
         {/* Desktop Sidebar Navigation */}
         <nav className="hidden lg:flex flex-col w-64 border-r border-border/50 bg-background/50 backdrop-blur">
           <div className="p-4 border-b border-border/50">
@@ -82,7 +91,7 @@ export function AppChrome({ children }: AppChromeProps) {
           </div>
         </nav>
         
-        <main className="flex-1 px-4 py-6 w-full overflow-x-hidden min-h-0">{children}</main>
+        <main className="flex-1 min-h-0 px-4 py-6 w-full overflow-x-hidden overflow-y-auto">{children}</main>
       </div>
       
       {/* Bottom Navigation (Mobile) */}
