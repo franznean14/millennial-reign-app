@@ -1,33 +1,46 @@
 "use client";
 
 import * as React from "react";
-import { cn } from "@/lib/utils";
 import { useMediaQuery } from "@/hooks/use-media-query";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger, DrawerClose } from "@/components/ui/drawer";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 
-export function DrawerDialogDemo() {
-  const [open, setOpen] = React.useState(false);
+interface DrawerDialogProps {
+  title: string;
+  description?: string;
+  trigger?: React.ReactNode; // Provide an already-wrapped Trigger element
+  children: React.ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  showTrigger?: boolean;
+  contentClassName?: string;
+}
+
+export function DrawerDialog({
+  title,
+  description,
+  trigger,
+  children,
+  open: controlledOpen,
+  onOpenChange,
+  showTrigger = true,
+  contentClassName,
+}: DrawerDialogProps) {
+  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(false);
+  const open = controlledOpen ?? uncontrolledOpen;
+  const setOpen = onOpenChange ?? setUncontrolledOpen;
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
   if (isDesktop) {
     return (
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogTrigger asChild>
-          <Button variant="outline">Edit Profile</Button>
-        </DialogTrigger>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Edit profile</DialogTitle>
-            <DialogDescription>
-              Make changes to your profile here. Click save when you&apos;re done.
-            </DialogDescription>
+        {showTrigger && trigger}
+        <DialogContent className={contentClassName}>
+          <DialogHeader className="text-center">
+            <DialogTitle className="font-bold">{title}</DialogTitle>
+            {description && <DialogDescription className="text-center">{description}</DialogDescription>}
           </DialogHeader>
-          <ProfileForm />
+          {children}
         </DialogContent>
       </Dialog>
     );
@@ -35,44 +48,15 @@ export function DrawerDialogDemo() {
 
   return (
     <Drawer open={open} onOpenChange={setOpen}>
-      <DrawerTrigger asChild>
-        <Button variant="outline">Edit Profile</Button>
-      </DrawerTrigger>
+      {showTrigger && trigger}
       <DrawerContent>
-        <DrawerHeader className="text-left">
-          <DrawerTitle>Edit profile</DrawerTitle>
-          <DrawerDescription>
-            Make changes to your profile here. Click save when you&apos;re done.
-          </DrawerDescription>
+        <DrawerHeader className="text-center">
+          <DrawerTitle className="font-bold">{title}</DrawerTitle>
+          {description && <DrawerDescription className="text-center">{description}</DrawerDescription>}
         </DrawerHeader>
-        <ProfileForm className="px-4" />
-        <DrawerFooter className="pt-2">
-          <DrawerClose asChild>
-            <Button variant="outline">Cancel</Button>
-          </DrawerClose>
-        </DrawerFooter>
+        {children}
       </DrawerContent>
     </Drawer>
-  );
-}
-
-function ProfileForm({ className, ...props }: React.ComponentProps<"form">) {
-  return (
-    <form className={cn("grid items-start gap-6", className)} {...props}>
-      <div className="grid gap-3">
-        <Label htmlFor="email">Email</Label>
-        <Input type="email" id="email" defaultValue="shadcn@example.com" />
-      </div>
-      <div className="grid gap-3">
-        <Label htmlFor="username">Username</Label>
-        <Input id="username" defaultValue="@shadcn" />
-      </div>
-      <div className="grid gap-3">
-        <Label htmlFor="bio">Bio</Label>
-        <Textarea id="bio" placeholder="Write a short bio..." />
-      </div>
-      <Button type="submit">Save changes</Button>
-    </form>
   );
 }
 

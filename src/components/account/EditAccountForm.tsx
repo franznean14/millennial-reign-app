@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
 import type { Profile } from "@/lib/db/types";
+import { PasswordDialog } from "@/components/account/PasswordDialog";
 
 interface EditAccountFormProps {
   userId: string;
@@ -22,12 +23,43 @@ export function EditAccountForm({ userId, initialEmail, initialUsername, current
   const [username, setUsername] = useState(initialUsername || "");
   const [timeZone, setTimeZone] = useState(currentProfile?.time_zone || "");
   const [saving, setSaving] = useState(false);
+  const [hasPassword, setHasPassword] = useState<boolean>(false);
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState<boolean>(false);
 
   useEffect(() => {
     setEmail(initialEmail || "");
     setUsername(initialUsername || "");
     setTimeZone(currentProfile?.time_zone || "");
   }, [initialEmail, initialUsername, currentProfile?.time_zone]);
+
+  // Detect if the account has an encrypted password (offline-first)
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem("has_password");
+      if (cached === "1") setHasPassword(true);
+    } catch {}
+
+    const supabase = createSupabaseBrowserClient();
+    // Prefer has_encrypted_password(); fallback to has_password_auth()
+    const check = async () => {
+      try {
+        const { data, error } = await supabase.rpc("has_encrypted_password");
+        if (error) throw error;
+        const value = Boolean(data);
+        setHasPassword(value);
+        try { localStorage.setItem("has_password", value ? "1" : "0"); } catch {}
+      } catch {
+        try {
+          const { data, error } = await supabase.rpc("has_password_auth");
+          if (error) return;
+          const value = Boolean(data);
+          setHasPassword(value);
+          try { localStorage.setItem("has_password", value ? "1" : "0"); } catch {}
+        } catch {}
+      }
+    };
+    check();
+  }, []);
 
   const submit = async () => {
     setSaving(true);
@@ -94,6 +126,21 @@ export function EditAccountForm({ userId, initialEmail, initialUsername, current
         />
       </div>
       <div className="grid gap-2">
+        <Label>Password</Label>
+        <div className="flex items-center justify-between gap-2">
+          <div className="text-sm opacity-75">
+            {hasPassword ? "Password set" : "No password set"}
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setPasswordDialogOpen(true)}
+          >
+            {hasPassword ? "Change Password" : "Add Password"}
+          </Button>
+        </div>
+      </div>
+      <div className="grid gap-2">
         <Label htmlFor="username">Username</Label>
         <Input
           id="username"
@@ -122,6 +169,17 @@ export function EditAccountForm({ userId, initialEmail, initialUsername, current
           {saving ? "Saving…" : "Save changes"}
         </Button>
       </div>
+
+      <PasswordDialog
+        open={passwordDialogOpen}
+        onOpenChange={setPasswordDialogOpen}
+        email={email || initialEmail || null}
+        hasPassword={hasPassword}
+        onUpdated={() => {
+          setHasPassword(true);
+          try { localStorage.setItem("has_password", "1"); } catch {}
+        }}
+      />
     </div>
   );
 }

@@ -16,7 +16,7 @@ const getSupabaseClient = async () => {
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Filter, X } from "lucide-react";
+import { Filter, X, FilePlus2 } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
@@ -52,6 +52,9 @@ const CongregationMembers = dynamic(() => import("@/components/congregation/Cong
 const BusinessFiltersForm = dynamic(() => import("@/components/business/BusinessFiltersForm").then(m => m.BusinessFiltersForm), { ssr: false });
 const CongregationView = dynamic(() => import("@/components/views/CongregationView").then(m => m.CongregationView), { ssr: false });
 const FieldServiceDrawerDialog = dynamic(() => import("@/components/fieldservice/FieldServiceDrawerDialog").then(m => m.FieldServiceDrawerDialog), { ssr: false });
+const DrawerDialog = dynamic(() => import("@/components/ui/drawer-dialog").then(m => m.DrawerDialog), { ssr: false });
+const DrawerDialogTriggerButton = dynamic(() => import("@/components/ui/drawer-dialog-trigger-button").then(m => m.DrawerDialogTriggerButton), { ssr: false });
+const FieldServiceForm = dynamic(() => import("@/components/fieldservice/FieldServiceForm").then(m => m.FieldServiceForm), { ssr: false });
 
 interface AppClientProps {
   currentSection: string;
@@ -622,10 +625,7 @@ export function AppClient({ currentSection }: AppClientProps) {
             serviceYearStart={dateRanges.serviceYearStart}
             serviceYearEnd={dateRanges.serviceYearEnd}
           />
-          {/* Simple trigger button for Field Service drawer */}
-          <div className="px-4">
-            <FieldServiceDrawerDialog userId={userId} />
-          </div>
+          {/* Field Service trigger handled by portaled global trigger; no per-view trigger here */}
         </motion.div>
       );
 
@@ -791,6 +791,7 @@ export function AppClient({ currentSection }: AppClientProps) {
               onClose={() => setFiltersModalOpen(false)}
             />
           </ResponsiveModal>
+          {/* Business actions handled by global DrawerDialogTriggerButton */}
         </motion.div>
       );
 
