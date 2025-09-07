@@ -3,6 +3,8 @@ export type BusinessEventType =
   | 'establishment-added'
   | 'establishment-updated'
   | 'householder-added'
+  | 'householder-updated'
+  | 'householder-deleted'
   | 'visit-added'
   | 'visit-updated'
   | 'visit-deleted'
