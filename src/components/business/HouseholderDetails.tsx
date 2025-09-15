@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChevronLeft, Calendar, User2, Edit, Plus } from "lucide-react";
+import { ChevronLeft, Calendar, User2, Edit, Plus, Archive } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { toast } from "@/components/ui/sonner";
@@ -14,7 +14,7 @@ import { HouseholderForm } from "@/components/business/HouseholderForm";
 import { VisitForm } from "@/components/business/VisitForm";
 import { useMobile } from "@/lib/hooks/use-mobile";
 import { type HouseholderWithDetails, type VisitWithUser } from "@/lib/db/business";
-import { deleteHouseholder } from "@/lib/db/business";
+import { deleteHouseholder, archiveHouseholder } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 
 interface HouseholderDetailsProps {
@@ -31,6 +31,7 @@ export function HouseholderDetails({ householder, visits, establishment, establi
   const [editVisit, setEditVisit] = useState<{ id: string; establishment_id?: string | null; householder_id?: string | null; note?: string | null; publisher_id?: string | null; partner_id?: string | null; visit_date?: string } | null>(null);
   const [addVisitOpen, setAddVisitOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [archiving, setArchiving] = useState(false);
 
   const titleContainerRef = useRef<HTMLDivElement>(null);
   const titleContentRef = useRef<HTMLDivElement>(null);
@@ -89,6 +90,25 @@ export function HouseholderDetails({ householder, visits, establishment, establi
     }
   };
 
+  const handleArchive = async () => {
+    if (!householder?.id) return;
+    setArchiving(true);
+    try {
+      const ok = await archiveHouseholder(householder.id);
+      if (ok) {
+        toast.success("Householder archived successfully");
+        businessEventBus.emit('householder-archived', { id: householder.id });
+        onBackClick();
+      } else {
+        toast.error("Failed to archive householder");
+      }
+    } catch (e) {
+      toast.error("Error archiving householder");
+    } finally {
+      setArchiving(false);
+    }
+  };
+
   return (
     <div className="space-y-6 w-full max-w-full">
       <motion.div 
@@ -123,10 +143,22 @@ export function HouseholderDetails({ householder, visits, establishment, establi
             </motion.p>
           </motion.div>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setIsEditing(true)} className="flex-shrink-0 relative z-10 ml-2">
-          <Edit className="h-4 w-4 mr-2" />
-          Edit
-        </Button>
+        <div className="flex gap-2 flex-shrink-0 relative z-10 ml-2">
+          <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+            <Edit className="h-4 w-4 mr-2" />
+            Edit
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleArchive}
+            disabled={archiving}
+            className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:text-orange-400 dark:hover:text-orange-300 dark:hover:bg-orange-950"
+          >
+            <Archive className="h-4 w-4 mr-2" />
+            {archiving ? 'Archiving...' : 'Archive'}
+          </Button>
+        </div>
       </motion.div>
 
       <motion.div layout className="w-full">

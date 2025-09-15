@@ -183,6 +183,13 @@ CREATE TABLE IF NOT EXISTS public.business_householders (
   name text NOT NULL,
   status public.business_householder_status_t NOT NULL DEFAULT 'interested',
   note text,
+  created_by uuid REFERENCES public.profiles(id),
+  archived_by uuid REFERENCES public.profiles(id),
+  deleted_by uuid REFERENCES public.profiles(id),
+  is_archived boolean NOT NULL DEFAULT false,
+  is_deleted boolean NOT NULL DEFAULT false,
+  archived_at timestamptz,
+  deleted_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -457,24 +464,39 @@ CREATE POLICY "Business: est write" ON public.business_establishments FOR ALL US
 
 DROP POLICY IF EXISTS "Business: hh read" ON public.business_householders;
 CREATE POLICY "Business: hh read" ON public.business_householders FOR SELECT USING (
+  NOT is_deleted AND NOT is_archived AND
   EXISTS (
     SELECT 1 FROM public.business_establishments e, public.profiles me
-    WHERE e.id = public.business_householders.establishment_id AND me.id = auth.uid() AND me.congregation_id = e.congregation_id
+    WHERE e.id = public.business_householders.establishment_id 
+    AND me.id = auth.uid() 
+    AND me.congregation_id = e.congregation_id
+    AND NOT e.is_deleted
   )
 );
 
 DROP POLICY IF EXISTS "Business: hh write" ON public.business_householders;
 CREATE POLICY "Business: hh write" ON public.business_householders FOR ALL USING (
+  NOT is_deleted AND
   EXISTS (
     SELECT 1 FROM public.business_establishments e, public.business_participants bp, public.profiles me
-    WHERE e.id = public.business_householders.establishment_id AND bp.user_id = auth.uid() AND me.id = auth.uid()
-    AND bp.congregation_id = e.congregation_id AND me.congregation_id = e.congregation_id AND bp.active = true
+    WHERE e.id = public.business_householders.establishment_id 
+    AND bp.user_id = auth.uid() 
+    AND me.id = auth.uid()
+    AND bp.congregation_id = e.congregation_id 
+    AND me.congregation_id = e.congregation_id 
+    AND bp.active = true
+    AND NOT e.is_deleted
   )
 ) WITH CHECK (
   EXISTS (
     SELECT 1 FROM public.business_establishments e, public.business_participants bp, public.profiles me
-    WHERE e.id = public.business_householders.establishment_id AND bp.user_id = auth.uid() AND me.id = auth.uid()
-    AND bp.congregation_id = e.congregation_id AND me.congregation_id = e.congregation_id AND bp.active = true
+    WHERE e.id = public.business_householders.establishment_id 
+    AND bp.user_id = auth.uid() 
+    AND me.id = auth.uid()
+    AND bp.congregation_id = e.congregation_id 
+    AND me.congregation_id = e.congregation_id 
+    AND bp.active = true
+    AND NOT e.is_deleted
   )
 );
 

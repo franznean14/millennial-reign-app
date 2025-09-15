@@ -28,13 +28,14 @@ import { ProfileForm } from "@/components/account/ProfileForm";
 import { LogoutButton } from "@/components/account/LogoutButton";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
-import { Search } from "lucide-react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Search, Building2, Users } from "lucide-react";
 import { cacheSet } from "@/lib/offline/store";
 import { LoginView } from "@/components/views/LoginView";
 
 // Import all the data and business logic functions
 import { getDailyRecord, listDailyByMonth, upsertDailyRecord, isDailyEmpty, deleteDailyRecord } from "@/lib/db/dailyRecords";
-import { getEstablishmentsWithDetails, getEstablishmentDetails, getHouseholderDetails, type EstablishmentWithDetails, type VisitWithUser, type HouseholderWithDetails, type BusinessFiltersState } from "@/lib/db/business";
+import { getEstablishmentsWithDetails, getEstablishmentDetails, getHouseholderDetails, listHouseholders, deleteHouseholder, archiveHouseholder, type EstablishmentWithDetails, type VisitWithUser, type HouseholderWithDetails, type BusinessFiltersState } from "@/lib/db/business";
 import { getMyCongregation, saveCongregation, isAdmin, type Congregation } from "@/lib/db/congregations";
 import { getProfile } from "@/lib/db/profiles";
 import { archiveEstablishment, deleteEstablishment } from "@/lib/db/business";
@@ -44,6 +45,7 @@ import { businessEventBus } from "@/lib/events/business-events";
 const HomeSummary = dynamic(() => import("@/components/home/HomeSummary").then(m => m.HomeSummary), { ssr: false });
 const TopStudies = dynamic(() => import("@/components/home/TopStudies").then(m => m.TopStudies), { ssr: false });
 const EstablishmentList = dynamic(() => import("@/components/business/EstablishmentList").then(m => m.EstablishmentList), { ssr: false });
+const HouseholderList = dynamic(() => import("@/components/business/HouseholderList").then(m => m.HouseholderList), { ssr: false });
 const EstablishmentDetails = dynamic(() => import("@/components/business/EstablishmentDetails").then(m => m.EstablishmentDetails), { ssr: false });
 const HouseholderDetails = dynamic(() => import("@/components/business/HouseholderDetails").then(m => m.HouseholderDetails), { ssr: false });
 const BusinessDrawerDialogs = dynamic(() => import("@/components/business/BusinessDrawerDialogs").then(m => m.BusinessDrawerDialogs), { ssr: false });
@@ -143,6 +145,8 @@ export function AppClient({ currentSection }: AppClientProps) {
 
   // Business state
   const [establishments, setEstablishments] = useState<EstablishmentWithDetails[]>([]);
+  const [householders, setHouseholders] = useState<HouseholderWithDetails[]>([]);
+  const [businessTab, setBusinessTab] = useState<'establishments' | 'householders'>('establishments');
   const [selectedEstablishment, setSelectedEstablishment] = useState<EstablishmentWithDetails | null>(null);
   const [selectedEstablishmentDetails, setSelectedEstablishmentDetails] = useState<{
     establishment: EstablishmentWithDetails;
@@ -192,6 +196,9 @@ export function AppClient({ currentSection }: AppClientProps) {
 
   // Add this state to track user's visited establishments
   const [userVisitedEstablishments, setUserVisitedEstablishments] = useState<Set<string>>(new Set());
+  
+  // Add this state to track user's visited householders
+  const [userVisitedHouseholders, setUserVisitedHouseholders] = useState<Set<string>>(new Set());
 
   // Load initial app data
   useEffect(() => {
@@ -290,12 +297,15 @@ export function AppClient({ currentSection }: AppClientProps) {
           const supabase = await getSupabaseClient();
           const { data: visits } = await supabase
             .from('business_visits')
-            .select('establishment_id')
+            .select('establishment_id, householder_id')
             .eq('publisher_id', userId);
           
           if (visits) {
-            const visitedIds = new Set(visits.map(v => v.establishment_id).filter(Boolean));
-            setUserVisitedEstablishments(visitedIds);
+            const visitedEstablishmentIds = new Set(visits.map(v => v.establishment_id).filter(Boolean));
+            setUserVisitedEstablishments(visitedEstablishmentIds);
+            
+            const visitedHouseholderIds = new Set(visits.map(v => v.householder_id).filter(Boolean));
+            setUserVisitedHouseholders(visitedHouseholderIds);
           }
         } catch (error) {
           console.error('Failed to load user visits:', error);
@@ -326,8 +336,12 @@ export function AppClient({ currentSection }: AppClientProps) {
   // Business functions
   const loadBusinessData = useCallback(async () => {
     try {
-      const establishments = await getEstablishmentsWithDetails();
-      setEstablishments(establishments);
+      const [establishmentsData, householdersData] = await Promise.all([
+        getEstablishmentsWithDetails(),
+        listHouseholders()
+      ]);
+      setEstablishments(establishmentsData);
+      setHouseholders(householdersData);
 
       // Set up business event listeners
       businessEventBus.subscribe('establishment-added', addNewEstablishment);
@@ -508,6 +522,44 @@ export function AppClient({ currentSection }: AppClientProps) {
     }
   }, [selectedEstablishment]);
 
+  const handleDeleteHouseholder = useCallback(async (householder: HouseholderWithDetails) => {
+    try {
+      const success = await deleteHouseholder(householder.id);
+      if (success) {
+        toast.success(`${householder.name} deleted successfully`);
+        setHouseholders(prev => prev.filter(h => h.id !== householder.id));
+        if (selectedHouseholder?.id === householder.id) {
+          setSelectedHouseholder(null);
+          setSelectedHouseholderDetails(null);
+        }
+      } else {
+        toast.error('Failed to delete householder');
+      }
+    } catch (error) {
+      console.error('Failed to delete householder:', error);
+      toast.error('Failed to delete householder');
+    }
+  }, [selectedHouseholder]);
+
+  const handleArchiveHouseholder = useCallback(async (householder: HouseholderWithDetails) => {
+    try {
+      const success = await archiveHouseholder(householder.id);
+      if (success) {
+        toast.success(`${householder.name} archived successfully`);
+        setHouseholders(prev => prev.filter(h => h.id !== householder.id));
+        if (selectedHouseholder?.id === householder.id) {
+          setSelectedHouseholder(null);
+          setSelectedHouseholderDetails(null);
+        }
+      } else {
+        toast.error('Failed to archive householder');
+      }
+    } catch (error) {
+      console.error('Failed to archive householder:', error);
+      toast.error('Failed to archive householder');
+    }
+  }, [selectedHouseholder]);
+
   // Business filtering logic
   const filteredEstablishments = useMemo(() => {
     const base = establishments.filter(establishment => {
@@ -573,6 +625,60 @@ export function AppClient({ currentSection }: AppClientProps) {
     }
     return sorted;
   }, [establishments, filters, userId, userVisitedEstablishments]);
+
+  // Business filtering logic for householders
+  const filteredHouseholders = useMemo(() => {
+    const base = householders.filter(householder => {
+      // Search filter
+      if (filters.search && !householder.name.toLowerCase().includes(filters.search.toLowerCase())) {
+        return false;
+      }
+      
+      // Status filter (for householder statuses)
+      if (filters.statuses.length > 0 && !filters.statuses.includes(householder.status)) {
+        return false;
+      }
+      
+      // Area filter (based on establishment area)
+      if (filters.areas.length > 0 && householder.establishment_name) {
+        // We need to check if the establishment area matches
+        // For now, we'll skip area filtering for householders since we don't have establishment area in the householder data
+        // This could be enhanced by joining with establishment data
+      }
+      
+      // My Householders filter: show only householders the user has visited
+      if (filters.myEstablishments) {
+        const visitedByUser = householder.id ? userVisitedHouseholders.has(householder.id) : false;
+        if (!visitedByUser) return false;
+      }
+      
+      return true;
+    });
+    
+    // Sorting
+    const sorted = [...base];
+    switch (filters.sort) {
+      case 'name_asc':
+        sorted.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case 'name_desc':
+        sorted.sort((a, b) => b.name.localeCompare(a.name));
+        break;
+      case 'area_asc':
+        sorted.sort((a, b) => (a.establishment_name || '').localeCompare(b.establishment_name || ''));
+        break;
+      case 'area_desc':
+        sorted.sort((a, b) => (b.establishment_name || '').localeCompare(a.establishment_name || ''));
+        break;
+      case 'last_visit_asc':
+      case 'last_visit_desc':
+      default:
+        // For householders, we don't have last_visit_at, so sort by name
+        sorted.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+    }
+    return sorted;
+    }, [householders, filters, userId, establishments, userVisitedHouseholders]);
 
   // Helpers for displaying active filter badges
   const formatStatusLabel = (status: string) =>
@@ -697,18 +803,51 @@ export function AppClient({ currentSection }: AppClientProps) {
           transition={{ duration: 0.3 }}
           className="space-y-6 pb-24" // Add bottom padding for navbar
         >
-          {!selectedEstablishment && (
-            <div className="flex items-center justify-between overflow-hidden w-full max-w-full">
-              <div className="flex-1 min-w-0">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    placeholder="Search establishments..."
-                    value={filters.search}
-                    onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                    className="pl-10"
-                  />
-                </div>
+          {!selectedEstablishment && !selectedHouseholder && (
+            <>
+              {/* Tab Navigation */}
+              <div className="flex justify-center mb-4">
+                    <ToggleGroup
+                      type="single"
+                      value={businessTab}
+                      onValueChange={(value) => {
+                        if (value) {
+                          setBusinessTab(value as 'establishments' | 'householders');
+                          // Clear status filters when switching tabs since they use different status types
+                          setFilters(prev => ({ ...prev, statuses: [] }));
+                        }
+                      }}
+                      className="bg-muted/50 p-1 rounded-lg"
+                    >
+                  <ToggleGroupItem 
+                    value="establishments" 
+                    className="data-[state=on]:bg-background data-[state=on]:shadow-sm"
+                  >
+                    <Building2 className="h-4 w-4 mr-2" />
+                    Establishments
+                  </ToggleGroupItem>
+                  <ToggleGroupItem 
+                    value="householders" 
+                    className="data-[state=on]:bg-background data-[state=on]:shadow-sm"
+                  >
+                    <Users className="h-4 w-4 mr-2" />
+                    Householders
+                  </ToggleGroupItem>
+                </ToggleGroup>
+              </div>
+
+              {/* Search Field */}
+              <div className="flex items-center justify-between overflow-hidden w-full max-w-full">
+                <div className="flex-1 min-w-0">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      placeholder={businessTab === 'establishments' ? "Search establishments..." : "Search householders..."}
+                      value={filters.search}
+                      onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                      className="pl-10"
+                    />
+                  </div>
                 {(filters.search || filters.statuses.length > 0 || filters.areas.length > 0 || filters.myEstablishments) && (
                   /* moved to EstablishmentList inline with controls */
                   false && (
@@ -755,8 +894,9 @@ export function AppClient({ currentSection }: AppClientProps) {
                     </Badge>
                   </div>))
                 }
+                </div>
               </div>
-            </div>
+            </>
           )}
 
           <motion.div 
@@ -765,34 +905,65 @@ export function AppClient({ currentSection }: AppClientProps) {
           >
             <AnimatePresence mode="wait">
               {!selectedEstablishment && !selectedHouseholder ? (
-                <motion.div
-                  key="establishment-list"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.3 }}
-                  className="w-full"
-                >
-                  <EstablishmentList
-                    establishments={filteredEstablishments}
-                    onEstablishmentClick={(establishment) => {
-                      setSelectedEstablishment(establishment);
-                      if (establishment.id) {
-                        loadEstablishmentDetails(establishment.id);
-                      }
-                    }}
-                    onEstablishmentDelete={handleDeleteEstablishment}
-                    onEstablishmentArchive={handleArchiveEstablishment}
-                    myEstablishmentsOnly={filters.myEstablishments}
-                    onMyEstablishmentsChange={(checked) => setFilters(prev => ({ ...prev, myEstablishments: checked }))}
-                    onOpenFilters={() => setFiltersModalOpen(true)}
-                    filters={filters}
-                    onClearAllFilters={handleClearAllFilters}
-                    onClearSearch={handleClearSearch}
-                    onRemoveStatus={handleRemoveStatus}
-                    onRemoveArea={handleRemoveArea}
-                  />
-                </motion.div>
+                businessTab === 'establishments' ? (
+                  <motion.div
+                    key="establishment-list"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.3 }}
+                    className="w-full"
+                  >
+                    <EstablishmentList
+                      establishments={filteredEstablishments}
+                      onEstablishmentClick={(establishment) => {
+                        setSelectedEstablishment(establishment);
+                        if (establishment.id) {
+                          loadEstablishmentDetails(establishment.id);
+                        }
+                      }}
+                      onEstablishmentDelete={handleDeleteEstablishment}
+                      onEstablishmentArchive={handleArchiveEstablishment}
+                      myEstablishmentsOnly={filters.myEstablishments}
+                      onMyEstablishmentsChange={(checked) => setFilters(prev => ({ ...prev, myEstablishments: checked }))}
+                      onOpenFilters={() => setFiltersModalOpen(true)}
+                      filters={filters}
+                      onClearAllFilters={handleClearAllFilters}
+                      onClearSearch={handleClearSearch}
+                      onRemoveStatus={handleRemoveStatus}
+                      onRemoveArea={handleRemoveArea}
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="householder-list"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.3 }}
+                    className="w-full"
+                  >
+                    <HouseholderList
+                      householders={filteredHouseholders}
+                      onHouseholderClick={(householder) => {
+                        setSelectedHouseholder(householder);
+                        if (householder.id) {
+                          loadHouseholderDetails(householder.id);
+                        }
+                      }}
+                      onHouseholderDelete={handleDeleteHouseholder}
+                      onHouseholderArchive={handleArchiveHouseholder}
+                      myHouseholdersOnly={filters.myEstablishments}
+                      onMyHouseholdersChange={(checked) => setFilters(prev => ({ ...prev, myEstablishments: checked }))}
+                      onOpenFilters={() => setFiltersModalOpen(true)}
+                      filters={filters}
+                      onClearAllFilters={handleClearAllFilters}
+                      onClearSearch={handleClearSearch}
+                      onRemoveStatus={handleRemoveStatus}
+                      onRemoveArea={handleRemoveArea}
+                    />
+                  </motion.div>
+                )
               ) : selectedHouseholder ? (
                 <motion.div
                   key="householder-details"
@@ -807,7 +978,7 @@ export function AppClient({ currentSection }: AppClientProps) {
                     householder={selectedHouseholder}
                     visits={selectedHouseholderDetails?.visits || []}
                     establishment={selectedHouseholderDetails?.establishment || null}
-                    establishments={establishments}
+                    establishments={establishments.filter(e => e.id).map(e => ({ id: e.id!, name: e.name, area: e.area }))}
                     onBackClick={() => {
                       setSelectedHouseholder(null);
                       setSelectedHouseholderDetails(null);
@@ -824,20 +995,22 @@ export function AppClient({ currentSection }: AppClientProps) {
                   className="w-full"
                   layout // Add layout animation to the details
                 >
-                  <EstablishmentDetails
-                    establishment={selectedEstablishment}
-                    visits={selectedEstablishmentDetails?.visits || []}
-                    householders={selectedEstablishmentDetails?.householders || []}
-                    onBackClick={() => {
-                      setSelectedEstablishment(null);
-                      setSelectedEstablishmentDetails(null);
-                    }}
-                    onEstablishmentUpdated={(est) => est?.id && updateEstablishment({ id: est.id!, ...est })}
-                    onHouseholderClick={(hh) => {
-                      setSelectedHouseholder(hh);
-                      if (hh.id) loadHouseholderDetails(hh.id);
-                    }}
-                  />
+                  {selectedEstablishment && (
+                    <EstablishmentDetails
+                      establishment={selectedEstablishment}
+                      visits={selectedEstablishmentDetails?.visits || []}
+                      householders={selectedEstablishmentDetails?.householders || []}
+                      onBackClick={() => {
+                        setSelectedEstablishment(null);
+                        setSelectedEstablishmentDetails(null);
+                      }}
+                      onEstablishmentUpdated={(est) => est?.id && updateEstablishment({ id: est.id!, ...est })}
+                      onHouseholderClick={(hh) => {
+                        setSelectedHouseholder(hh);
+                        if (hh.id) loadHouseholderDetails(hh.id);
+                      }}
+                    />
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -860,13 +1033,18 @@ export function AppClient({ currentSection }: AppClientProps) {
                 sort: 'last_visit_desc'
               })}
               hasActiveFilters={hasActiveFilters}
-              statusOptions={[
+              statusOptions={businessTab === 'establishments' ? [
                 { value: "for_scouting", label: "For Scouting" },
                 { value: "for_follow_up", label: "For Follow Up" },
                 { value: "for_replenishment", label: "For Replenishment" },
                 { value: "accepted_rack", label: "Accepted Rack" },
                 { value: "declined_rack", label: "Declined Rack" },
                 { value: "has_bible_studies", label: "Has Bible Studies" }
+              ] : [
+                { value: "interested", label: "Interested" },
+                { value: "return_visit", label: "Return Visit" },
+                { value: "bible_study", label: "Bible Study" },
+                { value: "do_not_call", label: "Do Not Call" }
               ]}
               areaOptions={areaOptions}
               onClose={() => setFiltersModalOpen(false)}
