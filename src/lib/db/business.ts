@@ -155,6 +155,95 @@ export async function listEstablishments(): Promise<Establishment[]> {
   }
 }
 
+export async function listHouseholders(): Promise<HouseholderWithDetails[]> {
+  const supabase = createSupabaseBrowserClient();
+  await supabase.auth.getSession().catch(() => {});
+  const cacheKey = 'householders:list';
+  try {
+    // If offline, serve from cache
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const cached = await cacheGet<HouseholderWithDetails[]>(cacheKey);
+      return cached ?? [];
+    }
+    
+    const { data, error } = await supabase
+      .from('business_householders')
+      .select(`
+        *,
+        establishment:business_establishments(name),
+        visits:business_visits(
+          publisher_id,
+          partner_id,
+          publisher:profiles!business_visits_publisher_id_fkey(first_name, last_name, avatar_url),
+          partner:profiles!business_visits_partner_id_fkey(first_name, last_name, avatar_url)
+        )
+      `)
+      .eq('is_deleted', false)
+      .eq('is_archived', false)
+      .order('updated_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching householders:', error);
+      return [];
+    }
+    if (!data) return [];
+
+    // Transform the data to match HouseholderWithDetails interface
+    const householders: HouseholderWithDetails[] = data.map((hh: any) => {
+      // Get establishment name
+      const establishment = Array.isArray(hh.establishment) ? hh.establishment[0] : hh.establishment;
+      
+      // Get unique visitors with visit counts
+      const visitors = new Map();
+      hh.visits?.forEach((visit: any) => {
+        if (visit.publisher) {
+          const key = visit.publisher.id;
+          if (!visitors.has(key)) {
+            visitors.set(key, {
+              user_id: visit.publisher.id,
+              first_name: visit.publisher.first_name,
+              last_name: visit.publisher.last_name,
+              avatar_url: visit.publisher.avatar_url,
+              visit_count: 0
+            });
+          }
+          visitors.get(key).visit_count++;
+        }
+        if (visit.partner) {
+          const key = visit.partner.id;
+          if (!visitors.has(key)) {
+            visitors.set(key, {
+              user_id: visit.partner.id,
+              first_name: visit.partner.first_name,
+              last_name: visit.partner.last_name,
+              avatar_url: visit.partner.avatar_url,
+              visit_count: 0
+            });
+          }
+          visitors.get(key).visit_count++;
+        }
+      });
+
+      return {
+        id: hh.id,
+        name: hh.name,
+        status: hh.status,
+        note: hh.note,
+        establishment_id: hh.establishment_id,
+        establishment_name: establishment?.name,
+        top_visitors: Array.from(visitors.values()).sort((a, b) => b.visit_count - a.visit_count)
+      };
+    });
+
+    await cacheSet(cacheKey, householders);
+    return householders;
+  } catch (error) {
+    console.error('Error listing householders:', error);
+    const cached = await cacheGet<HouseholderWithDetails[]>(cacheKey);
+    return cached ?? [];
+  }
+}
+
 export async function upsertEstablishment(establishment: {
   id?: string;
   name: string;
@@ -302,9 +391,50 @@ export async function upsertHouseholder(h: Householder): Promise<Householder | n
 export async function deleteHouseholder(householderId: string): Promise<boolean> {
   const supabase = createSupabaseBrowserClient();
   await supabase.auth.getSession().catch(() => {});
-  const { error } = await supabase.from('business_householders').delete().eq('id', householderId);
+  
+  // Get user's profile
+  const { data: profile } = await supabase.rpc('get_my_profile');
+  if (!profile?.id) {
+    throw new Error('User not authenticated');
+  }
+  
+  const { error } = await supabase
+    .from('business_householders')
+    .update({
+      is_deleted: true,
+      deleted_at: new Date().toISOString(),
+      deleted_by: profile.id
+    })
+    .eq('id', householderId);
+    
   if (error) {
     console.error('Error deleting householder:', error);
+    return false;
+  }
+  return true;
+}
+
+export async function archiveHouseholder(householderId: string): Promise<boolean> {
+  const supabase = createSupabaseBrowserClient();
+  await supabase.auth.getSession().catch(() => {});
+  
+  // Get user's profile
+  const { data: profile } = await supabase.rpc('get_my_profile');
+  if (!profile?.id) {
+    throw new Error('User not authenticated');
+  }
+  
+  const { error } = await supabase
+    .from('business_householders')
+    .update({
+      is_archived: true,
+      archived_at: new Date().toISOString(),
+      archived_by: profile.id
+    })
+    .eq('id', householderId);
+    
+  if (error) {
+    console.error('Error archiving householder:', error);
     return false;
   }
   return true;

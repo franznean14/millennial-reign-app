@@ -40,7 +40,26 @@ export function SPAProvider({ children }: { children: ReactNode }) {
   const checkAuth = async () => {
     try {
       const supabase = createSupabaseBrowserClient();
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      // Handle specific auth errors
+      if (error) {
+        console.error('Auth session error:', error);
+        
+        // If it's a refresh token error, clear the session and redirect to login
+        if (error.message?.includes('Refresh Token') || error.message?.includes('Invalid Refresh Token')) {
+          console.log('Refresh token invalid, clearing session...');
+          await supabase.auth.signOut();
+          setIsAuthenticated(false);
+          setUserPermissions({
+            showCongregation: false,
+            showBusiness: false,
+          });
+          // Redirect to login page
+          window.location.href = '/login';
+          return;
+        }
+      }
       
       if (session?.user) {
         setIsAuthenticated(true);
@@ -73,11 +92,34 @@ export function SPAProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Auth check error:', error);
       setIsAuthenticated(false);
+      setUserPermissions({
+        showCongregation: false,
+        showBusiness: false,
+      });
     }
   };
 
   useEffect(() => {
     checkAuth();
+  }, []);
+
+  // Listen for auth state changes to handle token refresh failures
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+    
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state change:', event, session?.user?.id);
+        
+        if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+          checkAuth();
+        } else if (event === 'SIGNED_IN') {
+          checkAuth();
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
   // Derive current section from URL on first load and on history navigation
