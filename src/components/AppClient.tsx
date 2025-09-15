@@ -1056,6 +1056,9 @@ export function AppClient({ currentSection }: AppClientProps) {
             establishments={establishments}
             selectedEstablishmentId={selectedEstablishment?.id}
             selectedArea={filters.areas[0]}
+            businessTab={businessTab}
+            selectedEstablishment={selectedEstablishment}
+            selectedHouseholder={selectedHouseholder}
           />
         </motion.div>
       );
