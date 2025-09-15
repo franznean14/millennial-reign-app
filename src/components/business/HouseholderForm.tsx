@@ -27,9 +27,10 @@ interface HouseholderFormProps {
     note?: string | null;
   } | null;
   onDelete?: () => Promise<void> | void;
+  disableEstablishmentSelect?: boolean;
 }
 
-export function HouseholderForm({ establishments, selectedEstablishmentId, onSaved, isEditing = false, initialData = null, onDelete }: HouseholderFormProps) {
+export function HouseholderForm({ establishments, selectedEstablishmentId, onSaved, isEditing = false, initialData = null, onDelete, disableEstablishmentSelect = false }: HouseholderFormProps) {
   const [estId, setEstId] = useState<string>(
     initialData?.establishment_id || selectedEstablishmentId || establishments[0]?.id || ""
   );
@@ -97,12 +98,18 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
     <form className="grid gap-3 pb-10" onSubmit={handleSubmit}>
       <div className="grid gap-1">
         <Label>Establishment</Label>
-        <Select value={estId} onValueChange={setEstId}>
-          <SelectTrigger><SelectValue placeholder="Select establishment"/></SelectTrigger>
-          <SelectContent>
-            {establishments.map((e)=> <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
+        {disableEstablishmentSelect ? (
+          <div className="px-3 py-2 text-sm bg-muted rounded-md">
+            {establishments.find(e => e.id === estId)?.name || 'Selected establishment'}
+          </div>
+        ) : (
+          <Select value={estId} onValueChange={setEstId}>
+            <SelectTrigger><SelectValue placeholder="Select establishment"/></SelectTrigger>
+            <SelectContent>
+              {establishments.map((e)=> <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
+            </SelectContent>
+          </Select>
+        )}
       </div>
       <div className="grid gap-1">
         <Label>Name</Label>

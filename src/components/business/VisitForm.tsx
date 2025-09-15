@@ -32,11 +32,13 @@ interface VisitFormProps {
   };
   // Householder context
   householderId?: string;
+  householderName?: string;
   // Optional prefill for note (used when creating)
   prefillNote?: string;
+  disableEstablishmentSelect?: boolean;
 }
 
-export function VisitForm({ establishments, selectedEstablishmentId, onSaved, initialVisit, householderId, prefillNote }: VisitFormProps) {
+export function VisitForm({ establishments, selectedEstablishmentId, onSaved, initialVisit, householderId, householderName, prefillNote, disableEstablishmentSelect = false }: VisitFormProps) {
   const [estId, setEstId] = useState<string>(
     selectedEstablishmentId || initialVisit?.establishment_id || establishments[0]?.id || "none"
   );
@@ -261,16 +263,31 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
   
   return (
     <form className="grid gap-3 pb-10" onSubmit={handleSubmit}>
-      <div className="grid gap-1">
-        <Label>Establishment (optional)</Label>
-        <Select value={estId} onValueChange={setEstId}>
-          <SelectTrigger><SelectValue placeholder="Select establishment"/></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">None</SelectItem>
-            {establishments.map((e)=> <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
-          </SelectContent>
-        </Select>
-      </div>
+      {householderId ? (
+        <div className="grid gap-1">
+          <Label>Householder</Label>
+          <div className="px-3 py-2 text-sm bg-muted rounded-md">
+            {householderName || 'Selected householder'}
+          </div>
+        </div>
+      ) : (
+        <div className="grid gap-1">
+          <Label>Establishment</Label>
+          {disableEstablishmentSelect ? (
+            <div className="px-3 py-2 text-sm bg-muted rounded-md">
+              {establishments.find(e => e.id === estId)?.name || 'Selected establishment'}
+            </div>
+          ) : (
+            <Select value={estId} onValueChange={setEstId}>
+              <SelectTrigger><SelectValue placeholder="Select establishment"/></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                {establishments.map((e)=> <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+      )}
       
       <div className="grid gap-1">
         <Label>Visit Date</Label>

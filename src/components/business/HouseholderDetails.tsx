@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChevronLeft, Calendar, User2, Edit, Plus, Archive } from "lucide-react";
+import { ChevronLeft, Calendar, User2, Edit, Archive } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { toast } from "@/components/ui/sonner";
@@ -29,7 +29,6 @@ export function HouseholderDetails({ householder, visits, establishment, establi
   const isMobile = useMobile();
   const [isEditing, setIsEditing] = useState(false);
   const [editVisit, setEditVisit] = useState<{ id: string; establishment_id?: string | null; householder_id?: string | null; note?: string | null; publisher_id?: string | null; partner_id?: string | null; visit_date?: string } | null>(null);
-  const [addVisitOpen, setAddVisitOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [archiving, setArchiving] = useState(false);
 
@@ -190,15 +189,11 @@ export function HouseholderDetails({ householder, visits, establishment, establi
 
       <motion.div layout className="w-full">
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5 flex-shrink-0" />
               Visit Updates ({visits.length})
             </CardTitle>
-            <Button size="sm" onClick={() => setAddVisitOpen(true)}>
-              <Plus className="h-4 w-4 mr-1" />
-              Add
-            </Button>
           </CardHeader>
           <CardContent>
             {visits.length > 0 ? (
@@ -288,13 +283,13 @@ export function HouseholderDetails({ householder, visits, establishment, establi
         </Dialog>
       )}
 
-      {/* Add/Edit Visit */}
+      {/* Edit Visit */}
       {isMobile ? (
-        <Drawer open={addVisitOpen || !!editVisit} onOpenChange={(o) => { if (!o) { setAddVisitOpen(false); setEditVisit(null); }}}>
+        <Drawer open={!!editVisit} onOpenChange={(o) => { if (!o) { setEditVisit(null); }}}>
           <DrawerContent>
             <DrawerHeader className="text-center">
-              <DrawerTitle>{editVisit ? 'Edit Visit' : 'Visit Update'}</DrawerTitle>
-              <DrawerDescription>{editVisit ? 'Update visit details' : 'Record a visit note'}</DrawerDescription>
+              <DrawerTitle>Edit Visit</DrawerTitle>
+              <DrawerDescription>Update visit details</DrawerDescription>
             </DrawerHeader>
             <div className="px-4">
               <VisitForm
@@ -302,18 +297,17 @@ export function HouseholderDetails({ householder, visits, establishment, establi
                 selectedEstablishmentId={establishment?.id}
                 initialVisit={editVisit || undefined}
                 householderId={householder.id}
-                prefillNote={!editVisit ? householder.name : undefined}
-                onSaved={() => { setAddVisitOpen(false); setEditVisit(null); }}
+                onSaved={() => { setEditVisit(null); }}
               />
             </div>
           </DrawerContent>
         </Drawer>
       ) : (
-        <Dialog open={addVisitOpen || !!editVisit} onOpenChange={(o) => { if (!o) { setAddVisitOpen(false); setEditVisit(null); }}}>
+        <Dialog open={!!editVisit} onOpenChange={(o) => { if (!o) { setEditVisit(null); }}}>
           <DialogContent>
             <DialogHeader className="text-center">
-              <DialogTitle>{editVisit ? 'Edit Visit' : 'Visit Update'}</DialogTitle>
-              <DialogDescription>{editVisit ? 'Update visit details' : 'Record a visit note'}</DialogDescription>
+              <DialogTitle>Edit Visit</DialogTitle>
+              <DialogDescription>Update visit details</DialogDescription>
             </DialogHeader>
             <div className="px-4">
               <VisitForm
@@ -321,8 +315,7 @@ export function HouseholderDetails({ householder, visits, establishment, establi
                 selectedEstablishmentId={establishment?.id}
                 initialVisit={editVisit || undefined}
                 householderId={householder.id}
-                prefillNote={!editVisit ? householder.name : undefined}
-                onSaved={() => { setAddVisitOpen(false); setEditVisit(null); }}
+                onSaved={() => { setEditVisit(null); }}
               />
             </div>
           </DialogContent>
