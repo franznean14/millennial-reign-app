@@ -148,6 +148,28 @@ export function AppClient({ currentSection }: AppClientProps) {
   const [establishments, setEstablishments] = useState<EstablishmentWithDetails[]>([]);
   const [householders, setHouseholders] = useState<HouseholderWithDetails[]>([]);
   const [businessTab, setBusinessTab] = useState<'establishments' | 'householders' | 'map'>('establishments');
+  
+  // Debug tab changes
+  useEffect(() => {
+    console.log('Business tab changed to:', businessTab);
+  }, [businessTab]);
+
+  // Track if map view is active for hiding top bar
+  const isMapViewActive = currentSection === 'business' && businessTab === 'map';
+
+  // Add/remove CSS class to body for map view
+  useEffect(() => {
+    if (isMapViewActive) {
+      document.body.classList.add('map-view-active');
+    } else {
+      document.body.classList.remove('map-view-active');
+    }
+
+    // Cleanup on unmount
+    return () => {
+      document.body.classList.remove('map-view-active');
+    };
+  }, [isMapViewActive]);
   const [selectedEstablishment, setSelectedEstablishment] = useState<EstablishmentWithDetails | null>(null);
   const [selectedEstablishmentDetails, setSelectedEstablishmentDetails] = useState<{
     establishment: EstablishmentWithDetails;
@@ -802,13 +824,13 @@ export function AppClient({ currentSection }: AppClientProps) {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 20 }}
           transition={{ duration: 0.3 }}
-          className={businessTab === 'map' ? "fixed inset-0 z-40" : "space-y-6 pb-24"} // Full screen for map, normal for others
+          className={businessTab === 'map' ? "fixed inset-0 z-10" : "space-y-6 pb-24"} // Full screen for map, normal for others
         >
           {!selectedEstablishment && !selectedHouseholder && (
             <>
               {/* Floating Controls - Only show for map tab */}
               {businessTab === 'map' && (
-                <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 space-y-3">
+                <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[100] space-y-3">
                   {/* Tab Navigation */}
                   <div className="flex justify-center">
                     <ToggleGroup
@@ -821,27 +843,27 @@ export function AppClient({ currentSection }: AppClientProps) {
                           setFilters(prev => ({ ...prev, statuses: [] }));
                         }
                       }}
-                      className="bg-background/95 backdrop-blur-sm border p-1 rounded-lg shadow-lg"
+                      className="bg-background/95 backdrop-blur-sm border p-1 rounded-lg shadow-lg w-[26rem] mx-4"
                     >
                       <ToggleGroupItem 
                         value="establishments" 
-                        className="data-[state=on]:bg-background data-[state=on]:shadow-sm"
+                        className="data-[state=on]:bg-background data-[state=on]:shadow-sm flex-1 px-3 py-2"
                       >
-                        <Building2 className="h-4 w-4 mr-2" />
+                        <Building2 className="h-4 w-4 mr-1" />
                         Establishments
                       </ToggleGroupItem>
                       <ToggleGroupItem 
                         value="householders" 
-                        className="data-[state=on]:bg-background data-[state=on]:shadow-sm"
+                        className="data-[state=on]:bg-background data-[state=on]:shadow-sm flex-1 px-3 py-2"
                       >
-                        <Users className="h-4 w-4 mr-2" />
+                        <Users className="h-4 w-4 mr-1" />
                         Householders
                       </ToggleGroupItem>
                       <ToggleGroupItem 
                         value="map" 
-                        className="data-[state=on]:bg-background data-[state=on]:shadow-sm"
+                        className="data-[state=on]:bg-background data-[state=on]:shadow-sm flex-1 px-3 py-2"
                       >
-                        <MapPin className="h-4 w-4 mr-2" />
+                        <MapPin className="h-4 w-4 mr-1" />
                         Map
                       </ToggleGroupItem>
                     </ToggleGroup>
@@ -859,6 +881,54 @@ export function AppClient({ currentSection }: AppClientProps) {
                       />
                     </div>
                   </div>
+
+                  {/* Filter Controls */}
+                  {(filters.search || filters.statuses.length > 0 || filters.areas.length > 0 || filters.myEstablishments) && (
+                    <div className="flex justify-center">
+                      <div className="flex flex-wrap items-center gap-2 bg-background/95 backdrop-blur-sm border rounded-lg p-2 shadow-lg max-w-md">
+                        {filters.search && (
+                          <Badge variant="secondary" className="px-2 py-1 text-xs inline-flex items-center gap-1">
+                            <span>Search: {filters.search}</span>
+                            <button type="button" onClick={handleClearSearch} aria-label="Clear search" className="ml-1 rounded hover:bg-muted p-0.5">
+                              <X className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        )}
+                        {filters.statuses.map((s) => (
+                          <Badge key={s} variant="secondary" className="px-2 py-1 text-xs inline-flex items-center gap-1">
+                            <span>{formatStatusLabel(s)}</span>
+                            <button type="button" onClick={() => handleRemoveStatus(s)} aria-label={`Remove ${formatStatusLabel(s)}`} className="ml-1 rounded hover:bg-muted p-0.5">
+                              <X className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                        {filters.areas.map((a) => (
+                          <Badge key={a} variant="secondary" className="px-2 py-1 text-xs inline-flex items-center gap-1">
+                            <span>{a}</span>
+                            <button type="button" onClick={() => handleRemoveArea(a)} aria-label={`Remove ${a}`} className="ml-1 rounded hover:bg-muted p-0.5">
+                              <X className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        ))}
+                        {filters.myEstablishments && (
+                          <Badge variant="secondary" className="px-2 py-1 text-xs inline-flex items-center gap-1">
+                            <span>My Establishments</span>
+                            <button type="button" onClick={handleClearMyEstablishments} aria-label="Remove My Establishments" className="ml-1 rounded hover:bg-muted p-0.5">
+                              <X className="h-3 w-3" />
+                            </button>
+                          </Badge>
+                        )}
+                        <Badge
+                          variant="outline"
+                          className="px-2 py-1 text-xs inline-flex items-center gap-1 cursor-pointer"
+                          onClick={handleClearAllFilters}
+                        >
+                          <span>Clear</span>
+                          <X className="h-3 w-3" />
+                        </Badge>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -877,48 +947,48 @@ export function AppClient({ currentSection }: AppClientProps) {
                               setFilters(prev => ({ ...prev, statuses: [] }));
                             }
                           }}
-                          className="bg-muted/50 p-1 rounded-lg"
+                          className="bg-background/95 backdrop-blur-sm border p-1 rounded-lg shadow-lg w-[28rem] mx-0"
                         >
                       <ToggleGroupItem 
                         value="establishments" 
-                        className="data-[state=on]:bg-background data-[state=on]:shadow-sm"
+                        className="data-[state=on]:bg-background data-[state=on]:shadow-sm flex-1 px-3 py-2"
                       >
-                        <Building2 className="h-4 w-4 mr-2" />
+                        <Building2 className="h-4 w-4 mr-1" />
                         Establishments
                       </ToggleGroupItem>
                       <ToggleGroupItem 
                         value="householders" 
-                        className="data-[state=on]:bg-background data-[state=on]:shadow-sm"
+                        className="data-[state=on]:bg-background data-[state=on]:shadow-sm flex-1 px-3 py-2"
                       >
-                        <Users className="h-4 w-4 mr-2" />
+                        <Users className="h-4 w-4 mr-1" />
                         Householders
                       </ToggleGroupItem>
                       <ToggleGroupItem 
                         value="map" 
-                        className="data-[state=on]:bg-background data-[state=on]:shadow-sm"
+                        className="data-[state=on]:bg-background data-[state=on]:shadow-sm flex-1 px-3 py-2"
                       >
-                        <MapPin className="h-4 w-4 mr-2" />
+                        <MapPin className="h-4 w-4 mr-1" />
                         Map
                       </ToggleGroupItem>
                     </ToggleGroup>
                   </div>
 
                   {/* Search Field */}
-                  <div className="flex items-center justify-between overflow-hidden w-full max-w-full">
-                    <div className="flex-1 min-w-0">
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                        <Input
+            <div className="flex items-center justify-between overflow-hidden w-full max-w-full">
+              <div className="flex-1 min-w-0">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
                           placeholder={
                             businessTab === 'establishments' ? "Search establishments..." : 
                             businessTab === 'householders' ? "Search householders..." : 
                             "Search establishments on map..."
                           }
-                          value={filters.search}
-                          onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                          className="pl-10"
-                        />
-                      </div>
+                    value={filters.search}
+                    onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                    className="pl-10"
+                  />
+                </div>
                 {(filters.search || filters.statuses.length > 0 || filters.areas.length > 0 || filters.myEstablishments) && (
                   /* moved to EstablishmentList inline with controls */
                   false && (
@@ -965,48 +1035,48 @@ export function AppClient({ currentSection }: AppClientProps) {
                     </Badge>
                   </div>))
                 }
-                </div>
               </div>
+            </div>
                 </>
               )}
             </>
           )}
 
           <motion.div 
-            className="w-full"
+            className={businessTab === 'map' ? "w-full h-full" : "w-full"}
             transition={{ duration: 0.3, ease: "easeOut" }}
           >
             <AnimatePresence mode="wait">
               {!selectedEstablishment && !selectedHouseholder ? (
                 businessTab === 'establishments' ? (
-                  <motion.div
-                    key="establishment-list"
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    transition={{ duration: 0.3 }}
-                    className="w-full"
-                  >
-                    <EstablishmentList
-                      establishments={filteredEstablishments}
-                      onEstablishmentClick={(establishment) => {
-                        setSelectedEstablishment(establishment);
-                        if (establishment.id) {
-                          loadEstablishmentDetails(establishment.id);
-                        }
-                      }}
-                      onEstablishmentDelete={handleDeleteEstablishment}
-                      onEstablishmentArchive={handleArchiveEstablishment}
-                      myEstablishmentsOnly={filters.myEstablishments}
-                      onMyEstablishmentsChange={(checked) => setFilters(prev => ({ ...prev, myEstablishments: checked }))}
-                      onOpenFilters={() => setFiltersModalOpen(true)}
-                      filters={filters}
-                      onClearAllFilters={handleClearAllFilters}
-                      onClearSearch={handleClearSearch}
-                      onRemoveStatus={handleRemoveStatus}
-                      onRemoveArea={handleRemoveArea}
-                    />
-                  </motion.div>
+                <motion.div
+                  key="establishment-list"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                  transition={{ duration: 0.3 }}
+                  className="w-full"
+                >
+                  <EstablishmentList
+                    establishments={filteredEstablishments}
+                    onEstablishmentClick={(establishment) => {
+                      setSelectedEstablishment(establishment);
+                      if (establishment.id) {
+                        loadEstablishmentDetails(establishment.id);
+                      }
+                    }}
+                    onEstablishmentDelete={handleDeleteEstablishment}
+                    onEstablishmentArchive={handleArchiveEstablishment}
+                    myEstablishmentsOnly={filters.myEstablishments}
+                    onMyEstablishmentsChange={(checked) => setFilters(prev => ({ ...prev, myEstablishments: checked }))}
+                    onOpenFilters={() => setFiltersModalOpen(true)}
+                    filters={filters}
+                    onClearAllFilters={handleClearAllFilters}
+                    onClearSearch={handleClearSearch}
+                    onRemoveStatus={handleRemoveStatus}
+                    onRemoveArea={handleRemoveArea}
+                  />
+                </motion.div>
                 ) : businessTab === 'householders' ? (
                   <motion.div
                     key="householder-list"
@@ -1044,6 +1114,7 @@ export function AppClient({ currentSection }: AppClientProps) {
                     exit={{ opacity: 0, x: -20 }}
                     transition={{ duration: 0.3 }}
                     className="w-full h-full"
+                    style={{ height: '100%' }}
                   >
                     <EstablishmentMap
                       establishments={filteredEstablishments}
@@ -1068,16 +1139,18 @@ export function AppClient({ currentSection }: AppClientProps) {
                   className="w-full"
                   layout
                 >
+                  <div className={businessTab === 'map' ? "space-y-6 pb-24" : ""}>
                   <HouseholderDetails
                     householder={selectedHouseholder}
                     visits={selectedHouseholderDetails?.visits || []}
                     establishment={selectedHouseholderDetails?.establishment || null}
-                    establishments={establishments.filter(e => e.id).map(e => ({ id: e.id!, name: e.name, area: e.area }))}
+                      establishments={establishments.filter(e => e.id).map(e => ({ id: e.id!, name: e.name, area: e.area }))}
                     onBackClick={() => {
                       setSelectedHouseholder(null);
                       setSelectedHouseholderDetails(null);
                     }}
                   />
+                  </div>
                 </motion.div>
               ) : (
                 <motion.div
@@ -1090,20 +1163,22 @@ export function AppClient({ currentSection }: AppClientProps) {
                   layout // Add layout animation to the details
                 >
                   {selectedEstablishment && (
-                    <EstablishmentDetails
-                      establishment={selectedEstablishment}
-                      visits={selectedEstablishmentDetails?.visits || []}
-                      householders={selectedEstablishmentDetails?.householders || []}
-                      onBackClick={() => {
-                        setSelectedEstablishment(null);
-                        setSelectedEstablishmentDetails(null);
-                      }}
-                      onEstablishmentUpdated={(est) => est?.id && updateEstablishment({ id: est.id!, ...est })}
-                      onHouseholderClick={(hh) => {
-                        setSelectedHouseholder(hh);
-                        if (hh.id) loadHouseholderDetails(hh.id);
-                      }}
-                    />
+                    <div className={businessTab === 'map' ? "space-y-6 pb-24" : ""}>
+                  <EstablishmentDetails
+                    establishment={selectedEstablishment}
+                    visits={selectedEstablishmentDetails?.visits || []}
+                    householders={selectedEstablishmentDetails?.householders || []}
+                    onBackClick={() => {
+                      setSelectedEstablishment(null);
+                      setSelectedEstablishmentDetails(null);
+                    }}
+                    onEstablishmentUpdated={(est) => est?.id && updateEstablishment({ id: est.id!, ...est })}
+                    onHouseholderClick={(hh) => {
+                      setSelectedHouseholder(hh);
+                      if (hh.id) loadHouseholderDetails(hh.id);
+                    }}
+                  />
+                    </div>
                   )}
                 </motion.div>
               )}

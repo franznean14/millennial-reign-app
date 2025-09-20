@@ -323,6 +323,7 @@
 .leaflet-container {
   background-color: var(--background) !important;
   color: var(--foreground) !important;
+  z-index: 1 !important; /* Keep map at lowest z-index */
 }
 
 /* Dark theme for map tiles */
@@ -372,13 +373,201 @@
 }
 
 /* Leaflet control styling */
+.leaflet-control-zoom {
+  position: fixed !important;
+  bottom: 120px !important;
+  left: 16px !important;
+  top: auto !important;
+  z-index: 90 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
 .leaflet-control-zoom a {
-  background-color: var(--card) !important;
-  color: var(--card-foreground) !important;
-  border: 1px solid var(--border) !important;
+  background-color: white !important;
+  color: black !important;
+  border: none !important;
+  width: 48px !important;
+  height: 48px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 50% !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+  transition: all 0.2s ease-in-out !important;
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+  font-size: 18px !important;
+  font-weight: 300 !important;
+  text-decoration: none !important;
 }
 
 .leaflet-control-zoom a:hover {
-  background-color: var(--accent) !important;
-  color: var(--accent-foreground) !important;
+  background-color: white !important;
+  color: black !important;
+  transform: translateY(-1px) scale(1.05) !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+}
+
+.leaflet-control-zoom a:active {
+  transform: translateY(0) scale(0.95) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+}
+
+/* Custom locate me button */
+.leaflet-control-locate {
+  position: fixed !important;
+  bottom: 180px !important;
+  right: 20px !important;
+  z-index: 90 !important;
+  width: 48px !important;
+  height: 48px !important;
+}
+
+.leaflet-control-locate a {
+  background-color: white !important;
+  color: black !important;
+  border: none !important;
+  width: 48px !important;
+  height: 48px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-decoration: none !important;
+  border-radius: 50% !important;
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
+  transition: all 0.2s ease-in-out !important;
+  outline: none !important;
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+.leaflet-control-locate a:hover {
+  background-color: white !important;
+  color: black !important;
+  transform: translateY(-1px) scale(1.05) !important;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+}
+
+.leaflet-control-locate a:active {
+  transform: translateY(0) scale(0.95) !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
+}
+
+.leaflet-control-locate a svg {
+  width: 16px !important;
+  height: 16px !important;
+  stroke-width: 2 !important;
+}
+
+/* Mobile-specific fixes */
+@media (max-width: 768px) {
+  .leaflet-control-zoom a,
+  .leaflet-control-locate a {
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+    border: none !important;
+    outline: none !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+  }
+  
+  .leaflet-control-zoom a:focus,
+  .leaflet-control-locate a:focus {
+    outline: none !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+  }
+}
+
+
+/* Ensure drawers and modals are above everything */
+[data-vaul-drawer] {
+  z-index: 9999 !important;
+}
+
+[data-vaul-overlay] {
+  z-index: 9998 !important;
+}
+
+/* Dialog/Modal z-index */
+[role="dialog"] {
+  z-index: 9999 !important;
+}
+
+/* Hide top bar when map view is active */
+.map-view-active header[class*="sticky"] {
+  display: none !important;
+}
+
+/* Dark map container background */
+.leaflet-container {
+  background: #000000 !important;
+}
+
+/* Darken CartoDB tiles further */
+.leaflet-tile {
+  filter: brightness(2.1) contrast(0.85) !important;
+}
+
+
+/* Dark popup styling */
+.leaflet-popup-content-wrapper {
+  background: #1a1a1a !important;
+  color: #ffffff !important;
+}
+
+.leaflet-popup-tip {
+  background: #1a1a1a !important;
+}
+
+/* Custom cluster styling - matches pin design */
+.custom-cluster {
+  background: transparent !important;
+  border: none !important;
+}
+
+/* Custom popup styling for map markers */
+.leaflet-popup-content-wrapper {
+  background: rgba(0, 0, 0, 0.9) !important;
+  color: hsl(var(--foreground)) !important;
+  border: 2px solid hsl(var(--border)) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.8), 0 10px 25px -15px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
+  padding: 0 !important;
+  opacity: 1 !important;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  width: auto !important;
+  max-width: none !important;
+}
+
+.leaflet-popup-tip {
+  background: hsl(var(--background)) !important;
+  border: 2px solid hsl(var(--border)) !important;
+  border-top: none !important;
+  border-left: none !important;
+  opacity: 0.98 !important;
+  filter: brightness(0.85) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+.leaflet-popup-close-button {
+  color: hsl(var(--muted-foreground)) !important;
+  font-size: 18px !important;
+  padding: 8px !important;
+  top: 4px !important;
+  right: 4px !important;
+}
+
+.leaflet-popup-close-button:hover {
+  color: hsl(var(--foreground)) !important;
+  background: hsl(var(--muted)) !important;
+  border-radius: 4px !important;
 }
