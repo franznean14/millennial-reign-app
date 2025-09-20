@@ -17,7 +17,7 @@ interface BusinessDrawerDialogsProps {
   establishments: EstablishmentWithDetails[];
   selectedEstablishmentId?: string;
   selectedArea?: string;
-  businessTab?: 'establishments' | 'householders';
+  businessTab?: 'establishments' | 'householders' | 'map';
   selectedEstablishment?: EstablishmentWithDetails | null;
   selectedHouseholder?: any | null;
 }
