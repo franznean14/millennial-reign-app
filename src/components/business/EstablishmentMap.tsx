@@ -157,12 +157,17 @@ export function EstablishmentMap({
 
   useEffect(() => {
     setIsClient(true);
+    console.log('EstablishmentMap: Client-side rendering enabled');
   }, []);
 
   // Filter establishments with valid coordinates
   const establishmentsWithCoords = establishments.filter(
     (est) => est.lat && est.lng
   );
+
+  console.log('EstablishmentMap: Total establishments:', establishments.length);
+  console.log('EstablishmentMap: Establishments with coords:', establishmentsWithCoords.length);
+  console.log('EstablishmentMap: isClient:', isClient);
 
   // Calculate map center from establishments or use default
   const getMapCenter = () => {
@@ -178,7 +183,7 @@ export function EstablishmentMap({
 
   if (!isClient) {
     return (
-      <div className={`w-full h-96 bg-muted rounded-lg flex items-center justify-center ${className}`}>
+      <div className={`w-full h-full bg-muted flex items-center justify-center ${className}`}>
         <div className="text-center">
           <MapPin className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">Loading map...</p>
@@ -189,7 +194,7 @@ export function EstablishmentMap({
 
   if (establishmentsWithCoords.length === 0) {
     return (
-      <div className={`w-full h-96 bg-muted rounded-lg flex items-center justify-center ${className}`}>
+      <div className={`w-full h-full bg-muted flex items-center justify-center ${className}`}>
         <div className="text-center">
           <MapPin className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">No establishments with coordinates found</p>
@@ -199,7 +204,7 @@ export function EstablishmentMap({
   }
 
   return (
-    <div className={`w-full ${className || 'h-96'} rounded-lg overflow-hidden border`}>
+    <div className={`w-full h-full ${className || 'h-96'}`} style={{ height: '100%', width: '100%' }}>
       <MapContainer
         center={getMapCenter() as [number, number]}
         zoom={13}
