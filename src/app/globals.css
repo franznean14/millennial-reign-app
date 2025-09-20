@@ -179,3 +179,75 @@
 .no-scrollbar::-webkit-scrollbar {
   display: none; /* Chrome, Safari, Opera */
 }
+
+/* Visual viewport support for mobile keyboards */
+@supports (height: 100dvh) {
+  .drawer-content {
+    max-height: 100dvh;
+  }
+}
+
+/* Ensure drawers work properly with visual viewport */
+@media (max-width: 768px) {
+  .drawer-content {
+    /* Use visual viewport height when available */
+    max-height: 100vh;
+    max-height: 100dvh;
+  }
+}
+
+/* Immediate keyboard response for drawers */
+@media (max-width: 768px) {
+  [data-vaul-drawer] {
+    /* Use CSS environment variables for immediate response */
+    max-height: 100vh;
+    max-height: 100dvh;
+    /* Prevent initial browser push-up */
+    will-change: max-height, transform;
+    /* Use CSS custom properties for immediate updates */
+    max-height: var(--visual-viewport-height, 100vh);
+    /* Smooth height transitions */
+    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+                transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* When keyboard is detected (viewport height reduced), adjust immediately */
+  @supports (height: 100dvh) {
+    [data-vaul-drawer] {
+      max-height: var(--visual-viewport-height, 100dvh);
+    }
+  }
+  
+  /* Overlay should also respond immediately with smooth transitions */
+  [data-vaul-overlay] {
+    /* Only set max-height constraint, don't force positioning */
+    max-height: var(--visual-viewport-height, 100vh);
+    /* Smooth overlay transitions - only animate height */
+    transition: max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* Enhanced animations for drawer content */
+  [data-vaul-drawer] .drawer-content-inner {
+    transition: padding-bottom 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* Smooth handle animation */
+  [data-vaul-drawer] .mx-auto.mt-4 {
+    transition: opacity 0.2s ease-in-out;
+  }
+  
+  /* Enhanced scroll behavior */
+  [data-vaul-drawer] .overflow-y-auto {
+    scroll-behavior: smooth;
+  }
+  
+  /* Subtle shadow animation */
+  [data-vaul-drawer] {
+    transition: box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* When keyboard is open, add subtle shadow */
+  [data-vaul-drawer][style*="max-height"] {
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+  }
+}
