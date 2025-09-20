@@ -199,7 +199,7 @@ export function EstablishmentMap({
   }
 
   return (
-    <div className={`w-full h-96 rounded-lg overflow-hidden border ${className}`}>
+    <div className={`w-full ${className || 'h-96'} rounded-lg overflow-hidden border`}>
       <MapContainer
         center={getMapCenter() as [number, number]}
         zoom={13}

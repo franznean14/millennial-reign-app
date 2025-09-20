@@ -802,12 +802,15 @@ export function AppClient({ currentSection }: AppClientProps) {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 20 }}
           transition={{ duration: 0.3 }}
-          className="space-y-6 pb-24" // Add bottom padding for navbar
+          className={businessTab === 'map' ? "relative h-screen overflow-hidden" : "space-y-6 pb-24"} // Full screen for map, normal for others
         >
           {!selectedEstablishment && !selectedHouseholder && (
             <>
-              {/* Tab Navigation */}
-              <div className="flex justify-center mb-4">
+              {/* Floating Controls - Only show for map tab */}
+              {businessTab === 'map' && (
+                <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-50 space-y-3">
+                  {/* Tab Navigation */}
+                  <div className="flex justify-center">
                     <ToggleGroup
                       type="single"
                       value={businessTab}
@@ -818,48 +821,104 @@ export function AppClient({ currentSection }: AppClientProps) {
                           setFilters(prev => ({ ...prev, statuses: [] }));
                         }
                       }}
-                      className="bg-muted/50 p-1 rounded-lg"
+                      className="bg-background/95 backdrop-blur-sm border p-1 rounded-lg shadow-lg"
                     >
-                  <ToggleGroupItem 
-                    value="establishments" 
-                    className="data-[state=on]:bg-background data-[state=on]:shadow-sm"
-                  >
-                    <Building2 className="h-4 w-4 mr-2" />
-                    Establishments
-                  </ToggleGroupItem>
-                  <ToggleGroupItem 
-                    value="householders" 
-                    className="data-[state=on]:bg-background data-[state=on]:shadow-sm"
-                  >
-                    <Users className="h-4 w-4 mr-2" />
-                    Householders
-                  </ToggleGroupItem>
-                  <ToggleGroupItem 
-                    value="map" 
-                    className="data-[state=on]:bg-background data-[state=on]:shadow-sm"
-                  >
-                    <MapPin className="h-4 w-4 mr-2" />
-                    Map
-                  </ToggleGroupItem>
-                </ToggleGroup>
-              </div>
-
-              {/* Search Field */}
-              <div className="flex items-center justify-between overflow-hidden w-full max-w-full">
-                <div className="flex-1 min-w-0">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                    <Input
-                      placeholder={
-                        businessTab === 'establishments' ? "Search establishments..." : 
-                        businessTab === 'householders' ? "Search householders..." : 
-                        "Search establishments on map..."
-                      }
-                      value={filters.search}
-                      onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                      className="pl-10"
-                    />
+                      <ToggleGroupItem 
+                        value="establishments" 
+                        className="data-[state=on]:bg-background data-[state=on]:shadow-sm"
+                      >
+                        <Building2 className="h-4 w-4 mr-2" />
+                        Establishments
+                      </ToggleGroupItem>
+                      <ToggleGroupItem 
+                        value="householders" 
+                        className="data-[state=on]:bg-background data-[state=on]:shadow-sm"
+                      >
+                        <Users className="h-4 w-4 mr-2" />
+                        Householders
+                      </ToggleGroupItem>
+                      <ToggleGroupItem 
+                        value="map" 
+                        className="data-[state=on]:bg-background data-[state=on]:shadow-sm"
+                      >
+                        <MapPin className="h-4 w-4 mr-2" />
+                        Map
+                      </ToggleGroupItem>
+                    </ToggleGroup>
                   </div>
+
+                  {/* Search Field */}
+                  <div className="flex items-center justify-center">
+                    <div className="relative w-80">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        placeholder="Search establishments on map..."
+                        value={filters.search}
+                        onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                        className="pl-10 bg-background/95 backdrop-blur-sm border shadow-lg"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Normal Controls - For non-map tabs */}
+              {businessTab !== 'map' && (
+                <>
+                  {/* Tab Navigation */}
+                  <div className="flex justify-center mb-4">
+                        <ToggleGroup
+                          type="single"
+                          value={businessTab}
+                          onValueChange={(value) => {
+                            if (value) {
+                              setBusinessTab(value as 'establishments' | 'householders' | 'map');
+                              // Clear status filters when switching tabs since they use different status types
+                              setFilters(prev => ({ ...prev, statuses: [] }));
+                            }
+                          }}
+                          className="bg-muted/50 p-1 rounded-lg"
+                        >
+                      <ToggleGroupItem 
+                        value="establishments" 
+                        className="data-[state=on]:bg-background data-[state=on]:shadow-sm"
+                      >
+                        <Building2 className="h-4 w-4 mr-2" />
+                        Establishments
+                      </ToggleGroupItem>
+                      <ToggleGroupItem 
+                        value="householders" 
+                        className="data-[state=on]:bg-background data-[state=on]:shadow-sm"
+                      >
+                        <Users className="h-4 w-4 mr-2" />
+                        Householders
+                      </ToggleGroupItem>
+                      <ToggleGroupItem 
+                        value="map" 
+                        className="data-[state=on]:bg-background data-[state=on]:shadow-sm"
+                      >
+                        <MapPin className="h-4 w-4 mr-2" />
+                        Map
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                  </div>
+
+                  {/* Search Field */}
+                  <div className="flex items-center justify-between overflow-hidden w-full max-w-full">
+                    <div className="flex-1 min-w-0">
+                      <div className="relative">
+                        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          placeholder={
+                            businessTab === 'establishments' ? "Search establishments..." : 
+                            businessTab === 'householders' ? "Search householders..." : 
+                            "Search establishments on map..."
+                          }
+                          value={filters.search}
+                          onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                          className="pl-10"
+                        />
+                      </div>
                 {(filters.search || filters.statuses.length > 0 || filters.areas.length > 0 || filters.myEstablishments) && (
                   /* moved to EstablishmentList inline with controls */
                   false && (
@@ -908,6 +967,8 @@ export function AppClient({ currentSection }: AppClientProps) {
                 }
                 </div>
               </div>
+                </>
+              )}
             </>
           )}
 
@@ -982,7 +1043,7 @@ export function AppClient({ currentSection }: AppClientProps) {
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -20 }}
                     transition={{ duration: 0.3 }}
-                    className="w-full"
+                    className="w-full h-full"
                   >
                     <EstablishmentMap
                       establishments={filteredEstablishments}
@@ -993,6 +1054,7 @@ export function AppClient({ currentSection }: AppClientProps) {
                         }
                       }}
                       selectedEstablishmentId={selectedEstablishment?.id}
+                      className="h-full"
                     />
                   </motion.div>
                 )
