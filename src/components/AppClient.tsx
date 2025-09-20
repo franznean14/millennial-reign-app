@@ -29,7 +29,7 @@ import { LogoutButton } from "@/components/account/LogoutButton";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Search, Building2, Users } from "lucide-react";
+import { Search, Building2, Users, MapPin } from "lucide-react";
 import { cacheSet } from "@/lib/offline/store";
 import { LoginView } from "@/components/views/LoginView";
 
@@ -48,6 +48,7 @@ const EstablishmentList = dynamic(() => import("@/components/business/Establishm
 const HouseholderList = dynamic(() => import("@/components/business/HouseholderList").then(m => m.HouseholderList), { ssr: false });
 const EstablishmentDetails = dynamic(() => import("@/components/business/EstablishmentDetails").then(m => m.EstablishmentDetails), { ssr: false });
 const HouseholderDetails = dynamic(() => import("@/components/business/HouseholderDetails").then(m => m.HouseholderDetails), { ssr: false });
+const EstablishmentMap = dynamic(() => import("@/components/business/EstablishmentMap").then(m => m.EstablishmentMap), { ssr: false });
 const BusinessDrawerDialogs = dynamic(() => import("@/components/business/BusinessDrawerDialogs").then(m => m.BusinessDrawerDialogs), { ssr: false });
 const CongregationForm = dynamic(() => import("@/components/congregation/CongregationForm").then(m => m.CongregationForm), { ssr: false });
 const ResponsiveModal = dynamic(() => import("@/components/ui/responsive-modal").then(m => m.ResponsiveModal), { ssr: false });
@@ -146,7 +147,7 @@ export function AppClient({ currentSection }: AppClientProps) {
   // Business state
   const [establishments, setEstablishments] = useState<EstablishmentWithDetails[]>([]);
   const [householders, setHouseholders] = useState<HouseholderWithDetails[]>([]);
-  const [businessTab, setBusinessTab] = useState<'establishments' | 'householders'>('establishments');
+  const [businessTab, setBusinessTab] = useState<'establishments' | 'householders' | 'map'>('establishments');
   const [selectedEstablishment, setSelectedEstablishment] = useState<EstablishmentWithDetails | null>(null);
   const [selectedEstablishmentDetails, setSelectedEstablishmentDetails] = useState<{
     establishment: EstablishmentWithDetails;
@@ -812,7 +813,7 @@ export function AppClient({ currentSection }: AppClientProps) {
                       value={businessTab}
                       onValueChange={(value) => {
                         if (value) {
-                          setBusinessTab(value as 'establishments' | 'householders');
+                          setBusinessTab(value as 'establishments' | 'householders' | 'map');
                           // Clear status filters when switching tabs since they use different status types
                           setFilters(prev => ({ ...prev, statuses: [] }));
                         }
@@ -833,6 +834,13 @@ export function AppClient({ currentSection }: AppClientProps) {
                     <Users className="h-4 w-4 mr-2" />
                     Householders
                   </ToggleGroupItem>
+                  <ToggleGroupItem 
+                    value="map" 
+                    className="data-[state=on]:bg-background data-[state=on]:shadow-sm"
+                  >
+                    <MapPin className="h-4 w-4 mr-2" />
+                    Map
+                  </ToggleGroupItem>
                 </ToggleGroup>
               </div>
 
@@ -842,7 +850,11 @@ export function AppClient({ currentSection }: AppClientProps) {
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      placeholder={businessTab === 'establishments' ? "Search establishments..." : "Search householders..."}
+                      placeholder={
+                        businessTab === 'establishments' ? "Search establishments..." : 
+                        businessTab === 'householders' ? "Search householders..." : 
+                        "Search establishments on map..."
+                      }
                       value={filters.search}
                       onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
                       className="pl-10"
@@ -934,7 +946,7 @@ export function AppClient({ currentSection }: AppClientProps) {
                       onRemoveArea={handleRemoveArea}
                     />
                   </motion.div>
-                ) : (
+                ) : businessTab === 'householders' ? (
                   <motion.div
                     key="householder-list"
                     initial={{ opacity: 0, x: -20 }}
@@ -961,6 +973,26 @@ export function AppClient({ currentSection }: AppClientProps) {
                       onClearSearch={handleClearSearch}
                       onRemoveStatus={handleRemoveStatus}
                       onRemoveArea={handleRemoveArea}
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="establishment-map"
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: -20 }}
+                    transition={{ duration: 0.3 }}
+                    className="w-full"
+                  >
+                    <EstablishmentMap
+                      establishments={filteredEstablishments}
+                      onEstablishmentClick={(establishment) => {
+                        setSelectedEstablishment(establishment);
+                        if (establishment.id) {
+                          loadEstablishmentDetails(establishment.id);
+                        }
+                      }}
+                      selectedEstablishmentId={selectedEstablishment?.id}
                     />
                   </motion.div>
                 )
