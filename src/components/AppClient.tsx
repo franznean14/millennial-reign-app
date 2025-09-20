@@ -802,7 +802,7 @@ export function AppClient({ currentSection }: AppClientProps) {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 20 }}
           transition={{ duration: 0.3 }}
-          className={businessTab === 'map' ? "relative h-screen overflow-hidden" : "space-y-6 pb-24"} // Full screen for map, normal for others
+          className={businessTab === 'map' ? "fixed inset-0 z-40" : "space-y-6 pb-24"} // Full screen for map, normal for others
         >
           {!selectedEstablishment && !selectedHouseholder && (
             <>
