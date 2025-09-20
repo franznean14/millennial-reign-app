@@ -151,7 +151,7 @@
   
   /* Prevent pinch zoom on the entire document */
   body {
-    touch-action: pan-x pan-y;
+    touch-action: manipulation;
     -webkit-overflow-scrolling: touch;
   }
   
@@ -184,6 +184,31 @@
 @supports (height: 100dvh) {
   .drawer-content {
     max-height: 100dvh;
+  }
+}
+
+/* Prevent viewport changes from affecting fixed elements */
+@media (max-width: 768px) {
+  /* Ensure fixed elements stay fixed regardless of viewport changes */
+  .fixed-navbar, nav[class*="fixed"], header[class*="sticky"] {
+    position: fixed !important;
+    transform: none !important;
+    will-change: auto !important;
+  }
+  
+  /* Prevent viewport height changes from affecting layout */
+  html {
+    height: 100vh !important;
+    height: 100dvh !important;
+    overflow-x: hidden !important;
+  }
+  
+  body {
+    height: 100vh !important;
+    height: 100dvh !important;
+    overflow-x: hidden !important;
+    /* Prevent body from becoming scrollable when keyboard opens */
+    position: relative !important;
   }
 }
 
@@ -249,5 +274,46 @@
   /* When keyboard is open, add subtle shadow */
   [data-vaul-drawer][style*="max-height"] {
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+  }
+}
+
+/* Ensure bottom navbar stays absolutely fixed on mobile */
+@media (max-width: 1024px) {
+  nav[class*="fixed"][class*="bottom-0"] {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 50 !important;
+    transform: none !important;
+  }
+}
+
+/* Fix navbar and topbar positioning when keyboard opens on mobile */
+@media (max-width: 768px) {
+  /* Ensure topbar stays fixed */
+  header[class*="sticky"] {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 30 !important;
+    transform: none !important;
+  }
+  
+  /* Ensure bottom navbar stays fixed */
+  nav[class*="fixed"][class*="bottom-0"] {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 50 !important;
+    transform: none !important;
+  }
+  
+  /* Ensure main content area accounts for fixed headers */
+  main {
+    margin-top: 56px !important; /* Account for topbar height */
+    margin-bottom: 80px !important; /* Account for bottom navbar height */
   }
 }
