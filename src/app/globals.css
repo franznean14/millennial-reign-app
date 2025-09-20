@@ -420,49 +420,24 @@
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
 }
 
-/* Custom locate me button */
+/* Official locate control styling - position it above the FAB */
 .leaflet-control-locate {
   position: fixed !important;
   bottom: 180px !important;
   right: 20px !important;
   z-index: 90 !important;
-  width: 48px !important;
-  height: 48px !important;
 }
 
-.leaflet-control-locate a {
-  background-color: white !important;
-  color: black !important;
-  border: none !important;
-  width: 48px !important;
-  height: 48px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  text-decoration: none !important;
-  border-radius: 50% !important;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
-  transition: all 0.2s ease-in-out !important;
-  outline: none !important;
-  -webkit-tap-highlight-color: transparent !important;
-}
-
-.leaflet-control-locate a:hover {
-  background-color: white !important;
-  color: black !important;
-  transform: translateY(-1px) scale(1.05) !important;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
-}
-
-.leaflet-control-locate a:active {
-  transform: translateY(0) scale(0.95) !important;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
-}
-
-.leaflet-control-locate a svg {
-  width: 16px !important;
-  height: 16px !important;
-  stroke-width: 2 !important;
+/* User location marker animation */
+@keyframes pulse {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(1.5);
+    opacity: 0;
+  }
 }
 
 /* Mobile-specific fixes */

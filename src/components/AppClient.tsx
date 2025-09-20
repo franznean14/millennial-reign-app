@@ -1124,7 +1124,7 @@ export function AppClient({ currentSection }: AppClientProps) {
                           loadEstablishmentDetails(establishment.id);
                         }
                       }}
-                      selectedEstablishmentId={selectedEstablishment?.id}
+                      selectedEstablishmentId={undefined}
                       className="h-full"
                     />
                   </motion.div>

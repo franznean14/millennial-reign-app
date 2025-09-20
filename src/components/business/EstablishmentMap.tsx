@@ -1,7 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { createElement } from 'react';
+import { createRoot } from 'react-dom/client';
 import dynamic from 'next/dynamic';
+import { useMap } from 'react-leaflet';
 import { EstablishmentWithDetails } from '@/lib/db/business';
 import { getStatusColor, getStatusTextColor, getBestStatus } from '@/lib/utils/status-hierarchy';
 import { cn } from '@/lib/utils';
@@ -9,6 +12,8 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MapPin, Building2, Users, Crosshair } from 'lucide-react';
+
+// Locate control plugin is loaded via CDN in head.tsx
 
 // Dynamically import MapContainer to avoid SSR issues
 const MapContainer = dynamic(
@@ -26,53 +31,279 @@ const MarkerClusterGroup = dynamic(
   { ssr: false }
 ) as any;
 
-// Custom locate control component
-const LocateControl = () => {
+// User location marker component
+const UserLocationMarker = ({ isTracking, onDisableTracking }: { isTracking: boolean; onDisableTracking: () => void }) => {
+  const map = useMap();
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [watchId, setWatchId] = useState<number | null>(null);
+  const [icon, setIcon] = useState<any>(null);
+
+  // Create custom user location icon
+  const createUserLocationIcon = () => {
+    if (typeof window === 'undefined') return null;
+    
+    const L = require('leaflet');
+    
+    return L.divIcon({
+      className: 'user-location-marker',
+      html: `
+        <div style="
+          position: relative;
+          transform: translate(-50%, -50%);
+        ">
+          <!-- Outer pulsing ring -->
+          <div style="
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            background: rgba(59, 130, 246, 0.3);
+            border: 2px solid rgba(59, 130, 246, 0.6);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            animation: pulse 2s infinite;
+          "></div>
+          <!-- Inner dot -->
+          <div style="
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: #3b82f6;
+            border: 3px solid white;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+          "></div>
+        </div>
+      `,
+      iconSize: [40, 40],
+      iconAnchor: [20, 20],
+    });
+  };
+
+  // Initialize icon
   useEffect(() => {
-    const handleLocate = () => {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            const { latitude, longitude } = position.coords;
-            // Find the map instance using Leaflet's global registry
-            const mapContainers = document.querySelectorAll('.leaflet-container');
-            if (mapContainers.length > 0) {
-              const mapContainer = mapContainers[mapContainers.length - 1];
-              const map = (mapContainer as any)._leaflet;
-              if (map && map.setView) {
-                map.setView([latitude, longitude], 15);
-              }
-            }
-          },
-          (error) => {
-            console.error('Error getting location:', error);
-          }
-        );
+    setIcon(createUserLocationIcon());
+  }, []);
+
+  // Disable tracking when user manually moves the map
+  useEffect(() => {
+    if (!map) return;
+
+    const handleMapMove = () => {
+      // Disable tracking if user manually moved the map
+      if (isTracking) {
+        onDisableTracking();
+        console.log('User moved map manually, tracking disabled');
       }
     };
 
-    // Add the locate button to the DOM
-    const locateButton = document.createElement('div');
-    locateButton.className = 'leaflet-control-locate';
-    locateButton.innerHTML = '<a href="#" title="Locate me"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg></a>';
-    
-    const link = locateButton.querySelector('a');
-    if (link) {
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        handleLocate();
-      });
+    map.on('moveend', handleMapMove);
+
+    return () => {
+      map.off('moveend', handleMapMove);
+    };
+  }, [map, isTracking]);
+
+  // Location tracking
+  useEffect(() => {
+    if (!map) return;
+
+    let currentWatchId: number | null = null;
+
+    const startLocationTracking = () => {
+      if (!navigator.geolocation) {
+        console.error('Geolocation is not supported');
+        return;
+      }
+
+      // Get initial position
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setUserLocation([latitude, longitude]);
+        },
+        (error) => {
+          console.error('Error getting initial location:', error);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 60000
+        }
+      );
+
+      // Watch for position changes
+      currentWatchId = navigator.geolocation.watchPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setUserLocation([latitude, longitude]);
+          
+          // Auto-center map on user if tracking is enabled
+          if (isTracking && map && typeof map.setView === 'function') {
+            map.setView([latitude, longitude], map.getZoom());
+          }
+        },
+        (error) => {
+          console.error('Error watching location:', error);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 1000, // Update more frequently
+          distanceFilter: 5 // Only update if moved at least 5 meters
+        }
+      );
+
+      setWatchId(currentWatchId);
+    };
+
+    startLocationTracking();
+
+    // Cleanup
+    return () => {
+      if (currentWatchId) {
+        navigator.geolocation.clearWatch(currentWatchId);
+      }
+    };
+  }, [map]);
+
+  // Don't render if no location or icon
+  if (!userLocation || !icon) return null;
+
+  return (
+    <Marker
+      position={userLocation}
+      icon={icon}
+      zIndexOffset={1000} // Ensure it's above other markers
+    />
+  );
+};
+
+// Locate control component that uses useMap hook
+const LocateControl = ({ onToggleTracking, isTracking }: { onToggleTracking: (tracking: boolean) => void; isTracking: boolean }) => {
+  const map = useMap();
+  
+  const handleLocate = () => {
+    if (!navigator.geolocation) {
+      console.error('Geolocation is not supported');
+      return;
     }
+
+    if (isTracking) {
+      // If currently tracking, just stop tracking
+      onToggleTracking(false);
+      console.log('Tracking disabled');
+      return;
+    }
+
+    console.log('Getting current position...');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        console.log('Got position:', latitude, longitude);
+        
+        if (map && typeof map.setView === 'function') {
+          map.setView([latitude, longitude], 18); // Increased zoom level for better detail
+          console.log('Map centered and zoomed to user location');
+          
+          // Enable tracking mode after centering
+          onToggleTracking(true);
+        } else {
+          console.error('Map instance not available');
+        }
+      },
+      (error) => {
+        console.error('Error getting location:', error);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000
+      }
+    );
+  };
+
+  useEffect(() => {
+    if (!map) return;
+
+    // Create the locate button and add it to the map
+    const locateButton = document.createElement('button');
+    const iconContainer = document.createElement('div');
+    const root = createRoot(iconContainer);
+    
+    const updateButtonAppearance = () => {
+      // Toggle colors based on tracking state
+      if (isTracking) {
+        locateButton.style.backgroundColor = '#3b82f6'; // Blue when tracking
+        locateButton.style.color = 'white';
+        locateButton.title = 'Stop tracking location';
+      } else {
+        locateButton.style.backgroundColor = 'white'; // White when not tracking
+        locateButton.style.color = 'black';
+        locateButton.title = 'Locate me';
+      }
+      
+      // Render Crosshair icon using React
+      root.render(createElement(Crosshair, { 
+        size: 16, 
+        strokeWidth: 2,
+        style: { color: 'currentColor' }
+      }));
+    };
+    
+    updateButtonAppearance();
+    
+    locateButton.className = 'fixed bottom-[180px] right-5 z-[90] w-12 h-12 rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform';
+    locateButton.style.position = 'fixed';
+    locateButton.style.bottom = '180px';
+    locateButton.style.right = '20px';
+    locateButton.style.zIndex = '90';
+    locateButton.style.width = '48px';
+    locateButton.style.height = '48px';
+    locateButton.style.borderRadius = '50%';
+    locateButton.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)';
+    locateButton.style.display = 'flex';
+    locateButton.style.alignItems = 'center';
+    locateButton.style.justifyContent = 'center';
+    locateButton.style.border = 'none';
+    locateButton.style.cursor = 'pointer';
+    locateButton.style.transition = 'all 0.2s ease';
+    
+    // Add icon container to button
+    locateButton.appendChild(iconContainer);
+    
+    locateButton.addEventListener('click', handleLocate);
+    locateButton.addEventListener('mouseenter', () => {
+      locateButton.style.transform = 'scale(1.05)';
+    });
+    locateButton.addEventListener('mouseleave', () => {
+      locateButton.style.transform = 'scale(1)';
+    });
 
     document.body.appendChild(locateButton);
 
+    // Store reference to update function for later use
+    (locateButton as any).updateAppearance = updateButtonAppearance;
+
+    // Cleanup function
     return () => {
-      // Cleanup
-      if (document.body.contains(locateButton)) {
-        document.body.removeChild(locateButton);
-      }
+      // Use setTimeout to avoid synchronous unmounting during render
+      setTimeout(() => {
+        root.unmount();
+        if (document.body.contains(locateButton)) {
+          document.body.removeChild(locateButton);
+        }
+      }, 0);
     };
-  }, []);
+  }, [map]);
+
+  // Update button appearance when tracking state changes
+  useEffect(() => {
+    const locateButton = document.querySelector('.fixed.bottom-\\[180px\\].right-5') as any;
+    if (locateButton && locateButton.updateAppearance) {
+      locateButton.updateAppearance();
+    }
+  }, [isTracking]);
 
   return null;
 };
@@ -90,45 +321,13 @@ const Popup = dynamic(
 
 
 
-// Component to disable geolocation and other unwanted features
+// Component to initialize map features
 function MapInitializer() {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     
-    // Disable any geolocation requests
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition = () => 0;
-      navigator.geolocation.watchPosition = () => 0;
-    }
-    
-    // Remove any existing geolocation markers
-    const waitForMap = () => {
-      const mapElement = document.querySelector('.leaflet-container');
-      if (!mapElement) {
-        setTimeout(waitForMap, 100);
-        return;
-      }
-      
-      const map = (mapElement as any)._leaflet_map;
-      if (!map) {
-        setTimeout(waitForMap, 100);
-        return;
-      }
-      
-      // Remove any geolocation layers
-      setTimeout(() => {
-        map.eachLayer((layer: any) => {
-          if (layer.options && layer.options.icon && 
-              (layer.options.icon.options.className === 'leaflet-control-locate-location-marker' ||
-               layer.options.icon.options.className === 'leaflet-control-locate-location-marker-active')) {
-            map.removeLayer(layer);
-          }
-        });
-      }, 1000);
-    };
-    
-    waitForMap();
-    
+    // Map initialization is now handled by individual components
+    console.log('Map initialized');
   }, []);
   
   return null;
@@ -404,6 +603,7 @@ export function EstablishmentMap({
   className = ""
 }: EstablishmentMapProps) {
   const [isClient, setIsClient] = useState(false);
+  const [isTracking, setIsTracking] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
@@ -474,8 +674,11 @@ export function EstablishmentMap({
         {/* Component to disable geolocation and unwanted features */}
         <MapInitializer />
         
-        {/* Custom locate control */}
-        <LocateControl />
+        {/* Locate control */}
+        <LocateControl onToggleTracking={setIsTracking} isTracking={isTracking} />
+        
+        {/* User location marker */}
+        <UserLocationMarker isTracking={isTracking} onDisableTracking={() => setIsTracking(false)} />
         
         {/* Component to fit map bounds to establishments */}
         <MapBoundsFitter establishments={establishments} />
