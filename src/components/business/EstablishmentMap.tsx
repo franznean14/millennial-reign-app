@@ -459,6 +459,9 @@ function MapMarker({ establishment, onClick, isSelected }: MapMarkerProps) {
           position: relative;
           transform: translate(-50%, -50%);
           transition: all 0.2s ease;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
           ${isSelected ? 'outline: 2px solid #ffffff; outline-offset: 4px;' : ''}
         ">
           <!-- Badge with establishment name - matching popup badge design -->
@@ -468,21 +471,44 @@ function MapMarker({ establishment, onClick, isSelected }: MapMarkerProps) {
             border: 1px solid ${statusColor}30;
             border-radius: 12px;
             padding: 4px 8px;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 500;
             font-family: system-ui, -apple-system, sans-serif;
+            text-align: center;
             white-space: nowrap;
             box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-            max-width: 120px;
-            text-overflow: ellipsis;
-            overflow: hidden;
+            min-width: 60px;
+            width: fit-content;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 4px;
           " title="${establishment.name}">
-            ${establishment.name.length > 12 ? establishment.name.substring(0, 12) + '...' : establishment.name}
+            ${establishment.name.length > 18 ? establishment.name.substring(0, 18) + '...' : establishment.name}
           </div>
+          
+          <!-- Pin icon indicating exact location -->
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            width="16" 
+            height="16" 
+            viewBox="0 0 24 24" 
+            fill="none" 
+            stroke="${statusColor}" 
+            stroke-width="2" 
+            stroke-linecap="round" 
+            stroke-linejoin="round" 
+            style="
+              filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+            "
+          >
+            <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
         </div>
       `,
-      iconSize: [120, 24],
-      iconAnchor: [60, 12],
+      iconSize: [Math.max(establishment.name.length * 6 + 16, 60), 40],
+      iconAnchor: [Math.max(establishment.name.length * 3 + 8, 30), 32],
     });
   };
 
