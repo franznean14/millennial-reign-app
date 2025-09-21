@@ -474,6 +474,24 @@
   z-index: 9999 !important;
 }
 
+/* Ensure dropdowns in drawers have high z-index */
+[data-vaul-drawer] [data-radix-popper-content-wrapper],
+[data-vaul-drawer] [data-radix-select-content],
+[data-vaul-drawer] [data-radix-dropdown-menu-content],
+[data-radix-popper-content-wrapper],
+[data-radix-select-content],
+[data-radix-dropdown-menu-content] {
+  z-index: 10000 !important;
+}
+
+/* Ensure dropdown triggers in drawers are clickable */
+[data-vaul-drawer] button[data-state],
+[data-vaul-drawer] [role="combobox"],
+[data-vaul-drawer] [data-radix-collection-item] {
+  z-index: 10001 !important;
+  position: relative !important;
+}
+
 /* Hide top bar when map view is active */
 .map-view-active header[class*="sticky"] {
   display: none !important;

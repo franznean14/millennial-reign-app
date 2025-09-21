@@ -149,8 +149,7 @@ const UserLocationMarker = ({ isTracking, onDisableTracking }: { isTracking: boo
         {
           enableHighAccuracy: true,
           timeout: 10000,
-          maximumAge: 1000, // Update more frequently
-          distanceFilter: 5 // Only update if moved at least 5 meters
+          maximumAge: 1000 // Update more frequently
         }
       );
 
