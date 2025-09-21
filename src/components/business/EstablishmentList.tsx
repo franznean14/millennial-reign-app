@@ -26,6 +26,8 @@ interface EstablishmentListProps {
   onClearSearch?: () => void;
   onRemoveStatus?: (status: string) => void;
   onRemoveArea?: (area: string) => void;
+  viewMode?: 'detailed' | 'compact' | 'table';
+  onViewModeChange?: (viewMode: 'detailed' | 'compact' | 'table') => void;
 }
 
 type ViewMode = 'detailed' | 'compact' | 'table';
@@ -571,54 +573,6 @@ export function EstablishmentList({
           </div>
         </div>
 
-        {/* Right: Buttons cluster */}
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <Button
-            type="button"
-            variant={myEstablishmentsOnly ? "default" : "outline"}
-            size="icon"
-            className="h-9 w-9 rounded-full"
-            onClick={() => (onMyEstablishmentsChange ? onMyEstablishmentsChange(!myEstablishmentsOnly) : undefined)}
-            aria-pressed={!!myEstablishmentsOnly}
-            aria-label="My establishments"
-            title="My establishments"
-          >
-            {myEstablishmentsOnly ? <UserCheck className="h-4 w-4" /> : <User className="h-4 w-4" />}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="h-9 w-9 rounded-full"
-            onClick={() => (onOpenFilters ? onOpenFilters() : undefined)}
-            title="Filters"
-          >
-            <Filter className="h-4 w-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="h-9 w-9 rounded-full"
-            onClick={cycleViewMode}
-            title={`View: ${viewMode}`}
-          >
-            <AnimatePresence mode="wait" initial={false}>
-              <motion.span
-                key={viewMode}
-                initial={{ opacity: 0, scale: 0.8, rotate: -90 }}
-                animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                exit={{ opacity: 0, scale: 0.8, rotate: 90 }}
-                transition={{ duration: 0.18 }}
-                className="inline-flex"
-              >
-                {viewMode === 'detailed' && <LayoutGrid className="h-4 w-4" />}
-                {viewMode === 'compact' && <List className="h-4 w-4" />}
-                {viewMode === 'table' && <TableIcon className="h-4 w-4" />}
-              </motion.span>
-            </AnimatePresence>
-          </Button>
-        </div>
       </div>
 
       {/* Establishments */}

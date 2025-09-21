@@ -2,6 +2,7 @@
 
 import { motion } from "motion/react";
 import { AppClient } from "@/components/AppClient";
+import { BusinessTabToggle } from "@/components/business/BusinessTabToggle";
 
 export function BusinessView() {
   return (
@@ -13,6 +14,11 @@ export function BusinessView() {
       transition={{ duration: 0.3 }}
       className="space-y-6 pb-24 overflow-x-hidden" // Add bottom padding for navbar
     >
+      <BusinessTabToggle 
+        value="establishments" 
+        onValueChange={() => {}} 
+        onClearStatusFilters={() => {}} 
+      />
       <AppClient currentSection="business" />
     </motion.div>
   );

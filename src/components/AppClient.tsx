@@ -29,9 +29,10 @@ import { LogoutButton } from "@/components/account/LogoutButton";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Search, Building2, Users, MapPin, User, UserCheck, Filter as FilterIcon } from "lucide-react";
+import { Search, Building2, Users, MapPin, User, UserCheck, Filter as FilterIcon, LayoutGrid, List, Table as TableIcon } from "lucide-react";
 import { cacheSet } from "@/lib/offline/store";
 import { LoginView } from "@/components/views/LoginView";
+import { BusinessTabToggle } from "@/components/business/BusinessTabToggle";
 
 // Import all the data and business logic functions
 import { getDailyRecord, listDailyByMonth, upsertDailyRecord, isDailyEmpty, deleteDailyRecord } from "@/lib/db/dailyRecords";
@@ -148,6 +149,15 @@ export function AppClient({ currentSection }: AppClientProps) {
   const [establishments, setEstablishments] = useState<EstablishmentWithDetails[]>([]);
   const [householders, setHouseholders] = useState<HouseholderWithDetails[]>([]);
   const [businessTab, setBusinessTab] = useState<'establishments' | 'householders' | 'map'>('establishments');
+  const [viewMode, setViewMode] = useState<'detailed' | 'compact' | 'table'>('detailed');
+
+  // View mode cycling function
+  const cycleViewMode = () => {
+    const next: 'detailed' | 'compact' | 'table' = 
+      viewMode === 'detailed' ? 'compact' : 
+      viewMode === 'compact' ? 'table' : 'detailed';
+    setViewMode(next);
+  };
   
   // Debug tab changes
   useEffect(() => {
@@ -824,202 +834,143 @@ export function AppClient({ currentSection }: AppClientProps) {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 20 }}
           transition={{ duration: 0.3 }}
-          className={businessTab === 'map' ? "fixed inset-0 z-10" : "space-y-6 pb-24"} // Full screen for map, normal for others
+          className={businessTab === 'map' ? "fixed inset-0 z-10" : selectedEstablishment || selectedHouseholder ? "space-y-6 pb-24" : "space-y-6 pb-24 pt-20"} // Full screen for map, normal for details, with top padding for lists
         >
+          {/* Floating Controls - Always visible, adjusts for top bar */}
           {!selectedEstablishment && !selectedHouseholder && (
-            <>
-              {/* Floating Controls - Only show for map tab */}
-              {businessTab === 'map' && (
-                <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-[100] space-y-3">
-                  {/* Tab Navigation */}
-                  <div className="flex justify-center">
-                    <ToggleGroup
-                      type="single"
-                      value={businessTab}
-                      onValueChange={(value) => {
-                        if (value) {
-                          setBusinessTab(value as 'establishments' | 'householders' | 'map');
-                          // Clear status filters when switching tabs since they use different status types
-                          setFilters(prev => ({ ...prev, statuses: [] }));
-                        }
-                      }}
-                      className="bg-background/95 backdrop-blur-sm border p-1 rounded-lg shadow-lg w-[26rem] mx-4"
-                    >
-                      <ToggleGroupItem 
-                        value="establishments" 
-                        className="data-[state=on]:bg-background data-[state=on]:shadow-sm flex-1 px-3 py-2"
-                      >
-                        <Building2 className="h-4 w-4 mr-1" />
-                        Establishments
-                      </ToggleGroupItem>
-                      <ToggleGroupItem 
-                        value="householders" 
-                        className="data-[state=on]:bg-background data-[state=on]:shadow-sm flex-1 px-3 py-2"
-                      >
-                        <Users className="h-4 w-4 mr-1" />
-                        Householders
-                      </ToggleGroupItem>
-                      <ToggleGroupItem 
-                        value="map" 
-                        className="data-[state=on]:bg-background data-[state=on]:shadow-sm flex-1 px-3 py-2"
-                      >
-                        <MapPin className="h-4 w-4 mr-1" />
-                        Map
-                      </ToggleGroupItem>
-                    </ToggleGroup>
-                  </div>
+            <motion.div 
+              className="absolute left-1/2 transform -translate-x-1/2 z-[100] space-y-3"
+              animate={{
+                top: businessTab === 'map' ? 16 : 64 // top-4 = 16px, top-16 = 64px
+              }}
+              transition={{
+                type: "spring",
+                stiffness: 300,
+                damping: 30,
+                duration: 0.3
+              }}
+            >
+              {/* Tab Navigation */}
+              <motion.div 
+                className="flex justify-center"
+                layout
+                transition={{
+                  type: "spring",
+                  stiffness: 300,
+                  damping: 30
+                }}
+              >
+                <BusinessTabToggle
+                  value={businessTab}
+                  onValueChange={(value) => {
+                    setBusinessTab(value);
+                    setFilters(prev => ({ ...prev, statuses: [] }));
+                  }}
+                  onClearStatusFilters={() => setFilters(prev => ({ ...prev, statuses: [] }))}
+                  className="w-[26rem] mx-4"
+                />
+              </motion.div>
 
-                  {/* Search Field with Controls */}
-                  <div className="flex items-center justify-center gap-3">
-                    {/* My Establishments Button - Left */}
-                    <Button
-                      type="button"
-                      variant={filters.myEstablishments ? "default" : "outline"}
-                      size="icon"
-                      className="h-9 w-9 rounded-full flex-shrink-0"
-                      onClick={() => setFilters(prev => ({ ...prev, myEstablishments: !prev.myEstablishments }))}
-                      aria-pressed={!!filters.myEstablishments}
-                      aria-label="My establishments"
-                      title="My establishments"
-                    >
-                      {filters.myEstablishments ? <UserCheck className="h-4 w-4" /> : <User className="h-4 w-4" />}
-                    </Button>
+              {/* Search Field with Controls */}
+              <motion.div 
+                className="flex items-center justify-center gap-3 max-w-full px-4"
+                layout
+                transition={{
+                  type: "spring",
+                  stiffness: 300,
+                  damping: 30
+                }}
+              >
+                {/* My Establishments Button - Left */}
+                <Button
+                  type="button"
+                  variant={filters.myEstablishments ? "default" : "outline"}
+                  size="icon"
+                  className="h-9 w-9 rounded-full flex-shrink-0"
+                  onClick={() => setFilters(prev => ({ ...prev, myEstablishments: !prev.myEstablishments }))}
+                  aria-pressed={!!filters.myEstablishments}
+                  aria-label="My establishments"
+                  title="My establishments"
+                >
+                  {filters.myEstablishments ? <UserCheck className="h-4 w-4" /> : <User className="h-4 w-4" />}
+                </Button>
 
-                    {/* Search Field - Center */}
-                    <div className="relative w-80">
-                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        placeholder="Search establishments on map..."
-                        value={filters.search}
-                        onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                        className="pl-10 bg-background/95 backdrop-blur-sm border shadow-lg"
-                      />
-                    </div>
-
-                    {/* Filter Button - Right */}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-9 w-9 rounded-full flex-shrink-0"
-                      onClick={() => setFiltersModalOpen(true)}
-                      title="Filters"
-                    >
-                      <FilterIcon className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  {/* Filter Controls */}
-                  {(filters.search || filters.statuses.length > 0 || filters.areas.length > 0 || filters.myEstablishments) && (
-                    <div className="flex justify-center">
-                      <div className="flex flex-wrap items-center gap-2 bg-background/95 backdrop-blur-sm border rounded-lg p-2 shadow-lg max-w-md">
-                        {filters.search && (
-                          <Badge variant="secondary" className="px-2 py-1 text-xs inline-flex items-center gap-1">
-                            <span>Search: {filters.search}</span>
-                            <button type="button" onClick={handleClearSearch} aria-label="Clear search" className="ml-1 rounded hover:bg-muted p-0.5">
-                              <X className="h-3 w-3" />
-                            </button>
-                          </Badge>
-                        )}
-                        {filters.statuses.map((s) => (
-                          <Badge key={s} variant="secondary" className="px-2 py-1 text-xs inline-flex items-center gap-1">
-                            <span>{formatStatusLabel(s)}</span>
-                            <button type="button" onClick={() => handleRemoveStatus(s)} aria-label={`Remove ${formatStatusLabel(s)}`} className="ml-1 rounded hover:bg-muted p-0.5">
-                              <X className="h-3 w-3" />
-                            </button>
-                          </Badge>
-                        ))}
-                        {filters.areas.map((a) => (
-                          <Badge key={a} variant="secondary" className="px-2 py-1 text-xs inline-flex items-center gap-1">
-                            <span>{a}</span>
-                            <button type="button" onClick={() => handleRemoveArea(a)} aria-label={`Remove ${a}`} className="ml-1 rounded hover:bg-muted p-0.5">
-                              <X className="h-3 w-3" />
-                            </button>
-                          </Badge>
-                        ))}
-                        {filters.myEstablishments && (
-                          <Badge variant="secondary" className="px-2 py-1 text-xs inline-flex items-center gap-1">
-                            <span>My Establishments</span>
-                            <button type="button" onClick={handleClearMyEstablishments} aria-label="Remove My Establishments" className="ml-1 rounded hover:bg-muted p-0.5">
-                              <X className="h-3 w-3" />
-                            </button>
-                          </Badge>
-                        )}
-                        <Badge
-                          variant="outline"
-                          className="px-2 py-1 text-xs inline-flex items-center gap-1 cursor-pointer"
-                          onClick={handleClearAllFilters}
-                        >
-                          <span>Clear</span>
-                          <X className="h-3 w-3" />
-                        </Badge>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              {/* Normal Controls - For non-map tabs */}
-              {businessTab !== 'map' && (
-                <>
-                  {/* Tab Navigation */}
-                  <div className="flex justify-center mb-4">
-                        <ToggleGroup
-                          type="single"
-                          value={businessTab}
-                          onValueChange={(value) => {
-                            if (value) {
-                              setBusinessTab(value as 'establishments' | 'householders' | 'map');
-                              // Clear status filters when switching tabs since they use different status types
-                              setFilters(prev => ({ ...prev, statuses: [] }));
-                            }
-                          }}
-                          className="bg-background/95 backdrop-blur-sm border p-1 rounded-lg shadow-lg w-[28rem] mx-0"
-                        >
-                      <ToggleGroupItem 
-                        value="establishments" 
-                        className="data-[state=on]:bg-background data-[state=on]:shadow-sm flex-1 px-3 py-2"
-                      >
-                        <Building2 className="h-4 w-4 mr-1" />
-                        Establishments
-                      </ToggleGroupItem>
-                      <ToggleGroupItem 
-                        value="householders" 
-                        className="data-[state=on]:bg-background data-[state=on]:shadow-sm flex-1 px-3 py-2"
-                      >
-                        <Users className="h-4 w-4 mr-1" />
-                        Householders
-                      </ToggleGroupItem>
-                      <ToggleGroupItem 
-                        value="map" 
-                        className="data-[state=on]:bg-background data-[state=on]:shadow-sm flex-1 px-3 py-2"
-                      >
-                        <MapPin className="h-4 w-4 mr-1" />
-                        Map
-                      </ToggleGroupItem>
-                    </ToggleGroup>
-                  </div>
-
-                  {/* Search Field */}
-            <div className="flex items-center justify-between overflow-hidden w-full max-w-full">
-              <div className="flex-1 min-w-0">
-                <div className="relative">
+                {/* Search Field - Center */}
+                <motion.div 
+                  className="relative"
+                  animate={{
+                    width: businessTab === 'map' ? 320 : 256 // w-80 = 320px, w-64 = 256px
+                  }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 300,
+                    damping: 30,
+                    duration: 0.1// Delay expansion when going to map view
+                  }}
+                >
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
-                          placeholder={
-                            businessTab === 'establishments' ? "Search establishments..." : 
-                            businessTab === 'householders' ? "Search householders..." : 
-                            "Search establishments on map..."
-                          }
+                    placeholder="Search establishments..."
                     value={filters.search}
                     onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                    className="pl-10"
+                    className="pl-10 bg-background/95 backdrop-blur-sm border shadow-lg w-full"
                   />
-                </div>
-                {(filters.search || filters.statuses.length > 0 || filters.areas.length > 0 || filters.myEstablishments) && (
-                  /* moved to EstablishmentList inline with controls */
-                  false && (
-                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                </motion.div>
+
+                {/* Filter Button - Right */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 rounded-full flex-shrink-0"
+                  onClick={() => setFiltersModalOpen(true)}
+                  title="Filters"
+                >
+                  <FilterIcon className="h-4 w-4" />
+                </Button>
+
+                {/* View Toggle - Only for non-map views */}
+                <AnimatePresence mode="wait">
+                  {businessTab !== 'map' && (
+                    <motion.div
+                      key="view-toggle"
+                      initial={{ opacity: 0, x: 40 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 40 }}
+                      transition={{ 
+                        duration: 0.1,
+                        ease: "easeInOut"
+                      }}
+                    >
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 rounded-full flex-shrink-0"
+                        onClick={cycleViewMode}
+                        title={`View: ${viewMode}`}
+                      >
+                        {viewMode === 'detailed' && <LayoutGrid className="h-4 w-4" />}
+                        {viewMode === 'compact' && <List className="h-4 w-4" />}
+                        {viewMode === 'table' && <TableIcon className="h-4 w-4" />}
+                      </Button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+
+              {/* Filter Controls */}
+              {(filters.search || filters.statuses.length > 0 || filters.areas.length > 0 || filters.myEstablishments) && (
+                <motion.div 
+                  className="flex justify-center"
+                  layout
+                  transition={{
+                    type: "spring",
+                    stiffness: 300,
+                    damping: 30
+                  }}
+                >
+                  <div className="flex flex-wrap items-center gap-2 bg-background/95 backdrop-blur-sm border rounded-lg p-2 shadow-lg max-w-md">
                     {filters.search && (
                       <Badge variant="secondary" className="px-2 py-1 text-xs inline-flex items-center gap-1">
                         <span>Search: {filters.search}</span>
@@ -1060,14 +1011,12 @@ export function AppClient({ currentSection }: AppClientProps) {
                       <span>Clear</span>
                       <X className="h-3 w-3" />
                     </Badge>
-                  </div>))
-                }
-              </div>
-            </div>
-                </>
+                  </div>
+                </motion.div>
               )}
-            </>
+            </motion.div>
           )}
+
 
           <motion.div 
             className={businessTab === 'map' ? "w-full h-full" : "w-full"}
@@ -1102,6 +1051,8 @@ export function AppClient({ currentSection }: AppClientProps) {
                     onClearSearch={handleClearSearch}
                     onRemoveStatus={handleRemoveStatus}
                     onRemoveArea={handleRemoveArea}
+                    viewMode={viewMode}
+                    onViewModeChange={setViewMode}
                   />
                 </motion.div>
                 ) : businessTab === 'householders' ? (
@@ -1131,6 +1082,8 @@ export function AppClient({ currentSection }: AppClientProps) {
                       onClearSearch={handleClearSearch}
                       onRemoveStatus={handleRemoveStatus}
                       onRemoveArea={handleRemoveArea}
+                      viewMode={viewMode}
+                      onViewModeChange={setViewMode}
                     />
                   </motion.div>
                 ) : (
