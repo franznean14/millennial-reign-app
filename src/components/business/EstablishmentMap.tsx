@@ -556,7 +556,7 @@ function MapMarker({ establishment, onClick, isSelected }: MapMarkerProps) {
                       variant="outline" 
                       className={`text-xs px-2 py-1 ${getStatusTextColor(primaryStatus)}`}
                     >
-                      {primaryStatus.replace(/_/g, ' ')}
+                      {primaryStatus.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                     </Badge>
                   </div>
                 </div>
