@@ -106,19 +106,30 @@ export function HouseholderList({
   onClearAllFilters,
   onClearSearch,
   onRemoveStatus,
-  onRemoveArea
+  onRemoveArea,
+  viewMode: externalViewMode,
+  onViewModeChange
 }: HouseholderListProps) {
-  const [viewMode, setViewMode] = useState<ViewMode>('detailed');
+  const [viewMode, setViewMode] = useState<ViewMode>(externalViewMode || 'detailed');
   const [visibleCount, setVisibleCount] = useState<number>(0);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
-  // Load view mode preference from localStorage
+  // Sync with external view mode
   useEffect(() => {
-    const savedViewMode = localStorage.getItem('householder-view-mode') as ViewMode;
-    if (savedViewMode && (savedViewMode === 'detailed' || savedViewMode === 'compact' || savedViewMode === 'table')) {
-      setViewMode(savedViewMode);
+    if (externalViewMode) {
+      setViewMode(externalViewMode);
     }
-  }, []);
+  }, [externalViewMode]);
+
+  // Load view mode preference from localStorage (only if no external view mode)
+  useEffect(() => {
+    if (!externalViewMode) {
+      const savedViewMode = localStorage.getItem('householder-view-mode') as ViewMode;
+      if (savedViewMode && (savedViewMode === 'detailed' || savedViewMode === 'compact' || savedViewMode === 'table')) {
+        setViewMode(savedViewMode);
+      }
+    }
+  }, [externalViewMode]);
 
   // Reset initial visible count whenever the view or data changes
   useEffect(() => {
@@ -147,6 +158,9 @@ export function HouseholderList({
   // Save view mode preference to localStorage
   const handleViewModeChange = (newViewMode: ViewMode) => {
     setViewMode(newViewMode);
+    if (onViewModeChange) {
+      onViewModeChange(newViewMode);
+    }
     try { localStorage.setItem('householder-view-mode', newViewMode); } catch {}
   };
 
@@ -422,61 +436,6 @@ export function HouseholderList({
 
   return (
     <div className="w-full">
-      {/* Controls Row: Left = Clear + scrollable badges, Right = buttons */}
-      <div className="flex items-center justify-between gap-2 mb-4">
-        {/* Left: Clear + badges */}
-        <div className="flex-1 min-w-0 flex items-center gap-2">
-          {hasActiveFilters && (
-            <Badge
-              variant="outline"
-              className="px-2 py-1 text-xs inline-flex items-center gap-1 cursor-pointer flex-shrink-0"
-              onClick={onClearAllFilters}
-            >
-              <span>Clear</span>
-              <X className="h-3 w-3" />
-            </Badge>
-          )}
-          <div className="relative flex-1 min-w-0">
-            <div className="overflow-x-auto whitespace-nowrap pr-6 no-scrollbar">
-              {filters?.search && (
-                <Badge variant="secondary" className="mr-2 px-2 py-1 text-xs inline-flex items-center gap-1 align-middle">
-                  <span>Search: {filters.search}</span>
-                  <button type="button" onClick={onClearSearch} aria-label="Clear search" className="ml-1 rounded hover:bg-muted p-0.5">
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              )}
-              {(filters?.statuses || []).map((s) => (
-                <Badge key={s} variant="secondary" className="mr-2 px-2 py-1 text-xs inline-flex items-center gap-1 align-middle">
-                  <span>{formatStatusText(s)}</span>
-                  <button type="button" onClick={() => onRemoveStatus && onRemoveStatus(s)} aria-label={`Remove ${formatStatusText(s)}`} className="ml-1 rounded hover:bg-muted p-0.5">
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              ))}
-              {(filters?.areas || []).map((a) => (
-                <Badge key={a} variant="secondary" className="mr-2 px-2 py-1 text-xs inline-flex items-center gap-1 align-middle">
-                  <span>{a}</span>
-                  <button type="button" onClick={() => onRemoveArea && onRemoveArea(a)} aria-label={`Remove ${a}`} className="ml-1 rounded hover:bg-muted p-0.5">
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              ))}
-              {filters?.myEstablishments && (
-                <Badge variant="secondary" className="mr-2 px-2 py-1 text-xs inline-flex items-center gap-1 align-middle">
-                  <span>My Householders</span>
-                  <button type="button" onClick={() => onMyHouseholdersChange && onMyHouseholdersChange(false)} aria-label="Remove My Householders" className="ml-1 rounded hover:bg-muted p-0.5">
-                    <X className="h-3 w-3" />
-                  </button>
-                </Badge>
-              )}
-            </div>
-            {/* Right fade to hint overflow */}
-            <div className="pointer-events-none absolute right-0 top-0 h-full w-6 bg-gradient-to-l from-background to-transparent" />
-          </div>
-        </div>
-
-      </div>
 
       {/* Householders */}
       {viewMode === 'table' ? (

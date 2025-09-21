@@ -149,7 +149,25 @@ export function AppClient({ currentSection }: AppClientProps) {
   const [establishments, setEstablishments] = useState<EstablishmentWithDetails[]>([]);
   const [householders, setHouseholders] = useState<HouseholderWithDetails[]>([]);
   const [businessTab, setBusinessTab] = useState<'establishments' | 'householders' | 'map'>('establishments');
-  const [viewMode, setViewMode] = useState<'detailed' | 'compact' | 'table'>('detailed');
+  const [viewMode, setViewMode] = useState<'detailed' | 'compact' | 'table'>(() => {
+    // Load view mode preference from localStorage on initialization
+    if (typeof window !== 'undefined') {
+      try {
+        const savedViewMode = localStorage.getItem('business-view-mode') as 'detailed' | 'compact' | 'table';
+        if (savedViewMode && (savedViewMode === 'detailed' || savedViewMode === 'compact' || savedViewMode === 'table')) {
+          return savedViewMode;
+        }
+      } catch {}
+    }
+    return 'detailed';
+  });
+
+  // Save view mode preference to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('business-view-mode', viewMode);
+    } catch {}
+  }, [viewMode]);
 
   // View mode cycling function
   const cycleViewMode = () => {
@@ -840,6 +858,9 @@ export function AppClient({ currentSection }: AppClientProps) {
           {!selectedEstablishment && !selectedHouseholder && (
             <motion.div 
               className="absolute left-1/2 transform -translate-x-1/2 z-[100] space-y-3"
+              initial={{
+                top: businessTab === 'map' ? 16 : 64 // Start at the correct position
+              }}
               animate={{
                 top: businessTab === 'map' ? 16 : 64 // top-4 = 16px, top-16 = 64px
               }}
@@ -850,7 +871,7 @@ export function AppClient({ currentSection }: AppClientProps) {
                 duration: 0.3
               }}
             >
-              {/* Tab Navigation */}
+                  {/* Tab Navigation */}
               <motion.div 
                 className="flex justify-center"
                 layout
@@ -861,10 +882,10 @@ export function AppClient({ currentSection }: AppClientProps) {
                 }}
               >
                 <BusinessTabToggle
-                  value={businessTab}
-                  onValueChange={(value) => {
+                      value={businessTab}
+                      onValueChange={(value) => {
                     setBusinessTab(value);
-                    setFilters(prev => ({ ...prev, statuses: [] }));
+                          setFilters(prev => ({ ...prev, statuses: [] }));
                   }}
                   onClearStatusFilters={() => setFilters(prev => ({ ...prev, statuses: [] }))}
                   className="w-[26rem] mx-4"
@@ -908,11 +929,11 @@ export function AppClient({ currentSection }: AppClientProps) {
                     duration: 0.1// Delay expansion when going to map view
                   }}
                 >
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
                     placeholder="Search establishments..."
-                    value={filters.search}
-                    onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                        value={filters.search}
+                        onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
                     className="pl-10 bg-background/95 backdrop-blur-sm border shadow-lg w-full"
                   />
                 </motion.div>
@@ -920,7 +941,7 @@ export function AppClient({ currentSection }: AppClientProps) {
                 {/* Filter Button - Right */}
                 <Button
                   type="button"
-                  variant="outline"
+                          variant="outline"
                   size="icon"
                   className="h-9 w-9 rounded-full flex-shrink-0"
                   onClick={() => setFiltersModalOpen(true)}
@@ -931,7 +952,7 @@ export function AppClient({ currentSection }: AppClientProps) {
 
                 {/* View Toggle - Only for non-map views */}
                 <AnimatePresence mode="wait">
-                  {businessTab !== 'map' && (
+              {businessTab !== 'map' && (
                     <motion.div
                       key="view-toggle"
                       initial={{ opacity: 0, x: 40 }}
@@ -960,7 +981,7 @@ export function AppClient({ currentSection }: AppClientProps) {
               </motion.div>
 
               {/* Filter Controls */}
-              {(filters.search || filters.statuses.length > 0 || filters.areas.length > 0 || filters.myEstablishments) && (
+                {(filters.search || filters.statuses.length > 0 || filters.areas.length > 0 || filters.myEstablishments) && (
                 <motion.div 
                   className="flex justify-center"
                   layout
@@ -1011,7 +1032,7 @@ export function AppClient({ currentSection }: AppClientProps) {
                       <span>Clear</span>
                       <X className="h-3 w-3" />
                     </Badge>
-                  </div>
+              </div>
                 </motion.div>
               )}
             </motion.div>
@@ -1022,7 +1043,7 @@ export function AppClient({ currentSection }: AppClientProps) {
             className={businessTab === 'map' ? "w-full h-full" : "w-full"}
             transition={{ duration: 0.3, ease: "easeOut" }}
           >
-            <AnimatePresence mode="wait">
+            <AnimatePresence>
               {!selectedEstablishment && !selectedHouseholder ? (
                 businessTab === 'establishments' ? (
                 <motion.div
@@ -1030,7 +1051,7 @@ export function AppClient({ currentSection }: AppClientProps) {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.3 }}
+                  transition={{ duration: 0.2 }}
                   className="w-full"
                 >
                   <EstablishmentList
@@ -1061,7 +1082,7 @@ export function AppClient({ currentSection }: AppClientProps) {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -20 }}
-                    transition={{ duration: 0.3 }}
+                    transition={{ duration: 0.2 }}
                     className="w-full"
                   >
                     <HouseholderList
@@ -1092,7 +1113,7 @@ export function AppClient({ currentSection }: AppClientProps) {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -20 }}
-                    transition={{ duration: 0.3 }}
+                    transition={{ duration: 0.2 }}
                     className="w-full h-full"
                     style={{ height: '100%' }}
                   >
