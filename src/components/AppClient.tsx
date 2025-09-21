@@ -29,7 +29,7 @@ import { LogoutButton } from "@/components/account/LogoutButton";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Search, Building2, Users, MapPin } from "lucide-react";
+import { Search, Building2, Users, MapPin, User, UserCheck, Filter as FilterIcon } from "lucide-react";
 import { cacheSet } from "@/lib/offline/store";
 import { LoginView } from "@/components/views/LoginView";
 
@@ -869,8 +869,23 @@ export function AppClient({ currentSection }: AppClientProps) {
                     </ToggleGroup>
                   </div>
 
-                  {/* Search Field */}
-                  <div className="flex items-center justify-center">
+                  {/* Search Field with Controls */}
+                  <div className="flex items-center justify-center gap-3">
+                    {/* My Establishments Button - Left */}
+                    <Button
+                      type="button"
+                      variant={filters.myEstablishments ? "default" : "outline"}
+                      size="icon"
+                      className="h-9 w-9 rounded-full flex-shrink-0"
+                      onClick={() => setFilters(prev => ({ ...prev, myEstablishments: !prev.myEstablishments }))}
+                      aria-pressed={!!filters.myEstablishments}
+                      aria-label="My establishments"
+                      title="My establishments"
+                    >
+                      {filters.myEstablishments ? <UserCheck className="h-4 w-4" /> : <User className="h-4 w-4" />}
+                    </Button>
+
+                    {/* Search Field - Center */}
                     <div className="relative w-80">
                       <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                       <Input
@@ -880,6 +895,18 @@ export function AppClient({ currentSection }: AppClientProps) {
                         className="pl-10 bg-background/95 backdrop-blur-sm border shadow-lg"
                       />
                     </div>
+
+                    {/* Filter Button - Right */}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-9 w-9 rounded-full flex-shrink-0"
+                      onClick={() => setFiltersModalOpen(true)}
+                      title="Filters"
+                    >
+                      <FilterIcon className="h-4 w-4" />
+                    </Button>
                   </div>
 
                   {/* Filter Controls */}
@@ -1202,7 +1229,7 @@ export function AppClient({ currentSection }: AppClientProps) {
                 sort: 'last_visit_desc'
               })}
               hasActiveFilters={hasActiveFilters}
-              statusOptions={businessTab === 'establishments' ? [
+              statusOptions={businessTab === 'establishments' || businessTab === 'map' ? [
                 { value: "for_scouting", label: "For Scouting" },
                 { value: "for_follow_up", label: "For Follow Up" },
                 { value: "for_replenishment", label: "For Replenishment" },
@@ -1217,6 +1244,7 @@ export function AppClient({ currentSection }: AppClientProps) {
               ]}
               areaOptions={areaOptions}
               onClose={() => setFiltersModalOpen(false)}
+              isMapView={businessTab === 'map'}
             />
           </ResponsiveModal>
 
