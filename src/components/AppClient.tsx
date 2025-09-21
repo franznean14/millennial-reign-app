@@ -1139,7 +1139,7 @@ export function AppClient({ currentSection }: AppClientProps) {
                   className="w-full"
                   layout
                 >
-                  <div className={businessTab === 'map' ? "space-y-6 pb-24" : ""}>
+                  <div className={businessTab === 'map' ? "space-y-6 pb-24 px-4" : ""}>
                   <HouseholderDetails
                     householder={selectedHouseholder}
                     visits={selectedHouseholderDetails?.visits || []}
@@ -1163,7 +1163,7 @@ export function AppClient({ currentSection }: AppClientProps) {
                   layout // Add layout animation to the details
                 >
                   {selectedEstablishment && (
-                    <div className={businessTab === 'map' ? "space-y-6 pb-24" : ""}>
+                    <div className={businessTab === 'map' ? "space-y-6 pb-24 px-4" : ""}>
                   <EstablishmentDetails
                     establishment={selectedEstablishment}
                     visits={selectedEstablishmentDetails?.visits || []}
