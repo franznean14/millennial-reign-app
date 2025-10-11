@@ -32,6 +32,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Search, Building2, Users, MapPin, User, UserCheck, Filter as FilterIcon, LayoutGrid, List, Table as TableIcon } from "lucide-react";
 import { cacheSet } from "@/lib/offline/store";
 import { LoginView } from "@/components/views/LoginView";
+import { LoadingView } from "@/components/views/LoadingView";
 import { BusinessTabToggle } from "@/components/business/BusinessTabToggle";
 
 // Import all the data and business logic functions
@@ -824,7 +825,7 @@ export function AppClient({ currentSection }: AppClientProps) {
 
   // Render different sections based on currentSection
   if (isLoading) {
-    return <div className="text-sm opacity-70">Loading...</div>;
+    return <LoadingView />;
   }
 
   if (!userId) {
