@@ -56,7 +56,6 @@ export function ProfileForm({ userId, initialEmail, initialProfile, bwiEnabled, 
   // Update form data when initialProfile changes (async loading)
   useEffect(() => {
     if (initialProfile) {
-      console.log('Setting form data with profile:', initialProfile);
       setFormData({
         first_name: initialProfile.first_name || "",
         last_name: initialProfile.last_name || "",
@@ -67,7 +66,6 @@ export function ProfileForm({ userId, initialEmail, initialProfile, bwiEnabled, 
         privileges: initialProfile.privileges || [],
         group_name: initialProfile.group_name || "",
       });
-      console.log('Form data group_name set to:', initialProfile.group_name || "");
     }
   }, [initialProfile]);
 
@@ -113,8 +111,6 @@ export function ProfileForm({ userId, initialEmail, initialProfile, bwiEnabled, 
 
         // Remove duplicates and sort alphabetically (ascending)
         options = [...new Set(options)].sort();
-        console.log('Loaded group options:', options);
-        console.log('Current user group:', initialProfile?.group_name);
         setGroupOptions(options);
       } catch (error) {
         console.error('Error loading group options:', error);

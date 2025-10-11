@@ -281,7 +281,6 @@ export async function upsertEstablishment(establishment: {
     congregation_id: profile.congregation_id
   };
   
-  console.log('Sending establishment data:', establishmentData);
   
   try {
     if (establishmentData.id) {
@@ -494,15 +493,6 @@ export async function addVisit(visit: {
       }
     }
 
-    console.log('Adding visit with data:', {
-      congregation_id: profile.congregation_id,
-      establishment_id: visit.establishment_id === 'none' ? null : visit.establishment_id,
-      householder_id: visit.householder_id || null,
-      note: visit.note,
-      publisher_id: visit.publisher_id || null,
-      partner_id: visit.partner_id || null,
-      visit_date: visit.visit_date || new Date().toISOString().split('T')[0]
-    });
 
     const { data, error } = await supabase
       .from('business_visits')
@@ -637,11 +627,9 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
     }
     
     if (!profile?.congregation_id) {
-      console.log('User not associated with a congregation');
       return [];
     }
 
-    console.log('Fetching establishments for congregation:', profile.congregation_id);
 
     // Get establishments with visit and householder counts
     const { data, error } = await supabase
@@ -679,7 +667,6 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
       return [];
     }
 
-    console.log('Raw establishments data:', data);
 
     // Transform the data to include counts and top visitors
     const establishments = data?.map(establishment => {
@@ -734,7 +721,6 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
       };
     }) || [];
 
-    console.log('Processed establishments:', establishments);
     return establishments;
   } catch (error) {
     console.error('Unexpected error in getEstablishmentsWithDetails:', error);
@@ -924,11 +910,9 @@ export async function getBwiParticipants(): Promise<Array<{
   // Get user's congregation_id
   const { data: profile } = await supabase.rpc('get_my_profile');
   if (!profile?.congregation_id) {
-    console.log('No congregation_id found for user'); // Debug log
     return [];
   }
   
-  console.log('Fetching participants for congregation:', profile.congregation_id); // Debug log
   
   const { data, error } = await supabase
     .from('business_participants')
@@ -939,8 +923,6 @@ export async function getBwiParticipants(): Promise<Array<{
     .eq('congregation_id', profile.congregation_id)
     .eq('active', true);
   
-  console.log('Raw participants data:', data); // Debug log
-  console.log('Participants error:', error); // Debug log
   
   if (error) {
     console.error('Error fetching participants:', error);
@@ -957,7 +939,6 @@ export async function getBwiParticipants(): Promise<Array<{
     };
   }) || [];
   
-  console.log('Processed participants:', participants); // Debug log
   return participants;
 }
 

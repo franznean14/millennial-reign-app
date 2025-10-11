@@ -93,7 +93,6 @@ const UserLocationMarker = ({ isTracking, onDisableTracking }: { isTracking: boo
       // Disable tracking if user manually moved the map
       if (isTracking) {
         onDisableTracking();
-        console.log('User moved map manually, tracking disabled');
       }
     };
 
@@ -191,19 +190,15 @@ const LocateControl = ({ onToggleTracking, isTracking }: { onToggleTracking: (tr
     if (isTracking) {
       // If currently tracking, just stop tracking
       onToggleTracking(false);
-      console.log('Tracking disabled');
       return;
     }
 
-    console.log('Getting current position...');
     navigator.geolocation.getCurrentPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
-        console.log('Got position:', latitude, longitude);
         
         if (map && typeof map.setView === 'function') {
           map.setView([latitude, longitude], 18); // Increased zoom level for better detail
-          console.log('Map centered and zoomed to user location');
           
           // Enable tracking mode after centering
           onToggleTracking(true);
@@ -326,7 +321,6 @@ function MapInitializer() {
     if (typeof window === 'undefined') return;
     
     // Map initialization is now handled by individual components
-    console.log('Map initialized');
   }, []);
   
   return null;
@@ -379,7 +373,6 @@ function MapBoundsFitter({ establishments }: { establishments: EstablishmentWith
         // Fit the map to the bounds with minimal padding
         map.fitBounds(bounds, { padding: [10, 10], maxZoom: 18 });
         
-        console.log('Map bounds fitted to establishments:', bounds);
       }, 500);
     };
     
@@ -632,7 +625,6 @@ export function EstablishmentMap({
 
   useEffect(() => {
     setIsClient(true);
-    console.log('EstablishmentMap: Client-side rendering enabled');
   }, []);
 
   // Filter establishments with valid coordinates
@@ -640,9 +632,6 @@ export function EstablishmentMap({
     (est) => est.lat && est.lng
   );
 
-  console.log('EstablishmentMap: Total establishments:', establishments.length);
-  console.log('EstablishmentMap: Establishments with coords:', establishmentsWithCoords.length);
-  console.log('EstablishmentMap: isClient:', isClient);
 
 
   // Calculate map center from establishments or use default

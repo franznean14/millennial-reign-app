@@ -62,19 +62,13 @@ export function AddUserToCongregationForm({ congregationId, onUserAdded, onClose
     try {
       const supabase = createSupabaseBrowserClient();
       
-      console.log('Searching for:', searchQuery.trim());
       
       // First, check if the RPC function exists by trying to call it
       try {
-        console.log('Attempting RPC call...');
         const { data: user, error } = await supabase.rpc('search_user_by_username_or_email', {
           search_term: searchQuery.trim()
         });
 
-        console.log('RPC response:', { data: user, error });
-        console.log('User data type:', typeof user);
-        console.log('User data length:', user?.length);
-        console.log('User data:', user);
 
         if (error) {
           console.error('RPC error details:', error);
@@ -92,12 +86,10 @@ export function AddUserToCongregationForm({ congregationId, onUserAdded, onClose
           } else if (user && typeof user === 'object' && user.user_id) {
             userData = user;
           } else {
-            console.log('No user data found in response');
             setSearchResult(null);
             return;
           }
 
-          console.log('Processed user data:', userData);
           setSearchResult({
             id: userData.user_id || userData.id,
             first_name: userData.first_name,
@@ -111,7 +103,6 @@ export function AddUserToCongregationForm({ congregationId, onUserAdded, onClose
           return;
         }
       } catch (rpcError) {
-        console.log('RPC failed, trying direct query...', rpcError);
         
         // Fallback: Direct query (only for elders)
         // First check if current user is an elder
