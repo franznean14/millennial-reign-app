@@ -255,7 +255,7 @@ export function HouseholderDetails({ householder, visits, establishment, establi
                 establishments={establishments}
                 selectedEstablishmentId={householder.establishment_id}
                 isEditing
-                initialData={{ id: householder.id, establishment_id: householder.establishment_id || establishments[0]?.id, name: householder.name, status: householder.status as any, note: householder.note || null }}
+                initialData={{ id: householder.id, establishment_id: householder.establishment_id || "", name: householder.name, status: householder.status as any, note: householder.note || null }}
                 onSaved={onEditSaved}
                 onDelete={handleDelete}
               />
@@ -274,7 +274,7 @@ export function HouseholderDetails({ householder, visits, establishment, establi
                 establishments={establishments}
                 selectedEstablishmentId={householder.establishment_id}
                 isEditing
-                initialData={{ id: householder.id, establishment_id: householder.establishment_id || establishments[0]?.id, name: householder.name, status: householder.status as any, note: householder.note || null }}
+                initialData={{ id: householder.id, establishment_id: householder.establishment_id || "", name: householder.name, status: householder.status as any, note: householder.note || null }}
                 onSaved={onEditSaved}
                 onDelete={handleDelete}
               />

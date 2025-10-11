@@ -29,6 +29,24 @@ interface EstablishmentDetailsProps {
   onHouseholderClick?: (householder: HouseholderWithDetails) => void;
 }
 
+// Helper function for householder status color coding
+const getHouseholderStatusColorClass = (status: string) => {
+  switch (status) {
+    case 'potential':
+      return 'text-cyan-600 border-cyan-200 bg-cyan-50 dark:text-cyan-400 dark:border-cyan-800 dark:bg-cyan-950';
+    case 'do_not_call':
+      return 'text-red-600 border-red-200 bg-red-50 dark:text-red-400 dark:border-red-800 dark:bg-red-950';
+    case 'interested':
+      return 'text-blue-600 border-blue-200 bg-blue-50 dark:text-blue-400 dark:border-blue-800 dark:bg-blue-950';
+    case 'return_visit':
+      return 'text-orange-600 border-orange-200 bg-orange-50 dark:text-orange-400 dark:border-orange-800 dark:bg-orange-950';
+    case 'bible_study':
+      return 'text-emerald-600 border-emerald-200 bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:bg-emerald-950';
+    default:
+      return 'text-gray-600 border-gray-200 bg-gray-50 dark:text-gray-400 dark:border-gray-800 dark:bg-gray-950';
+  }
+};
+
 export function EstablishmentDetails({ 
   establishment, 
   visits, 
@@ -291,14 +309,16 @@ export function EstablishmentDetails({
                     index === self.findIndex(v => v.id === visit.id)
                   )
                   .map((visit) => {
-                    console.log('Visit data:', visit); // Debug log
-                    console.log('Publisher:', visit.publisher); // Debug publisher
-                    console.log('Partner:', visit.partner); // Debug partner
                     return (
                       <button onClick={() => setEditVisit({ id: visit.id, note: visit.note || null, visit_date: visit.visit_date, establishment_id: establishment.id, publisher_id: (visit as any).publisher_id ?? visit.publisher?.id ?? null, partner_id: (visit as any).partner_id ?? visit.partner?.id ?? null })} key={visit.id} className="flex items-start justify-between gap-3 p-3 border rounded-lg w-full text-left hover:bg-muted/50">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <span className="text-sm font-medium">{formatDate(visit.visit_date)}</span>
+                            {visit.householder && (
+                              <Badge variant="secondary" className={cn("text-xs px-2 py-0.5", getHouseholderStatusColorClass(visit.householder.status))}>
+                                {visit.householder.name}
+                              </Badge>
+                            )}
                           </div>
                           {visit.note && (
                             <p className="text-sm text-muted-foreground">{visit.note}</p>
@@ -365,7 +385,7 @@ export function EstablishmentDetails({
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-sm font-medium">{householder.name}</span>
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="outline" className={cn("text-xs", getHouseholderStatusColorClass(householder.status))}>
                             {householder.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
                           </Badge>
                           {householder.assigned_user && (

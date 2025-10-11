@@ -217,6 +217,8 @@ export function HouseholderList({
 
   const getStatusTextColorClass = (status: string) => {
     switch (status) {
+      case 'potential':
+        return 'text-cyan-600 border-cyan-200 bg-cyan-50 dark:text-cyan-400 dark:border-cyan-800 dark:bg-cyan-950';
       case 'do_not_call':
         return 'text-red-600 border-red-200 bg-red-50 dark:text-red-400 dark:border-red-800 dark:bg-red-950';
       case 'interested':

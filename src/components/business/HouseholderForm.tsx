@@ -23,7 +23,7 @@ interface HouseholderFormProps {
     id: string;
     establishment_id: string;
     name: string;
-    status: 'interested'|'return_visit'|'bible_study'|'do_not_call';
+    status: 'potential'|'interested'|'return_visit'|'bible_study'|'do_not_call';
     note?: string | null;
   } | null;
   onDelete?: () => Promise<void> | void;
@@ -32,26 +32,33 @@ interface HouseholderFormProps {
 
 export function HouseholderForm({ establishments, selectedEstablishmentId, onSaved, isEditing = false, initialData = null, onDelete, disableEstablishmentSelect = false }: HouseholderFormProps) {
   const [estId, setEstId] = useState<string>(
-    initialData?.establishment_id || selectedEstablishmentId || establishments[0]?.id || ""
+    isEditing && initialData?.establishment_id 
+      ? initialData.establishment_id 
+      : selectedEstablishmentId || establishments[0]?.id || ""
   );
   const [name, setName] = useState(initialData?.name || "");
-  const [status, setStatus] = useState<'interested'|'return_visit'|'bible_study'|'do_not_call'>(initialData?.status || "interested");
+  const [status, setStatus] = useState<'potential'|'interested'|'return_visit'|'bible_study'|'do_not_call'>(initialData?.status || "potential");
   const [note, setNote] = useState(initialData?.note || "");
   const [saving, setSaving] = useState(false);
   const isMobile = useMobile();
   const [confirmOpen, setConfirmOpen] = useState(false);
   
   useEffect(() => {
-    if (initialData?.establishment_id) {
+    // In edit mode, always preserve the original establishment_id and don't change it
+    if (isEditing && initialData?.establishment_id) {
       setEstId(initialData.establishment_id);
       return;
     }
-    if (selectedEstablishmentId) {
-      setEstId(selectedEstablishmentId);
-    } else if (establishments.length > 0) {
-      setEstId(establishments[0]?.id || "");
+    
+    // Only for new householders (not editing)
+    if (!isEditing) {
+      if (selectedEstablishmentId) {
+        setEstId(selectedEstablishmentId);
+      } else if (establishments.length > 0) {
+        setEstId(establishments[0]?.id || "");
+      }
     }
-  }, [initialData?.establishment_id, selectedEstablishmentId, establishments]);
+  }, [isEditing, initialData?.establishment_id, selectedEstablishmentId, establishments]);
 
   // Prefill from active business filters (area doesn't apply here; status can)
   useEffect(() => {
@@ -98,7 +105,7 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
     <form className="grid gap-3 pb-10" onSubmit={handleSubmit}>
       <div className="grid gap-1">
         <Label>Establishment</Label>
-        {disableEstablishmentSelect ? (
+        {disableEstablishmentSelect || isEditing ? (
           <div className="px-3 py-2 text-sm bg-muted rounded-md">
             {establishments.find(e => e.id === estId)?.name || 'Selected establishment'}
           </div>
@@ -120,6 +127,7 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
         <Select value={status} onValueChange={(v:any)=> setStatus(v)}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
+            <SelectItem value="potential">Potential</SelectItem>
             <SelectItem value="interested">Interested</SelectItem>
             <SelectItem value="return_visit">Return Visit</SelectItem>
             <SelectItem value="bible_study">Bible Study</SelectItem>

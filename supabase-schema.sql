@@ -38,7 +38,7 @@ END $$;
 
 DO $$ BEGIN
   CREATE TYPE public.business_householder_status_t AS ENUM (
-    'interested','return_visit','bible_study','do_not_call'
+    'potential','interested','return_visit','bible_study','do_not_call'
   );
 EXCEPTION
   WHEN duplicate_object THEN null;

@@ -18,7 +18,7 @@ export type EstablishmentStatus =
   | 'accepted_rack'
   | 'declined_rack'
   | 'has_bible_studies';
-export type HouseholderStatus = 'interested'|'return_visit'|'bible_study'|'do_not_call';
+export type HouseholderStatus = 'potential'|'interested'|'return_visit'|'bible_study'|'do_not_call';
 
 export interface Establishment {
   id?: string;
@@ -82,6 +82,7 @@ export interface VisitWithUser {
   visit_date: string;
   publisher_id?: string | null;
   partner_id?: string | null;
+  householder_id?: string | null;
   publisher?: {
     id: string;
     first_name: string;
@@ -93,6 +94,11 @@ export interface VisitWithUser {
     first_name: string;
     last_name: string;
     avatar_url?: string;
+  } | null;
+  householder?: {
+    id: string;
+    name: string;
+    status: string;
   } | null;
 }
 
@@ -751,7 +757,7 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
   
   if (!establishment) return null;
   
-  // Get visits with user details - fix the query to properly join profiles
+  // Get visits with user details and householder information
   const { data: visits } = await supabase
     .from('business_visits')
     .select(`
@@ -760,8 +766,10 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
       visit_date,
       publisher_id,
       partner_id,
+      householder_id,
       publisher:profiles!business_visits_publisher_id_fkey(id, first_name, last_name, avatar_url),
-      partner:profiles!business_visits_partner_id_fkey(id, first_name, last_name, avatar_url)
+      partner:profiles!business_visits_partner_id_fkey(id, first_name, last_name, avatar_url),
+      householder:business_householders!business_visits_householder_id_fkey(id, name, status)
     `)
     .eq('establishment_id', establishmentId)
     .order('visit_date', { ascending: false });
@@ -773,14 +781,17 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
     console.log('Processing visit:', visit); // Debug log
     console.log('Visit publisher data:', visit.publisher); // Debug publisher data
     console.log('Visit partner data:', visit.partner); // Debug partner data
+    console.log('Visit householder data:', visit.householder); // Debug householder data
     return {
       id: visit.id,
       note: visit.note,
       visit_date: visit.visit_date,
       publisher_id: visit.publisher_id ?? (Array.isArray(visit.publisher) ? (visit.publisher[0]?.id ?? null) : (visit.publisher?.id ?? null)),
       partner_id: visit.partner_id ?? (Array.isArray(visit.partner) ? (visit.partner[0]?.id ?? null) : (visit.partner?.id ?? null)),
+      householder_id: visit.householder_id,
       publisher: Array.isArray(visit.publisher) ? visit.publisher[0] || null : visit.publisher || null,
-      partner: Array.isArray(visit.partner) ? visit.partner[0] || null : visit.partner || null
+      partner: Array.isArray(visit.partner) ? visit.partner[0] || null : visit.partner || null,
+      householder: Array.isArray(visit.householder) ? visit.householder[0] || null : visit.householder || null
     };
   }) || [];
 
@@ -867,8 +878,10 @@ export async function getHouseholderDetails(householderId: string): Promise<{
       publisher_id,
       partner_id,
       establishment_id,
+      householder_id,
       publisher:profiles!business_visits_publisher_id_fkey(id, first_name, last_name, avatar_url),
-      partner:profiles!business_visits_partner_id_fkey(id, first_name, last_name, avatar_url)
+      partner:profiles!business_visits_partner_id_fkey(id, first_name, last_name, avatar_url),
+      householder:business_householders!business_visits_householder_id_fkey(id, name, status)
     `)
     .eq('householder_id', householderId)
     .order('visit_date', { ascending: false });
@@ -879,8 +892,10 @@ export async function getHouseholderDetails(householderId: string): Promise<{
     visit_date: visit.visit_date,
     publisher_id: visit.publisher_id ?? (Array.isArray(visit.publisher) ? (visit.publisher[0]?.id ?? null) : (visit.publisher?.id ?? null)),
     partner_id: visit.partner_id ?? (Array.isArray(visit.partner) ? (visit.partner[0]?.id ?? null) : (visit.partner?.id ?? null)),
+    householder_id: visit.householder_id,
     publisher: Array.isArray(visit.publisher) ? visit.publisher[0] || null : visit.publisher || null,
     partner: Array.isArray(visit.partner) ? visit.partner[0] || null : visit.partner || null,
+    householder: Array.isArray(visit.householder) ? visit.householder[0] || null : visit.householder || null,
   })) || [];
 
   const establishment = Array.isArray((hh as any).establishment) ? (hh as any).establishment[0] : (hh as any).establishment;
