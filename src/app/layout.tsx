@@ -44,6 +44,15 @@ export default function RootLayout({
         {/* Explicitly include manifest link to ensure it loads on all routes */}
         <link rel="manifest" href="/manifest.webmanifest" />
         <meta name="theme-color" content="#000000" />
+        
+        {/* iOS PWA specific meta tags */}
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="CONG" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        
+        {/* Prevent zoom on iOS */}
+        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {/* FAB portal root, placed first in body for highest paint priority */}

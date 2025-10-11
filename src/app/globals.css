@@ -3,6 +3,43 @@
 @import "tailwindcss/utilities";
 @import "leaflet/dist/leaflet.css";
 
+/* PWA-specific styles for iOS homescreen */
+@supports (padding: max(0px)) {
+  .pb-safe {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.5rem);
+  }
+  
+  .pt-safe {
+    padding-top: max(env(safe-area-inset-top, 0px), 0.5rem);
+  }
+  
+  .pl-safe {
+    padding-left: max(env(safe-area-inset-left, 0px), 0.5rem);
+  }
+  
+  .pr-safe {
+    padding-right: max(env(safe-area-inset-right, 0px), 0.5rem);
+  }
+}
+
+/* Ensure proper viewport handling in PWA mode */
+html {
+  height: 100%;
+  height: -webkit-fill-available;
+}
+
+body {
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+}
+
+/* Fix for iOS PWA viewport issues */
+@supports (-webkit-touch-callout: none) {
+  body {
+    min-height: -webkit-fill-available;
+  }
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
