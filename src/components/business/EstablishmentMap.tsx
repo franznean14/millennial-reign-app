@@ -404,6 +404,8 @@ function MapMarker({ establishment, onClick, isSelected }: MapMarkerProps) {
   // Extract color values from the status hierarchy functions
   const getStatusColorValue = (status: string) => {
     switch (status) {
+      case 'inappropriate':
+        return '#991b1b'; // red-800 (dark red)
       case 'declined_rack':
         return '#ef4444'; // red-500
       case 'for_scouting':
@@ -657,16 +659,8 @@ export function EstablishmentMap({
     );
   }
 
-  if (establishmentsWithCoords.length === 0) {
-    return (
-      <div className={`w-full h-full bg-muted flex items-center justify-center ${className}`}>
-        <div className="text-center">
-          <MapPin className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">No establishments with coordinates found</p>
-        </div>
-      </div>
-    );
-  }
+  // Always show the map, even if no establishments with coordinates
+  // This allows users to see the map area and add new establishments
 
   return (
     <div className={`w-full h-full ${className || 'h-96'}`} style={{ height: '100%', width: '100%' }}>

@@ -70,7 +70,7 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
   const [lat, setLat] = useState<number | null>(initialData?.lat || null);
   const [lng, setLng] = useState<number | null>(initialData?.lng || null);
   const [floor, setFloor] = useState(initialData?.floor || "");
-  const [status, setStatus] = useState<string[]>(initialData?.statuses || []);
+  const [status, setStatus] = useState<string[]>(initialData?.statuses || (isEditing ? [] : ['for_scouting']));
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const [note, setNote] = useState(initialData?.note || "");
   const [gps, setGps] = useState<string>(initialData?.lat && initialData?.lng ? `${initialData.lat}, ${initialData.lng}` : "");
@@ -464,10 +464,10 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
             {[
               { value: "for_scouting", label: "For Scouting" },
               { value: "for_follow_up", label: "For Follow Up" },
-              { value: "for_replenishment", label: "For Replenishment" },
               { value: "accepted_rack", label: "Accepted Rack" },
               { value: "declined_rack", label: "Declined Rack" },
-              { value: "has_bible_studies", label: "Has Bible Studies" }
+              { value: "has_bible_studies", label: "Has Bible Studies" },
+              { value: "inappropriate", label: "Inappropriate" }
             ].map((statusOption) => (
               <DropdownMenuCheckboxItem
                 key={statusOption.value}
