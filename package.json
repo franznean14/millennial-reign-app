@@ -32,7 +32,7 @@
     "leaflet.markercluster": "^1.5.3",
     "lucide-react": "^0.542.0",
     "motion": "^12.23.12",
-    "next": "15.5.2",
+    "next": "^15.5.4",
     "react": "19.1.0",
     "react-day-picker": "^9.9.0",
     "react-dom": "19.1.0",

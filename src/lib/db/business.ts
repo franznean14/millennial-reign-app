@@ -404,17 +404,19 @@ export async function deleteHouseholder(householderId: string): Promise<boolean>
     throw new Error('User not authenticated');
   }
   
-  const { error } = await supabase
-    .from('business_householders')
-    .update({
-      is_deleted: true,
-      deleted_at: new Date().toISOString(),
-      deleted_by: profile.id
-    })
-    .eq('id', householderId);
+  // Use RPC function to bypass RLS for deletion
+  const { error } = await supabase.rpc('delete_householder', {
+    householder_id: householderId,
+    deleted_by_user: profile.id
+  });
     
   if (error) {
-    console.error('Error deleting householder:', error);
+    console.error('Error deleting householder:', {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      code: error.code
+    });
     return false;
   }
   return true;
@@ -774,14 +776,8 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
     .eq('establishment_id', establishmentId)
     .order('visit_date', { ascending: false });
 
-  console.log('Raw visits data:', visits); // Debug log
-
   // Transform visits to match VisitWithUser type
   const transformedVisits = (visits as any[])?.map((visit: any) => {
-    console.log('Processing visit:', visit); // Debug log
-    console.log('Visit publisher data:', visit.publisher); // Debug publisher data
-    console.log('Visit partner data:', visit.partner); // Debug partner data
-    console.log('Visit householder data:', visit.householder); // Debug householder data
     return {
       id: visit.id,
       note: visit.note,
@@ -794,8 +790,6 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
       householder: Array.isArray(visit.householder) ? visit.householder[0] || null : visit.householder || null
     };
   }) || [];
-
-  console.log('Transformed visits:', transformedVisits); // Debug log
   
   // Get householders for this establishment only (no user assignment)
   const { data: householders } = await supabase
@@ -807,6 +801,8 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
       note
     `)
     .eq('establishment_id', establishmentId)
+    .eq('is_deleted', false)
+    .eq('is_archived', false)
     .order('name');
   
   // Get top visitors for establishment

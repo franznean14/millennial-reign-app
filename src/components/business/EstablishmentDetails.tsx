@@ -12,7 +12,7 @@ import { useMobile } from "@/lib/hooks/use-mobile";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { toast } from "@/components/ui/sonner";
-import { deleteEstablishment } from "@/lib/db/business";
+import { deleteEstablishment, archiveEstablishment } from "@/lib/db/business";
 import { type EstablishmentWithDetails, type VisitWithUser, type HouseholderWithDetails } from "@/lib/db/business";
 import { cn } from "@/lib/utils";
 import { getBestStatus, getStatusColor, getStatusTextColor } from "@/lib/utils/status-hierarchy";
@@ -57,6 +57,7 @@ export function EstablishmentDetails({
 }: EstablishmentDetailsProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const [editVisit, setEditVisit] = useState<{ id: string; establishment_id?: string | null; householder_id?: string | null; note?: string | null; publisher_id?: string | null; partner_id?: string | null; visit_date?: string } | null>(null);
   const titleContainerRef = useRef<HTMLDivElement>(null);
   const titleContentRef = useRef<HTMLDivElement>(null);
@@ -123,6 +124,25 @@ export function EstablishmentDetails({
       toast.error("Error deleting establishment");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleArchive = async () => {
+    if (!establishment?.id) return;
+    setArchiving(true);
+    try {
+      const ok = await archiveEstablishment(establishment.id);
+      if (ok) {
+        toast.success("Establishment archived successfully");
+        setIsEditing(false);
+        onBackClick();
+      } else {
+        toast.error("Failed to archive establishment");
+      }
+    } catch (e) {
+      toast.error("Error archiving establishment");
+    } finally {
+      setArchiving(false);
     }
   };
 
@@ -428,6 +448,7 @@ export function EstablishmentDetails({
               <EstablishmentForm 
                 onSaved={handleEditSaved}
                 onDelete={handleDelete}
+                onArchive={handleArchive}
                 selectedArea={establishment.area || undefined}
                 initialData={establishment}
                 isEditing={true}
@@ -446,6 +467,7 @@ export function EstablishmentDetails({
               <EstablishmentForm 
                 onSaved={handleEditSaved}
                 onDelete={handleDelete}
+                onArchive={handleArchive}
                 selectedArea={establishment.area || undefined}
                 initialData={establishment}
                 isEditing={true}

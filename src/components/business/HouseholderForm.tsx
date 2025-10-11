@@ -27,10 +27,11 @@ interface HouseholderFormProps {
     note?: string | null;
   } | null;
   onDelete?: () => Promise<void> | void;
+  onArchive?: () => Promise<void> | void;
   disableEstablishmentSelect?: boolean;
 }
 
-export function HouseholderForm({ establishments, selectedEstablishmentId, onSaved, isEditing = false, initialData = null, onDelete, disableEstablishmentSelect = false }: HouseholderFormProps) {
+export function HouseholderForm({ establishments, selectedEstablishmentId, onSaved, isEditing = false, initialData = null, onDelete, onArchive, disableEstablishmentSelect = false }: HouseholderFormProps) {
   const [estId, setEstId] = useState<string>(
     isEditing && initialData?.establishment_id 
       ? initialData.establishment_id 
@@ -42,6 +43,7 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
   const [saving, setSaving] = useState(false);
   const isMobile = useMobile();
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
   
   useEffect(() => {
     // In edit mode, always preserve the original establishment_id and don't change it
@@ -139,38 +141,74 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
         <Label>Note</Label>
         <Textarea value={note} onChange={e=>setNote(e.target.value)} />
       </div>
-      <div className={`flex py-4 ${isEditing && onDelete ? "justify-between" : "justify-end"}`}>
-        {isEditing && onDelete && (
-          <Popover open={confirmOpen} onOpenChange={setConfirmOpen}>
-            <PopoverTrigger asChild>
-              <Button type="button" variant="destructive" disabled={saving}>Delete</Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-56" align="start">
-              <div className="space-y-3">
-                <p className="text-sm">Delete this householder?</p>
-                <div className="flex justify-end gap-2">
-                  <Button type="button" variant="outline" size="sm" onClick={() => setConfirmOpen(false)}>Cancel</Button>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    disabled={saving}
-                    onClick={async () => {
-                      try {
-                        setSaving(true);
-                        await onDelete();
-                        setConfirmOpen(false);
-                      } finally {
-                        setSaving(false);
-                      }
-                    }}
-                  >
-                    Confirm
-                  </Button>
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
+      <div className={`flex py-4 ${isEditing && (onDelete || onArchive) ? "justify-between" : "justify-end"}`}>
+        {isEditing && (onDelete || onArchive) && (
+          <div className="flex gap-2">
+            {onDelete && (
+              <Popover open={confirmOpen} onOpenChange={setConfirmOpen}>
+                <PopoverTrigger asChild>
+                  <Button type="button" variant="destructive" disabled={saving}>Delete</Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56" align="start">
+                  <div className="space-y-3">
+                    <p className="text-sm">Delete this householder?</p>
+                    <div className="flex justify-end gap-2">
+                      <Button type="button" variant="outline" size="sm" onClick={() => setConfirmOpen(false)}>Cancel</Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        disabled={saving}
+                        onClick={async () => {
+                          try {
+                            setSaving(true);
+                            await onDelete();
+                            setConfirmOpen(false);
+                          } finally {
+                            setSaving(false);
+                          }
+                        }}
+                      >
+                        Confirm
+                      </Button>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+            {onArchive && (
+              <Popover open={archiveConfirmOpen} onOpenChange={setArchiveConfirmOpen}>
+                <PopoverTrigger asChild>
+                  <Button type="button" variant="secondary" disabled={saving}>Archive</Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-56" align="start">
+                  <div className="space-y-3">
+                    <p className="text-sm">Archive this householder?</p>
+                    <div className="flex justify-end gap-2">
+                      <Button type="button" variant="outline" size="sm" onClick={() => setArchiveConfirmOpen(false)}>Cancel</Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        disabled={saving}
+                        onClick={async () => {
+                          try {
+                            setSaving(true);
+                            await onArchive();
+                            setArchiveConfirmOpen(false);
+                          } finally {
+                            setSaving(false);
+                          }
+                        }}
+                      >
+                        Confirm
+                      </Button>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+          </div>
         )}
         <Button type="submit" disabled={saving}>
           {saving ? (isEditing ? "Updating..." : "Saving...") : (isEditing ? "Update" : "Save")}
