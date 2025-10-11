@@ -36,10 +36,11 @@ import { LoginView } from "@/components/views/LoginView";
 import { LoadingView } from "@/components/views/LoadingView";
 import { BusinessTabToggle } from "@/components/business/BusinessTabToggle";
 import { PortaledBusinessControls } from "@/components/business/PortaledBusinessControls";
+import { StickySearchBar } from "@/components/business/StickySearchBar";
 
 // Import all the data and business logic functions
 import { getDailyRecord, listDailyByMonth, upsertDailyRecord, isDailyEmpty, deleteDailyRecord } from "@/lib/db/dailyRecords";
-import { getEstablishmentsWithDetails, getEstablishmentDetails, getHouseholderDetails, listHouseholders, deleteHouseholder, archiveHouseholder, type EstablishmentWithDetails, type VisitWithUser, type HouseholderWithDetails, type BusinessFiltersState } from "@/lib/db/business";
+import { getEstablishmentsWithDetails, getEstablishmentDetails, getHouseholderDetails, listHouseholders, deleteHouseholder, archiveHouseholder, calculateDistance, type EstablishmentWithDetails, type VisitWithUser, type HouseholderWithDetails, type BusinessFiltersState } from "@/lib/db/business";
 import { getMyCongregation, saveCongregation, isAdmin, type Congregation } from "@/lib/db/congregations";
 import { getProfile } from "@/lib/db/profiles";
 import { archiveEstablishment, deleteEstablishment } from "@/lib/db/business";
@@ -218,10 +219,13 @@ export function AppClient({ currentSection }: AppClientProps) {
     statuses: [],
     areas: [],
     myEstablishments: false,
+    nearMe: false,
+    userLocation: null,
     sort: 'last_visit_desc'
   });
   const [filtersModalOpen, setFiltersModalOpen] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
 
   // Persist business filters globally for form auto-population
   useEffect(() => {
@@ -684,6 +688,17 @@ export function AppClient({ currentSection }: AppClientProps) {
         if (!visitedByUser) return false;
       }
       
+      // Near Me filter: show only establishments within 5km of user location
+      if (filters.nearMe && filters.userLocation && establishment.lat && establishment.lng) {
+        const distance = calculateDistance(
+          filters.userLocation[0], 
+          filters.userLocation[1], 
+          establishment.lat, 
+          establishment.lng
+        );
+        if (distance > 5) return false; // Filter out establishments more than 5km away
+      }
+      
       return true;
     });
     
@@ -815,9 +830,54 @@ export function AppClient({ currentSection }: AppClientProps) {
       statuses: [],
       areas: [],
       myEstablishments: false,
+      nearMe: false,
+      userLocation: null,
       sort: prev.sort || 'last_visit_desc',
     }));
   };
+
+  const handleToggleNearMe = useCallback(async () => {
+    if (filters.nearMe) {
+      // Turn off near me filter
+      setFilters(prev => ({ ...prev, nearMe: false, userLocation: null }));
+    } else {
+      // Turn on near me filter - get user location
+      setLocationLoading(true);
+      try {
+        if (!navigator.geolocation) {
+          toast.error('Geolocation is not supported by this browser');
+          return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            setFilters(prev => ({ 
+              ...prev, 
+              nearMe: true, 
+              userLocation: [latitude, longitude] 
+            }));
+            setLocationLoading(false);
+            toast.success('Location found! Showing establishments within 5km');
+          },
+          (error) => {
+            console.error('Error getting location:', error);
+            setLocationLoading(false);
+            toast.error('Unable to get your location. Please check location permissions.');
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 60000
+          }
+        );
+      } catch (error) {
+        console.error('Error accessing geolocation:', error);
+        setLocationLoading(false);
+        toast.error('Unable to access location services');
+      }
+    }
+  }, [filters.nearMe]);
 
   const areaOptions = useMemo(() => {
     const areas = establishments
@@ -924,7 +984,17 @@ export function AppClient({ currentSection }: AppClientProps) {
             onRemoveArea={handleRemoveArea}
             onClearMyEstablishments={handleClearMyEstablishments}
             onClearAllFilters={handleClearAllFilters}
+            onToggleNearMe={handleToggleNearMe}
             formatStatusLabel={formatStatusLabel}
+          />
+
+          {/* Sticky Search Bar - Above bottom navigation */}
+          <StickySearchBar
+            filters={filters}
+            onFiltersChange={setFilters}
+            onClearSearch={handleClearSearch}
+            isVisible={!selectedEstablishment && !selectedHouseholder}
+            businessTab={businessTab}
           />
 
 
@@ -1089,6 +1159,8 @@ export function AppClient({ currentSection }: AppClientProps) {
                 statuses: [],
                 areas: [],
                 myEstablishments: false,
+                nearMe: false,
+                userLocation: null,
                 sort: 'last_visit_desc'
               })}
               hasActiveFilters={hasActiveFilters}

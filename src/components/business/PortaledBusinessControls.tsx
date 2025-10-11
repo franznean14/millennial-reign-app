@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BusinessTabToggle } from "./BusinessTabToggle";
-import { Search, Filter as FilterIcon, User, UserCheck, LayoutGrid, List, Table as TableIcon, X } from "lucide-react";
+import { Search, Filter as FilterIcon, User, UserCheck, LayoutGrid, List, Table as TableIcon, X, Crosshair } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import type { BusinessFiltersState } from "@/lib/db/business";
 
@@ -24,6 +24,7 @@ interface PortaledBusinessControlsProps {
   onRemoveArea: (area: string) => void;
   onClearMyEstablishments: () => void;
   onClearAllFilters: () => void;
+  onToggleNearMe: () => void;
   formatStatusLabel: (status: string) => string;
 }
 
@@ -41,6 +42,7 @@ export function PortaledBusinessControls({
   onRemoveArea,
   onClearMyEstablishments,
   onClearAllFilters,
+  onToggleNearMe,
   formatStatusLabel
 }: PortaledBusinessControlsProps) {
   const [mounted, setMounted] = useState(false);
@@ -85,16 +87,16 @@ export function PortaledBusinessControls({
             />
           </motion.div>
 
-          {/* Search Field with Controls */}
-          <motion.div 
-            className="flex items-center justify-center gap-3 max-w-full px-4"
-            layout
-            transition={{
-              type: "spring",
-              stiffness: 300,
-              damping: 30
-            }}
-          >
+                {/* Controls Row */}
+                <motion.div
+                  className="flex items-center justify-center gap-3 max-w-full px-4"
+                  layout
+                  transition={{
+                    type: "spring",
+                    stiffness: 300,
+                    damping: 30
+                  }}
+                >
             {/* My Establishments Button - Left */}
             <Button
               type="button"
@@ -109,27 +111,36 @@ export function PortaledBusinessControls({
               {filters.myEstablishments ? <UserCheck className="h-4 w-4" /> : <User className="h-4 w-4" />}
             </Button>
 
-            {/* Search Field - Center */}
-            <motion.div 
-              className="relative"
-              animate={{
-                width: businessTab === 'map' ? 320 : 256 // w-80 = 320px, w-64 = 256px
-              }}
-              transition={{
-                type: "spring",
-                stiffness: 300,
-                damping: 30,
-                duration: 0.1
-              }}
-            >
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search establishments..."
-                value={filters.search}
-                onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
-                className="pl-10 bg-background/95 backdrop-blur-sm border shadow-lg w-full"
-              />
-            </motion.div>
+            {/* Near Me Button - Only for non-map views */}
+            <AnimatePresence mode="wait">
+              {businessTab !== 'map' && (
+                <motion.div
+                  key="near-me-button"
+                  initial={{ opacity: 0, x: 40 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 40, transition: { duration: 0 } }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 300,
+                    damping: 30
+                  }}
+                >
+                  <Button
+                    type="button"
+                    variant={filters.nearMe ? "default" : "outline"}
+                    size="icon"
+                    className="h-9 w-9 rounded-full flex-shrink-0"
+                    onClick={onToggleNearMe}
+                    aria-pressed={!!filters.nearMe}
+                    aria-label="Near me"
+                    title="Near me"
+                  >
+                    <Crosshair className="h-4 w-4" />
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
 
             {/* Filter Button - Right */}
             <Button
@@ -175,7 +186,7 @@ export function PortaledBusinessControls({
           </motion.div>
 
           {/* Filter Controls */}
-          {(filters.search || filters.statuses.length > 0 || filters.areas.length > 0 || filters.myEstablishments) && (
+          {(filters.statuses.length > 0 || filters.areas.length > 0 || filters.myEstablishments || filters.nearMe) && (
             <motion.div 
               className="flex justify-center"
               layout
@@ -186,14 +197,6 @@ export function PortaledBusinessControls({
               }}
             >
               <div className="flex flex-wrap items-center gap-2 bg-background/95 backdrop-blur-sm border rounded-lg p-2 shadow-lg max-w-md">
-                {filters.search && (
-                  <Badge variant="secondary" className="px-2 py-1 text-xs inline-flex items-center gap-1">
-                    <span>Search: {filters.search}</span>
-                    <button type="button" onClick={onClearSearch} aria-label="Clear search" className="ml-1 rounded hover:bg-muted p-0.5">
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                )}
                 {filters.statuses.map((s) => (
                   <Badge key={s} variant="secondary" className="px-2 py-1 text-xs inline-flex items-center gap-1">
                     <span>{formatStatusLabel(s)}</span>
@@ -214,6 +217,14 @@ export function PortaledBusinessControls({
                   <Badge variant="secondary" className="px-2 py-1 text-xs inline-flex items-center gap-1">
                     <span>My Establishments</span>
                     <button type="button" onClick={onClearMyEstablishments} aria-label="Remove My Establishments" className="ml-1 rounded hover:bg-muted p-0.5">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
+                {filters.nearMe && (
+                  <Badge variant="secondary" className="px-2 py-1 text-xs inline-flex items-center gap-1">
+                    <span>Near Me</span>
+                    <button type="button" onClick={onToggleNearMe} aria-label="Remove Near Me" className="ml-1 rounded hover:bg-muted p-0.5">
                       <X className="h-3 w-3" />
                     </button>
                   </Badge>
