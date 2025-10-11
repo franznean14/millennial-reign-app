@@ -55,6 +55,17 @@ export function EstablishmentDetails({
   onEstablishmentUpdated,
   onHouseholderClick
 }: EstablishmentDetailsProps) {
+  
+  // Reset scroll position to top when component mounts
+  useEffect(() => {
+    // Use requestAnimationFrame to ensure DOM is fully rendered
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      // Also reset document element scroll position
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    });
+  }, []);
   const [isEditing, setIsEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [archiving, setArchiving] = useState(false);
@@ -169,7 +180,7 @@ export function EstablishmentDetails({
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <motion.div layout className="min-w-0 flex-1 relative z-0 max-w-[calc(100%-112px)]">
+          <motion.div layout className="min-w-0 flex-1 relative z-0 max-w-[calc(100%-60px)]">
             <div ref={titleContainerRef} className="relative w-full overflow-hidden">
               <motion.div
                 ref={titleContentRef}

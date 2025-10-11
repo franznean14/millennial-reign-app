@@ -63,6 +63,17 @@ const getHouseholderCardColor = (status: string) => {
 };
 
 export function HouseholderDetails({ householder, visits, establishment, establishments, onBackClick }: HouseholderDetailsProps) {
+  
+  // Reset scroll position to top when component mounts
+  useEffect(() => {
+    // Use requestAnimationFrame to ensure DOM is fully rendered
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      // Also reset document element scroll position
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    });
+  }, []);
   const isMobile = useMobile();
   const [isEditing, setIsEditing] = useState(false);
   const [editVisit, setEditVisit] = useState<{ id: string; establishment_id?: string | null; householder_id?: string | null; note?: string | null; publisher_id?: string | null; partner_id?: string | null; visit_date?: string } | null>(null);
@@ -162,7 +173,7 @@ export function HouseholderDetails({ householder, visits, establishment, establi
           <Button variant="ghost" size="sm" onClick={onBackClick} className="p-2 flex-shrink-0">
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <motion.div layout className="min-w-0 flex-1 relative z-0 max-w-[calc(100%-112px)]">
+          <motion.div layout className="min-w-0 flex-1 relative z-0 max-w-[calc(100%-60px)]">
             <div ref={titleContainerRef} className="relative w-full overflow-hidden">
               <motion.div
                 ref={titleContentRef}
