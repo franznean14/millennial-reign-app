@@ -416,6 +416,7 @@ interface MapMarkerProps {
   isSelected?: boolean;
 }
 
+
 // Custom marker component with status-based styling
 function MapMarker({ establishment, onClick, isSelected }: MapMarkerProps) {
   // Get the best status from the statuses array using the hierarchy
@@ -527,13 +528,11 @@ function MapMarker({ establishment, onClick, isSelected }: MapMarkerProps) {
     });
   };
 
-  const [icon, setIcon] = useState<any>(null);
+  const [icon, setIcon] = useState<any>(() => createCustomIcon());
 
   useEffect(() => {
     setIcon(createCustomIcon());
   }, [establishment.statuses, isSelected]);
-
-  if (!icon) return null;
 
   return (
     <Marker
@@ -701,6 +700,7 @@ export function EstablishmentMap({
           maxZoom={22}
         />
         
+        
         {/* Component to disable geolocation and unwanted features */}
         <MapInitializer />
         
@@ -783,7 +783,7 @@ export function EstablishmentMap({
         >
           {establishmentsWithCoords.map((establishment) => (
             <MapMarker
-              key={establishment.id}
+              key={`${establishment.id}-${establishment.statuses?.join(',') || 'no-status'}`}
               establishment={establishment}
               onClick={() => onEstablishmentClick?.(establishment)}
               isSelected={establishment.id === selectedEstablishmentId}
