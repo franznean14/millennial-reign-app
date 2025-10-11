@@ -5,6 +5,7 @@ export type BusinessEventType =
   | 'householder-added'
   | 'householder-updated'
   | 'householder-deleted'
+  | 'householder-archived'
   | 'visit-added'
   | 'visit-updated'
   | 'visit-deleted'

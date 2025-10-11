@@ -444,7 +444,23 @@ export function AppClient({ currentSection }: AppClientProps) {
       businessEventBus.subscribe('householder-updated', (hh: any) => {
         setSelectedEstablishmentDetails(prev => {
           if (!prev) return prev;
-          return { ...prev, householders: prev.householders.map(h => h.id === hh.id ? { ...h, ...hh } : h) };
+          // Create new arrays to ensure React detects the changes
+          const updatedHouseholders = prev.householders.map(h => h.id === hh.id ? { ...h, ...hh } : h);
+          const updatedVisits = prev.visits.map(visit => {
+            if (visit.householder && visit.householder.id === hh.id) {
+              return { 
+                ...visit, 
+                householder: { ...visit.householder, ...hh }
+              };
+            }
+            return visit;
+          });
+          
+          return { 
+            ...prev, 
+            householders: updatedHouseholders,
+            visits: updatedVisits
+          };
         });
         setSelectedHouseholder(prev => prev && prev.id === hh.id ? { ...prev, ...hh } : prev);
         setSelectedHouseholderDetails(prev => prev && prev.householder.id === hh.id ? { ...prev, householder: { ...prev.householder, ...hh } } : prev);
@@ -1145,7 +1161,7 @@ export function AppClient({ currentSection }: AppClientProps) {
                     householder={selectedHouseholder}
                     visits={selectedHouseholderDetails?.visits || []}
                     establishment={selectedHouseholderDetails?.establishment || null}
-                      establishments={establishments.filter(e => e.id).map(e => ({ id: e.id!, name: e.name, area: e.area }))}
+                    establishments={selectedHouseholderDetails?.establishment ? [selectedHouseholderDetails.establishment] : []}
                     onBackClick={() => {
                       setSelectedHouseholder(null);
                       setSelectedHouseholderDetails(null);
