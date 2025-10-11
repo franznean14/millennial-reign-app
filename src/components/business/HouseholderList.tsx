@@ -257,7 +257,22 @@ export function HouseholderList({
             <div className="flex-1 min-w-0">
               <motion.div layout className="w-full">
                 <CardTitle className="text-2xl sm:text-3xl font-black flex flex-col sm:flex-row sm:items-center gap-2 w-full">
-                  <span className="truncate" title={householder.name}>{truncateHouseholderName(householder.name)}</span>
+                  <div className="relative min-w-0 flex-1 max-w-[280px] overflow-hidden">
+                    <span 
+                      className={`whitespace-nowrap block pr-8 ${
+                        householder.name.length > 35 ? 'animate-marquee' : ''
+                      }`}
+                      title={householder.name}
+                      style={{
+                        '--marquee-distance': householder.name.length > 35 
+                          ? `calc(-100% + ${Math.max(280 - (householder.name.length * 8), 200)}px)`
+                          : '-80%'
+                      } as React.CSSProperties}
+                    >
+                      {householder.name}
+                    </span>
+                    <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-card via-card/50 to-transparent pointer-events-none"></div>
+                  </div>
                   
                   {/* Status Badge */}
                   <div className="flex items-center gap-2 flex-shrink-0">
@@ -310,7 +325,21 @@ export function HouseholderList({
                 </span>
               )}
               {householder.note && (
-                <span className="text-xs text-muted-foreground truncate">{householder.note}</span>
+                <div className="relative min-w-0 flex-1 max-w-[320px] overflow-hidden">
+                  <span 
+                    className={`text-xs text-muted-foreground whitespace-nowrap block pr-8 ${
+                      householder.note.length > 55 ? 'animate-marquee' : ''
+                    }`}
+                    style={{
+                      '--marquee-distance': householder.note.length > 55 
+                        ? `calc(-100% + ${Math.max(320 - (householder.note.length * 6), 200)}px)`
+                        : '-80%'
+                    } as React.CSSProperties}
+                  >
+                    {householder.note}
+                  </span>
+                  <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-card via-card/50 to-transparent pointer-events-none"></div>
+                </div>
               )}
             </div>
           </div>

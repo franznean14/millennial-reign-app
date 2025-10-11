@@ -32,10 +32,15 @@ const MarkerClusterGroup = dynamic(
 ) as any;
 
 // User location marker component
-const UserLocationMarker = ({ isTracking, onDisableTracking }: { isTracking: boolean; onDisableTracking: () => void }) => {
+const UserLocationMarker = ({ isTracking, onDisableTracking, userLocation, setUserLocation, setWatchId, watchId }: { 
+  isTracking: boolean; 
+  onDisableTracking: () => void;
+  userLocation: [number, number] | null;
+  setUserLocation: (location: [number, number] | null) => void;
+  setWatchId: (id: number | null) => void;
+  watchId: number | null;
+}) => {
   const map = useMap();
-  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
-  const [watchId, setWatchId] = useState<number | null>(null);
   const [icon, setIcon] = useState<any>(null);
 
   // Create custom user location icon
@@ -103,67 +108,6 @@ const UserLocationMarker = ({ isTracking, onDisableTracking }: { isTracking: boo
     };
   }, [map, isTracking]);
 
-  // Location tracking
-  useEffect(() => {
-    if (!map) return;
-
-    let currentWatchId: number | null = null;
-
-    const startLocationTracking = () => {
-      if (!navigator.geolocation) {
-        console.error('Geolocation is not supported');
-        return;
-      }
-
-      // Get initial position
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          setUserLocation([latitude, longitude]);
-        },
-        (error) => {
-          console.error('Error getting initial location:', error);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 60000
-        }
-      );
-
-      // Watch for position changes
-      currentWatchId = navigator.geolocation.watchPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          setUserLocation([latitude, longitude]);
-          
-          // Auto-center map on user if tracking is enabled
-          if (isTracking && map && typeof map.setView === 'function') {
-            map.setView([latitude, longitude], map.getZoom());
-          }
-        },
-        (error) => {
-          console.error('Error watching location:', error);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 1000 // Update more frequently
-        }
-      );
-
-      setWatchId(currentWatchId);
-    };
-
-    startLocationTracking();
-
-    // Cleanup
-    return () => {
-      if (currentWatchId) {
-        navigator.geolocation.clearWatch(currentWatchId);
-      }
-    };
-  }, [map]);
 
   // Don't render if no location or icon
   if (!userLocation || !icon) return null;
@@ -178,7 +122,13 @@ const UserLocationMarker = ({ isTracking, onDisableTracking }: { isTracking: boo
 };
 
 // Locate control component that uses useMap hook
-const LocateControl = ({ onToggleTracking, isTracking }: { onToggleTracking: (tracking: boolean) => void; isTracking: boolean }) => {
+const LocateControl = ({ onToggleTracking, isTracking, setUserLocation, setWatchId, watchId }: { 
+  onToggleTracking: (tracking: boolean) => void; 
+  isTracking: boolean;
+  setUserLocation: (location: [number, number] | null) => void;
+  setWatchId: (id: number | null) => void;
+  watchId: number | null;
+}) => {
   const map = useMap();
   
   const handleLocate = () => {
@@ -298,6 +248,76 @@ const LocateControl = ({ onToggleTracking, isTracking }: { onToggleTracking: (tr
       locateButton.updateAppearance();
     }
   }, [isTracking]);
+
+  // Start/stop location tracking when isTracking changes
+  useEffect(() => {
+    if (!map) return;
+
+    let currentWatchId: number | null = null;
+
+    const startLocationTracking = () => {
+      if (!navigator.geolocation) {
+        console.error('Geolocation is not supported');
+        return;
+      }
+
+      // Get initial position
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setUserLocation([latitude, longitude]);
+        },
+        (error) => {
+          console.error('Error getting initial location:', error);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 60000
+        }
+      );
+
+      // Watch for position changes
+      currentWatchId = navigator.geolocation.watchPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setUserLocation([latitude, longitude]);
+          
+          // Auto-center map on user if tracking is enabled
+          if (isTracking && map && typeof map.setView === 'function') {
+            map.setView([latitude, longitude], map.getZoom());
+          }
+        },
+        (error) => {
+          console.error('Error watching location:', error);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 1000 // Update more frequently
+        }
+      );
+
+      setWatchId(currentWatchId);
+    };
+
+    if (isTracking) {
+      startLocationTracking();
+    } else {
+      // Stop tracking
+      if (watchId) {
+        navigator.geolocation.clearWatch(watchId);
+        setWatchId(null);
+      }
+    }
+
+    // Cleanup
+    return () => {
+      if (currentWatchId) {
+        navigator.geolocation.clearWatch(currentWatchId);
+      }
+    };
+  }, [isTracking, map]);
 
   return null;
 };
@@ -624,6 +644,8 @@ export function EstablishmentMap({
 }: EstablishmentMapProps) {
   const [isClient, setIsClient] = useState(false);
   const [isTracking, setIsTracking] = useState(false);
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const [watchId, setWatchId] = useState<number | null>(null);
 
   useEffect(() => {
     setIsClient(true);
@@ -683,10 +705,23 @@ export function EstablishmentMap({
         <MapInitializer />
         
         {/* Locate control */}
-        <LocateControl onToggleTracking={setIsTracking} isTracking={isTracking} />
+        <LocateControl 
+          onToggleTracking={setIsTracking} 
+          isTracking={isTracking}
+          setUserLocation={setUserLocation}
+          setWatchId={setWatchId}
+          watchId={watchId}
+        />
         
         {/* User location marker */}
-        <UserLocationMarker isTracking={isTracking} onDisableTracking={() => setIsTracking(false)} />
+        <UserLocationMarker 
+          isTracking={isTracking} 
+          onDisableTracking={() => setIsTracking(false)}
+          userLocation={userLocation}
+          setUserLocation={setUserLocation}
+          setWatchId={setWatchId}
+          watchId={watchId}
+        />
         
         {/* Component to fit map bounds to establishments */}
         <MapBoundsFitter establishments={establishments} />
