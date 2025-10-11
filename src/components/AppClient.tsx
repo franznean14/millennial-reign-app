@@ -630,9 +630,13 @@ export function AppClient({ currentSection }: AppClientProps) {
   // Business filtering logic
   const filteredEstablishments = useMemo(() => {
     const base = establishments.filter(establishment => {
-      // Search filter
-      if (filters.search && !establishment.name.toLowerCase().includes(filters.search.toLowerCase())) {
-        return false;
+      // Search filter - only show establishments that match the search term
+      if (filters.search && filters.search.trim() !== '') {
+        const searchTerm = filters.search.toLowerCase().trim();
+        const establishmentName = establishment.name?.toLowerCase() || '';
+        if (!establishmentName.includes(searchTerm)) {
+          return false;
+        }
       }
       
       // Status filter
@@ -653,8 +657,14 @@ export function AppClient({ currentSection }: AppClientProps) {
       
       return true;
     });
+    
+    // Remove duplicates based on establishment ID
+    const uniqueEstablishments = base.filter((establishment, index, self) => 
+      index === self.findIndex(e => e.id === establishment.id)
+    );
+    
     // Sorting
-    const sorted = [...base];
+    const sorted = [...uniqueEstablishments];
     const compareLastVisit = (a?: string | null, b?: string | null, asc: boolean = false) => {
       const ahas = !!a;
       const bhas = !!b;

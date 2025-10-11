@@ -1,10 +1,10 @@
 // Status hierarchy from worst to best
 export const STATUS_HIERARCHY = [
-  'declined_rack',      // Worst
-  'for_scouting',       // Bad
-  'for_follow_up',      // Better
-  'accepted_rack',      // Good
-  'for_replenishment',  // Better
+  'inappropriate',      // Worst
+  'declined_rack',      // Bad
+  'for_scouting',       // Better
+  'for_follow_up',      // Good
+  'accepted_rack',      // Better
   'has_bible_studies'   // Best
 ] as const;
 
@@ -29,6 +29,8 @@ export const getBestStatus = (statuses: string[]): string => {
 // Helper function to get status color based on hierarchy
 export const getStatusColor = (status: string) => {
   switch (status) {
+    case 'inappropriate':
+      return 'border-red-800/50 bg-red-800/5';
     case 'declined_rack':
       return 'border-red-500/50 bg-red-500/5';
     case 'for_scouting':
@@ -48,6 +50,8 @@ export const getStatusColor = (status: string) => {
 
 export const getStatusTextColor = (status: string) => {
   switch (status) {
+    case 'inappropriate':
+      return 'text-white border-red-800/50 bg-red-800';
     case 'declined_rack':
       return 'text-red-500 border-red-500/50';
     case 'for_scouting':
