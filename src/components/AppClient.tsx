@@ -500,6 +500,30 @@ export function AppClient({ currentSection }: AppClientProps) {
     }
   }, []);
 
+  // Reset scroll position when navigating to establishment details
+  useEffect(() => {
+    if (selectedEstablishment) {
+      // Reset scroll position immediately when establishment is selected
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      });
+    }
+  }, [selectedEstablishment]);
+
+  // Reset scroll position when navigating to householder details
+  useEffect(() => {
+    if (selectedHouseholder) {
+      // Reset scroll position immediately when householder is selected
+      requestAnimationFrame(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        document.documentElement.scrollTop = 0;
+        document.body.scrollTop = 0;
+      });
+    }
+  }, [selectedHouseholder]);
+
   const loadHouseholderDetails = useCallback(async (householderId: string) => {
     try {
       const details = await getHouseholderDetails(householderId);

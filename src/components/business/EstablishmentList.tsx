@@ -112,6 +112,11 @@ export function EstablishmentList({
   viewMode: externalViewMode,
   onViewModeChange
 }: EstablishmentListProps) {
+  
+  // Reset scroll position to top when component mounts
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
   const [viewMode, setViewMode] = useState<ViewMode>(externalViewMode || 'detailed');
   const [visibleCount, setVisibleCount] = useState<number>(0);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
