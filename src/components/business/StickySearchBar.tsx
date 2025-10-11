@@ -67,13 +67,13 @@ export function StickySearchBar({
     <AnimatePresence>
         {isVisible && businessTab !== 'map' && (
           <motion.div
-            className="fixed bottom-20 left-0 right-0 z-[90] flex justify-center px-4 pb-safe"
+            className="fixed left-0 right-0 z-[90] flex justify-center px-4"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
             transition={{ duration: 0.3 }}
             style={{
-              bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))'
+              bottom: 'calc(60px + max(env(safe-area-inset-bottom, 0px), 0.5rem) + 16px)'
             }}
           >
           <motion.div
