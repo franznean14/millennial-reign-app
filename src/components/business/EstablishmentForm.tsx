@@ -37,6 +37,7 @@ function isNonEmptyDraft(d: any | null | undefined): boolean {
 interface EstablishmentFormProps {
   onSaved: (newEstablishment?: any) => void;
   onDelete?: () => Promise<void> | void;
+  onArchive?: () => Promise<void> | void;
   selectedArea?: string;
   initialData?: any;
   isEditing?: boolean;
@@ -55,7 +56,7 @@ interface EstablishmentFormProps {
   onDraftChange?: (draft: any) => void;
 }
 
-export function EstablishmentForm({ onSaved, onDelete, selectedArea, initialData, isEditing = false, draft: externalDraft, onDraftChange }: EstablishmentFormProps) {
+export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, initialData, isEditing = false, draft: externalDraft, onDraftChange }: EstablishmentFormProps) {
   // Persist unsaved draft locally to survive modal close
   const draftKey = (isEditing && initialData?.id
     ? `draft:establishment:edit:${initialData.id}`
@@ -81,7 +82,9 @@ export function EstablishmentForm({ onSaved, onDelete, selectedArea, initialData
   const [dupCandidates, setDupCandidates] = useState<any[]>([]);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   // Prevent emitting/saving empty draft before initial load completes
   const loadCompleteRef = useRef(false);
 
@@ -534,40 +537,78 @@ export function EstablishmentForm({ onSaved, onDelete, selectedArea, initialData
         <Label>Note</Label>
         <Textarea value={note} onChange={e=>setNote(e.target.value)} />
       </div>
-      <div className={`flex py-4 ${isEditing && onDelete ? "justify-between" : "justify-end"}`}>
-        {isEditing && onDelete && (
-          <Popover open={confirmOpen} onOpenChange={setConfirmOpen}>
-            <PopoverTrigger asChild>
-              <Button type="button" variant="destructive" disabled={saving}>
-                Delete
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-64 text-center">
-              <div className="space-y-2">
-                <div className="font-medium">Delete Establishment?</div>
-                <p className="text-sm text-muted-foreground">This action cannot be undone.</p>
-                <div className="flex items-center justify-center gap-2 pt-1">
-                  <Button variant="outline" size="sm" onClick={() => setConfirmOpen(false)} disabled={deleting}>Cancel</Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={async () => {
-                      try {
-                        setDeleting(true);
-                        await onDelete();
-                        setConfirmOpen(false);
-                      } finally {
-                        setDeleting(false);
-                      }
-                    }}
-                    disabled={deleting}
-                  >
-                    {deleting ? "Deleting..." : "Delete"}
+      <div className={`flex py-4 ${isEditing && (onDelete || onArchive) ? "justify-between" : "justify-end"}`}>
+        {isEditing && (onDelete || onArchive) && (
+          <div className="flex gap-2">
+            {onDelete && (
+              <Popover open={confirmOpen} onOpenChange={setConfirmOpen}>
+                <PopoverTrigger asChild>
+                  <Button type="button" variant="destructive" disabled={saving}>
+                    Delete
                   </Button>
-                </div>
-              </div>
-            </PopoverContent>
-          </Popover>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 text-center">
+                  <div className="space-y-2">
+                    <div className="font-medium">Delete Establishment?</div>
+                    <p className="text-sm text-muted-foreground">This action cannot be undone.</p>
+                    <div className="flex items-center justify-center gap-2 pt-1">
+                      <Button variant="outline" size="sm" onClick={() => setConfirmOpen(false)} disabled={deleting}>Cancel</Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            setDeleting(true);
+                            await onDelete();
+                            setConfirmOpen(false);
+                          } finally {
+                            setDeleting(false);
+                          }
+                        }}
+                        disabled={deleting}
+                      >
+                        {deleting ? "Deleting..." : "Delete"}
+                      </Button>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+            {onArchive && (
+              <Popover open={archiveConfirmOpen} onOpenChange={setArchiveConfirmOpen}>
+                <PopoverTrigger asChild>
+                  <Button type="button" variant="secondary" disabled={saving}>
+                    Archive
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-64 text-center">
+                  <div className="space-y-2">
+                    <div className="font-medium">Archive Establishment?</div>
+                    <p className="text-sm text-muted-foreground">This will hide the establishment from the main list.</p>
+                    <div className="flex items-center justify-center gap-2 pt-1">
+                      <Button variant="outline" size="sm" onClick={() => setArchiveConfirmOpen(false)} disabled={archiving}>Cancel</Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            setArchiving(true);
+                            await onArchive();
+                            setArchiveConfirmOpen(false);
+                          } finally {
+                            setArchiving(false);
+                          }
+                        }}
+                        disabled={archiving}
+                      >
+                        {archiving ? "Archiving..." : "Archive"}
+                      </Button>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            )}
+          </div>
         )}
         <Button type="submit" disabled={saving}>
           {saving ? (isEditing ? "Updating..." : "Saving...") : (isEditing ? "Update" : "Save")}

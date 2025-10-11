@@ -16,6 +16,7 @@ import { useMobile } from "@/lib/hooks/use-mobile";
 import { type HouseholderWithDetails, type VisitWithUser } from "@/lib/db/business";
 import { deleteHouseholder, archiveHouseholder } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
+import { cn } from "@/lib/utils";
 
 interface HouseholderDetailsProps {
   householder: HouseholderWithDetails;
@@ -24,6 +25,42 @@ interface HouseholderDetailsProps {
   establishments: Array<{ id: string; name: string; area?: string | null }>;
   onBackClick: () => void;
 }
+
+// Helper function for householder status color coding
+const getHouseholderStatusColorClass = (status: string) => {
+  switch (status) {
+    case 'potential':
+      return 'text-cyan-600 border-cyan-200 bg-cyan-50 dark:text-cyan-400 dark:border-cyan-800 dark:bg-cyan-950';
+    case 'do_not_call':
+      return 'text-red-600 border-red-200 bg-red-50 dark:text-red-400 dark:border-red-800 dark:bg-red-950';
+    case 'interested':
+      return 'text-blue-600 border-blue-200 bg-blue-50 dark:text-blue-400 dark:border-blue-800 dark:bg-blue-950';
+    case 'return_visit':
+      return 'text-orange-600 border-orange-200 bg-orange-50 dark:text-orange-400 dark:border-orange-800 dark:bg-orange-950';
+    case 'bible_study':
+      return 'text-emerald-600 border-emerald-200 bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:bg-emerald-950';
+    default:
+      return 'text-gray-600 border-gray-200 bg-gray-50 dark:text-gray-400 dark:border-gray-800 dark:bg-gray-950';
+  }
+};
+
+// Helper function for householder card background color
+const getHouseholderCardColor = (status: string) => {
+  switch (status) {
+    case 'potential':
+      return 'border-cyan-500/50 bg-cyan-500/5';
+    case 'do_not_call':
+      return 'border-red-500/50 bg-red-500/5';
+    case 'interested':
+      return 'border-blue-500/50 bg-blue-500/5';
+    case 'return_visit':
+      return 'border-orange-500/50 bg-orange-500/5';
+    case 'bible_study':
+      return 'border-emerald-500/50 bg-emerald-500/5';
+    default:
+      return 'border-gray-500/50 bg-gray-500/5';
+  }
+};
 
 export function HouseholderDetails({ householder, visits, establishment, establishments, onBackClick }: HouseholderDetailsProps) {
   const isMobile = useMobile();
@@ -147,21 +184,11 @@ export function HouseholderDetails({ householder, visits, establishment, establi
             <Edit className="h-4 w-4 mr-2" />
             Edit
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleArchive}
-            disabled={archiving}
-            className="text-orange-600 hover:text-orange-700 hover:bg-orange-50 dark:text-orange-400 dark:hover:text-orange-300 dark:hover:bg-orange-950"
-          >
-            <Archive className="h-4 w-4 mr-2" />
-            {archiving ? 'Archiving...' : 'Archive'}
-          </Button>
         </div>
       </motion.div>
 
       <motion.div layout className="w-full">
-        <Card>
+        <Card className={cn("w-full", getHouseholderCardColor(householder.status))}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <User2 className="h-5 w-5 flex-shrink-0" />
@@ -172,7 +199,7 @@ export function HouseholderDetails({ householder, visits, establishment, establi
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Status</p>
-                <Badge variant="outline" className="text-xs capitalize">{String(householder.status).replaceAll('_',' ')}</Badge>
+                <Badge variant="outline" className={cn("text-xs capitalize", getHouseholderStatusColorClass(householder.status))}>{String(householder.status).replaceAll('_',' ')}</Badge>
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Establishment</p>
@@ -258,6 +285,7 @@ export function HouseholderDetails({ householder, visits, establishment, establi
                 initialData={{ id: householder.id, establishment_id: householder.establishment_id || "", name: householder.name, status: householder.status as any, note: householder.note || null }}
                 onSaved={onEditSaved}
                 onDelete={handleDelete}
+                onArchive={handleArchive}
               />
             </div>
           </DrawerContent>
@@ -277,6 +305,7 @@ export function HouseholderDetails({ householder, visits, establishment, establi
                 initialData={{ id: householder.id, establishment_id: householder.establishment_id || "", name: householder.name, status: householder.status as any, note: householder.note || null }}
                 onSaved={onEditSaved}
                 onDelete={handleDelete}
+                onArchive={handleArchive}
               />
             </div>
           </DialogContent>
