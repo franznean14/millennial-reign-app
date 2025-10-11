@@ -109,7 +109,6 @@ export function SPAProvider({ children }: { children: ReactNode }) {
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state change:', event, session?.user?.id);
         
         if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
           checkAuth();

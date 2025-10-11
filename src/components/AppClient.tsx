@@ -179,7 +179,6 @@ export function AppClient({ currentSection }: AppClientProps) {
   
   // Debug tab changes
   useEffect(() => {
-    console.log('Business tab changed to:', businessTab);
   }, [businessTab]);
 
   // Track if map view is active for hiding top bar
