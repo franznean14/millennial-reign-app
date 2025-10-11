@@ -31,21 +31,21 @@ export function BusinessTabToggle({
     >
       <ToggleGroupItem 
         value="establishments" 
-        className="data-[state=on]:bg-background data-[state=on]:shadow-sm flex-1 px-2 py-2 min-w-0"
+        className="data-[state=on]:bg-background data-[state=on]:shadow-sm flex-1 px-3 py-2 min-w-0"
       >
         <Building2 className="h-4 w-4 mr-1 flex-shrink-0" />
         <span className="truncate">Establishments</span>
       </ToggleGroupItem>
       <ToggleGroupItem 
         value="householders" 
-        className="data-[state=on]:bg-background data-[state=on]:shadow-sm flex-1 px-2 py-2 min-w-0"
+        className="data-[state=on]:bg-background data-[state=on]:shadow-sm flex-1 px-3 py-2 min-w-0"
       >
         <Users className="h-4 w-4 mr-1 flex-shrink-0" />
         <span className="truncate">Householders</span>
       </ToggleGroupItem>
       <ToggleGroupItem 
         value="map" 
-        className="data-[state=on]:bg-background data-[state=on]:shadow-sm flex-1 px-2 py-2 min-w-0"
+        className="data-[state=on]:bg-background data-[state=on]:shadow-sm flex-1 px-3 py-2 min-w-0"
       >
         <MapPin className="h-4 w-4 mr-1 flex-shrink-0" />
         <span className="truncate">Map</span>
