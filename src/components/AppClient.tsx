@@ -442,6 +442,9 @@ export function AppClient({ currentSection }: AppClientProps) {
         });
       });
       businessEventBus.subscribe('householder-updated', (hh: any) => {
+        // Update main householders list
+        setHouseholders(prev => prev.map(h => h.id === hh.id ? { ...h, ...hh } : h));
+        
         setSelectedEstablishmentDetails(prev => {
           if (!prev) return prev;
           // Create new arrays to ensure React detects the changes

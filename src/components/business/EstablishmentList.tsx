@@ -250,7 +250,22 @@ export function EstablishmentList({
             <div className="flex-1 min-w-0">
               <motion.div layout className="w-full">
                 <CardTitle className="text-2xl sm:text-3xl font-black flex flex-col sm:flex-row sm:items-center gap-2 w-full">
-                  <span className="truncate" title={establishment.name}>{truncateEstablishmentName(establishment.name)}</span>
+                  <div className="relative min-w-0 flex-1 max-w-[320px] overflow-hidden">
+                    <span 
+                      className={`whitespace-nowrap block pr-8 ${
+                        establishment.name.length > 30 ? 'animate-marquee' : ''
+                      }`}
+                      title={establishment.name}
+                      style={{
+                        '--marquee-distance': establishment.name.length > 30 
+                          ? `calc(-100% + ${Math.max(320 - (establishment.name.length * 8), 200)}px)`
+                          : '-80%'
+                      } as React.CSSProperties}
+                    >
+                      {establishment.name}
+                    </span>
+                    <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-card via-card/50 to-transparent pointer-events-none"></div>
+                  </div>
                   
                   {/* Status Badge with Hierarchy */}
                   <div className="flex items-center gap-2 flex-shrink-0">
@@ -352,7 +367,21 @@ export function EstablishmentList({
                 </span>
               )}
               {establishment.description && (
-                <span className="text-xs text-muted-foreground truncate">{establishment.description}</span>
+                <div className="relative min-w-0 flex-1 max-w-[320px] overflow-hidden">
+                  <span 
+                    className={`text-xs text-muted-foreground whitespace-nowrap block pr-8 ${
+                      establishment.description.length > 50 ? 'animate-marquee' : ''
+                    }`}
+                    style={{
+                      '--marquee-distance': establishment.description.length > 50 
+                        ? `calc(-100% + ${Math.max(320 - (establishment.description.length * 6), 200)}px)`
+                        : '-80%'
+                    } as React.CSSProperties}
+                  >
+                    {establishment.description}
+                  </span>
+                  <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-card via-card/50 to-transparent pointer-events-none"></div>
+                </div>
               )}
             </div>
             {establishment.floor && (
