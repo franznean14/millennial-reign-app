@@ -83,7 +83,7 @@ export function PortaledBusinessControls({
                 onFiltersChange({ ...filters, statuses: [] });
               }}
               onClearStatusFilters={() => onFiltersChange({ ...filters, statuses: [] })}
-              className="w-[26rem] mx-4"
+              className="w-full max-w-sm mx-4"
             />
           </motion.div>
 
