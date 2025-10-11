@@ -1,54 +1,224 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Millennial Reign App
 
-## User profiles and monthly records
+A modern Kingdom Ministry application built with Next.js 15, React 19, and Supabase. This PWA (Progressive Web App) provides tools for congregation management, field service tracking, and business territory management.
 
-This app includes:
+## 🚀 Features
 
-- User Profile fields: first name, last name, optional middle name, age, date of baptism, privileges (multiple), and role (user/admin/superadmin).
-- Monthly Records: month (YYYY-MM), hours, bible studies, and note.
+### Core Functionality
+- **User Management**: Profile management with roles (user/admin/superadmin)
+- **Monthly Records**: Track hours, bible studies, and notes
+- **Congregation Management**: Add users, manage groups, and track activities
+- **Field Service**: Territory management and visit tracking
+- **Business Territory**: Establishment and householder management with interactive maps
 
-The Account page (`/account`) lets authenticated users edit their profile and add/update their monthly records.
+### Technical Features
+- **PWA Support**: Offline-ready with service worker caching
+- **Real-time Updates**: Live data synchronization across views
+- **Interactive Maps**: Leaflet-based mapping with clustering
+- **Responsive Design**: Mobile-first with dark theme
+- **Biometric Security**: Optional biometric authentication
+- **Offline-First**: Works without internet connection
 
-### Supabase setup
+## 🛠️ Tech Stack
 
-Run the SQL in `supabase-schema.sql` in your Supabase project (SQL editor) to create the tables and RLS policies.
+### Frontend
+- **Next.js 15.5.4** - React framework with App Router
+- **React 19.2.0** - Latest React with concurrent features
+- **TypeScript 5.9.3** - Type-safe development
+- **Tailwind CSS 4.1.14** - Utility-first styling
+- **Shadcn/ui** - Modern component library
+- **Motion** - Smooth animations and transitions
 
-Notes:
+### Backend & Database
+- **Supabase 2.75.0** - Backend-as-a-Service
+- **PostgreSQL** - Database with Row Level Security (RLS)
+- **Real-time subscriptions** - Live data updates
 
-- Profiles are keyed by `auth.users.id`. Each user can insert/update their own profile. Admins and superadmins can read/write all profiles.
-- Monthly records are unique per `(user_id, month)` and are only visible/editable by their owner (admins can read all).
+### Maps & Location
+- **Leaflet** - Interactive maps
+- **React-Leaflet** - React integration
+- **Marker Clustering** - Performance optimization
+- **Geolocation API** - User location tracking
 
-## Getting Started
+### PWA & Offline
+- **Service Worker** - Offline caching
+- **IndexedDB** - Local data storage
+- **Background Sync** - Data synchronization
+- **Web App Manifest** - App-like experience
 
-First, run the development server:
+## 📱 App Structure
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+### Navigation
+- **Home**: Dashboard with summaries and top studies
+- **Congregation**: User management and group administration
+- **BWI (Business)**: Territory management with three views:
+  - **Establishments**: Business location management
+  - **Householders**: Individual contact tracking
+  - **Map**: Interactive territory visualization
+- **Account**: Profile and monthly records management
+
+### Key Components
+- **SPA Pattern**: Single-page application with state-driven navigation
+- **Event Bus**: Real-time updates across components
+- **Offline Store**: Local data persistence
+- **Biometric Gate**: Secure access control
+
+## 🗄️ Database Schema
+
+### Core Tables
+- **profiles**: User information and roles
+- **monthly_records**: Service hours and bible studies
+- **congregations**: Group management
+- **business_establishments**: Territory locations
+- **business_householders**: Individual contacts
+- **business_visits**: Field service records
+
+### Security
+- **Row Level Security (RLS)**: Data access control
+- **Role-based permissions**: User/admin/superadmin levels
+- **Secure functions**: Database operations with proper authorization
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js 18.17 or higher
+- npm or yarn
+- Supabase account
+
+### Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd millennial-reign-app
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Set up environment variables**
+   ```bash
+   cp .env.example .env.local
+   # Add your Supabase URL and anon key
+   ```
+
+4. **Set up the database**
+   - Run the SQL in `supabase-schema.sql` in your Supabase project
+   - This creates all tables, functions, and RLS policies
+
+5. **Start the development server**
+   ```bash
+   npm run dev
+   ```
+
+6. **Open your browser**
+   Navigate to [http://localhost:3000](http://localhost:3000)
+
+## 📦 Available Scripts
+
+- `npm run dev` - Start development server with Turbopack
+- `npm run build` - Build for production
+- `npm run start` - Start production server
+- `npm run lint` - Run ESLint
+- `npm run db` - Push database changes to Supabase
+
+## 🏗️ Project Structure
+
+```
+src/
+├── app/                    # Next.js App Router
+│   ├── auth/              # Authentication pages
+│   ├── globals.css        # Global styles
+│   └── layout.tsx         # Root layout
+├── components/            # React components
+│   ├── business/          # Business territory components
+│   ├── congregation/      # Congregation management
+│   ├── account/           # User account components
+│   ├── nav/               # Navigation components
+│   └── ui/                # Shadcn/ui components
+├── lib/                   # Utility libraries
+│   ├── db/                # Database functions
+│   ├── offline/           # Offline storage
+│   ├── events/            # Event bus system
+│   └── utils/             # Helper functions
+└── hooks/                 # Custom React hooks
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🔧 Configuration
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Environment Variables
+- `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase anonymous key
+- `NEXT_PUBLIC_APP_URL` - Application URL for callbacks
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Supabase Setup
+1. Create a new Supabase project
+2. Run the SQL from `supabase-schema.sql`
+3. Configure authentication providers
+4. Set up storage buckets if needed
 
-## Learn More
+## 🚀 Deployment
 
-To learn more about Next.js, take a look at the following resources:
+### Vercel (Recommended)
+1. Connect your GitHub repository to Vercel
+2. Add environment variables in Vercel dashboard
+3. Deploy automatically on push to main branch
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Other Platforms
+- **Netlify**: Compatible with Next.js
+- **Railway**: Full-stack deployment
+- **Docker**: Containerized deployment
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 📱 PWA Features
 
-## Deploy on Vercel
+- **Installable**: Add to home screen
+- **Offline Support**: Works without internet
+- **Background Sync**: Syncs data when online
+- **Push Notifications**: Real-time updates
+- **App-like Experience**: Native feel on mobile
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## 🔒 Security Features
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Row Level Security**: Database-level access control
+- **Biometric Authentication**: Optional fingerprint/face ID
+- **Secure Cookies**: HttpOnly, Secure, SameSite
+- **CSRF Protection**: Built-in Next.js protection
+- **Input Validation**: Client and server-side validation
+
+## 🎨 Design System
+
+- **Dark Theme**: Modern dark UI with light accents
+- **Mobile-First**: Responsive design for all devices
+- **Accessibility**: WCAG compliant components
+- **Consistent Spacing**: Tailwind CSS utility classes
+- **Smooth Animations**: Motion library integration
+
+## 📊 Performance
+
+- **Turbopack**: Fast development builds
+- **Code Splitting**: Automatic route-based splitting
+- **Image Optimization**: Next.js Image component
+- **Bundle Analysis**: Optimized JavaScript bundles
+- **Caching**: Aggressive caching strategies
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## 📄 License
+
+This project is private and proprietary.
+
+## 🆘 Support
+
+For support and questions, please contact the development team.
+
+---
+
+**Built with ❤️ for Kingdom Ministry**
