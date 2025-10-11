@@ -514,49 +514,58 @@ export function EstablishmentList({
   );
 
   const renderTableView = () => (
-    <div className="w-full overflow-x-auto no-scrollbar">
-      <table className="w-full text-sm table-fixed">
-        <thead>
-          <tr className="border-b">
-            <th className="text-left p-3 w-[50%]">Name</th>
-            <th className="text-left p-3 w-[23%]">Status</th>
-            <th className="text-left p-3 w-[27%]">Area</th>
-          </tr>
-        </thead>
-        <tbody>
-          {establishments.slice(0, visibleCount).map((establishment, index) => (
-            <tr key={establishment.id || index} className="border-b hover:bg-muted/30 cursor-pointer" onClick={() => onEstablishmentClick(establishment)}>
-              <td className="p-3 min-w-0">
-                <NameWithAvatarsCell name={establishment.name} visitors={establishment.top_visitors} />
-              </td>
-              <td className="p-3">
-                <div className="flex items-center gap-1 min-w-0">
-                  <Badge 
-                    variant="outline" 
-                    className={cn("text-[10px] leading-4 px-1.5 py-0.5 rounded-sm", getStatusTextColor(getBestStatus(establishment.statuses || [])))}
-                  >
-                    {formatStatusCompactText(getBestStatus(establishment.statuses || []))}
-                  </Badge>
-                  {(establishment.statuses && establishment.statuses.length > 1) && (
-                    <div className="flex items-center gap-0.5">
-                      {establishment.statuses
-                        ?.filter(s => s !== getBestStatus(establishment.statuses || []))
-                        .slice(0, 3)
-                        .map((status) => (
-                          <div key={status} className={cn("w-1.5 h-1.5 rounded-full", getStatusDotColorClass(status))} title={formatStatusText(status)} />
-                        ))}
-                      {establishment.statuses.filter(s => s !== getBestStatus(establishment.statuses || [])).length > 3 && (
-                        <span className="text-[10px] text-muted-foreground">+{establishment.statuses.filter(s => s !== getBestStatus(establishment.statuses || [])).length - 3}</span>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </td>
-              <td className="p-3 truncate">{establishment.area || '-'}</td>
+    <div className="w-full h-[calc(100vh-200px)] flex flex-col">
+      {/* Fixed Table Header */}
+      <div className="flex-shrink-0 border-b bg-background">
+        <table className="w-full text-sm table-fixed">
+          <thead>
+            <tr className="border-b">
+              <th className="text-left p-3 w-[50%]">Name</th>
+              <th className="text-left p-3 w-[23%]">Status</th>
+              <th className="text-left p-3 w-[27%]">Area</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+        </table>
+      </div>
+      
+      {/* Scrollable Table Body */}
+      <div className="flex-1 overflow-y-auto no-scrollbar">
+        <table className="w-full text-sm table-fixed">
+          <tbody>
+            {establishments.map((establishment, index) => (
+              <tr key={establishment.id || index} className="border-b hover:bg-muted/30 cursor-pointer" onClick={() => onEstablishmentClick(establishment)}>
+                <td className="p-3 min-w-0 w-[50%]">
+                  <NameWithAvatarsCell name={establishment.name} visitors={establishment.top_visitors} />
+                </td>
+                <td className="p-3 w-[23%]">
+                  <div className="flex items-center gap-1 min-w-0">
+                    <Badge 
+                      variant="outline" 
+                      className={cn("text-[10px] leading-4 px-1.5 py-0.5 rounded-sm", getStatusTextColor(getBestStatus(establishment.statuses || [])))}
+                    >
+                      {formatStatusCompactText(getBestStatus(establishment.statuses || []))}
+                    </Badge>
+                    {(establishment.statuses && establishment.statuses.length > 1) && (
+                      <div className="flex items-center gap-0.5">
+                        {establishment.statuses
+                          ?.filter(s => s !== getBestStatus(establishment.statuses || []))
+                          .slice(0, 3)
+                          .map((status) => (
+                            <div key={status} className={cn("w-1.5 h-1.5 rounded-full", getStatusDotColorClass(status))} title={formatStatusText(status)} />
+                          ))}
+                        {establishment.statuses.filter(s => s !== getBestStatus(establishment.statuses || [])).length > 3 && (
+                          <span className="text-[10px] text-muted-foreground">+{establishment.statuses.filter(s => s !== getBestStatus(establishment.statuses || [])).length - 3}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </td>
+                <td className="p-3 truncate w-[27%]">{establishment.area || '-'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 
@@ -567,17 +576,18 @@ export function EstablishmentList({
       {viewMode === 'table' ? (
         <div className="mt-6 w-full">{renderTableView()}</div>
       ) : (
-        <div className="grid gap-4 mt-6 w-full">
-          {establishments.slice(0, visibleCount).map((establishment, index) => 
-            viewMode === 'detailed' 
-              ? renderDetailedView(establishment, index)
-              : renderCompactView(establishment, index)
+        <>
+          <div className="grid gap-4 mt-6 w-full">
+            {establishments.slice(0, visibleCount).map((establishment, index) => 
+              viewMode === 'detailed' 
+                ? renderDetailedView(establishment, index)
+                : renderCompactView(establishment, index)
+            )}
+          </div>
+          {visibleCount < establishments.length && (
+            <div ref={sentinelRef} className="h-10" />
           )}
-        </div>
-      )}
-
-      {visibleCount < establishments.length && (
-        <div ref={sentinelRef} className="h-10" />
+        </>
       )}
     </div>
   );

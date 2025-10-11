@@ -425,43 +425,52 @@ export function HouseholderList({
   );
 
   const renderTableView = () => (
-    <div className="w-full overflow-x-auto no-scrollbar">
-      <table className="w-full text-sm table-fixed">
-        <thead>
-          <tr className="border-b">
-            <th className="text-left p-3 w-[40%]">Name</th>
-            <th className="text-left p-3 w-[20%]">Status</th>
-            <th className="text-left p-3 w-[40%]">Establishment</th>
-          </tr>
-        </thead>
-        <tbody>
-          {householders.slice(0, visibleCount).map((householder, index) => (
-            <tr key={householder.id || index} className="border-b hover:bg-muted/30 cursor-pointer" onClick={() => onHouseholderClick(householder)}>
-              <td className="p-3 min-w-0">
-                <NameWithAvatarsCell name={householder.name} visitors={householder.top_visitors} />
-              </td>
-              <td className="p-3">
-                <div className="flex items-center gap-1 min-w-0">
-                  <Badge 
-                    variant="outline" 
-                    className={cn("text-[10px] leading-4 px-1.5 py-0.5 rounded-sm", getStatusTextColorClass(householder.status))}
-                  >
-                    {formatStatusCompactText(householder.status)}
-                  </Badge>
-                </div>
-              </td>
-              <td className="p-3 truncate flex items-center gap-1">
-                {householder.establishment_name ? (
-                  <>
-                    <Building2 className="h-3 w-3 flex-shrink-0" />
-                    {householder.establishment_name}
-                  </>
-                ) : '-'}
-              </td>
+    <div className="w-full h-[calc(100vh-200px)] flex flex-col">
+      {/* Fixed Table Header */}
+      <div className="flex-shrink-0 border-b bg-background">
+        <table className="w-full text-sm table-fixed">
+          <thead>
+            <tr className="border-b">
+              <th className="text-left p-3 w-[40%]">Name</th>
+              <th className="text-left p-3 w-[20%]">Status</th>
+              <th className="text-left p-3 w-[40%]">Establishment</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+        </table>
+      </div>
+      
+      {/* Scrollable Table Body */}
+      <div className="flex-1 overflow-y-auto no-scrollbar">
+        <table className="w-full text-sm table-fixed">
+          <tbody>
+            {householders.map((householder, index) => (
+              <tr key={householder.id || index} className="border-b hover:bg-muted/30 cursor-pointer" onClick={() => onHouseholderClick(householder)}>
+                <td className="p-3 min-w-0 w-[40%]">
+                  <NameWithAvatarsCell name={householder.name} visitors={householder.top_visitors} />
+                </td>
+                <td className="p-3 w-[20%]">
+                  <div className="flex items-center gap-1 min-w-0">
+                    <Badge 
+                      variant="outline" 
+                      className={cn("text-[10px] leading-4 px-1.5 py-0.5 rounded-sm", getStatusTextColorClass(householder.status))}
+                    >
+                      {formatStatusCompactText(householder.status)}
+                    </Badge>
+                  </div>
+                </td>
+                <td className="p-3 truncate flex items-center gap-1 w-[40%]">
+                  {householder.establishment_name ? (
+                    <>
+                      <Building2 className="h-3 w-3 flex-shrink-0" />
+                      {householder.establishment_name}
+                    </>
+                  ) : '-'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 
@@ -472,17 +481,18 @@ export function HouseholderList({
       {viewMode === 'table' ? (
         <div className="mt-6 w-full">{renderTableView()}</div>
       ) : (
-        <div className="grid gap-4 mt-6 w-full">
-          {householders.slice(0, visibleCount).map((householder, index) => 
-            viewMode === 'detailed' 
-              ? renderDetailedView(householder, index)
-              : renderCompactView(householder, index)
+        <>
+          <div className="grid gap-4 mt-6 w-full">
+            {householders.slice(0, visibleCount).map((householder, index) => 
+              viewMode === 'detailed' 
+                ? renderDetailedView(householder, index)
+                : renderCompactView(householder, index)
+            )}
+          </div>
+          {visibleCount < householders.length && (
+            <div ref={sentinelRef} className="h-10" />
           )}
-        </div>
-      )}
-
-      {visibleCount < householders.length && (
-        <div ref={sentinelRef} className="h-10" />
+        </>
       )}
     </div>
   );
