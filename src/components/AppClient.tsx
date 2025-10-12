@@ -688,15 +688,20 @@ export function AppClient({ currentSection }: AppClientProps) {
         if (!visitedByUser) return false;
       }
       
-      // Near Me filter: show only establishments within 5km of user location
-      if (filters.nearMe && filters.userLocation && establishment.lat && establishment.lng) {
-        const distance = calculateDistance(
-          filters.userLocation[0], 
-          filters.userLocation[1], 
-          establishment.lat, 
+      // Near Me filter: show only establishments within 150 meters of user location
+      if (filters.nearMe) {
+        // Exclude items without location when Near Me is active
+        if (!filters.userLocation || establishment.lat == null || establishment.lng == null) {
+          return false;
+        }
+        const distanceKm = calculateDistance(
+          filters.userLocation[0],
+          filters.userLocation[1],
+          establishment.lat,
           establishment.lng
         );
-        if (distance > 5) return false; // Filter out establishments more than 5km away
+        // 150 meters = 0.15 km
+        if (distanceKm > 0.15) return false;
       }
       
       return true;
@@ -723,32 +728,44 @@ export function AppClient({ currentSection }: AppClientProps) {
       }
     };
 
-    switch (filters.sort) {
-      case 'name_asc':
-        sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-        break;
-      case 'name_desc':
-        sorted.sort((a, b) => (b.name || '').localeCompare(a.name || ''));
-        break;
-      case 'area_asc':
-        sorted.sort((a, b) => (a.area || '').localeCompare(b.area || ''));
-        break;
-      case 'area_desc':
-        sorted.sort((a, b) => (b.area || '').localeCompare(a.area || ''));
-        break;
-      case 'last_visit_asc':
-        sorted.sort((a, b) => compareLastVisit(a.last_visit_at, b.last_visit_at, true));
-        break;
-      case 'last_visit_desc':
-      default:
-        sorted.sort((a, b) => compareLastVisit(a.last_visit_at, b.last_visit_at, false));
-        break;
+    if (filters.nearMe && filters.userLocation) {
+      const [userLat, userLng] = filters.userLocation;
+      const distanceOf = (e: typeof uniqueEstablishments[number]) => {
+        if (e.lat == null || e.lng == null) return Number.POSITIVE_INFINITY;
+        return calculateDistance(userLat, userLng, e.lat, e.lng);
+      };
+      sorted.sort((a, b) => distanceOf(a) - distanceOf(b));
+    } else {
+      switch (filters.sort) {
+        case 'name_asc':
+          sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+          break;
+        case 'name_desc':
+          sorted.sort((a, b) => (b.name || '').localeCompare(a.name || ''));
+          break;
+        case 'area_asc':
+          sorted.sort((a, b) => (a.area || '').localeCompare(b.area || ''));
+          break;
+        case 'area_desc':
+          sorted.sort((a, b) => (b.area || '').localeCompare(a.area || ''));
+          break;
+        case 'last_visit_asc':
+          sorted.sort((a, b) => compareLastVisit(a.last_visit_at, b.last_visit_at, true));
+          break;
+        case 'last_visit_desc':
+        default:
+          sorted.sort((a, b) => compareLastVisit(a.last_visit_at, b.last_visit_at, false));
+          break;
+      }
     }
     return sorted;
   }, [establishments, filters, userId, userVisitedEstablishments]);
 
   // Business filtering logic for householders
   const filteredHouseholders = useMemo(() => {
+    // Quick lookup for parent establishments
+    const establishmentsById = new Map(establishments.map(e => [e.id, e] as const));
+
     const base = householders.filter(householder => {
       // Search filter
       if (filters.search && !householder.name.toLowerCase().includes(filters.search.toLowerCase())) {
@@ -772,31 +789,55 @@ export function AppClient({ currentSection }: AppClientProps) {
         const visitedByUser = householder.id ? userVisitedHouseholders.has(householder.id) : false;
         if (!visitedByUser) return false;
       }
+
+      // Near Me filter (by parent establishment location): within 150 meters
+      if (filters.nearMe) {
+        if (!filters.userLocation) return false;
+        const parent = householder.establishment_id ? establishmentsById.get(householder.establishment_id) : undefined;
+        if (!parent || parent.lat == null || parent.lng == null) return false;
+        const distanceKm = calculateDistance(
+          filters.userLocation[0],
+          filters.userLocation[1],
+          parent.lat,
+          parent.lng
+        );
+        if (distanceKm > 0.15) return false;
+      }
       
       return true;
     });
     
     // Sorting
     const sorted = [...base];
-    switch (filters.sort) {
-      case 'name_asc':
-        sorted.sort((a, b) => a.name.localeCompare(b.name));
-        break;
-      case 'name_desc':
-        sorted.sort((a, b) => b.name.localeCompare(a.name));
-        break;
-      case 'area_asc':
-        sorted.sort((a, b) => (a.establishment_name || '').localeCompare(b.establishment_name || ''));
-        break;
-      case 'area_desc':
-        sorted.sort((a, b) => (b.establishment_name || '').localeCompare(a.establishment_name || ''));
-        break;
-      case 'last_visit_asc':
-      case 'last_visit_desc':
-      default:
-        // For householders, we don't have last_visit_at, so sort by name
-        sorted.sort((a, b) => a.name.localeCompare(b.name));
-        break;
+    if (filters.nearMe && filters.userLocation) {
+      const [userLat, userLng] = filters.userLocation;
+      const distanceOf = (h: typeof base[number]) => {
+        const parent = h.establishment_id ? establishmentsById.get(h.establishment_id) : undefined;
+        if (!parent || parent.lat == null || parent.lng == null) return Number.POSITIVE_INFINITY;
+        return calculateDistance(userLat, userLng, parent.lat, parent.lng);
+      };
+      sorted.sort((a, b) => distanceOf(a) - distanceOf(b));
+    } else {
+      switch (filters.sort) {
+        case 'name_asc':
+          sorted.sort((a, b) => a.name.localeCompare(b.name));
+          break;
+        case 'name_desc':
+          sorted.sort((a, b) => b.name.localeCompare(a.name));
+          break;
+        case 'area_asc':
+          sorted.sort((a, b) => (a.establishment_name || '').localeCompare(b.establishment_name || ''));
+          break;
+        case 'area_desc':
+          sorted.sort((a, b) => (b.establishment_name || '').localeCompare(a.establishment_name || ''));
+          break;
+        case 'last_visit_asc':
+        case 'last_visit_desc':
+        default:
+          // For householders, we don't have last_visit_at, so sort by name
+          sorted.sort((a, b) => a.name.localeCompare(b.name));
+          break;
+      }
     }
     return sorted;
     }, [householders, filters, userId, establishments, userVisitedHouseholders]);
@@ -858,7 +899,7 @@ export function AppClient({ currentSection }: AppClientProps) {
               userLocation: [latitude, longitude] 
             }));
             setLocationLoading(false);
-            toast.success('Location found! Showing establishments within 5km');
+            toast.success('Location found! Showing places within 150m (sorted by distance)');
           },
           (error) => {
             console.error('Error getting location:', error);
