@@ -127,11 +127,9 @@ export function PortaledBusinessControls({
                 >
                   <Button
                     type="button"
-                    variant="outline"
+                    variant={filters.nearMe ? "default" : "outline"}
                     size="icon"
-                    className={`h-9 w-9 rounded-full flex-shrink-0 ${
-                      filters.nearMe ? 'bg-emerald-600 text-emerald-50 border-emerald-600 hover:bg-emerald-600/90' : ''
-                    }`}
+                    className="h-9 w-9 rounded-full flex-shrink-0"
                     onClick={onToggleNearMe}
                     aria-pressed={!!filters.nearMe}
                     aria-label="Near me"

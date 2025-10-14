@@ -226,6 +226,7 @@ export function AppClient({ currentSection }: AppClientProps) {
   const [filtersModalOpen, setFiltersModalOpen] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
+  const [geoWatchId, setGeoWatchId] = useState<number | null>(null);
 
   // Persist business filters globally for form auto-population
   useEffect(() => {
@@ -582,6 +583,12 @@ export function AppClient({ currentSection }: AppClientProps) {
       if (visitExists) return prev;
       return { ...prev, visits: [visit, ...prev.visits] };
     });
+    setSelectedHouseholderDetails(prev => {
+      if (!prev) return prev;
+      const visitExists = prev.visits.some(existingVisit => existingVisit.id === visit.id);
+      if (visitExists) return prev;
+      return { ...prev, visits: [visit, ...prev.visits] };
+    });
   }, []);
 
   const handleDeleteEstablishment = useCallback(async (establishment: EstablishmentWithDetails) => {
@@ -667,7 +674,9 @@ export function AppClient({ currentSection }: AppClientProps) {
       if (filters.search && filters.search.trim() !== '') {
         const searchTerm = filters.search.toLowerCase().trim();
         const establishmentName = establishment.name?.toLowerCase() || '';
-        if (!establishmentName.includes(searchTerm)) {
+        const areaName = establishment.area?.toLowerCase() || '';
+        const description = establishment.description?.toLowerCase() || '';
+        if (!(establishmentName.includes(searchTerm) || areaName.includes(searchTerm) || description.includes(searchTerm))) {
           return false;
         }
       }
@@ -688,7 +697,7 @@ export function AppClient({ currentSection }: AppClientProps) {
         if (!visitedByUser) return false;
       }
       
-      // Near Me filter: show only establishments within 150 meters of user location
+      // Near Me filter: show only establishments within 250 meters of user location
       if (filters.nearMe) {
         // Exclude items without location when Near Me is active
         if (!filters.userLocation || establishment.lat == null || establishment.lng == null) {
@@ -700,8 +709,8 @@ export function AppClient({ currentSection }: AppClientProps) {
           establishment.lat,
           establishment.lng
         );
-        // 150 meters = 0.15 km
-        if (distanceKm > 0.15) return false;
+        // 250 meters = 0.25 km
+        if (distanceKm > 0.25) return false;
       }
       
       return true;
@@ -767,8 +776,15 @@ export function AppClient({ currentSection }: AppClientProps) {
     const establishmentsById = new Map(establishments.map(e => [e.id, e] as const));
 
     const base = householders.filter(householder => {
-      // Search filter
-      if (filters.search && !householder.name.toLowerCase().includes(filters.search.toLowerCase())) {
+      // Search filter (by name or establishment name)
+      if (filters.search) {
+        const term = filters.search.toLowerCase();
+        const name = (householder.name || '').toLowerCase();
+        const estab = (householder.establishment_name || '').toLowerCase();
+        if (!(name.includes(term) || estab.includes(term))) {
+          return false;
+        }
+      }
         return false;
       }
       
@@ -790,7 +806,7 @@ export function AppClient({ currentSection }: AppClientProps) {
         if (!visitedByUser) return false;
       }
 
-      // Near Me filter (by parent establishment location): within 150 meters
+      // Near Me filter (by parent establishment location): within 250 meters
       if (filters.nearMe) {
         if (!filters.userLocation) return false;
         const parent = householder.establishment_id ? establishmentsById.get(householder.establishment_id) : undefined;
@@ -801,7 +817,7 @@ export function AppClient({ currentSection }: AppClientProps) {
           parent.lat,
           parent.lng
         );
-        if (distanceKm > 0.15) return false;
+        if (distanceKm > 0.25) return false;
       }
       
       return true;
@@ -881,6 +897,11 @@ export function AppClient({ currentSection }: AppClientProps) {
     if (filters.nearMe) {
       // Turn off near me filter
       setFilters(prev => ({ ...prev, nearMe: false, userLocation: null }));
+      // Stop watching location if active
+      if (geoWatchId != null) {
+        try { navigator.geolocation.clearWatch(geoWatchId); } catch {}
+        setGeoWatchId(null);
+      }
     } else {
       // Turn on near me filter - get user location
       setLocationLoading(true);
@@ -899,7 +920,7 @@ export function AppClient({ currentSection }: AppClientProps) {
               userLocation: [latitude, longitude] 
             }));
             setLocationLoading(false);
-            toast.success('Location found! Showing places within 150m (sorted by distance)');
+            toast.success('Location found! Showing places within 250m (sorted by distance)');
           },
           (error) => {
             console.error('Error getting location:', error);
@@ -918,6 +939,25 @@ export function AppClient({ currentSection }: AppClientProps) {
         toast.error('Unable to access location services');
       }
     }
+  }, [filters.nearMe, geoWatchId]);
+
+  // Live location updates for Near Me
+  useEffect(() => {
+    if (!filters.nearMe) return;
+    if (!navigator.geolocation) return;
+    const id = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        setFilters(prev => ({ ...prev, userLocation: [latitude, longitude] }));
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 1000 }
+    );
+    setGeoWatchId(id);
+    return () => {
+      try { navigator.geolocation.clearWatch(id); } catch {}
+      setGeoWatchId(null);
+    };
   }, [filters.nearMe]);
 
   const areaOptions = useMemo(() => {

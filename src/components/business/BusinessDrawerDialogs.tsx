@@ -181,7 +181,7 @@ export function BusinessDrawerDialogs({
               <div className="px-4">
                 <VisitForm
                   establishments={establishments}
-                  selectedEstablishmentId={selectedEstablishment?.id}
+                  selectedEstablishmentId={selectedEstablishment?.id ?? selectedHouseholder?.establishment_id}
                   householderId={selectedHouseholder?.id}
                   householderName={selectedHouseholder?.name}
                   onSaved={() => setOpenVisit(false)}
@@ -290,7 +290,7 @@ export function BusinessDrawerDialogs({
             <div className="px-4">
               <VisitForm
                 establishments={establishments}
-                selectedEstablishmentId={selectedEstablishment?.id}
+                selectedEstablishmentId={selectedEstablishment?.id ?? selectedHouseholder?.establishment_id}
                 householderId={selectedHouseholder?.id}
                 householderName={selectedHouseholder?.name}
                 onSaved={() => setOpenVisit(false)}

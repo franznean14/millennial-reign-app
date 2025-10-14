@@ -65,7 +65,7 @@ export function StickySearchBar({
 
   return createPortal(
     <AnimatePresence>
-        {isVisible && businessTab !== 'map' && (
+        {isVisible && (
           <motion.div
             className="fixed left-0 right-0 z-[90] flex justify-center px-4"
             initial={{ opacity: 0, y: 20 }}
@@ -89,7 +89,11 @@ export function StickySearchBar({
           >
             <div className="relative">
               <Input
-                placeholder={shouldExpand ? "Search establishments..." : "Search"}
+                placeholder={
+                  shouldExpand
+                    ? (businessTab === 'householders' ? 'Search householders...' : businessTab === 'map' ? 'Search map...' : 'Search establishments...')
+                    : 'Search'
+                }
                 value={filters.search}
                 onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
                 onFocus={() => setIsFocused(true)}
