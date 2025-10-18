@@ -12,11 +12,19 @@ function useShowCongregationTab() {
   const [isOffline, setIsOffline] = useState(false);
   
   useEffect(() => {
-    const handleOnline = () => setIsOffline(false);
-    const handleOffline = () => setIsOffline(true);
+    const handleOnline = () => {
+      console.log('Congregation Tab: Network Online');
+      setIsOffline(false);
+    };
+    const handleOffline = () => {
+      console.log('Congregation Tab: Network Offline');
+      setIsOffline(true);
+    };
     
     // Set initial state
-    setIsOffline(!navigator.onLine);
+    const initialOffline = !navigator.onLine;
+    console.log('Congregation Tab: Initial offline state:', initialOffline, 'navigator.onLine:', navigator.onLine);
+    setIsOffline(initialOffline);
     
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
@@ -32,9 +40,14 @@ function useShowCongregationTab() {
     (async () => {
       let cachedData = null;
       try {
+        console.log('Congregation Tab: Effect running, isOffline:', isOffline);
         const { data } = await supabase.auth.getSession();
         const id = data.session?.user?.id ?? null;
-        if (!id) return setOk(false);
+        if (!id) {
+          console.log('Congregation Tab: No user ID found');
+          return setOk(false);
+        }
+        console.log('Congregation Tab: User ID:', id);
         
         const profileCacheKey = `user-profile-${id}`;
         const tabCacheKey = `congregation-tab-${id}`;
@@ -42,6 +55,18 @@ function useShowCongregationTab() {
         // Try to load from cache first (both online and offline)
         const cachedProfile = await cacheGet(profileCacheKey);
         const cachedTabData = await cacheGet(tabCacheKey);
+        console.log('Congregation Tab: Cached data:', { 
+          cachedProfile: !!cachedProfile, 
+          cachedTabData: !!cachedTabData,
+          isOffline,
+          cachedProfileData: cachedProfile ? { 
+            role: cachedProfile.role, 
+            privileges: cachedProfile.privileges, 
+            congregation_id: cachedProfile.congregation_id,
+            isAdmin: cachedProfile.isAdmin 
+          } : null,
+          cachedTabDataValue: cachedTabData?.showCongregation
+        });
         
         if (cachedProfile) {
           // Use cached profile data to determine tab visibility
@@ -49,16 +74,38 @@ function useShowCongregationTab() {
           const isSuperadmin = cachedProfile.role === "superadmin";
           const assigned = !!cachedProfile.congregation_id;
           const showCongregation = assigned || isSuperadmin || (cachedProfile.isAdmin && isElder);
+          console.log('Congregation Tab: Using cached profile:', { 
+            isElder, 
+            isSuperadmin, 
+            assigned, 
+            isAdmin: cachedProfile.isAdmin, 
+            showCongregation 
+          });
           setOk(showCongregation);
         } else if (cachedTabData && cachedTabData.showCongregation !== undefined) {
+          console.log('Congregation Tab: Using cached tab data:', cachedTabData.showCongregation);
           setOk(cachedTabData.showCongregation);
         }
         
         // If offline, don't attempt network request
         if (isOffline) {
+          console.log('Congregation Tab: Offline detected, checking cached data...');
           // If offline and no cached data, default to true for better UX
           if (!cachedProfile && !cachedTabData) {
+            console.log('Offline: No cached data, defaulting to show congregation tab');
             setOk(true);
+          } else {
+            const showCongregation = cachedProfile ? (assigned || isSuperadmin || (cachedProfile.isAdmin && isElder)) : cachedTabData?.showCongregation;
+            console.log('Offline: Using cached data for congregation tab:', {
+              cachedProfile: !!cachedProfile,
+              cachedTabData: !!cachedTabData,
+              showCongregation,
+              assigned,
+              isSuperadmin,
+              isElder,
+              isAdmin: cachedProfile?.isAdmin
+            });
+            setOk(showCongregation);
           }
           return;
         }
@@ -75,6 +122,13 @@ function useShowCongregationTab() {
         } catch {}
         
         const showCongregation = assigned || isSuperadmin || (admin && isElder);
+        console.log('Congregation Tab: Setting visibility:', { 
+          assigned, 
+          isSuperadmin, 
+          admin, 
+          isElder, 
+          showCongregation 
+        });
         setOk(showCongregation);
         
         // Cache both profile data and tab result
@@ -92,6 +146,7 @@ function useShowCongregationTab() {
       }
     })();
   }, [isOffline]);
+  console.log('Congregation Tab: Final state:', ok);
   return ok;
 }
 
@@ -100,11 +155,19 @@ function useShowBusinessTab() {
   const [isOffline, setIsOffline] = useState(false);
   
   useEffect(() => {
-    const handleOnline = () => setIsOffline(false);
-    const handleOffline = () => setIsOffline(true);
+    const handleOnline = () => {
+      console.log('Business Tab: Network Online');
+      setIsOffline(false);
+    };
+    const handleOffline = () => {
+      console.log('Business Tab: Network Offline');
+      setIsOffline(true);
+    };
     
     // Set initial state
-    setIsOffline(!navigator.onLine);
+    const initialOffline = !navigator.onLine;
+    console.log('Business Tab: Initial offline state:', initialOffline, 'navigator.onLine:', navigator.onLine);
+    setIsOffline(initialOffline);
     
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
@@ -120,23 +183,42 @@ function useShowBusinessTab() {
     (async () => {
       let cachedData = null;
       try {
+        console.log('Business Tab: Effect running, isOffline:', isOffline);
         const { data } = await supabase.auth.getSession();
         const id = data.session?.user?.id ?? null;
-        if (!id) return setOk(false);
+        if (!id) {
+          console.log('Business Tab: No user ID found');
+          return setOk(false);
+        }
+        console.log('Business Tab: User ID:', id);
         
         const businessCacheKey = `business-tab-${id}`;
         
         // Try to load from cache first (both online and offline)
         const cachedBusinessData = await cacheGet(businessCacheKey);
+        console.log('Business Tab: Cached data:', { 
+          cachedBusinessData: !!cachedBusinessData,
+          isOffline,
+          cachedBusinessDataValue: cachedBusinessData?.showBusiness
+        });
         if (cachedBusinessData && cachedBusinessData.showBusiness !== undefined) {
+          console.log('Business Tab: Using cached business data:', cachedBusinessData.showBusiness);
           setOk(cachedBusinessData.showBusiness);
         }
         
         // If offline, don't attempt network request
         if (isOffline) {
+          console.log('Business Tab: Offline detected, checking cached data...');
           // If offline and no cached data, default to true for better UX
           if (!cachedBusinessData) {
+            console.log('Offline: No cached business data, defaulting to show business tab');
             setOk(true);
+          } else {
+            console.log('Offline: Using cached business data:', {
+              cachedBusinessData,
+              showBusiness: cachedBusinessData.showBusiness
+            });
+            setOk(cachedBusinessData.showBusiness);
           }
           return;
         }
@@ -145,6 +227,11 @@ function useShowBusinessTab() {
         const { data: enabled } = await supabase.rpc('is_business_enabled');
         const { data: participant } = await supabase.rpc('is_business_participant');
         const showBusiness = !!enabled && !!participant;
+        console.log('Business Tab: Setting visibility:', { 
+          enabled, 
+          participant, 
+          showBusiness 
+        });
         setOk(showBusiness);
         
         // Cache the result
@@ -157,6 +244,7 @@ function useShowBusinessTab() {
       }
     })();
   }, [isOffline]);
+  console.log('Business Tab: Final state:', ok);
   return ok;
 }
 
@@ -164,12 +252,16 @@ export default function BottomNav() {
   const pathname = usePathname();
   const showCong = useShowCongregationTab();
   const showBiz = useShowBusinessTab();
+  
+  console.log('BottomNav: Tab states:', { showCong, showBiz });
   const tabs = [
     { href: "/", label: "Home", icon: Home },
     ...(showCong ? [{ href: "/congregation", label: "Congregation", icon: Landmark }] : []),
     ...(showBiz ? [{ href: "/business", label: "Business", icon: Briefcase }] : []),
     { href: "/account", label: "Account", icon: User },
   ];
+  
+  console.log('BottomNav: Rendered tabs:', tabs.map(t => t.label));
   return (
     <nav 
       className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-background/80 backdrop-blur md:hidden"

@@ -90,7 +90,7 @@ export function UnifiedNav({ currentSection, onSectionChange, userPermissions }:
       </nav>
 
       {/* Bottom Navigation (Mobile) */}
-      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-background/80 backdrop-blur md:hidden pb-[max(env(safe-area-inset-bottom),0.5rem)]">
+      <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-background/80 backdrop-blur md:hidden">
         <div className="mx-auto flex max-w-screen-sm items-stretch justify-around">
           {navItems.map(({ id, label, icon: Icon }) => {
             const isActive = currentSection === id;
