@@ -321,126 +321,80 @@ export function ProfileForm({ userId, initialEmail, initialProfile, bwiEnabled, 
   ];
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 pb-10">
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="first_name">First Name *</Label>
-          <Input
-            id="first_name"
-            value={formData.first_name}
-            onChange={(e) => setFormData(prev => ({ ...prev, first_name: e.target.value }))}
-            required
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="last_name">Last Name *</Label>
-          <Input
-            id="last_name"
-            value={formData.last_name}
-            onChange={(e) => setFormData(prev => ({ ...prev, last_name: e.target.value }))}
-            required
-          />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="middle_name">Middle Name</Label>
-        <Input
-          id="middle_name"
-          value={formData.middle_name || ""}
-          onChange={(e) => setFormData(prev => ({ ...prev, middle_name: e.target.value }))}
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label>Date of Birth</Label>
-          <DatePicker
-            date={formData.date_of_birth}
-            onSelect={(date) => setFormData(prev => ({ ...prev, date_of_birth: date }))}
-            placeholder="Select birth date"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Date of Baptism</Label>
-          <DatePicker
-            date={formData.date_of_baptism}
-            onSelect={(date) => setFormData(prev => ({ ...prev, date_of_baptism: date }))}
-            placeholder="Select baptism date"
-          />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <Label htmlFor="gender">Gender</Label>
-        <Select
-          value={formData.gender || ""}
-          onValueChange={(value: Gender) => setFormData(prev => ({ ...prev, gender: value }))}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select gender" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="male">Male</SelectItem>
-            <SelectItem value="female">Female</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Group Name Dropdown - Now matches area dropdown behavior */}
-      <div className="space-y-2">
-        <Label htmlFor="group_name">Group Name</Label>
-        {showGroupInput ? (
-          <div className="flex gap-2">
+    <form onSubmit={handleSubmit} className="space-y-6 pb-10">
+      {/* Personal Information Section */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-semibold">Personal</h3>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="first_name">First Name *</Label>
             <Input
-              className="flex-1"
-              placeholder="Enter new group name"
-              value={formData.group_name}
-              onChange={(e) => setFormData(prev => ({ ...prev, group_name: e.target.value }))}
-              autoFocus
+              id="first_name"
+              value={formData.first_name}
+              onChange={(e) => setFormData(prev => ({ ...prev, first_name: e.target.value }))}
+              required
             />
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setShowGroupInput(false)}
-            >
-              Cancel
-            </Button>
           </div>
-        ) : (
-          <Select 
-            value={formData.group_name ? formData.group_name : "__none__"} 
-            onValueChange={(value) => {
-              if (value === "__custom__") {
-                setShowGroupInput(true);
-                setFormData(prev => ({ ...prev, group_name: "" }));
-              } else if (value === "__none__") {
-                setFormData(prev => ({ ...prev, group_name: "" }));
-              } else {
-                setFormData(prev => ({ ...prev, group_name: value }));
-              }
-            }}
+          <div className="space-y-2">
+            <Label htmlFor="last_name">Last Name *</Label>
+            <Input
+              id="last_name"
+              value={formData.last_name}
+              onChange={(e) => setFormData(prev => ({ ...prev, last_name: e.target.value }))}
+              required
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="middle_name">Middle Name</Label>
+          <Input
+            id="middle_name"
+            value={formData.middle_name || ""}
+            onChange={(e) => setFormData(prev => ({ ...prev, middle_name: e.target.value }))}
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label>Date of Birth</Label>
+            <DatePicker
+              date={formData.date_of_birth}
+              onSelect={(date) => setFormData(prev => ({ ...prev, date_of_birth: date }))}
+              placeholder="Select birth date"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Date of Baptism</Label>
+            <DatePicker
+              date={formData.date_of_baptism}
+              onSelect={(date) => setFormData(prev => ({ ...prev, date_of_baptism: date }))}
+              placeholder="Select baptism date"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="gender">Gender</Label>
+          <Select
+            value={formData.gender || ""}
+            onValueChange={(value: Gender) => setFormData(prev => ({ ...prev, gender: value }))}
           >
             <SelectTrigger>
-              <SelectValue placeholder="Select group or add new" />
+              <SelectValue placeholder="Select gender" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__none__">No group</SelectItem>
-              {groupOptions.map((group) => (
-                <SelectItem key={group} value={group}>
-                  {group}
-                </SelectItem>
-              ))}
-              <SelectItem value="__custom__">
-                + Add new group
-              </SelectItem>
+              <SelectItem value="male">Male</SelectItem>
+              <SelectItem value="female">Female</SelectItem>
             </SelectContent>
           </Select>
-        )}
+        </div>
       </div>
 
-      {/* Contact Information Section */}
+      {/* Contact and Address Section */}
       <div className="space-y-4 border-t pt-4">
+        <h3 className="text-lg font-semibold">Contact and Address</h3>
         <div className="space-y-2">
           <Label htmlFor="phone_number">Contact Number</Label>
                  <Input
@@ -513,20 +467,79 @@ export function ProfileForm({ userId, initialEmail, initialProfile, bwiEnabled, 
         </div>
       </div>
 
-      <div className="space-y-2">
-        <Label>Privileges</Label>
-        <div className="grid grid-cols-2 gap-2">
-          {allPrivileges.map((privilege) => (
-            <Button
-              key={privilege}
-              type="button"
-              variant={formData.privileges.includes(privilege) ? "default" : "outline"}
-              onClick={() => togglePrivilege(privilege)}
-              className="justify-start"
-            >
-              {formData.privileges.includes(privilege) ? "✓ " : ""}{privilege}
-            </Button>
-          ))}
+      {/* Congregation Section */}
+      <div className="space-y-4 border-t pt-4">
+        <h3 className="text-lg font-semibold">Congregation</h3>
+        
+        {/* Group Field - Only visible to Elders */}
+        {formData.privileges.includes('Elder') && (
+          <div className="space-y-2">
+            <Label htmlFor="group_name">Group</Label>
+            {showGroupInput ? (
+              <div className="flex gap-2">
+                <Input
+                  className="flex-1"
+                  placeholder="Enter new group name"
+                  value={formData.group_name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, group_name: e.target.value }))}
+                  autoFocus
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowGroupInput(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <Select 
+                value={formData.group_name ? formData.group_name : "__none__"} 
+                onValueChange={(value) => {
+                  if (value === "__custom__") {
+                    setShowGroupInput(true);
+                    setFormData(prev => ({ ...prev, group_name: "" }));
+                  } else if (value === "__none__") {
+                    setFormData(prev => ({ ...prev, group_name: "" }));
+                  } else {
+                    setFormData(prev => ({ ...prev, group_name: value }));
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select group or add new" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">No group</SelectItem>
+                  {groupOptions.map((group) => (
+                    <SelectItem key={group} value={group}>
+                      {group}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="__custom__">
+                    + Add new group
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <Label>Privileges</Label>
+          <div className="grid grid-cols-2 gap-2">
+            {allPrivileges.map((privilege) => (
+              <Button
+                key={privilege}
+                type="button"
+                variant={formData.privileges.includes(privilege) ? "default" : "outline"}
+                onClick={() => togglePrivilege(privilege)}
+                className="justify-start"
+              >
+                {formData.privileges.includes(privilege) ? "✓ " : ""}{privilege}
+              </Button>
+            ))}
+          </div>
         </div>
       </div>
 

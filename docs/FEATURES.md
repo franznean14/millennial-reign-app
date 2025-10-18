@@ -81,6 +81,9 @@
 - **Intelligent Validation**: Real-time form validation
 - **User Feedback**: Clear success and error messages
 - **Auto-save**: Prevent data loss with smart saving
+- **Sectioned Organization**: Personal, Contact and Address, Congregation sections
+- **Role-based Access**: Elder-only fields for congregation management
+- **Form Organization**: Clear visual separation and logical grouping
 
 ### Navigation
 - **SPA Pattern**: Single-page application with state-driven navigation

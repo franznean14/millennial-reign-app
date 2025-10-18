@@ -5,6 +5,12 @@ All notable changes to the Millennial Reign App will be documented in this file.
 ## [Latest] - 2025-01-18
 
 ### ✨ Added
+- **Profile Form Reorganization**
+  - Sectioned form layout: Personal, Contact and Address, Congregation
+  - Elder-only access to Group field management
+  - Improved form organization and user experience
+  - Role-based field visibility and access control
+
 - **Map Search Functionality**
   - Real-time search filtering in map view
   - Search bar visible in map view with dynamic placeholders
