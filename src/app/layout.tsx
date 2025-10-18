@@ -5,6 +5,7 @@ import { AppChrome } from "@/components/AppChrome";
 import ThemeInit from "@/components/ThemeInit";
 import { Toaster } from "@/components/ui/sonner";
 import { SPAProvider } from "@/components/SPAProvider";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -63,6 +64,8 @@ export default function RootLayout({
         </SPAProvider>
         {/* Toast notifications (auto dark/light) */}
         <Toaster position="top-center" richColors closeButton theme="system" />
+        {/* Vercel Speed Insights for performance monitoring */}
+        <SpeedInsights />
       </body>
     </html>
   );
