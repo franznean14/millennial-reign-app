@@ -26,6 +26,17 @@ All notable changes to the Millennial Reign App will be documented in this file.
   - Fixes navigation from home to establishment details
   - Proper back button behavior in all scenarios
 
+- **Context-Aware Visit Updates**
+  - Smart badge display in visit updates timeline
+  - Shows establishment names when viewing householder details
+  - Shows householder names when viewing establishment details
+  - Eliminates redundant information display
+
+- **Complete Establishment Status Options**
+  - Added missing "For Replenishment" status option
+  - All establishment statuses now available in form dropdown
+  - Proper status categorization for business territory management
+
 ### 🔧 Improved
 - **Profile Form Reorganization**
   - Sectioned form layout: Personal, Contact and Address, Congregation

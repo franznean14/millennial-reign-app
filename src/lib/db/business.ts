@@ -99,6 +99,7 @@ export interface VisitWithUser {
   publisher_id?: string | null;
   partner_id?: string | null;
   householder_id?: string | null;
+  establishment_id?: string | null;
   publisher?: {
     id: string;
     first_name: string;
@@ -115,6 +116,10 @@ export interface VisitWithUser {
     id: string;
     name: string;
     status: string;
+  } | null;
+  establishment?: {
+    id: string;
+    name: string;
   } | null;
 }
 
@@ -771,6 +776,7 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
       publisher_id,
       partner_id,
       householder_id,
+      establishment_id,
       publisher:profiles!business_visits_publisher_id_fkey(id, first_name, last_name, avatar_url),
       partner:profiles!business_visits_partner_id_fkey(id, first_name, last_name, avatar_url),
       householder:business_householders!business_visits_householder_id_fkey(id, name, status)
@@ -787,6 +793,7 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
       publisher_id: visit.publisher_id ?? (Array.isArray(visit.publisher) ? (visit.publisher[0]?.id ?? null) : (visit.publisher?.id ?? null)),
       partner_id: visit.partner_id ?? (Array.isArray(visit.partner) ? (visit.partner[0]?.id ?? null) : (visit.partner?.id ?? null)),
       householder_id: visit.householder_id,
+      establishment_id: visit.establishment_id,
       publisher: Array.isArray(visit.publisher) ? visit.publisher[0] || null : visit.publisher || null,
       partner: Array.isArray(visit.partner) ? visit.partner[0] || null : visit.partner || null,
       householder: Array.isArray(visit.householder) ? visit.householder[0] || null : visit.householder || null
@@ -879,7 +886,8 @@ export async function getHouseholderDetails(householderId: string): Promise<{
       householder_id,
       publisher:profiles!business_visits_publisher_id_fkey(id, first_name, last_name, avatar_url),
       partner:profiles!business_visits_partner_id_fkey(id, first_name, last_name, avatar_url),
-      householder:business_householders!business_visits_householder_id_fkey(id, name, status)
+      householder:business_householders!business_visits_householder_id_fkey(id, name, status),
+      establishment:business_establishments!business_visits_establishment_id_fkey(id, name)
     `)
     .eq('householder_id', householderId)
     .order('visit_date', { ascending: false });
@@ -891,9 +899,11 @@ export async function getHouseholderDetails(householderId: string): Promise<{
     publisher_id: visit.publisher_id ?? (Array.isArray(visit.publisher) ? (visit.publisher[0]?.id ?? null) : (visit.publisher?.id ?? null)),
     partner_id: visit.partner_id ?? (Array.isArray(visit.partner) ? (visit.partner[0]?.id ?? null) : (visit.partner?.id ?? null)),
     householder_id: visit.householder_id,
+    establishment_id: visit.establishment_id,
     publisher: Array.isArray(visit.publisher) ? visit.publisher[0] || null : visit.publisher || null,
     partner: Array.isArray(visit.partner) ? visit.partner[0] || null : visit.partner || null,
     householder: Array.isArray(visit.householder) ? visit.householder[0] || null : visit.householder || null,
+    establishment: Array.isArray(visit.establishment) ? visit.establishment[0] || null : visit.establishment || null,
   })) || [];
 
   const establishment = Array.isArray((hh as any).establishment) ? (hh as any).establishment[0] : (hh as any).establishment;

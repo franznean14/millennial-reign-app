@@ -227,7 +227,7 @@ export function HouseholderDetails({ householder, visits, establishment, establi
       </motion.div>
 
       <motion.div layout className="w-full">
-        <VisitUpdatesSection visits={visits} />
+        <VisitUpdatesSection visits={visits} isHouseholderContext={true} />
       </motion.div>
 
       {/* Edit Householder */}

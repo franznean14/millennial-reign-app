@@ -42,6 +42,8 @@
 - **Smart Navigation**: SPA navigation stack for seamless user experience
 - **Dynamic Navigation Stack**: Tracks current section for proper back button behavior
 - **Visit Updates Timeline**: Timeline design for establishment and householder visit updates
+- **Context-Aware Badges**: Smart badge display showing establishment names in householder context and householder names in establishment context
+- **Complete Status Options**: All establishment status options including "For Replenishment" for proper business territory management
 
 ## 🔔 Push Notifications
 

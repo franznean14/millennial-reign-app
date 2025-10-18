@@ -466,6 +466,7 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
               { value: "for_follow_up", label: "For Follow Up" },
               { value: "accepted_rack", label: "Accepted Rack" },
               { value: "declined_rack", label: "Declined Rack" },
+              { value: "for_replenishment", label: "For Replenishment" },
               { value: "has_bible_studies", label: "Has Bible Studies" },
               { value: "inappropriate", label: "Inappropriate" }
             ].map((statusOption) => (

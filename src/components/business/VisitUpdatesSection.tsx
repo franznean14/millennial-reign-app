@@ -9,9 +9,10 @@ import { type VisitWithUser } from '@/lib/db/business';
 
 interface VisitUpdatesSectionProps {
   visits: VisitWithUser[];
+  isHouseholderContext?: boolean;
 }
 
-export function VisitUpdatesSection({ visits }: VisitUpdatesSectionProps) {
+export function VisitUpdatesSection({ visits, isHouseholderContext = false }: VisitUpdatesSectionProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
 
@@ -56,12 +57,24 @@ export function VisitUpdatesSection({ visits }: VisitUpdatesSectionProps) {
         <div className="ml-4 flex-1 min-w-0 text-left">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-sm font-medium text-white">
-              {publisherName}
+              {formatVisitDate(visit.visit_date)}
             </span>
+            {visit.householder_id && visit.householder?.name && !isHouseholderContext && (
+              <span className="text-xs bg-gray-600/50 text-gray-300 px-2 py-0.5 rounded-full">
+                {visit.householder.name}
+              </span>
+            )}
+            {visit.establishment_id && visit.establishment?.name && isHouseholderContext && (
+              <span className="text-xs bg-gray-600/50 text-gray-300 px-2 py-0.5 rounded-full">
+                {visit.establishment.name}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-1 text-xs text-gray-200 mb-2">
             <Calendar className="h-3 w-3" />
-            {formatVisitDate(visit.visit_date)}
+            <span className="text-xs text-gray-300">
+              {publisherName}
+            </span>
           </div>
           {visit.note && (
             <div className={`text-xs text-gray-300 leading-relaxed ${!isDrawer ? 'line-clamp-1' : ''}`}>
