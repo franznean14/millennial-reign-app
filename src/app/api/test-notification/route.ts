@@ -30,12 +30,7 @@ export async function POST(request: NextRequest) {
       .select('*')
       .eq('user_id', user.id);
     
-    console.log('User ID:', user.id);
-    console.log('Subscriptions found:', subscriptions?.length || 0);
-    console.log('Subscriptions:', subscriptions);
-    
     if (subError) {
-      console.error('Database error:', subError);
       return NextResponse.json({ error: 'Failed to get subscriptions' }, { status: 500 });
     }
     
