@@ -224,11 +224,6 @@ export function HomeSummary({
           </div>
         </div>
 
-        {/* Top studies - temporarily removed */}
-        <div className="rounded-lg border p-4">
-          <div className="text-sm font-medium mb-2">Bible Studies</div>
-          <div className="text-sm opacity-70">Coming soon...</div>
-        </div>
       </div>
     </section>
   );

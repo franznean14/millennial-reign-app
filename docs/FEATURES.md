@@ -36,6 +36,10 @@
 - **Visit Tracking**: Record and manage field service visits
 - **Territory Organization**: Efficient territory management
 - **Live Filtering**: Instant search results across all views
+- **BWI Visit History**: Timeline view of business witnessing visits with clickable navigation
+- **Visit Distinction**: Proper separation between establishment and householder visits
+- **Establishment Badges**: Context badges showing which establishment householders belong to
+- **Smart Navigation**: Browser history-based back navigation for seamless user experience
 
 ## 🔔 Push Notifications
 

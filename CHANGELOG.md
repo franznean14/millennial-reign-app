@@ -5,6 +5,15 @@ All notable changes to the Millennial Reign App will be documented in this file.
 ## [Latest] - 2025-01-18
 
 ### ✨ Added
+- **BWI Visit History**
+  - Timeline view of business witnessing visits with clickable navigation
+  - Proper distinction between establishment and householder visits
+  - Establishment badges for householder visits showing context
+  - Truncated descriptions in summary view, full details in drawer
+  - Smart back navigation using browser history API
+  - Improved timeline styling with thicker, grayed-out lines
+
+### 🔧 Improved
 - **Profile Form Reorganization**
   - Sectioned form layout: Personal, Contact and Address, Congregation
   - Elder-only access to Group field management

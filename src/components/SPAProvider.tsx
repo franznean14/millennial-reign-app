@@ -5,6 +5,7 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 
 interface SPAContextType {
   currentSection: string;
+  setCurrentSection: (section: string) => void;
   userPermissions: {
     showCongregation: boolean;
     showBusiness: boolean;
@@ -159,6 +160,7 @@ export function SPAProvider({ children }: { children: ReactNode }) {
 
   const value: SPAContextType = {
     currentSection,
+    setCurrentSection,
     userPermissions,
     onSectionChange: handleSectionChange,
     isAuthenticated,

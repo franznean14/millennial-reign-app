@@ -40,6 +40,7 @@ import { BusinessTabToggle } from "@/components/business/BusinessTabToggle";
 import { PortaledBusinessControls } from "@/components/business/PortaledBusinessControls";
 import { StickySearchBar } from "@/components/business/StickySearchBar";
 import { useSPA } from "@/components/SPAProvider";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 // Import all the data and business logic functions
 import { getDailyRecord, listDailyByMonth, upsertDailyRecord, isDailyEmpty, deleteDailyRecord } from "@/lib/db/dailyRecords";
@@ -51,7 +52,7 @@ import { businessEventBus } from "@/lib/events/business-events";
 
 // Lazy-load heavy UI components to reduce initial bundle
 const HomeSummary = dynamic(() => import("@/components/home/HomeSummary").then(m => m.HomeSummary), { ssr: false });
-const TopStudies = dynamic(() => import("@/components/home/TopStudies").then(m => m.TopStudies), { ssr: false });
+const BWIVisitHistory = dynamic(() => import("@/components/home/BWIVisitHistory").then(m => m.BWIVisitHistory), { ssr: false });
 const EstablishmentList = dynamic(() => import("@/components/business/EstablishmentList").then(m => m.EstablishmentList), { ssr: false });
 const HouseholderList = dynamic(() => import("@/components/business/HouseholderList").then(m => m.HouseholderList), { ssr: false });
 const EstablishmentDetails = dynamic(() => import("@/components/business/EstablishmentDetails").then(m => m.EstablishmentDetails), { ssr: false });
@@ -145,7 +146,7 @@ export function AppClient({ currentSection }: AppClientProps) {
   const [admin, setAdmin] = useState(false);
   
   // Get SPA context for loading state
-  const { setContentLoading } = useSPA();
+  const { setContentLoading, onSectionChange } = useSPA();
   
 
   // Home/Field Service state
@@ -1054,6 +1055,84 @@ export function AppClient({ currentSection }: AppClientProps) {
             serviceYearStart={dateRanges.serviceYearStart}
             serviceYearEnd={dateRanges.serviceYearEnd}
           />
+          
+          <BWIVisitHistory 
+            userId={userId} 
+            onVisitClick={async (visit) => {
+              // Debug: Log the full visit record to see what fields are available
+              console.log('Full visit record:', visit);
+              
+              // Navigate to business section and show details
+              if (visit.visit_type === 'establishment' && visit.establishment_id) {
+                try {
+                  // Load the full establishment data
+                  const supabase = createSupabaseBrowserClient();
+                  const { data: establishment, error } = await supabase
+                    .from('business_establishments')
+                    .select('*')
+                    .eq('id', visit.establishment_id)
+                    .maybeSingle(); // Use maybeSingle() instead of single()
+                  
+                  console.log('Establishment query result:', { establishment, error, establishmentId: visit.establishment_id });
+                  
+                  if (establishment && !error) {
+                    console.log('Setting selected establishment:', establishment);
+                    setSelectedEstablishment(establishment);
+                    setBusinessTab('establishments');
+                    // Load full establishment details
+                    loadEstablishmentDetails(establishment.id);
+                    // Small delay to ensure state is set before navigation
+                    setTimeout(() => {
+                      onSectionChange('business');
+                    }, 100);
+                  } else if (error) {
+                    console.error('Error loading establishment:', error);
+                  } else {
+                    // Show a toast or alert to the user that the establishment was not found
+                    alert(`Establishment not found. It may have been deleted.`);
+                    // Don't navigate if establishment not found
+                    return;
+                  }
+                } catch (error) {
+                  console.error('Error loading establishment:', error);
+                }
+              } else if (visit.visit_type === 'householder' && visit.householder_id) {
+                try {
+                  // Load the full householder data
+                  const supabase = createSupabaseBrowserClient();
+                  const { data: householder, error } = await supabase
+                    .from('business_householders')
+                    .select('*')
+                    .eq('id', visit.householder_id)
+                    .maybeSingle(); // Use maybeSingle() instead of single()
+                  
+                  console.log('Householder query result:', { householder, error, householderId: visit.householder_id });
+                  
+                  if (householder && !error) {
+                    console.log('Setting selected householder:', householder);
+                    setSelectedHouseholder(householder);
+                    setBusinessTab('householders');
+                    // Load full householder details
+                    loadHouseholderDetails(householder.id);
+                    // Small delay to ensure state is set before navigation
+                    setTimeout(() => {
+                      onSectionChange('business');
+                    }, 100);
+                  } else if (error) {
+                    console.error('Error loading householder:', error);
+                  } else {
+                    // Show a toast or alert to the user that the householder was not found
+                    alert(`Householder not found. It may have been deleted.`);
+                    // Don't navigate if householder not found
+                    return;
+                  }
+                } catch (error) {
+                  console.error('Error loading householder:', error);
+                }
+              }
+            }}
+          />
+          
           {/* Home: Field Service drawer trigger */}
           <div className="px-4">
             <FieldServiceDrawerDialog userId={userId} triggerLabel="Field Service" />
@@ -1212,6 +1291,13 @@ export function AppClient({ currentSection }: AppClientProps) {
                     onBackClick={() => {
                       setSelectedHouseholder(null);
                       setSelectedHouseholderDetails(null);
+                      // Use browser history to go back to previous page
+                      if (window.history.length > 1) {
+                        window.history.back();
+                      } else {
+                        // Fallback to home if no history
+                        onSectionChange('home');
+                      }
                     }}
                   />
                   </div>
@@ -1235,6 +1321,13 @@ export function AppClient({ currentSection }: AppClientProps) {
                     onBackClick={() => {
                       setSelectedEstablishment(null);
                       setSelectedEstablishmentDetails(null);
+                      // Use browser history to go back to previous page
+                      if (window.history.length > 1) {
+                        window.history.back();
+                      } else {
+                        // Fallback to home if no history
+                        onSectionChange('home');
+                      }
                     }}
                     onEstablishmentUpdated={(est) => est?.id && updateEstablishment({ id: est.id!, ...est })}
                     onHouseholderClick={(hh) => {
