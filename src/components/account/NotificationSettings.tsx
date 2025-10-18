@@ -2,11 +2,13 @@
 
 import { usePushNotifications } from "@/lib/hooks/usePushNotifications";
 import { Button } from "@/components/ui/button";
-import { Bell, BellOff } from "lucide-react";
+import { Bell, BellOff, Send } from "lucide-react";
 import { toast } from "sonner";
+import { useState } from "react";
 
 export function NotificationSettings() {
   const { permission, isSubscribed, isSupported, subscribe, unsubscribe } = usePushNotifications();
+  const [isTesting, setIsTesting] = useState(false);
   
   if (!isSupported) {
     return (
@@ -31,6 +33,33 @@ export function NotificationSettings() {
       } else {
         toast.error(result.error || "Failed to enable notifications");
       }
+    }
+  };
+
+  const handleTestNotification = async () => {
+    if (!isSubscribed) {
+      toast.error("Please enable notifications first");
+      return;
+    }
+
+    setIsTesting(true);
+    try {
+      const response = await fetch('/api/test-notification', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        toast.success(`Test notification sent! Found ${result.subscriptions} subscription(s)`);
+      } else {
+        toast.error(result.error || "Failed to send test notification");
+      }
+    } catch (error) {
+      toast.error("Failed to send test notification");
+    } finally {
+      setIsTesting(false);
     }
   };
   
@@ -60,6 +89,26 @@ export function NotificationSettings() {
           {isSubscribed ? "Enabled" : "Enable"}
         </Button>
       </div>
+      
+      {isSubscribed && (
+        <div className="flex items-center justify-between">
+          <div>
+            <h4 className="font-medium text-sm">Test Notifications</h4>
+            <p className="text-xs text-muted-foreground">
+              Send a test notification to verify everything is working
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleTestNotification}
+            disabled={isTesting}
+          >
+            <Send className="h-4 w-4 mr-2" />
+            {isTesting ? "Sending..." : "Test"}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }
