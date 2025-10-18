@@ -11,12 +11,15 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 -- ==============================================
 
 CREATE OR REPLACE FUNCTION public.set_updated_at()
-RETURNS trigger AS $$
+RETURNS trigger 
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
 BEGIN
   NEW.updated_at = now();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- ==============================================
 -- Enums
@@ -89,6 +92,61 @@ CREATE INDEX IF NOT EXISTS profiles_group_idx ON public.profiles(group_name);
 CREATE TABLE IF NOT EXISTS public.admin_users (
   user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE
 );
+
+-- Enable RLS on admin_users for security
+ALTER TABLE public.admin_users ENABLE ROW LEVEL SECURITY;
+
+-- Block all direct client access to admin_users
+-- The is_admin() function uses SECURITY DEFINER so it bypasses RLS
+CREATE POLICY "block_all_client_access" 
+ON public.admin_users 
+FOR ALL 
+TO authenticated, anon
+USING (false) 
+WITH CHECK (false);
+
+-- Revoke unnecessary grants to prevent direct table access
+REVOKE INSERT, UPDATE, DELETE ON public.admin_users FROM anon, authenticated;
+
+-- Push subscriptions for Web Push Notifications
+CREATE TABLE IF NOT EXISTS public.push_subscriptions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  endpoint text NOT NULL,
+  p256dh text NOT NULL,
+  auth text NOT NULL,
+  user_agent text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  UNIQUE(user_id, endpoint)
+);
+
+-- Enable RLS on push_subscriptions
+ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;
+
+-- Users can manage their own subscriptions
+CREATE POLICY "Users manage own subscriptions"
+ON public.push_subscriptions
+FOR ALL
+TO authenticated
+USING (auth.uid() = user_id)
+WITH CHECK (auth.uid() = user_id);
+
+-- Admins can read all subscriptions (for sending notifications)
+CREATE POLICY "Admins read all subscriptions"
+ON public.push_subscriptions
+FOR SELECT
+TO authenticated
+USING (public.is_admin(auth.uid()));
+
+-- Index for performance
+CREATE INDEX IF NOT EXISTS push_subscriptions_user_id_idx 
+ON public.push_subscriptions(user_id);
+
+-- Trigger for updated_at
+CREATE TRIGGER push_subscriptions_updated_at
+BEFORE UPDATE ON public.push_subscriptions
+FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- Congregations
 CREATE TABLE IF NOT EXISTS public.congregations (
@@ -814,6 +872,7 @@ CREATE OR REPLACE FUNCTION public.delete_householder(
 RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 BEGIN
   UPDATE public.business_householders

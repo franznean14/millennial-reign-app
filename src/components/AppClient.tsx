@@ -25,6 +25,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { EditAccountForm } from "@/components/account/EditAccountForm";
 import { PasswordDialog } from "@/components/account/PasswordDialog";
 import { BiometricToggle } from "@/components/account/BiometricToggle";
+import { NotificationSettings } from "@/components/account/NotificationSettings";
 import { ProfileForm } from "@/components/account/ProfileForm";
 import { LogoutButton } from "@/components/account/LogoutButton";
 import { Separator } from "@/components/ui/separator";
@@ -1498,6 +1499,14 @@ export function AppClient({ currentSection }: AppClientProps) {
                   </Button>
                 )}
               </div>
+            </section>
+
+            <Separator />
+
+            {/* Notifications */}
+            <section className="space-y-4">
+              <h3 className="text-lg font-semibold">Notifications</h3>
+              <NotificationSettings />
             </section>
 
             <Separator />
