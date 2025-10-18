@@ -74,8 +74,16 @@ export function usePushNotifications() {
       // Convert VAPID key with better error handling
       let applicationServerKey;
       try {
+        console.log("Converting VAPID key:", {
+          keyLength: VAPID_PUBLIC_KEY?.length,
+          keyPreview: VAPID_PUBLIC_KEY?.substring(0, 20) + "..."
+        });
+        
         applicationServerKey = urlBase64ToUint8Array(VAPID_PUBLIC_KEY);
-        console.log("VAPID key converted successfully");
+        console.log("VAPID key converted successfully:", {
+          byteLength: applicationServerKey.length,
+          firstBytes: Array.from(applicationServerKey.slice(0, 5))
+        });
       } catch (keyError) {
         console.error("VAPID key conversion failed:", keyError);
         return { success: false, error: "Invalid VAPID key" };
@@ -155,11 +163,11 @@ export function usePushNotifications() {
 }
 
 function urlBase64ToUint8Array(base64String: string) {
-  // iOS Safari compatible base64 to Uint8Array conversion
+  // Convert base64url to base64
   const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
   
-  // Use a more robust approach for iOS
+  // Decode base64 to binary string
   const binaryString = atob(base64);
   const len = binaryString.length;
   const bytes = new Uint8Array(len);
