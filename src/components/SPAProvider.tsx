@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { useLoadingManager } from './LoadingManager';
 
 interface SPAContextType {
   currentSection: string;
@@ -23,6 +24,9 @@ export function SPAProvider({ children }: { children: ReactNode }) {
     showCongregation: false,
     showBusiness: false,
   });
+  
+  // Get loading manager context
+  const { setLoadingState } = useLoadingManager();
 
   const handleSectionChange = (section: string) => {
     setCurrentSection(section);
@@ -39,6 +43,7 @@ export function SPAProvider({ children }: { children: ReactNode }) {
 
   const checkAuth = async () => {
     try {
+      setLoadingState('auth', true);
       const supabase = createSupabaseBrowserClient();
       const { data: { session }, error } = await supabase.auth.getSession();
       
@@ -96,6 +101,8 @@ export function SPAProvider({ children }: { children: ReactNode }) {
         showCongregation: false,
         showBusiness: false,
       });
+    } finally {
+      setLoadingState('auth', false);
     }
   };
 

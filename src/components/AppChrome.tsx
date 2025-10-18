@@ -1,10 +1,13 @@
 "use client";
 
+import { useEffect } from "react";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { AppTopbar } from "@/components/AppTopbar";
 import { Home, Landmark, Briefcase, User } from "lucide-react";
 import { useSPA } from "@/components/SPAProvider";
+import { useLoadingManager } from "@/components/LoadingManager";
+import { FullScreenLoading } from "@/components/FullScreenLoading";
 
 // Defer non-critical chrome to reduce initial JS
 const OfflineInit = dynamic(() => import("@/components/OfflineInit"), { ssr: false });
@@ -20,7 +23,15 @@ interface AppChromeProps {
 export function AppChrome({ children }: AppChromeProps) {
   const pathname = usePathname();
   const { currentSection, userPermissions, onSectionChange, isAuthenticated } = useSPA();
+  const { isAppReady, setLoadingState } = useLoadingManager();
   const hideChrome = pathname === "/login" || pathname.startsWith("/auth/") || !isAuthenticated;
+
+  // Track navigation loading
+  useEffect(() => {
+    if (isAuthenticated) {
+      setLoadingState('navigation', false);
+    }
+  }, [isAuthenticated, setLoadingState]);
 
   // If not authenticated, just show the children (login view)
   if (!isAuthenticated) {
@@ -38,6 +49,8 @@ export function AppChrome({ children }: AppChromeProps) {
 
   return (
     <>
+      <FullScreenLoading isVisible={!isAppReady} />
+      
       <OfflineInit />
       <ServiceWorkerRegister />
       <SyncBanner />

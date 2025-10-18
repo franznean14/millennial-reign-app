@@ -34,6 +34,7 @@ import { Search, Building2, Users, MapPin, User, UserCheck, Filter as FilterIcon
 import { cacheSet } from "@/lib/offline/store";
 import { LoginView } from "@/components/views/LoginView";
 import { LoadingView } from "@/components/views/LoadingView";
+import { useLoadingManager } from "@/components/LoadingManager";
 import { BusinessTabToggle } from "@/components/business/BusinessTabToggle";
 import { PortaledBusinessControls } from "@/components/business/PortaledBusinessControls";
 import { StickySearchBar } from "@/components/business/StickySearchBar";
@@ -140,6 +141,9 @@ export function AppClient({ currentSection }: AppClientProps) {
   const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [admin, setAdmin] = useState(false);
+  
+  // Get loading manager
+  const { setLoadingState } = useLoadingManager();
 
   // Home/Field Service state
   const [dateRanges, setDateRanges] = useState({
@@ -261,6 +265,7 @@ export function AppClient({ currentSection }: AppClientProps) {
   // Load initial app data
   useEffect(() => {
     const loadAppData = async () => {
+      setLoadingState('content', true);
       const supabase = await getSupabaseClient();
       const { data: { session } } = await supabase.auth.getSession();
       const id = session?.user?.id || null;
@@ -292,10 +297,11 @@ export function AppClient({ currentSection }: AppClientProps) {
       }
       
       setIsLoading(false);
+      setLoadingState('content', false);
     };
 
     loadAppData();
-  }, []);
+  }, [setLoadingState]);
 
   // Calculate date ranges for home view
   useEffect(() => {
