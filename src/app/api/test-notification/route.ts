@@ -8,7 +8,7 @@ const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY!;
 
 if (vapidPrivateKey) {
   webpush.setVapidDetails(
-    'mailto:your-email@example.com', // This can be any email
+    'mailto:test@millennialreign.app', // This can be any email
     vapidPublicKey,
     vapidPrivateKey
   );
