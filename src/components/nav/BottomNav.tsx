@@ -53,24 +53,22 @@ function useShowCongregationTab() {
           return;
         }
         
-        // Only fetch from network if online and no cached data
-        if (!cachedData) {
-          const p = await getProfile(id);
-          const isElder = Array.isArray((p as any)?.privileges) && (p as any).privileges.includes('Elder');
-          const isSuperadmin = (p as any)?.role === "superadmin";
-          const assigned = !!(p as any)?.congregation_id;
-          let admin = false;
-          try {
-            const { data: isAdm } = await supabase.rpc("is_admin", { uid: id });
-            admin = !!isAdm;
-          } catch {}
-          
-          const showCongregation = assigned || isSuperadmin || (admin && isElder);
-          setOk(showCongregation);
-          
-          // Cache the result
-          await cacheSet(cacheKey, { showCongregation, timestamp: new Date().toISOString() });
-        }
+        // Fetch fresh data if online
+        const p = await getProfile(id);
+        const isElder = Array.isArray((p as any)?.privileges) && (p as any).privileges.includes('Elder');
+        const isSuperadmin = (p as any)?.role === "superadmin";
+        const assigned = !!(p as any)?.congregation_id;
+        let admin = false;
+        try {
+          const { data: isAdm } = await supabase.rpc("is_admin", { uid: id });
+          admin = !!isAdm;
+        } catch {}
+        
+        const showCongregation = assigned || isSuperadmin || (admin && isElder);
+        setOk(showCongregation);
+        
+        // Cache the result
+        await cacheSet(cacheKey, { showCongregation, timestamp: new Date().toISOString() });
       } catch {
         // If there's an error and no cached data, default to false
         if (!cachedData) {
@@ -128,16 +126,14 @@ function useShowBusinessTab() {
           return;
         }
         
-        // Only fetch from network if online and no cached data
-        if (!cachedData) {
-          const { data: enabled } = await supabase.rpc('is_business_enabled');
-          const { data: participant } = await supabase.rpc('is_business_participant');
-          const showBusiness = !!enabled && !!participant;
-          setOk(showBusiness);
-          
-          // Cache the result
-          await cacheSet(cacheKey, { showBusiness, timestamp: new Date().toISOString() });
-        }
+        // Fetch fresh data if online
+        const { data: enabled } = await supabase.rpc('is_business_enabled');
+        const { data: participant } = await supabase.rpc('is_business_participant');
+        const showBusiness = !!enabled && !!participant;
+        setOk(showBusiness);
+        
+        // Cache the result
+        await cacheSet(cacheKey, { showBusiness, timestamp: new Date().toISOString() });
       } catch {
         // If there's an error and no cached data, default to false
         if (!cachedData) {
@@ -171,11 +167,11 @@ export default function BottomNav() {
               key={href}
               href={href}
               aria-label={label}
-              className={`flex flex-col items-center justify-center gap-1 w-full text-xs min-h-[60px]
+              className={`flex flex-col items-center justify-center w-full text-xs min-h-[60px]
                 ${active ? "text-foreground" : "text-foreground/60"}`}
             >
               <Icon className={`h-5 w-5 flex-shrink-0 ${active ? "" : "opacity-70"}`} />
-              <span className="text-xs leading-tight text-center">{label}</span>
+              <span className="text-xs text-center">{label}</span>
             </Link>
           );
         })}

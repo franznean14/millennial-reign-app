@@ -13,6 +13,8 @@ All notable changes to the Millennial Reign App will be documented in this file.
 - **Mobile Navbar Padding** - Removed unnecessary bottom padding from mobile navigation
 - **Offline Default Behavior** - Added default tab visibility when no cached data exists
 - **Navigation Link Padding** - Removed py-3 padding from navigation links for clean bottom edge
+- **Improved Caching Logic** - Always fetches fresh data when online and caches properly for offline use
+- **Complete Spacing Removal** - Removed gap-1 and leading-tight classes for completely flush bottom edge
 
 ### ✨ Added
 - **BWI Visit History**

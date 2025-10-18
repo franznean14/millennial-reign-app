@@ -60,6 +60,8 @@
 - **Clean Mobile UX**: Removed extra bottom padding for better mobile navigation
 - **Robust Offline Defaults**: Default tab visibility when no cached data exists
 - **Clean Bottom Edge**: Removed navigation link padding for flush bottom edge
+- **Improved Caching**: Always fetches fresh data when online and caches properly for offline use
+- **Complete Spacing Removal**: Removed all gap and line-height classes for completely flush bottom edge
 
 ### BWI View Offline Support
 - **Establishment List**: Complete establishment list works offline with cached data
