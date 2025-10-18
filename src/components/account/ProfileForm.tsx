@@ -12,6 +12,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/sonner";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { Crosshair } from "lucide-react";
 
 interface ProfileFormProps {
   userId: string;
@@ -27,6 +28,61 @@ export function ProfileForm({ userId, initialEmail, initialProfile, bwiEnabled, 
   const [saving, setSaving] = useState(false);
   const [groupOptions, setGroupOptions] = useState<string[]>([]);
   const [showGroupInput, setShowGroupInput] = useState(false);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gps, setGps] = useState<string>("");
+
+  // Initialize GPS string from coordinates
+  useEffect(() => {
+    if (formData.address_latitude && formData.address_longitude) {
+      setGps(`${formData.address_latitude}, ${formData.address_longitude}`);
+    } else {
+      setGps("");
+    }
+  }, [formData.address_latitude, formData.address_longitude]);
+
+  // Parse GPS string to extract coordinates
+  const parseGps = (gpsString: string) => {
+    const parts = gpsString.split(',').map(p => p.trim());
+    if (parts.length !== 2) return null;
+    const lat = parseFloat(parts[0]);
+    const lng = parseFloat(parts[1]);
+    if (isNaN(lat) || isNaN(lng)) return null;
+    return { lat, lng };
+  };
+
+  // Get current location
+  const getCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported by this browser");
+      return;
+    }
+
+    setGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        setFormData(prev => ({
+          ...prev,
+          address_latitude: latitude,
+          address_longitude: longitude
+        }));
+        setGps(`${latitude}, ${longitude}`);
+        setGpsLoading(false);
+        toast.success("Location obtained successfully");
+      },
+      (error) => {
+        console.error("Error getting location:", error);
+        toast.error("Failed to get current location");
+        setGpsLoading(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000
+      }
+    );
+  };
+
   // Helpers to handle YYYY-MM-DD safely in local time
   const parseLocalYMD = (s?: string | null) => {
     if (!s) return undefined as unknown as Date | undefined;
@@ -53,6 +109,8 @@ export function ProfileForm({ userId, initialEmail, initialProfile, bwiEnabled, 
     group_name: initialProfile?.group_name || "",
     phone_number: initialProfile?.phone_number || "",
     address: initialProfile?.address || "",
+    address_latitude: initialProfile?.address_latitude || null,
+    address_longitude: initialProfile?.address_longitude || null,
   });
 
   // Update form data when initialProfile changes (async loading)
@@ -69,6 +127,8 @@ export function ProfileForm({ userId, initialEmail, initialProfile, bwiEnabled, 
         group_name: initialProfile.group_name || "",
         phone_number: initialProfile.phone_number || "",
         address: initialProfile.address || "",
+        address_latitude: initialProfile.address_latitude || null,
+        address_longitude: initialProfile.address_longitude || null,
       });
     }
   }, [initialProfile]);
@@ -148,6 +208,11 @@ export function ProfileForm({ userId, initialEmail, initialProfile, bwiEnabled, 
         username: initialProfile?.username || null,
         role: initialProfile?.role || "user", // Preserve existing role
         group_name: formData.group_name || null,
+        // Contact information fields
+        phone_number: formData.phone_number || null,
+        address: formData.address || null,
+        address_latitude: formData.address_latitude || null,
+        address_longitude: formData.address_longitude || null,
         // Don't pass congregation_id - let upsertProfile preserve it automatically
       });
 
@@ -362,6 +427,53 @@ export function ProfileForm({ userId, initialEmail, initialProfile, bwiEnabled, 
           />
           <p className="text-xs text-muted-foreground">
             For emergency contact purposes - visible to congregation elders
+          </p>
+        </div>
+
+        {/* GPS Coordinates */}
+        <div className="space-y-2">
+          <Label>GPS Coordinates (Optional)</Label>
+          <div className="flex gap-2">
+            <Input 
+              className="flex-1"
+              placeholder="14.5995, 120.9842"
+              value={gps}
+              onChange={(e) => {
+                const v = e.target.value;
+                setGps(v);
+                const parsed = parseGps(v);
+                if (!v.trim()) {
+                  setFormData(prev => ({
+                    ...prev,
+                    address_latitude: null,
+                    address_longitude: null
+                  }));
+                } else if (parsed) {
+                  setFormData(prev => ({
+                    ...prev,
+                    address_latitude: parsed.lat,
+                    address_longitude: parsed.lng
+                  }));
+                }
+              }}
+            />
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="icon"
+              onClick={getCurrentLocation}
+              disabled={gpsLoading}
+              title={gpsLoading ? "Getting location..." : "Use current location"}
+            >
+              {gpsLoading ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                <Crosshair className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Enter coordinates manually or use current location for emergency contact purposes
           </p>
         </div>
       </div>

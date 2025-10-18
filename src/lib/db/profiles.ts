@@ -161,6 +161,11 @@ export async function upsertProfile(input: Omit<Profile, "id" | "role"> & { id: 
       username: norm.username,
       gender: norm.gender as any,
       group_name: norm.group_name as any,
+      // Contact information fields
+      phone_number: (input as any).phone_number ? String((input as any).phone_number) : null,
+      address: (input as any).address ? String((input as any).address) : null,
+      address_latitude: (input as any).address_latitude ? Number((input as any).address_latitude) : null,
+      address_longitude: (input as any).address_longitude ? Number((input as any).address_longitude) : null,
     };
     // Only include congregation_id when explicitly provided by caller.
     if (Object.prototype.hasOwnProperty.call(input as any, 'congregation_id')) {
@@ -208,6 +213,11 @@ export async function upsertProfile(input: Omit<Profile, "id" | "role"> & { id: 
       gender: norm.gender as any,
       congregation_id: (Object.prototype.hasOwnProperty.call(input as any, 'congregation_id') ? (norm.congregation_id as any) : (undefined as any)),
       group_name: norm.group_name,
+      // Contact information fields
+      phone_number: (input as any).phone_number ? String((input as any).phone_number) : null,
+      address: (input as any).address ? String((input as any).address) : null,
+      address_latitude: (input as any).address_latitude ? Number((input as any).address_latitude) : null,
+      address_longitude: (input as any).address_longitude ? Number((input as any).address_longitude) : null,
     };
     await cacheSet(`profile:${input.id}`, optimistic);
     toast.error("Working offline. Changes queued.", { description: msg });
