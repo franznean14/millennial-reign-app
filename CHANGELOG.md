@@ -37,6 +37,13 @@ All notable changes to the Millennial Reign App will be documented in this file.
   - All establishment statuses now available in form dropdown
   - Proper status categorization for business territory management
 
+- **Offline-First Home Page**
+  - Cached data display for home summary and BWI visit history
+  - Offline indicators with visual feedback
+  - Graceful degradation when network is unavailable
+  - Automatic data sync when connection is restored
+  - Last updated timestamps for cached data
+
 ### 🔧 Improved
 - **Profile Form Reorganization**
   - Sectioned form layout: Personal, Contact and Address, Congregation

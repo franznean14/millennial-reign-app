@@ -6,6 +6,7 @@ import { formatDateHuman } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ResponsiveModal } from "@/components/ui/responsive-modal";
 import { Calendar, ChevronRight } from "lucide-react";
+import { cacheGet, cacheSet } from "@/lib/offline/store";
 
 interface VisitRecord {
   id: string;
@@ -31,6 +32,25 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
   const [allVisits, setAllVisits] = useState<VisitRecord[]>([]);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [isOffline, setIsOffline] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  // Offline detection
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    
+    // Set initial state
+    setIsOffline(!navigator.onLine);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Load initial visits (last 5)
   useEffect(() => {
@@ -38,6 +58,23 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
       if (!userId) return;
       
       setLoading(true);
+      
+      const cacheKey = `bwi-visits-${userId}`;
+      
+      // Try to load from cache first
+      const cachedData = await cacheGet(cacheKey);
+      if (cachedData) {
+        setVisits(cachedData.visits || []);
+        setLastUpdated(new Date(cachedData.timestamp));
+        setLoading(false);
+      }
+      
+      // If offline, don't attempt network request
+      if (isOffline) {
+        setLoading(false);
+        return;
+      }
+      
       try {
         const supabase = createSupabaseBrowserClient();
         
@@ -112,6 +149,15 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
           .slice(0, 5);
 
         setVisits(sortedVisits);
+        
+        // Cache the data
+        const dataToCache = {
+          visits: sortedVisits,
+          timestamp: new Date().toISOString()
+        };
+        await cacheSet(cacheKey, dataToCache);
+        setLastUpdated(new Date());
+        
       } catch (error) {
         console.error('Error loading visit history:', error);
       } finally {
@@ -263,13 +309,26 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
     <>
       <div className="rounded-lg border p-4">
         <div className="flex items-center justify-between mb-3">
-          <button 
-            onClick={handleSeeMore}
-            className="flex items-center gap-2 text-sm font-bold hover:opacity-80 transition-opacity"
-          >
-            BWI Visit History
-            <ChevronRight className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={handleSeeMore}
+              className="flex items-center gap-2 text-sm font-bold hover:opacity-80 transition-opacity"
+            >
+              BWI Visit History
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            {isOffline && (
+              <div className="flex items-center gap-1 text-xs text-amber-500">
+                <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse"></div>
+                <span>Offline</span>
+              </div>
+            )}
+            {lastUpdated && !isOffline && (
+              <div className="text-xs text-gray-500">
+                Updated {formatDateHuman(lastUpdated.toISOString())}
+              </div>
+            )}
+          </div>
           {/* Legend */}
           <div className="flex items-center gap-3 text-xs">
             <div className="flex items-center gap-1">

@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import NumberFlow from "@number-flow/react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatDateHuman } from "@/lib/utils";
+import { cacheGet, cacheSet } from "@/lib/offline/store";
 
 type StudyCount = [string, number];
 
@@ -45,6 +46,8 @@ export function HomeSummary({
   const [localPioneer, setLocalPioneer] = useState(false);
   const [timeZone, setTimeZone] = useState<string | null>(null);
   const [uid, setUid] = useState<string | null>(null);
+  const [isOffline, setIsOffline] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [range, setRange] = useState({
     mStart: monthStart,
     mNext: nextMonthStart,
@@ -60,6 +63,23 @@ export function HomeSummary({
   // Get user timezone
   useEffect(() => {
     setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  }, []);
+
+  // Offline detection
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    
+    // Set initial state
+    setIsOffline(!navigator.onLine);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
   // Set user ID
@@ -79,6 +99,23 @@ export function HomeSummary({
 
   const refresh = async () => {
     if (!uid || !range.mStart || !range.mNext || !range.syStart || !range.syEnd) return;
+    
+    const cacheKey = `home-summary-${uid}-${range.mStart}-${range.mNext}-${range.syStart}-${range.syEnd}`;
+    
+    // Try to load from cache first
+    const cachedData = await cacheGet(cacheKey);
+    if (cachedData) {
+      setMonthHours(cachedData.monthHours || 0);
+      setSyHours(cachedData.syHours || 0);
+      setStudies(cachedData.studies || []);
+      setLocalPioneer(cachedData.localPioneer || false);
+      setLastUpdated(new Date(cachedData.timestamp));
+    }
+    
+    // If offline, don't attempt network request
+    if (isOffline) {
+      return;
+    }
     
     // Create AbortController for this request
     const abortController = new AbortController();
@@ -107,14 +144,33 @@ export function HomeSummary({
       ]);
 
       if (month.data) {
-        setMonthHours(sumHours(month.data));
-        setStudies(topStudies(month.data, 5));
+        const monthHoursValue = sumHours(month.data);
+        const studiesValue = topStudies(month.data, 5);
+        setMonthHours(monthHoursValue);
+        setStudies(studiesValue);
       }
-      if (sy.data) setSyHours(sumHours(sy.data));
+      if (sy.data) {
+        const syHoursValue = sumHours(sy.data);
+        setSyHours(syHoursValue);
+      }
       if (profile.data) {
         const privileges = profile.data.privileges;
-        setLocalPioneer(Array.isArray(privileges) && privileges.includes("Regular Pioneer"));
+        const pioneerValue = Array.isArray(privileges) && privileges.includes("Regular Pioneer");
+        setLocalPioneer(pioneerValue);
       }
+      
+      // Cache the data
+      const dataToCache = {
+        monthHours: month.data ? sumHours(month.data) : 0,
+        syHours: sy.data ? sumHours(sy.data) : 0,
+        studies: month.data ? topStudies(month.data, 5) : [],
+        localPioneer: profile.data ? (Array.isArray(profile.data.privileges) && profile.data.privileges.includes("Regular Pioneer")) : false,
+        timestamp: new Date().toISOString()
+      };
+      
+      await cacheSet(cacheKey, dataToCache);
+      setLastUpdated(new Date());
+      
     } catch (error) {
       // Only log errors that aren't from cancellation
       if (error instanceof Error && error.name !== 'AbortError') {
@@ -201,7 +257,20 @@ export function HomeSummary({
 
   return (
     <section>
-      <h2 className="text-lg font-semibold mb-3">This Month</h2>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-lg font-semibold">This Month</h2>
+        {isOffline && (
+          <div className="flex items-center gap-2 text-sm text-amber-500">
+            <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+            <span>Offline</span>
+          </div>
+        )}
+        {lastUpdated && !isOffline && (
+          <div className="text-xs text-gray-500">
+            Updated {formatDateHuman(lastUpdated.toISOString(), timeZone || undefined)}
+          </div>
+        )}
+      </div>
       <div className="grid gap-3 sm:grid-cols-3">
         {/* Combined hours card */}
         <div className="sm:col-span-3 rounded-lg border p-6">

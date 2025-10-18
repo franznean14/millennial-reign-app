@@ -44,6 +44,7 @@
 - **Visit Updates Timeline**: Timeline design for establishment and householder visit updates
 - **Context-Aware Badges**: Smart badge display showing establishment names in householder context and householder names in establishment context
 - **Complete Status Options**: All establishment status options including "For Replenishment" for proper business territory management
+- **Offline-First Home Page**: Cached data display with offline indicators and graceful degradation for seamless user experience
 
 ## 🔔 Push Notifications
 

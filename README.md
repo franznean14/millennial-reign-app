@@ -36,6 +36,7 @@ A modern Kingdom Ministry application built with Next.js 15, React 19, and Supab
 - **Visit Updates Timeline**: Timeline design for establishment and householder visit updates
 - **Context-Aware Badges**: Smart badge display showing establishment names in householder context and householder names in establishment context
 - **Complete Status Options**: All establishment status options including "For Replenishment"
+- **Offline-First Home Page**: Cached data display with offline indicators and graceful degradation
 
 ## 🛠️ Tech Stack
 
