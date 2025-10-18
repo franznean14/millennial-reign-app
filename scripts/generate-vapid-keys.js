@@ -1,16 +1,24 @@
 const crypto = require('crypto');
 
 function generateVAPIDKeys() {
+  // Generate P-256 key pair for Web Push VAPID
   const keyPair = crypto.generateKeyPairSync('ec', {
     namedCurve: 'prime256v1',
-    publicKeyEncoding: { type: 'spki', format: 'der' },
-    privateKeyEncoding: { type: 'pkcs8', format: 'der' }
+    publicKeyEncoding: { 
+      type: 'spki', 
+      format: 'der' 
+    },
+    privateKeyEncoding: { 
+      type: 'pkcs8', 
+      format: 'der' 
+    }
   });
   
+  // Convert to base64url format for Web Push
   const publicKey = Buffer.from(keyPair.publicKey).toString('base64url');
   const privateKey = Buffer.from(keyPair.privateKey).toString('base64url');
   
-  console.log('VAPID Keys Generated:');
+  console.log('VAPID Keys Generated for Web Push:');
   console.log('');
   console.log('Public Key (add to .env.local as NEXT_PUBLIC_VAPID_PUBLIC_KEY):');
   console.log(publicKey);
@@ -18,10 +26,17 @@ function generateVAPIDKeys() {
   console.log('Private Key (add to Supabase Edge Function secrets as VAPID_PRIVATE_KEY):');
   console.log(privateKey);
   console.log('');
+  console.log('Key Details:');
+  console.log('- Curve: P-256 (prime256v1)');
+  console.log('- Format: base64url');
+  console.log('- Public Key Length:', publicKey.length);
+  console.log('- Private Key Length:', privateKey.length);
+  console.log('');
   console.log('Instructions:');
   console.log('1. Add the public key to your .env.local file');
   console.log('2. Add the private key to your Supabase Edge Function secrets');
   console.log('3. Keep the private key secure - never commit it to version control');
+  console.log('4. Restart your development server after updating .env.local');
 }
 
 generateVAPIDKeys();
