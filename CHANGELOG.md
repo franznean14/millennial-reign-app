@@ -5,6 +5,14 @@ All notable changes to the Millennial Reign App will be documented in this file.
 ## [Latest] - 2025-01-18
 
 ### ✨ Added
+- **Clean Mobile Navigation** - Removed extra bottom padding for better mobile UX
+
+### 🐛 Fixed
+- **Offline Navigation Issues** - Fixed navigation tabs disappearing when offline
+- **Variable Scope Issues** - Fixed cachedData variable scope in navigation components
+- **Mobile Navbar Padding** - Removed unnecessary bottom padding from mobile navigation
+
+### ✨ Added
 - **BWI Visit History**
   - Timeline view of business witnessing visits with clickable navigation
   - Proper distinction between establishment and householder visits

@@ -57,6 +57,7 @@
 - **Permission Caching**: User permissions cached for congregation and business tab visibility
 - **Network Detection**: Automatic offline detection with graceful fallback to cached data
 - **Cache Updates**: Automatic cache updates when online with fresh permission data
+- **Clean Mobile UX**: Removed extra bottom padding for better mobile navigation
 
 ### BWI View Offline Support
 - **Establishment List**: Complete establishment list works offline with cached data

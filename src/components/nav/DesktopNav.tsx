@@ -31,6 +31,7 @@ function useShowCongregationTab() {
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
     (async () => {
+      let cachedData = null;
       try {
         const { data } = await supabase.auth.getSession();
         const id = data.session?.user?.id ?? null;
@@ -38,9 +39,9 @@ function useShowCongregationTab() {
         
         const cacheKey = `congregation-tab-${id}`;
         
-        // Try to load from cache first
-        const cachedData = await cacheGet(cacheKey);
-        if (cachedData) {
+        // Try to load from cache first (both online and offline)
+        cachedData = await cacheGet(cacheKey);
+        if (cachedData && cachedData.showCongregation !== undefined) {
           setOk(cachedData.showCongregation);
         }
         
@@ -49,23 +50,29 @@ function useShowCongregationTab() {
           return;
         }
         
-        const p = await getProfile(id);
-        const isElder = Array.isArray((p as any)?.privileges) && (p as any).privileges.includes('Elder');
-        const isSuperadmin = (p as any)?.role === "superadmin";
-        const assigned = !!(p as any)?.congregation_id;
-        let admin = false;
-        try {
-          const { data: isAdm } = await supabase.rpc("is_admin", { uid: id });
-          admin = !!isAdm;
-        } catch {}
-        
-        const showCongregation = assigned || isSuperadmin || (admin && isElder);
-        setOk(showCongregation);
-        
-        // Cache the result
-        await cacheSet(cacheKey, { showCongregation, timestamp: new Date().toISOString() });
+        // Only fetch from network if online and no cached data
+        if (!cachedData) {
+          const p = await getProfile(id);
+          const isElder = Array.isArray((p as any)?.privileges) && (p as any).privileges.includes('Elder');
+          const isSuperadmin = (p as any)?.role === "superadmin";
+          const assigned = !!(p as any)?.congregation_id;
+          let admin = false;
+          try {
+            const { data: isAdm } = await supabase.rpc("is_admin", { uid: id });
+            admin = !!isAdm;
+          } catch {}
+          
+          const showCongregation = assigned || isSuperadmin || (admin && isElder);
+          setOk(showCongregation);
+          
+          // Cache the result
+          await cacheSet(cacheKey, { showCongregation, timestamp: new Date().toISOString() });
+        }
       } catch {
-        setOk(false);
+        // If there's an error and no cached data, default to false
+        if (!cachedData) {
+          setOk(false);
+        }
       }
     })();
   }, [isOffline]);
@@ -95,6 +102,7 @@ function useShowBusinessTab() {
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
     (async () => {
+      let cachedData = null;
       try {
         const { data } = await supabase.auth.getSession();
         const id = data.session?.user?.id ?? null;
@@ -102,9 +110,9 @@ function useShowBusinessTab() {
         
         const cacheKey = `business-tab-${id}`;
         
-        // Try to load from cache first
-        const cachedData = await cacheGet(cacheKey);
-        if (cachedData) {
+        // Try to load from cache first (both online and offline)
+        cachedData = await cacheGet(cacheKey);
+        if (cachedData && cachedData.showBusiness !== undefined) {
           setOk(cachedData.showBusiness);
         }
         
@@ -113,15 +121,21 @@ function useShowBusinessTab() {
           return;
         }
         
-        const { data: enabled } = await supabase.rpc('is_business_enabled');
-        const { data: participant } = await supabase.rpc('is_business_participant');
-        const showBusiness = !!enabled && !!participant;
-        setOk(showBusiness);
-        
-        // Cache the result
-        await cacheSet(cacheKey, { showBusiness, timestamp: new Date().toISOString() });
+        // Only fetch from network if online and no cached data
+        if (!cachedData) {
+          const { data: enabled } = await supabase.rpc('is_business_enabled');
+          const { data: participant } = await supabase.rpc('is_business_participant');
+          const showBusiness = !!enabled && !!participant;
+          setOk(showBusiness);
+          
+          // Cache the result
+          await cacheSet(cacheKey, { showBusiness, timestamp: new Date().toISOString() });
+        }
       } catch {
-        setOk(false);
+        // If there's an error and no cached data, default to false
+        if (!cachedData) {
+          setOk(false);
+        }
       }
     })();
   }, [isOffline]);
