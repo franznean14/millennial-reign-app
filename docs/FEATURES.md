@@ -62,6 +62,9 @@
 - **Clean Bottom Edge**: Removed navigation link padding for flush bottom edge
 - **Improved Caching**: Always fetches fresh data when online and caches properly for offline use
 - **Complete Spacing Removal**: Removed all gap and line-height classes for completely flush bottom edge
+- **User Role Caching**: Caches full user profile data with roles and privileges for offline navigation
+- **Smart Tab Visibility**: Uses cached user roles to determine congregation and business tab visibility
+- **Optimal Touch Targets**: 60px navbar height for better mobile interaction
 
 ### BWI View Offline Support
 - **Establishment List**: Complete establishment list works offline with cached data

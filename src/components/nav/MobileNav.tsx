@@ -39,18 +39,28 @@ function useShowCongregationTab() {
         const id = data.session?.user?.id ?? null;
         if (!id) return setOk(false);
         
-        const cacheKey = `congregation-tab-${id}`;
+        const profileCacheKey = `user-profile-${id}`;
+        const tabCacheKey = `congregation-tab-${id}`;
         
         // Try to load from cache first (both online and offline)
-        cachedData = await cacheGet(cacheKey);
-        if (cachedData && cachedData.showCongregation !== undefined) {
-          setOk(cachedData.showCongregation);
+        const cachedProfile = await cacheGet(profileCacheKey);
+        const cachedTabData = await cacheGet(tabCacheKey);
+        
+        if (cachedProfile) {
+          // Use cached profile data to determine tab visibility
+          const isElder = Array.isArray(cachedProfile.privileges) && cachedProfile.privileges.includes('Elder');
+          const isSuperadmin = cachedProfile.role === "superadmin";
+          const assigned = !!cachedProfile.congregation_id;
+          const showCongregation = assigned || isSuperadmin || (cachedProfile.isAdmin && isElder);
+          setOk(showCongregation);
+        } else if (cachedTabData && cachedTabData.showCongregation !== undefined) {
+          setOk(cachedTabData.showCongregation);
         }
         
         // If offline, don't attempt network request
         if (isOffline) {
           // If offline and no cached data, default to true for better UX
-          if (!cachedData) {
+          if (!cachedProfile && !cachedTabData) {
             setOk(true);
           }
           return;
@@ -71,8 +81,13 @@ function useShowCongregationTab() {
         const showCongregation = assigned || isSuperadmin || (admin && isElder);
         setOk(showCongregation);
         
-        // Cache the result
-        await cacheSet(cacheKey, { showCongregation, timestamp: new Date().toISOString() });
+        // Cache both profile data and tab result
+        await cacheSet(profileCacheKey, { 
+          ...p, 
+          isAdmin: admin, 
+          timestamp: new Date().toISOString() 
+        });
+        await cacheSet(tabCacheKey, { showCongregation, timestamp: new Date().toISOString() });
       } catch {
         // If there's an error and no cached data, default to false
         if (!cachedData) {
@@ -113,18 +128,18 @@ function useShowBusinessTab() {
         const id = data.session?.user?.id ?? null;
         if (!id) return setOk(false);
         
-        const cacheKey = `business-tab-${id}`;
+        const businessCacheKey = `business-tab-${id}`;
         
         // Try to load from cache first (both online and offline)
-        cachedData = await cacheGet(cacheKey);
-        if (cachedData && cachedData.showBusiness !== undefined) {
-          setOk(cachedData.showBusiness);
+        const cachedBusinessData = await cacheGet(businessCacheKey);
+        if (cachedBusinessData && cachedBusinessData.showBusiness !== undefined) {
+          setOk(cachedBusinessData.showBusiness);
         }
         
         // If offline, don't attempt network request
         if (isOffline) {
           // If offline and no cached data, default to true for better UX
-          if (!cachedData) {
+          if (!cachedBusinessData) {
             setOk(true);
           }
           return;
@@ -137,7 +152,7 @@ function useShowBusinessTab() {
         setOk(showBusiness);
         
         // Cache the result
-        await cacheSet(cacheKey, { showBusiness, timestamp: new Date().toISOString() });
+        await cacheSet(businessCacheKey, { showBusiness, timestamp: new Date().toISOString() });
       } catch {
         // If there's an error and no cached data, default to false
         if (!cachedData) {

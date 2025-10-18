@@ -15,6 +15,9 @@ All notable changes to the Millennial Reign App will be documented in this file.
 - **Navigation Link Padding** - Removed py-3 padding from navigation links for clean bottom edge
 - **Improved Caching Logic** - Always fetches fresh data when online and caches properly for offline use
 - **Complete Spacing Removal** - Removed gap-1 and leading-tight classes for completely flush bottom edge
+- **User Role Caching** - Caches full user profile data with roles and privileges for offline navigation
+- **Smart Tab Visibility** - Uses cached user roles to determine congregation and business tab visibility
+- **Navbar Height Optimization** - User adjusted navbar height to 60px for optimal touch targets
 
 ### ✨ Added
 - **BWI Visit History**

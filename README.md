@@ -43,6 +43,8 @@ A modern Kingdom Ministry application built with Next.js 15, React 19, and Supab
 - **Robust Offline Navigation**: Default behavior when no cached data exists for better offline experience
 - **Improved Navigation Caching**: Always fetches fresh data when online and caches properly for offline use
 - **Clean Bottom Edge**: Completely flush bottom navigation with no padding or spacing
+- **User Role Caching**: Caches full user profile data with roles and privileges for offline navigation
+- **Smart Tab Visibility**: Uses cached user roles to determine congregation and business tab visibility
 
 ## 🛠️ Tech Stack
 
