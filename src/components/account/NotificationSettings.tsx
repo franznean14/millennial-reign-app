@@ -31,7 +31,11 @@ export function NotificationSettings() {
       if (result.success) {
         toast.success("Notifications enabled!");
       } else {
-        toast.error(result.error || "Failed to enable notifications");
+        if (result.error?.includes("Not authenticated") || result.error?.includes("Please log in")) {
+          toast.error("Please log in to enable notifications");
+        } else {
+          toast.error(result.error || "Failed to enable notifications");
+        }
       }
     }
   };

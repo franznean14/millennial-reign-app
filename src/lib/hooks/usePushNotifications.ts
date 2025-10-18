@@ -47,8 +47,43 @@ export function usePushNotifications() {
       const registration = await navigator.serviceWorker.ready;
       const subscription = await registration.pushManager.getSubscription();
       setIsSubscribed(!!subscription);
+      
+      // Clean up orphaned subscriptions in database
+      if (subscription) {
+        await cleanupOrphanedSubscriptions();
+      }
     } catch (error) {
       console.error("Check subscription error:", error);
+    }
+  };
+  
+  const cleanupOrphanedSubscriptions = async () => {
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) return;
+      
+      // Get current browser subscription
+      const registration = await navigator.serviceWorker.ready;
+      const currentSubscription = await registration.pushManager.getSubscription();
+      
+      if (currentSubscription) {
+        // Remove all subscriptions except the current one
+        const { error } = await supabase
+          .from("push_subscriptions")
+          .delete()
+          .eq("user_id", user.id)
+          .neq("endpoint", currentSubscription.endpoint);
+        
+        if (error) {
+          console.warn("Failed to cleanup orphaned subscriptions:", error);
+        } else {
+          console.log("Cleaned up orphaned subscriptions");
+        }
+      }
+    } catch (error) {
+      console.error("Cleanup error:", error);
     }
   };
   
@@ -98,16 +133,32 @@ export function usePushNotifications() {
       
       // Save subscription to database
       const supabase = createSupabaseBrowserClient();
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      
+      console.log("Authentication check:", { user: !!user, authError });
       
       if (!user) {
-        return { success: false, error: "Not authenticated" };
+        console.error("User not authenticated:", authError);
+        return { success: false, error: "Please log in to enable notifications" };
       }
       
       const subscriptionJSON = subscription.toJSON();
       console.log("Saving subscription to database...");
       
-      const { error } = await supabase.from("push_subscriptions").upsert({
+      // Clean up old subscriptions for this user first
+      console.log("Cleaning up old subscriptions for user...");
+      const { error: deleteError } = await supabase
+        .from("push_subscriptions")
+        .delete()
+        .eq("user_id", user.id);
+      
+      if (deleteError) {
+        console.warn("Failed to clean up old subscriptions:", deleteError);
+      }
+      
+      // Insert new subscription
+      console.log("Inserting new subscription...");
+      const { error } = await supabase.from("push_subscriptions").insert({
         user_id: user.id,
         endpoint: subscriptionJSON.endpoint!,
         p256dh: subscriptionJSON.keys!.p256dh,
@@ -117,7 +168,7 @@ export function usePushNotifications() {
       
       if (error) {
         console.error("Database error:", error);
-        throw error;
+        return { success: false, error: `Database error: ${error.message}` };
       }
       
       console.log("Subscription saved successfully");
