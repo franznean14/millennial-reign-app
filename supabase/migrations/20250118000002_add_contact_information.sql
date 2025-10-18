@@ -1,18 +1,18 @@
 -- Add contact information fields to profiles table
 -- This migration adds phone number, address, and coordinates for emergency contact purposes
 
--- Add contact information fields
+-- Add contact information fields (safe to run multiple times)
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS phone_number text;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS address text;
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS address_latitude numeric(10, 8);
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS address_longitude numeric(11, 8);
 
--- Create index for coordinate-based queries
+-- Create index for coordinate-based queries (safe to run multiple times)
 CREATE INDEX IF NOT EXISTS profiles_coordinates_idx 
 ON public.profiles(address_latitude, address_longitude) 
 WHERE address_latitude IS NOT NULL AND address_longitude IS NOT NULL;
 
--- Helper function for elder access to contact information
+-- Helper function for elder access to contact information (safe to replace)
 CREATE OR REPLACE FUNCTION public.can_view_contact_info(
   viewer_id uuid,
   profile_id uuid

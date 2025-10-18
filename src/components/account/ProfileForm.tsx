@@ -31,14 +31,25 @@ export function ProfileForm({ userId, initialEmail, initialProfile, bwiEnabled, 
   const [gpsLoading, setGpsLoading] = useState(false);
   const [gps, setGps] = useState<string>("");
 
-  // Initialize GPS string from coordinates
-  useEffect(() => {
-    if (formData.address_latitude && formData.address_longitude) {
-      setGps(`${formData.address_latitude}, ${formData.address_longitude}`);
-    } else {
-      setGps("");
-    }
-  }, [formData.address_latitude, formData.address_longitude]);
+  // Check if form has changes
+  const hasChanges = () => {
+    if (!originalFormData) return false;
+    
+    return (
+      formData.first_name !== originalFormData.first_name ||
+      formData.last_name !== originalFormData.last_name ||
+      formData.middle_name !== originalFormData.middle_name ||
+      formData.date_of_birth !== originalFormData.date_of_birth ||
+      formData.date_of_baptism !== originalFormData.date_of_baptism ||
+      formData.gender !== originalFormData.gender ||
+      JSON.stringify(formData.privileges) !== JSON.stringify(originalFormData.privileges) ||
+      formData.group_name !== originalFormData.group_name ||
+      formData.phone_number !== originalFormData.phone_number ||
+      formData.address !== originalFormData.address ||
+      formData.address_latitude !== originalFormData.address_latitude ||
+      formData.address_longitude !== originalFormData.address_longitude
+    );
+  };
 
   // Parse GPS string to extract coordinates
   const parseGps = (gpsString: string) => {
@@ -98,7 +109,8 @@ export function ProfileForm({ userId, initialEmail, initialProfile, bwiEnabled, 
     return `${y}-${m}-${day}`;
   };
 
-  const [formData, setFormData] = useState({
+  // Initialize form data and original data together
+  const initialFormData = {
     first_name: initialProfile?.first_name || "",
     last_name: initialProfile?.last_name || "",
     middle_name: initialProfile?.middle_name || "",
@@ -111,12 +123,15 @@ export function ProfileForm({ userId, initialEmail, initialProfile, bwiEnabled, 
     address: initialProfile?.address || "",
     address_latitude: initialProfile?.address_latitude || null,
     address_longitude: initialProfile?.address_longitude || null,
-  });
+  };
 
-  // Update form data when initialProfile changes (async loading)
+  const [formData, setFormData] = useState(initialFormData);
+  const [originalFormData, setOriginalFormData] = useState(initialFormData);
+
+  // Update original form data when initialProfile changes (async loading)
   useEffect(() => {
     if (initialProfile) {
-      setFormData({
+      const original = {
         first_name: initialProfile.first_name || "",
         last_name: initialProfile.last_name || "",
         middle_name: initialProfile.middle_name || "",
@@ -129,9 +144,21 @@ export function ProfileForm({ userId, initialEmail, initialProfile, bwiEnabled, 
         address: initialProfile.address || "",
         address_latitude: initialProfile.address_latitude || null,
         address_longitude: initialProfile.address_longitude || null,
-      });
+      };
+      setOriginalFormData(original);
+      setFormData(original);
     }
   }, [initialProfile]);
+
+  // Initialize GPS string from coordinates
+  useEffect(() => {
+    if (formData.address_latitude && formData.address_longitude) {
+      setGps(`${formData.address_latitude}, ${formData.address_longitude}`);
+    } else {
+      setGps("");
+    }
+  }, [formData.address_latitude, formData.address_longitude]);
+
 
   // Load existing group names from congregation and profiles table
   useEffect(() => {
@@ -191,6 +218,10 @@ export function ProfileForm({ userId, initialEmail, initialProfile, bwiEnabled, 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Prevent double submission
+    if (saving) return;
+    
     setSaving(true);
 
     try {
@@ -217,6 +248,10 @@ export function ProfileForm({ userId, initialEmail, initialProfile, bwiEnabled, 
       });
 
       toast.success("Profile updated successfully");
+      
+      // Update original form data to reflect the saved state
+      setOriginalFormData({ ...formData });
+      
       onSaved(profile);
     } catch (error: any) {
       toast.error(error.message || "Failed to update profile");
@@ -408,13 +443,13 @@ export function ProfileForm({ userId, initialEmail, initialProfile, bwiEnabled, 
       <div className="space-y-4 border-t pt-4">
         <div className="space-y-2">
           <Label htmlFor="phone_number">Contact Number</Label>
-          <Input
-            id="phone_number"
-            type="tel"
-            value={formData.phone_number || ""}
-            onChange={(e) => setFormData(prev => ({ ...prev, phone_number: e.target.value }))}
-            placeholder="+1 (555) 123-4567"
-          />
+                 <Input
+                   id="phone_number"
+                   type="tel"
+                   value={formData.phone_number || ""}
+                   onChange={(e) => setFormData(prev => ({ ...prev, phone_number: e.target.value }))}
+                   placeholder="+63 912 345 6789"
+                 />
         </div>
 
         <div className="space-y-2">
@@ -518,8 +553,20 @@ export function ProfileForm({ userId, initialEmail, initialProfile, bwiEnabled, 
       )}
 
       <div className="flex justify-end gap-2">
-        <Button type="submit" disabled={saving}>
-          {saving ? "Saving..." : "Save Profile"}
+        <Button 
+          key={saving ? "saving" : "save"}
+          type="submit" 
+          disabled={saving || !hasChanges()}
+          className={saving ? "opacity-75" : ""}
+        >
+          {saving ? (
+            <div className="flex items-center gap-2">
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              Saving...
+            </div>
+          ) : (
+            "Update Profile"
+          )}
         </Button>
       </div>
     </form>

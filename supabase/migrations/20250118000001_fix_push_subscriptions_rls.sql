@@ -43,7 +43,8 @@ ALTER TABLE public.push_subscriptions ENABLE ROW LEVEL SECURITY;
 CREATE INDEX IF NOT EXISTS push_subscriptions_user_id_idx 
 ON public.push_subscriptions(user_id);
 
--- Create trigger for updated_at
+-- Create trigger for updated_at (drop first to avoid conflicts)
+DROP TRIGGER IF EXISTS push_subscriptions_updated_at ON public.push_subscriptions;
 CREATE TRIGGER push_subscriptions_updated_at
 BEFORE UPDATE ON public.push_subscriptions
 FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();

@@ -1463,6 +1463,52 @@ export function AppClient({ currentSection }: AppClientProps) {
 
             <Separator />
 
+            {/* Contact Information */}
+            <section className="space-y-4">
+              <h2 className="text-lg font-semibold">Contact Information</h2>
+              
+              <div className="grid gap-3 text-sm">
+                {profile?.phone_number && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Phone:</span>
+                    <span>{profile.phone_number}</span>
+                  </div>
+                )}
+                {profile?.address && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Address:</span>
+                    <div className="text-right text-sm leading-relaxed">
+                      {profile.address.split(',').map((line: string, index: number) => (
+                        <div key={index} className={index > 0 ? "text-muted-foreground" : ""}>
+                          {line.trim()}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {profile?.address_latitude && profile?.address_longitude && (
+                  <div className="flex justify-end">
+                    <a
+                      className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs whitespace-nowrap hover:bg-muted"
+                      href={`https://www.google.com/maps/dir/?api=1&destination=${profile.address_latitude},${profile.address_longitude}`}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <MapPin className="h-3.5 w-3.5" />
+                      Get Directions
+                    </a>
+                  </div>
+                )}
+                {!profile?.phone_number && !profile?.address && (
+                  <div className="text-sm text-muted-foreground">
+                    No contact information available. Edit your profile to add phone number and address.
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <Separator />
+
             {/* Account Settings */}
             <section className="space-y-4">
               <h2 className="text-lg font-semibold">Account Settings</h2>
