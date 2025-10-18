@@ -31,7 +31,6 @@ function useShowCongregationTab() {
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
     (async () => {
-      let cachedData = null;
       try {
         const { data } = await supabase.auth.getSession();
         const id = data.session?.user?.id ?? null;
@@ -87,9 +86,7 @@ function useShowCongregationTab() {
         await cacheSet(tabCacheKey, { showCongregation, timestamp: new Date().toISOString() });
       } catch {
         // If there's an error and no cached data, default to false
-        if (!cachedData) {
-          setOk(false);
-        }
+        setOk(false);
       }
     })();
   }, [isOffline]);
@@ -119,7 +116,6 @@ function useShowBusinessTab() {
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
     (async () => {
-      let cachedData = null;
       try {
         const { data } = await supabase.auth.getSession();
         const id = data.session?.user?.id ?? null;
@@ -152,9 +148,7 @@ function useShowBusinessTab() {
         await cacheSet(businessCacheKey, { showBusiness, timestamp: new Date().toISOString() });
       } catch {
         // If there's an error and no cached data, default to false
-        if (!cachedData) {
-          setOk(false);
-        }
+        setOk(false);
       }
     })();
   }, [isOffline]);
