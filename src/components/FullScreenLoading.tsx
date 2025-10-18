@@ -31,7 +31,7 @@ export function FullScreenLoading({ isVisible, onComplete }: FullScreenLoadingPr
       animate={{ opacity: isVisible ? 1 : 0 }}
       exit={{ opacity: 0 }}
       transition={{ duration: 0.3 }}
-      className="fixed inset-0 z-[9999] bg-background flex items-center justify-center"
+      className="fixed inset-0 z-[99999] bg-background flex items-center justify-center"
       style={{
         // Ensure it covers everything including safe areas
         top: 0,

@@ -57,13 +57,16 @@ export function AppChrome({ children }: AppChromeProps) {
       <OnlineBanner />
       <BiometricGate />
       
-      <AppTopbar 
-        currentSection={currentSection}
-        onSectionChange={onSectionChange}
-        userPermissions={userPermissions}
-      />
-      
-      <div className="mx-auto flex max-w-screen-lg w-full overflow-x-hidden">
+      {/* Only render content when app is ready */}
+      {isAppReady && (
+        <>
+          <AppTopbar 
+            currentSection={currentSection}
+            onSectionChange={onSectionChange}
+            userPermissions={userPermissions}
+          />
+          
+          <div className="mx-auto flex max-w-screen-lg w-full overflow-x-hidden">
         {/* Desktop Sidebar Navigation */}
         <nav className="hidden lg:flex flex-col w-64 border-r border-border/50 bg-background/50 backdrop-blur">
           <div className="p-4 border-b border-border/50">
@@ -122,6 +125,8 @@ export function AppChrome({ children }: AppChromeProps) {
       </nav>
       
       {/* FloatingBridge removed - handled per-view */}
+        </>
+      )}
     </>
   );
 }
