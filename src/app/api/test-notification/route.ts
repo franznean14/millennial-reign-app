@@ -1,5 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
+import webpush from 'web-push';
+
+// Configure web-push with VAPID keys
+const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!;
+const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY!;
+
+if (vapidPrivateKey) {
+  webpush.setVapidDetails(
+    'mailto:your-email@example.com', // This can be any email
+    vapidPublicKey,
+    vapidPrivateKey
+  );
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -25,12 +38,51 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'No push subscriptions found' }, { status: 404 });
     }
     
-    // For now, just return success - in production, you'd send actual notifications
+    // Send actual push notifications
+    const notificationPayload = JSON.stringify({
+      title: '🔔 Test Notification',
+      body: 'This is a test notification from Millennial Reign App!',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      data: {
+        url: '/account',
+        timestamp: Date.now()
+      },
+      actions: [
+        {
+          action: 'view',
+          title: 'View Details'
+        }
+      ]
+    });
+    
+    const results = [];
+    
+    for (const subscription of subscriptions) {
+      try {
+        const pushSubscription = {
+          endpoint: subscription.endpoint,
+          keys: {
+            p256dh: subscription.p256dh,
+            auth: subscription.auth
+          }
+        };
+        
+        await webpush.sendNotification(pushSubscription, notificationPayload);
+        results.push({ success: true, subscriptionId: subscription.id });
+      } catch (error) {
+        console.error('Failed to send notification to subscription:', subscription.id, error);
+        results.push({ success: false, subscriptionId: subscription.id, error: String(error) });
+      }
+    }
+    
+    const successCount = results.filter(r => r.success).length;
+    
     return NextResponse.json({ 
       success: true, 
-      message: 'Test notification would be sent',
-      subscriptions: subscriptions.length,
-      user: user.id
+      message: `Test notification sent to ${successCount}/${subscriptions.length} devices`,
+      results,
+      subscriptions: subscriptions.length
     });
     
   } catch (error) {
