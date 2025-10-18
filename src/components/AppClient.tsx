@@ -226,6 +226,7 @@ export function AppClient({ currentSection }: AppClientProps) {
   const [filtersModalOpen, setFiltersModalOpen] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
+  const [locationWatchId, setLocationWatchId] = useState<number | null>(null);
 
   // Persist business filters globally for form auto-population
   useEffect(() => {
@@ -327,6 +328,25 @@ export function AppClient({ currentSection }: AppClientProps) {
       loadBusinessData();
     }
   }, [currentSection]);
+
+  // Cleanup location tracking when leaving business section or component unmounts
+  useEffect(() => {
+    return () => {
+      if (locationWatchId !== null) {
+        navigator.geolocation.clearWatch(locationWatchId);
+        setLocationWatchId(null);
+      }
+    };
+  }, [locationWatchId]);
+
+  // Stop location tracking when leaving business section
+  useEffect(() => {
+    if (currentSection !== 'business' && locationWatchId !== null) {
+      navigator.geolocation.clearWatch(locationWatchId);
+      setLocationWatchId(null);
+      setFilters(prev => ({ ...prev, nearMe: false, userLocation: null }));
+    }
+  }, [currentSection, locationWatchId]);
 
   // Load account data
   useEffect(() => {
@@ -879,10 +899,14 @@ export function AppClient({ currentSection }: AppClientProps) {
 
   const handleToggleNearMe = useCallback(async () => {
     if (filters.nearMe) {
-      // Turn off near me filter
+      // Turn off near me filter - stop location tracking
+      if (locationWatchId !== null) {
+        navigator.geolocation.clearWatch(locationWatchId);
+        setLocationWatchId(null);
+      }
       setFilters(prev => ({ ...prev, nearMe: false, userLocation: null }));
     } else {
-      // Turn on near me filter - get user location
+      // Turn on near me filter - start continuous location tracking
       setLocationLoading(true);
       try {
         if (!navigator.geolocation) {
@@ -890,6 +914,7 @@ export function AppClient({ currentSection }: AppClientProps) {
           return;
         }
 
+        // First get current position immediately
         navigator.geolocation.getCurrentPosition(
           (position) => {
             const { latitude, longitude } = position.coords;
@@ -902,7 +927,7 @@ export function AppClient({ currentSection }: AppClientProps) {
             toast.success('Location found! Showing places within 150m (sorted by distance)');
           },
           (error) => {
-            console.error('Error getting location:', error);
+            console.error('Error getting initial location:', error);
             setLocationLoading(false);
             toast.error('Unable to get your location. Please check location permissions.');
           },
@@ -912,13 +937,36 @@ export function AppClient({ currentSection }: AppClientProps) {
             maximumAge: 60000
           }
         );
+
+        // Start watching position for continuous updates
+        const watchId = navigator.geolocation.watchPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            setFilters(prev => ({ 
+              ...prev, 
+              userLocation: [latitude, longitude] 
+            }));
+            // Don't show toast for every update, just update silently
+          },
+          (error) => {
+            console.error('Error watching location:', error);
+            // Don't show error toast for watch failures, just log
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 15000,
+            maximumAge: 30000 // Update every 30 seconds
+          }
+        );
+        
+        setLocationWatchId(watchId);
       } catch (error) {
         console.error('Error accessing geolocation:', error);
         setLocationLoading(false);
         toast.error('Unable to access location services');
       }
     }
-  }, [filters.nearMe]);
+  }, [filters.nearMe, locationWatchId]);
 
   const areaOptions = useMemo(() => {
     const areas = establishments
