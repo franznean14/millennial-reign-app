@@ -229,6 +229,12 @@ src/
 - **Bundle Analysis**: Optimized JavaScript bundles
 - **Caching**: Aggressive caching strategies
 
+## 📚 Documentation
+
+- [Features](docs/FEATURES.md) - Detailed feature documentation
+- [Roles & Permissions](docs/ROLES_AND_PERMISSIONS.md) - Complete role and permission system
+- [Changelog](CHANGELOG.md) - Recent updates and changes
+
 ## 🤝 Contributing
 
 1. Fork the repository
