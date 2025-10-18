@@ -30,12 +30,21 @@ export async function POST(request: NextRequest) {
       .select('*')
       .eq('user_id', user.id);
     
+    console.log('User ID:', user.id);
+    console.log('Subscriptions found:', subscriptions?.length || 0);
+    console.log('Subscriptions:', subscriptions);
+    
     if (subError) {
+      console.error('Database error:', subError);
       return NextResponse.json({ error: 'Failed to get subscriptions' }, { status: 500 });
     }
     
     if (!subscriptions || subscriptions.length === 0) {
-      return NextResponse.json({ error: 'No push subscriptions found' }, { status: 404 });
+      return NextResponse.json({ 
+        success: false, 
+        error: 'No push subscriptions found in database. Please enable notifications first.',
+        subscriptions: 0 
+      }, { status: 404 });
     }
     
     // Send actual push notifications
