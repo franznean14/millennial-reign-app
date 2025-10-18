@@ -17,13 +17,16 @@ A modern Kingdom Ministry application built with Next.js 15, React 19, and Supab
 ### Technical Features
 - **PWA Support**: Offline-ready with service worker caching
 - **Real-time Updates**: Live data synchronization across views
-- **Interactive Maps**: Leaflet-based mapping with clustering
+- **Interactive Maps**: Leaflet-based mapping with clustering and smooth animations
 - **Responsive Design**: Mobile-first with dark theme
 - **Biometric Security**: Optional biometric authentication
 - **Offline-First**: Works without internet connection
 - **Smart Forms**: Change detection and intelligent save buttons
 - **Geolocation**: GPS coordinates and "Get Directions" functionality
 - **Vercel Speed Insights**: Performance monitoring and optimization
+- **Smooth Animations**: CSS keyframe animations for map markers
+- **Real-time Search**: Instant filtering across all views
+- **Map Search**: Search functionality in map view with live updates
 
 ## 🛠️ Tech Stack
 

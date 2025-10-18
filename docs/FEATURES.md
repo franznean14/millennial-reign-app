@@ -31,9 +31,11 @@
 ### Business Territory Management
 - **Establishments**: Manage business locations and contacts
 - **Householders**: Track individual contacts and visits
-- **Interactive Maps**: Leaflet-based mapping with clustering
+- **Interactive Maps**: Leaflet-based mapping with clustering and smooth animations
+- **Map Search**: Real-time search functionality in map view
 - **Visit Tracking**: Record and manage field service visits
 - **Territory Organization**: Efficient territory management
+- **Live Filtering**: Instant search results across all views
 
 ## 🔔 Push Notifications
 
@@ -71,6 +73,8 @@
 - **Mobile-First**: Responsive design for all devices
 - **Shadcn/ui Components**: Modern, accessible component library
 - **Smooth Animations**: Motion library for fluid transitions
+- **Map Marker Animations**: CSS keyframe animations for marker appearance
+- **Staggered Timing**: Beautiful cascading marker animations
 
 ### Smart Forms
 - **Change Detection**: Save buttons only active when changes detected

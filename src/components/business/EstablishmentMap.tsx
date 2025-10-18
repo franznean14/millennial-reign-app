@@ -346,12 +346,21 @@ function MapInitializer() {
   return null;
 }
 
-// Component to handle map bounds fitting
-function MapBoundsFitter({ establishments }: { establishments: EstablishmentWithDetails[] }) {
+// Component to handle map bounds fitting - only on initial load
+function MapBoundsFitter({ 
+  establishments, 
+  isInitialLoad, 
+  onFitted 
+}: { 
+  establishments: EstablishmentWithDetails[], 
+  isInitialLoad: boolean,
+  onFitted: () => void 
+}) {
   const establishmentsWithCoords = establishments.filter(est => est.lat && est.lng);
   
   useEffect(() => {
-    if (typeof window === 'undefined' || establishmentsWithCoords.length === 0) return;
+    // Only fit bounds on initial load, not on every filter change
+    if (typeof window === 'undefined' || establishmentsWithCoords.length === 0 || !isInitialLoad) return;
     
     // Wait for the map to be ready
     const waitForMap = () => {
@@ -393,12 +402,15 @@ function MapBoundsFitter({ establishments }: { establishments: EstablishmentWith
         // Fit the map to the bounds with minimal padding
         map.fitBounds(bounds, { padding: [10, 10], maxZoom: 18 });
         
+        // Notify that bounds have been fitted
+        onFitted();
+        
       }, 500);
     };
     
     waitForMap();
     
-  }, [establishmentsWithCoords]);
+  }, [establishmentsWithCoords, isInitialLoad, onFitted]);
   
   return null;
 }
@@ -414,11 +426,12 @@ interface MapMarkerProps {
   establishment: EstablishmentWithDetails;
   onClick?: () => void;
   isSelected?: boolean;
+  index?: number;
 }
 
 
 // Custom marker component with status-based styling
-function MapMarker({ establishment, onClick, isSelected }: MapMarkerProps) {
+function MapMarker({ establishment, onClick, isSelected, index = 0 }: MapMarkerProps) {
   // Get the best status from the statuses array using the hierarchy
   const primaryStatus = getBestStatus(establishment.statuses || []);
   
@@ -474,10 +487,10 @@ function MapMarker({ establishment, onClick, isSelected }: MapMarkerProps) {
         <div class="marker-container ${isSelected ? 'selected' : ''}" style="
           position: relative;
           transform: translate(-50%, -50%);
-          transition: all 0.2s ease;
           display: flex;
           flex-direction: column;
           align-items: center;
+          animation: markerAppear 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) ${index * 0.1}s both;
           ${isSelected ? 'outline: 2px solid #ffffff; outline-offset: 4px;' : ''}
         ">
           <!-- Badge with establishment name - matching popup badge design -->
@@ -645,6 +658,8 @@ export function EstablishmentMap({
   const [isTracking, setIsTracking] = useState(false);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [watchId, setWatchId] = useState<number | null>(null);
+  const [hasInitiallyFitted, setHasInitiallyFitted] = useState(false);
+  const clusterGroupRef = useRef<any>(null);
 
   useEffect(() => {
     setIsClient(true);
@@ -654,6 +669,14 @@ export function EstablishmentMap({
   const establishmentsWithCoords = establishments.filter(
     (est) => est.lat && est.lng
   );
+
+  // Force cluster group to clear and re-render when establishments change
+  useEffect(() => {
+    if (clusterGroupRef.current) {
+      // Clear all markers from the cluster group
+      clusterGroupRef.current.clearLayers();
+    }
+  }, [establishmentsWithCoords]);
 
 
 
@@ -724,9 +747,15 @@ export function EstablishmentMap({
         />
         
         {/* Component to fit map bounds to establishments */}
-        <MapBoundsFitter establishments={establishments} />
+        <MapBoundsFitter 
+          establishments={establishmentsWithCoords} 
+          isInitialLoad={!hasInitiallyFitted}
+          onFitted={() => setHasInitiallyFitted(true)}
+        />
         
         <MarkerClusterGroup
+          ref={clusterGroupRef}
+          key={`markers-${establishmentsWithCoords.length}-${establishmentsWithCoords.map(e => e.id).join(',')}`}
           chunkedLoading
           maxClusterRadius={50}
           spiderfyOnMaxZoom={true}
@@ -781,12 +810,13 @@ export function EstablishmentMap({
               });
           }}
         >
-          {establishmentsWithCoords.map((establishment) => (
+          {establishmentsWithCoords.map((establishment, index) => (
             <MapMarker
               key={`${establishment.id}-${establishment.statuses?.join(',') || 'no-status'}`}
               establishment={establishment}
               onClick={() => onEstablishmentClick?.(establishment)}
               isSelected={establishment.id === selectedEstablishmentId}
+              index={index}
             />
           ))}
         </MarkerClusterGroup>

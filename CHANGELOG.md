@@ -5,6 +5,25 @@ All notable changes to the Millennial Reign App will be documented in this file.
 ## [Latest] - 2025-01-18
 
 ### ✨ Added
+- **Map Search Functionality**
+  - Real-time search filtering in map view
+  - Search bar visible in map view with dynamic placeholders
+  - Live marker updates during search
+  - Smooth map filtering without view jumping
+
+- **Map Marker Animations**
+  - CSS keyframe animations for marker appearance
+  - Staggered animation timing for multiple markers
+  - Bouncy scale and opacity transitions
+  - Smooth marker emergence on map load
+
+### 🔧 Improved
+- **Map Performance**
+  - Optimized marker rendering without full map re-renders
+  - Fixed map bounds jumping during filtering
+  - Improved search filtering performance
+  - Better marker cluster group updates
+
 - **Contact Information System**
   - Phone number and address fields in user profiles
   - GPS coordinates with "Get Directions" functionality
