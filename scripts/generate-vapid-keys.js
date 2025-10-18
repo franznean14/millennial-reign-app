@@ -24,8 +24,8 @@ function generateVAPIDKeys() {
   // Convert to base64url format for Web Push
   const publicKey = Buffer.from(rawPublicKey).toString('base64url');
   
-  // For web-push library, we need the private key in PEM format
-  const privateKeyPem = keyPair.privateKey.toString('base64');
+  // For web-push library, we need the private key in URL-safe base64 format
+  const privateKeyUrlSafe = Buffer.from(keyPair.privateKey).toString('base64url');
   
   console.log('VAPID Keys Generated for Web Push:');
   console.log('');
@@ -33,14 +33,14 @@ function generateVAPIDKeys() {
   console.log(publicKey);
   console.log('');
   console.log('Private Key (add to .env.local as VAPID_PRIVATE_KEY):');
-  console.log(privateKeyPem);
+  console.log(privateKeyUrlSafe);
   console.log('');
   console.log('Key Details:');
   console.log('- Curve: P-256 (prime256v1)');
   console.log('- Public Key Format: base64url (raw public key)');
-  console.log('- Private Key Format: base64 (for web-push library)');
+  console.log('- Private Key Format: base64url (URL-safe for web-push library)');
   console.log('- Public Key Length:', publicKey.length);
-  console.log('- Private Key Length:', privateKeyPem.length);
+  console.log('- Private Key Length:', privateKeyUrlSafe.length);
   console.log('- Raw Public Key Length:', rawPublicKey.length, 'bytes');
   console.log('');
   console.log('Instructions:');
