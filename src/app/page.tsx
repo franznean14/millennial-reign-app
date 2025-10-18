@@ -9,6 +9,6 @@ export default function Home() {
   const { currentSection } = useSPA();
 
   return (
-    <AppClient currentSection={currentSection} />
+    <AppClient />
   );
 }

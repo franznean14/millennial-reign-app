@@ -15,6 +15,9 @@ interface SPAContextType {
   refreshAuth: () => void;
   isAppReady: boolean;
   setContentLoading: (loading: boolean) => void;
+  navigationStack: string[];
+  pushNavigation: (section: string) => void;
+  popNavigation: () => string | null;
 }
 
 const SPAContext = createContext<SPAContextType | undefined>(undefined);
@@ -32,10 +35,32 @@ export function SPAProvider({ children }: { children: ReactNode }) {
   const [navigationLoading, setNavigationLoading] = useState(true);
   const [contentLoading, setContentLoading] = useState(true);
   
+  // Navigation stack for SPA back navigation
+  const [navigationStack, setNavigationStack] = useState<string[]>(['home']);
+  
   const isAppReady = !authLoading && !navigationLoading && !contentLoading;
+
+  const pushNavigation = (section: string) => {
+    setNavigationStack(prev => [...prev, section]);
+  };
+
+  const popNavigation = () => {
+    setNavigationStack(prev => {
+      if (prev.length <= 1) return prev; // Don't pop the last item
+      const newStack = [...prev];
+      newStack.pop();
+      return newStack;
+    });
+    
+    // Get the previous section from the updated stack
+    const updatedStack = navigationStack.slice(0, -1);
+    const previousSection = updatedStack[updatedStack.length - 1];
+    return previousSection || null;
+  };
 
   const handleSectionChange = (section: string) => {
     setCurrentSection(section);
+    pushNavigation(section);
     
     // Update URL without page reload
     const url = new URL(window.location.href);
@@ -167,6 +192,9 @@ export function SPAProvider({ children }: { children: ReactNode }) {
     refreshAuth,
     isAppReady,
     setContentLoading,
+    navigationStack,
+    pushNavigation,
+    popNavigation,
   };
 
   return (

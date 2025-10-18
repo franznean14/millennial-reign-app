@@ -28,10 +28,12 @@ A modern Kingdom Ministry application built with Next.js 15, React 19, and Supab
 - **Real-time Search**: Instant filtering across all views
 - **Map Search**: Search functionality in map view with live updates
 - **BWI Visit History**: Timeline view of business witnessing visits with clickable navigation
-- **Smart Back Navigation**: Browser history-based navigation for seamless user experience
+- **Smart Back Navigation**: SPA navigation stack for seamless user experience
 - **Visit History Distinction**: Proper separation between establishment and householder visits
 - **Establishment Badges**: Subtle badges showing establishment context for householder visits
 - **Truncated Descriptions**: One-line descriptions in summary, full details in drawer
+- **Dynamic Navigation Stack**: Tracks current section for proper back button behavior
+- **Visit Updates Timeline**: Timeline design for establishment and householder visit updates
 
 ## 🛠️ Tech Stack
 

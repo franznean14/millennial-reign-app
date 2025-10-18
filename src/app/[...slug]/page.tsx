@@ -8,7 +8,7 @@ const AppClient = dynamic(() => import("@/components/AppClient").then(m => m.App
 export default function CatchAll() {
   const { currentSection } = useSPA();
   return (
-    <AppClient currentSection={currentSection} />
+    <AppClient />
   );
 }
 

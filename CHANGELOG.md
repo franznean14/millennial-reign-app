@@ -10,8 +10,21 @@ All notable changes to the Millennial Reign App will be documented in this file.
   - Proper distinction between establishment and householder visits
   - Establishment badges for householder visits showing context
   - Truncated descriptions in summary view, full details in drawer
-  - Smart back navigation using browser history API
+  - Smart back navigation using SPA navigation stack
   - Improved timeline styling with thicker, grayed-out lines
+
+- **Visit Updates Timeline**
+  - Timeline design for establishment and householder visit updates
+  - Maximum 3 visits in main view with clickable arrow for drawer
+  - Infinite scroll in drawer with gradual loading
+  - 10% smaller avatars for better space utilization
+  - Partner publisher avatar support with overlapping style
+
+- **Dynamic Navigation Stack**
+  - SPA navigation stack tracking for proper back button behavior
+  - Tracks current section instead of hardcoded navigation
+  - Fixes navigation from home to establishment details
+  - Proper back button behavior in all scenarios
 
 ### 🔧 Improved
 - **Profile Form Reorganization**

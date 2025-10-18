@@ -19,6 +19,7 @@ import { getBestStatus, getStatusColor, getStatusTextColor } from "@/lib/utils/s
 import { EstablishmentForm } from "@/components/business/EstablishmentForm";
 import { VisitForm } from "@/components/business/VisitForm";
 import { getBwiParticipants } from "@/lib/db/business";
+import { VisitUpdatesSection } from "@/components/business/VisitUpdatesSection";
 
 interface EstablishmentDetailsProps {
   establishment: EstablishmentWithDetails;
@@ -324,74 +325,7 @@ export function EstablishmentDetails({
 
       {/* Visit Updates Section */}
       <motion.div layout className="w-full">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 flex-shrink-0" />
-              Visit Updates ({visits.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {visits.length > 0 ? (
-              <div className="space-y-3">
-                {visits
-                  .filter((visit, index, self) => 
-                    // Remove duplicates based on visit ID
-                    index === self.findIndex(v => v.id === visit.id)
-                  )
-                  .map((visit) => {
-                    return (
-                      <button onClick={() => setEditVisit({ id: visit.id, note: visit.note || null, visit_date: visit.visit_date, establishment_id: establishment.id, publisher_id: (visit as any).publisher_id ?? visit.publisher?.id ?? null, partner_id: (visit as any).partner_id ?? visit.partner?.id ?? null })} key={visit.id} className="flex items-start justify-between gap-3 p-3 border rounded-lg w-full text-left hover:bg-muted/50">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
-                            <span className="text-sm font-medium">{formatDate(visit.visit_date)}</span>
-                            {visit.householder && (
-                              <Badge variant="secondary" className={cn("text-xs px-2 py-0.5", getHouseholderStatusColorClass(visit.householder.status))}>
-                                {visit.householder.name}
-                              </Badge>
-                            )}
-                          </div>
-                          {visit.note && (
-                            <p className="text-sm text-muted-foreground">{visit.note}</p>
-                          )}
-                        </div>
-                        
-                        {/* Publisher avatars on the right - overlapping style */}
-                        <div className="flex items-center flex-shrink-0">
-                          {visit.publisher ? (
-                            <Avatar className="h-8 w-8 ring-2 ring-background">
-                              <AvatarImage src={visit.publisher.avatar_url} alt={`${visit.publisher.first_name} ${visit.publisher.last_name}`} />
-                              <AvatarFallback className="text-xs">
-                                {visit.publisher.first_name && visit.publisher.last_name ? 
-                                  `${visit.publisher.first_name} ${visit.publisher.last_name}`.charAt(0) : 
-                                  'U'
-                                }
-                              </AvatarFallback>
-                            </Avatar>
-                          ) : (
-                            <div className="text-xs text-muted-foreground">No publisher</div>
-                          )}
-                          {visit.partner ? (
-                            <Avatar className="h-8 w-8 -ml-2 ring-2 ring-background">
-                              <AvatarImage src={visit.partner.avatar_url} alt={`${visit.partner.first_name} ${visit.partner.last_name}`} />
-                              <AvatarFallback className="text-xs">
-                                {visit.partner.first_name && visit.partner.last_name ? 
-                                  `${visit.partner.first_name} ${visit.partner.last_name}`.charAt(0) : 
-                                  'U'
-                                }
-                              </AvatarFallback>
-                            </Avatar>
-                          ) : null}
-                        </div>
-                      </button>
-                    );
-                  })}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">No visits recorded yet</p>
-            )}
-          </CardContent>
-        </Card>
+        <VisitUpdatesSection visits={visits} />
       </motion.div>
 
       {/* Householders Section */}

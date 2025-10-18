@@ -67,9 +67,6 @@ const CongregationView = dynamic(() => import("@/components/views/CongregationVi
 const FieldServiceDrawerDialog = dynamic(() => import("@/components/fieldservice/FieldServiceDrawerDialog").then(m => m.FieldServiceDrawerDialog), { ssr: false });
 const CongregationDrawerDialog = dynamic(() => import("@/components/congregation/CongregationDrawerDialog").then(m => m.CongregationDrawerDialog), { ssr: false });
 
-interface AppClientProps {
-  currentSection: string;
-}
 
 // Status hierarchy from worst to best
 const STATUS_HIERARCHY = [
@@ -138,7 +135,7 @@ const getStatusTextColor = (status: string) => {
   }
 };
 
-export function AppClient({ currentSection }: AppClientProps) {
+export function AppClient() {
   // Global app state
   const [userId, setUserId] = useState<string | null>(null);
   const [profile, setProfile] = useState<any>(null);
@@ -146,7 +143,7 @@ export function AppClient({ currentSection }: AppClientProps) {
   const [admin, setAdmin] = useState(false);
   
   // Get SPA context for loading state
-  const { setContentLoading, onSectionChange } = useSPA();
+  const { setContentLoading, onSectionChange, popNavigation, setCurrentSection, pushNavigation, currentSection } = useSPA();
   
 
   // Home/Field Service state
@@ -1079,6 +1076,8 @@ export function AppClient({ currentSection }: AppClientProps) {
                     console.log('Setting selected establishment:', establishment);
                     setSelectedEstablishment(establishment);
                     setBusinessTab('establishments');
+                    // Push current section to navigation stack before showing details
+                    pushNavigation(currentSection);
                     // Load full establishment details
                     loadEstablishmentDetails(establishment.id);
                     // Small delay to ensure state is set before navigation
@@ -1112,6 +1111,8 @@ export function AppClient({ currentSection }: AppClientProps) {
                     console.log('Setting selected householder:', householder);
                     setSelectedHouseholder(householder);
                     setBusinessTab('householders');
+                    // Push current section to navigation stack before showing details
+                    pushNavigation(currentSection);
                     // Load full householder details
                     loadHouseholderDetails(householder.id);
                     // Small delay to ensure state is set before navigation
@@ -1200,6 +1201,8 @@ export function AppClient({ currentSection }: AppClientProps) {
                     establishments={filteredEstablishments}
                     onEstablishmentClick={(establishment) => {
                       setSelectedEstablishment(establishment);
+                      // Push current section to navigation stack before showing details
+                      pushNavigation(currentSection);
                       if (establishment.id) {
                         loadEstablishmentDetails(establishment.id);
                       }
@@ -1231,6 +1234,8 @@ export function AppClient({ currentSection }: AppClientProps) {
                       householders={filteredHouseholders}
                       onHouseholderClick={(householder) => {
                         setSelectedHouseholder(householder);
+                        // Push current section to navigation stack before showing details
+                        pushNavigation(currentSection);
                         if (householder.id) {
                           loadHouseholderDetails(householder.id);
                         }
@@ -1263,6 +1268,8 @@ export function AppClient({ currentSection }: AppClientProps) {
                       establishments={filteredEstablishments}
                       onEstablishmentClick={(establishment) => {
                         setSelectedEstablishment(establishment);
+                        // Push current section to navigation stack before showing details
+                        pushNavigation(currentSection);
                         if (establishment.id) {
                           loadEstablishmentDetails(establishment.id);
                         }
@@ -1291,12 +1298,17 @@ export function AppClient({ currentSection }: AppClientProps) {
                     onBackClick={() => {
                       setSelectedHouseholder(null);
                       setSelectedHouseholderDetails(null);
-                      // Use browser history to go back to previous page
-                      if (window.history.length > 1) {
-                        window.history.back();
+                      // Use SPA navigation stack instead of browser history
+                      const previousSection = popNavigation();
+                      if (previousSection) {
+                        setCurrentSection(previousSection);
+                        // Update URL to match the previous section
+                        const url = new URL(window.location.href);
+                        url.pathname = previousSection === 'home' ? '/' : `/${previousSection}`;
+                        window.history.pushState({}, '', url.toString());
                       } else {
-                        // Fallback to home if no history
-                        onSectionChange('home');
+                        // Fallback to business view if no previous section
+                        onSectionChange('business');
                       }
                     }}
                   />
@@ -1321,12 +1333,17 @@ export function AppClient({ currentSection }: AppClientProps) {
                     onBackClick={() => {
                       setSelectedEstablishment(null);
                       setSelectedEstablishmentDetails(null);
-                      // Use browser history to go back to previous page
-                      if (window.history.length > 1) {
-                        window.history.back();
+                      // Use SPA navigation stack instead of browser history
+                      const previousSection = popNavigation();
+                      if (previousSection) {
+                        setCurrentSection(previousSection);
+                        // Update URL to match the previous section
+                        const url = new URL(window.location.href);
+                        url.pathname = previousSection === 'home' ? '/' : `/${previousSection}`;
+                        window.history.pushState({}, '', url.toString());
                       } else {
-                        // Fallback to home if no history
-                        onSectionChange('home');
+                        // Fallback to business view if no previous section
+                        onSectionChange('business');
                       }
                     }}
                     onEstablishmentUpdated={(est) => est?.id && updateEstablishment({ id: est.id!, ...est })}

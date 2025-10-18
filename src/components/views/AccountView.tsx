@@ -13,7 +13,7 @@ export function AccountView() {
       transition={{ duration: 0.3 }}
       className="space-y-6"
     >
-      <AppClient currentSection="account" />
+      <AppClient />
     </motion.div>
   );
 }

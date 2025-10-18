@@ -13,6 +13,7 @@ import { toast } from "@/components/ui/sonner";
 import { HouseholderForm } from "@/components/business/HouseholderForm";
 import { VisitForm } from "@/components/business/VisitForm";
 import { useMobile } from "@/lib/hooks/use-mobile";
+import { VisitUpdatesSection } from "@/components/business/VisitUpdatesSection";
 import { type HouseholderWithDetails, type VisitWithUser } from "@/lib/db/business";
 import { deleteHouseholder, archiveHouseholder } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
@@ -226,58 +227,7 @@ export function HouseholderDetails({ householder, visits, establishment, establi
       </motion.div>
 
       <motion.div layout className="w-full">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 flex-shrink-0" />
-              Visit Updates ({visits.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {visits.length > 0 ? (
-              <div className="space-y-3">
-                {visits.map((visit) => (
-                  <button
-                    key={visit.id}
-                    onClick={() => setEditVisit({ id: visit.id, note: visit.note || null, visit_date: visit.visit_date, establishment_id: establishment?.id, householder_id: householder.id, publisher_id: (visit as any).publisher_id ?? visit.publisher?.id ?? null, partner_id: (visit as any).partner_id ?? visit.partner?.id ?? null })}
-                    className="flex items-start justify-between gap-3 p-3 border rounded-lg w-full text-left hover:bg-muted/50"
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-sm font-medium">{formatDate(visit.visit_date)}</span>
-                      </div>
-                      {visit.note && (
-                        <p className="text-sm text-muted-foreground">{visit.note}</p>
-                      )}
-                    </div>
-                    <div className="flex items-center flex-shrink-0">
-                      {visit.publisher ? (
-                        <Avatar className="h-8 w-8 ring-2 ring-background">
-                          <AvatarImage src={visit.publisher.avatar_url} alt={`${visit.publisher.first_name} ${visit.publisher.last_name}`} />
-                          <AvatarFallback className="text-xs">
-                            {(visit.publisher.first_name && visit.publisher.last_name ? `${visit.publisher.first_name} ${visit.publisher.last_name}` : 'U').charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-                      ) : (
-                        <div className="text-xs text-muted-foreground">No publisher</div>
-                      )}
-                      {visit.partner ? (
-                        <Avatar className="h-8 w-8 -ml-2 ring-2 ring-background">
-                          <AvatarImage src={visit.partner.avatar_url} alt={`${visit.partner.first_name} ${visit.partner.last_name}`} />
-                          <AvatarFallback className="text-xs">
-                            {(visit.partner.first_name && visit.partner.last_name ? `${visit.partner.first_name} ${visit.partner.last_name}` : 'U').charAt(0)}
-                          </AvatarFallback>
-                        </Avatar>
-                      ) : null}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">No visits recorded yet</p>
-            )}
-          </CardContent>
-        </Card>
+        <VisitUpdatesSection visits={visits} />
       </motion.div>
 
       {/* Edit Householder */}

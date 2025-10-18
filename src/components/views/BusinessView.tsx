@@ -19,7 +19,7 @@ export function BusinessView() {
         onValueChange={() => {}} 
         onClearStatusFilters={() => {}} 
       />
-      <AppClient currentSection="business" />
+      <AppClient />
     </motion.div>
   );
 }
