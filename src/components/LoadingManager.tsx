@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useCallback, ReactNode } from 'react';
 
 interface LoadingState {
   auth: boolean;
@@ -25,13 +25,13 @@ export function LoadingManager({ children }: { children: ReactNode }) {
     isFullyLoaded: false,
   });
 
-  const updateLoadingState = (key: keyof Omit<LoadingState, 'isFullyLoaded'>, value: boolean) => {
+  const updateLoadingState = useCallback((key: keyof Omit<LoadingState, 'isFullyLoaded'>, value: boolean) => {
     setLoadingState(prev => {
       const newState = { ...prev, [key]: value };
       const isFullyLoaded = !newState.auth && !newState.navigation && !newState.content;
       return { ...newState, isFullyLoaded };
     });
-  };
+  }, []);
 
   const isAppReady = loadingState.isFullyLoaded;
 
