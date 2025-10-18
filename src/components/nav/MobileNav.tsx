@@ -49,6 +49,10 @@ function useShowCongregationTab() {
         
         // If offline, don't attempt network request
         if (isOffline) {
+          // If offline and no cached data, default to true for better UX
+          if (!cachedData) {
+            setOk(true);
+          }
           return;
         }
         
@@ -121,6 +125,10 @@ function useShowBusinessTab() {
         
         // If offline, don't attempt network request
         if (isOffline) {
+          // If offline and no cached data, default to true for better UX
+          if (!cachedData) {
+            setOk(true);
+          }
           return;
         }
         

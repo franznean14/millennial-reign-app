@@ -58,6 +58,8 @@
 - **Network Detection**: Automatic offline detection with graceful fallback to cached data
 - **Cache Updates**: Automatic cache updates when online with fresh permission data
 - **Clean Mobile UX**: Removed extra bottom padding for better mobile navigation
+- **Robust Offline Defaults**: Default tab visibility when no cached data exists
+- **Clean Bottom Edge**: Removed navigation link padding for flush bottom edge
 
 ### BWI View Offline Support
 - **Establishment List**: Complete establishment list works offline with cached data

@@ -46,6 +46,10 @@ function useShowCongregationTab() {
         
         // If offline, don't attempt network request
         if (isOffline) {
+          // If offline and no cached data, default to true for better UX
+          if (!cachedData) {
+            setOk(true);
+          }
           return;
         }
         
@@ -117,6 +121,10 @@ function useShowBusinessTab() {
         
         // If offline, don't attempt network request
         if (isOffline) {
+          // If offline and no cached data, default to true for better UX
+          if (!cachedData) {
+            setOk(true);
+          }
           return;
         }
         
@@ -163,7 +171,7 @@ export default function BottomNav() {
               key={href}
               href={href}
               aria-label={label}
-              className={`flex flex-col items-center justify-center gap-1 py-3 w-full text-xs min-h-[60px]
+              className={`flex flex-col items-center justify-center gap-1 w-full text-xs min-h-[60px]
                 ${active ? "text-foreground" : "text-foreground/60"}`}
             >
               <Icon className={`h-5 w-5 flex-shrink-0 ${active ? "" : "opacity-70"}`} />

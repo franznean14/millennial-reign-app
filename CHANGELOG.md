@@ -11,6 +11,8 @@ All notable changes to the Millennial Reign App will be documented in this file.
 - **Offline Navigation Issues** - Fixed navigation tabs disappearing when offline
 - **Variable Scope Issues** - Fixed cachedData variable scope in navigation components
 - **Mobile Navbar Padding** - Removed unnecessary bottom padding from mobile navigation
+- **Offline Default Behavior** - Added default tab visibility when no cached data exists
+- **Navigation Link Padding** - Removed py-3 padding from navigation links for clean bottom edge
 
 ### ✨ Added
 - **BWI Visit History**
