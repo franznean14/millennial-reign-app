@@ -6,12 +6,14 @@ interface OfflineIndicatorProps {
   className?: string;
   showLastUpdated?: boolean;
   lastUpdated?: Date | null;
+  variant?: "default" | "inline";
 }
 
 export function OfflineIndicator({ 
   className = "", 
   showLastUpdated = false, 
-  lastUpdated 
+  lastUpdated,
+  variant = "default"
 }: OfflineIndicatorProps) {
   const [isOffline, setIsOffline] = useState(false);
 
@@ -33,11 +35,15 @@ export function OfflineIndicator({
 
   if (!isOffline && !showLastUpdated) return null;
 
+  const baseClasses = variant === "inline" 
+    ? "flex items-center gap-1 text-xs" 
+    : "flex items-center gap-2 text-sm";
+
   return (
-    <div className={`flex items-center gap-2 text-sm ${className}`}>
+    <div className={`${baseClasses} ${className}`}>
       {isOffline && (
         <div className="flex items-center gap-1 text-amber-500">
-          <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+          <div className={`${variant === "inline" ? "w-1.5 h-1.5" : "w-2 h-2"} bg-amber-500 rounded-full animate-pulse`}></div>
           <span>Offline</span>
         </div>
       )}

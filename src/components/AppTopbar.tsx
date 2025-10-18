@@ -5,7 +5,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Home, Landmark, Briefcase, User, Menu } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AuthButtons } from "@/components/auth/AuthButtons";
-import OfflineIndicator from "@/components/OfflineIndicator";
+import { OfflineIndicator } from "@/components/OfflineIndicator";
 import InstallPrompt from "@/components/InstallPrompt";
 
 interface AppTopbarProps {
