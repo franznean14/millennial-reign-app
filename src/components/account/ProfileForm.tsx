@@ -51,6 +51,8 @@ export function ProfileForm({ userId, initialEmail, initialProfile, bwiEnabled, 
     gender: initialProfile?.gender || null,
     privileges: initialProfile?.privileges || [],
     group_name: initialProfile?.group_name || "",
+    phone_number: initialProfile?.phone_number || "",
+    address: initialProfile?.address || "",
   });
 
   // Update form data when initialProfile changes (async loading)
@@ -65,6 +67,8 @@ export function ProfileForm({ userId, initialEmail, initialProfile, bwiEnabled, 
         gender: initialProfile.gender || null,
         privileges: initialProfile.privileges || [],
         group_name: initialProfile.group_name || "",
+        phone_number: initialProfile.phone_number || "",
+        address: initialProfile.address || "",
       });
     }
   }, [initialProfile]);
@@ -333,6 +337,33 @@ export function ProfileForm({ userId, initialEmail, initialProfile, bwiEnabled, 
             </SelectContent>
           </Select>
         )}
+      </div>
+
+      {/* Contact Information Section */}
+      <div className="space-y-4 border-t pt-4">
+        <div className="space-y-2">
+          <Label htmlFor="phone_number">Contact Number</Label>
+          <Input
+            id="phone_number"
+            type="tel"
+            value={formData.phone_number || ""}
+            onChange={(e) => setFormData(prev => ({ ...prev, phone_number: e.target.value }))}
+            placeholder="+1 (555) 123-4567"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="address">Address</Label>
+          <Input
+            id="address"
+            value={formData.address || ""}
+            onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+            placeholder="123 Main St, City, State, ZIP"
+          />
+          <p className="text-xs text-muted-foreground">
+            For emergency contact purposes - visible to congregation elders
+          </p>
+        </div>
       </div>
 
       <div className="space-y-2">

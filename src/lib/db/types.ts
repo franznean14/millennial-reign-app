@@ -28,6 +28,11 @@ export interface Profile {
   gender?: Gender | null; // optional; required when assigning male-only privileges
   congregation_id?: string | null;
   group_name?: string | null; // Add group name field
+  // Contact information fields
+  phone_number?: string | null;
+  address?: string | null;
+  address_latitude?: number | null;
+  address_longitude?: number | null;
 }
 
 export interface MonthlyRecord {

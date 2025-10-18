@@ -15,6 +15,7 @@ const getSupabaseClient = async () => {
   return getSupabaseClientOnce();
 };
 import { motion, AnimatePresence } from "motion/react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Filter, X } from "lucide-react";
@@ -1581,6 +1582,21 @@ export function AppClient({ currentSection }: AppClientProps) {
                 setHasPassword(true);
               }}
             />
+
+            <Separator />
+
+            {/* Privacy Policy */}
+            <section className="space-y-4">
+              <h3 className="text-lg font-semibold">Legal</h3>
+              <div className="text-sm text-muted-foreground">
+                <Link href="/privacy" className="text-primary hover:underline">
+                  Privacy Policy
+                </Link>
+                <p className="mt-1">
+                  Learn how we collect, use, and protect your information.
+                </p>
+              </div>
+            </section>
           </div>
         </motion.div>
       );
