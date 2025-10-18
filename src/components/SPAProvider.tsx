@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
-import { useLoadingManager } from './LoadingManager';
 
 interface SPAContextType {
   currentSection: string;
@@ -13,6 +12,8 @@ interface SPAContextType {
   onSectionChange: (section: string) => void;
   isAuthenticated: boolean;
   refreshAuth: () => void;
+  isAppReady: boolean;
+  setContentLoading: (loading: boolean) => void;
 }
 
 const SPAContext = createContext<SPAContextType | undefined>(undefined);
@@ -25,8 +26,12 @@ export function SPAProvider({ children }: { children: ReactNode }) {
     showBusiness: false,
   });
   
-  // Get loading manager context
-  const { setLoadingState } = useLoadingManager();
+  // Loading states
+  const [authLoading, setAuthLoading] = useState(true);
+  const [navigationLoading, setNavigationLoading] = useState(true);
+  const [contentLoading, setContentLoading] = useState(true);
+  
+  const isAppReady = !authLoading && !navigationLoading && !contentLoading;
 
   const handleSectionChange = (section: string) => {
     setCurrentSection(section);
@@ -43,7 +48,7 @@ export function SPAProvider({ children }: { children: ReactNode }) {
 
   const checkAuth = async () => {
     try {
-      setLoadingState('auth', true);
+      setAuthLoading(true);
       const supabase = createSupabaseBrowserClient();
       const { data: { session }, error } = await supabase.auth.getSession();
       
@@ -62,7 +67,7 @@ export function SPAProvider({ children }: { children: ReactNode }) {
           });
           // Redirect to login page
           window.location.href = '/login';
-          return;
+          // Don't return here, let it continue to finally block
         }
       }
       
@@ -102,13 +107,20 @@ export function SPAProvider({ children }: { children: ReactNode }) {
         showBusiness: false,
       });
     } finally {
-      setLoadingState('auth', false);
+      setAuthLoading(false);
     }
   };
 
   useEffect(() => {
     checkAuth();
   }, []);
+
+  // Set navigation as ready after auth check
+  useEffect(() => {
+    if (!authLoading) {
+      setNavigationLoading(false);
+    }
+  }, [authLoading]);
 
   // Listen for auth state changes to handle token refresh failures
   useEffect(() => {
@@ -151,6 +163,8 @@ export function SPAProvider({ children }: { children: ReactNode }) {
     onSectionChange: handleSectionChange,
     isAuthenticated,
     refreshAuth,
+    isAppReady,
+    setContentLoading,
   };
 
   return (

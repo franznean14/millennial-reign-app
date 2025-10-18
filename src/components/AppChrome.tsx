@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 import { AppTopbar } from "@/components/AppTopbar";
 import { Home, Landmark, Briefcase, User } from "lucide-react";
 import { useSPA } from "@/components/SPAProvider";
-import { useLoadingManager } from "@/components/LoadingManager";
 import { FullScreenLoading } from "@/components/FullScreenLoading";
 
 // Defer non-critical chrome to reduce initial JS
@@ -22,16 +21,9 @@ interface AppChromeProps {
 
 export function AppChrome({ children }: AppChromeProps) {
   const pathname = usePathname();
-  const { currentSection, userPermissions, onSectionChange, isAuthenticated } = useSPA();
-  const { isAppReady, setLoadingState } = useLoadingManager();
+  const { currentSection, userPermissions, onSectionChange, isAuthenticated, isAppReady } = useSPA();
   const hideChrome = pathname === "/login" || pathname.startsWith("/auth/") || !isAuthenticated;
 
-  // Track navigation loading
-  useEffect(() => {
-    if (isAuthenticated) {
-      setLoadingState('navigation', false);
-    }
-  }, [isAuthenticated, setLoadingState]);
 
   // If not authenticated, just show the children (login view)
   if (!isAuthenticated) {
@@ -57,16 +49,13 @@ export function AppChrome({ children }: AppChromeProps) {
       <OnlineBanner />
       <BiometricGate />
       
-      {/* Only render content when app is ready */}
-      {isAppReady && (
-        <>
-          <AppTopbar 
-            currentSection={currentSection}
-            onSectionChange={onSectionChange}
-            userPermissions={userPermissions}
-          />
-          
-          <div className="mx-auto flex max-w-screen-lg w-full overflow-x-hidden">
+      <AppTopbar 
+        currentSection={currentSection}
+        onSectionChange={onSectionChange}
+        userPermissions={userPermissions}
+      />
+      
+      <div className="mx-auto flex max-w-screen-lg w-full overflow-x-hidden">
         {/* Desktop Sidebar Navigation */}
         <nav className="hidden lg:flex flex-col w-64 border-r border-border/50 bg-background/50 backdrop-blur">
           <div className="p-4 border-b border-border/50">
@@ -125,8 +114,6 @@ export function AppChrome({ children }: AppChromeProps) {
       </nav>
       
       {/* FloatingBridge removed - handled per-view */}
-        </>
-      )}
     </>
   );
 }

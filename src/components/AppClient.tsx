@@ -34,10 +34,10 @@ import { Search, Building2, Users, MapPin, User, UserCheck, Filter as FilterIcon
 import { cacheSet } from "@/lib/offline/store";
 import { LoginView } from "@/components/views/LoginView";
 import { LoadingView } from "@/components/views/LoadingView";
-import { useLoadingManager } from "@/components/LoadingManager";
 import { BusinessTabToggle } from "@/components/business/BusinessTabToggle";
 import { PortaledBusinessControls } from "@/components/business/PortaledBusinessControls";
 import { StickySearchBar } from "@/components/business/StickySearchBar";
+import { useSPA } from "@/components/SPAProvider";
 
 // Import all the data and business logic functions
 import { getDailyRecord, listDailyByMonth, upsertDailyRecord, isDailyEmpty, deleteDailyRecord } from "@/lib/db/dailyRecords";
@@ -142,8 +142,9 @@ export function AppClient({ currentSection }: AppClientProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [admin, setAdmin] = useState(false);
   
-  // Get loading manager
-  const { setLoadingState } = useLoadingManager();
+  // Get SPA context for loading state
+  const { setContentLoading } = useSPA();
+  
 
   // Home/Field Service state
   const [dateRanges, setDateRanges] = useState({
@@ -262,10 +263,15 @@ export function AppClient({ currentSection }: AppClientProps) {
   // Add this state to track user's visited householders
   const [userVisitedHouseholders, setUserVisitedHouseholders] = useState<Set<string>>(new Set());
 
+  // Set content loading to false immediately when component mounts
+  useEffect(() => {
+    setContentLoading(false);
+  }, [setContentLoading]);
+
   // Load initial app data
   useEffect(() => {
     const loadAppData = async () => {
-      setLoadingState('content', true);
+      setContentLoading(true);
       const supabase = await getSupabaseClient();
       const { data: { session } } = await supabase.auth.getSession();
       const id = session?.user?.id || null;
@@ -297,11 +303,11 @@ export function AppClient({ currentSection }: AppClientProps) {
       }
       
       setIsLoading(false);
-      setLoadingState('content', false);
+      setContentLoading(false);
     };
 
     loadAppData();
-  }, [setLoadingState]);
+  }, [setContentLoading]);
 
   // Calculate date ranges for home view
   useEffect(() => {

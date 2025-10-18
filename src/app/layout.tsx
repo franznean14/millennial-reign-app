@@ -5,7 +5,6 @@ import { AppChrome } from "@/components/AppChrome";
 import ThemeInit from "@/components/ThemeInit";
 import { Toaster } from "@/components/ui/sonner";
 import { SPAProvider } from "@/components/SPAProvider";
-import { LoadingManager } from "@/components/LoadingManager";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -59,11 +58,9 @@ export default function RootLayout({
         {/* FAB portal root, placed first in body for highest paint priority */}
         <div id="fab-root" />
         <ThemeInit />
-        <LoadingManager>
-          <SPAProvider>
-            <AppChrome>{children}</AppChrome>
-          </SPAProvider>
-        </LoadingManager>
+        <SPAProvider>
+          <AppChrome>{children}</AppChrome>
+        </SPAProvider>
         {/* Toast notifications (auto dark/light) */}
         <Toaster position="top-center" richColors closeButton theme="system" />
       </body>
