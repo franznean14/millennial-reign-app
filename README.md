@@ -21,6 +21,8 @@ A modern Kingdom Ministry application built with Next.js 15, React 19, and Supab
 - **Responsive Design**: Mobile-first with dark theme
 - **Biometric Security**: Optional biometric authentication
 - **Offline-First**: Works without internet connection
+- **Offline-Ready Navigation**: All navigation components work offline with cached permissions
+- **Offline-Ready BWI View**: Complete business witnessing functionality works offline
 - **Smart Forms**: Change detection, intelligent save buttons, and sectioned organization
 - **Geolocation**: GPS coordinates and "Get Directions" functionality
 - **Vercel Speed Insights**: Performance monitoring and optimization

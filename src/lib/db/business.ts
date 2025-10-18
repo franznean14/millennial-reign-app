@@ -633,8 +633,15 @@ export async function getUniqueFloors(): Promise<string[]> {
 
 export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithDetails[]> {
   const supabase = createSupabaseBrowserClient();
+  const cacheKey = 'establishments:with-details';
   
   try {
+    // If offline, serve from cache
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const cached = await cacheGet<EstablishmentWithDetails[]>(cacheKey);
+      return cached ?? [];
+    }
+    
     // Get current user's congregation_id
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
@@ -644,7 +651,8 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
     
     if (profileError) {
       console.error('Error fetching profile:', profileError);
-      return [];
+      const cached = await cacheGet<EstablishmentWithDetails[]>(cacheKey);
+      return cached ?? [];
     }
     
     if (!profile?.congregation_id) {
@@ -742,10 +750,13 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
       };
     }) || [];
 
+    // Cache the results
+    await cacheSet(cacheKey, establishments);
     return establishments;
   } catch (error) {
     console.error('Unexpected error in getEstablishmentsWithDetails:', error);
-    return [];
+    const cached = await cacheGet<EstablishmentWithDetails[]>(cacheKey);
+    return cached ?? [];
   }
 }
 
@@ -756,6 +767,18 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
 } | null> {
   const supabase = createSupabaseBrowserClient();
   await supabase.auth.getSession().catch(() => {});
+  const cacheKey = `establishment:details:${establishmentId}`;
+  
+  try {
+    // If offline, serve from cache
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const cached = await cacheGet<{
+        establishment: EstablishmentWithDetails;
+        visits: VisitWithUser[];
+        householders: HouseholderWithDetails[];
+      }>(cacheKey);
+      return cached ?? null;
+    }
   
   // Get establishment details
   const { data: establishment } = await supabase
@@ -846,7 +869,7 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
     .sort((a, b) => b.visit_count - a.visit_count)
     .slice(0, 2);
   
-  return {
+  const result = {
     establishment: {
       ...establishment,
       top_visitors: topVisitorsList
@@ -854,6 +877,19 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
     visits: transformedVisits,
     householders: householders || []
   };
+  
+  // Cache the results
+  await cacheSet(cacheKey, result);
+  return result;
+  } catch (error) {
+    console.error('Error fetching establishment details:', error);
+    const cached = await cacheGet<{
+      establishment: EstablishmentWithDetails;
+      visits: VisitWithUser[];
+      householders: HouseholderWithDetails[];
+    }>(cacheKey);
+    return cached ?? null;
+  }
 }
 
 export async function getHouseholderDetails(householderId: string): Promise<{
@@ -863,6 +899,18 @@ export async function getHouseholderDetails(householderId: string): Promise<{
 } | null> {
   const supabase = createSupabaseBrowserClient();
   await supabase.auth.getSession().catch(() => {});
+  const cacheKey = `householder:details:${householderId}`;
+  
+  try {
+    // If offline, serve from cache
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const cached = await cacheGet<{
+        householder: HouseholderWithDetails;
+        visits: VisitWithUser[];
+        establishment?: { id: string; name: string } | null;
+      }>(cacheKey);
+      return cached ?? null;
+    }
 
   // Householder with establishment
   const { data: hh } = await supabase
@@ -917,11 +965,24 @@ export async function getHouseholderDetails(householderId: string): Promise<{
     establishment_name: establishment?.name,
   };
 
-  return {
+  const result = {
     householder,
     visits: transformedVisits,
     establishment: establishment ? { id: establishment.id, name: establishment.name } : null,
   };
+  
+  // Cache the results
+  await cacheSet(cacheKey, result);
+  return result;
+  } catch (error) {
+    console.error('Error fetching householder details:', error);
+    const cached = await cacheGet<{
+      householder: HouseholderWithDetails;
+      visits: VisitWithUser[];
+      establishment?: { id: string; name: string } | null;
+    }>(cacheKey);
+    return cached ?? null;
+  }
 }
 
 export async function getBwiParticipants(): Promise<Array<{
@@ -932,12 +993,25 @@ export async function getBwiParticipants(): Promise<Array<{
 }>> {
   const supabase = createSupabaseBrowserClient();
   await supabase.auth.getSession().catch(() => {});
+  const cacheKey = 'bwi:participants';
   
-  // Get user's congregation_id
-  const { data: profile } = await supabase.rpc('get_my_profile');
-  if (!profile?.congregation_id) {
-    return [];
-  }
+  try {
+    // If offline, serve from cache
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const cached = await cacheGet<Array<{
+        id: string;
+        first_name: string;
+        last_name: string;
+        avatar_url?: string;
+      }>>(cacheKey);
+      return cached ?? [];
+    }
+    
+    // Get user's congregation_id
+    const { data: profile } = await supabase.rpc('get_my_profile');
+    if (!profile?.congregation_id) {
+      return [];
+    }
   
   
   const { data, error } = await supabase
@@ -965,7 +1039,19 @@ export async function getBwiParticipants(): Promise<Array<{
     };
   }) || [];
   
+  // Cache the results
+  await cacheSet(cacheKey, participants);
   return participants;
+  } catch (error) {
+    console.error('Error fetching participants:', error);
+    const cached = await cacheGet<Array<{
+      id: string;
+      first_name: string;
+      last_name: string;
+      avatar_url?: string;
+    }>>(cacheKey);
+    return cached ?? [];
+  }
 }
 
 export async function archiveEstablishment(establishmentId: string): Promise<boolean> {

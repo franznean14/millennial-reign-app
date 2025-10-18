@@ -6,9 +6,28 @@ import { Home, User, Landmark, Briefcase } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getProfile } from "@/lib/db/profiles";
+import { cacheGet, cacheSet } from "@/lib/offline/store";
 
 function useShowCongregationTab() {
   const [ok, setOk] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
+  
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    
+    // Set initial state
+    setIsOffline(!navigator.onLine);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+  
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
     (async () => {
@@ -16,6 +35,20 @@ function useShowCongregationTab() {
         const { data } = await supabase.auth.getSession();
         const id = data.session?.user?.id ?? null;
         if (!id) return setOk(false);
+        
+        const cacheKey = `congregation-tab-${id}`;
+        
+        // Try to load from cache first
+        const cachedData = await cacheGet(cacheKey);
+        if (cachedData) {
+          setOk(cachedData.showCongregation);
+        }
+        
+        // If offline, don't attempt network request
+        if (isOffline) {
+          return;
+        }
+        
         const p = await getProfile(id);
         const isElder = Array.isArray((p as any)?.privileges) && (p as any).privileges.includes('Elder');
         const isSuperadmin = (p as any)?.role === "superadmin";
@@ -25,30 +58,73 @@ function useShowCongregationTab() {
           const { data: isAdm } = await supabase.rpc("is_admin", { uid: id });
           admin = !!isAdm;
         } catch {}
-        setOk(assigned || isSuperadmin || (admin && isElder));
+        
+        const showCongregation = assigned || isSuperadmin || (admin && isElder);
+        setOk(showCongregation);
+        
+        // Cache the result
+        await cacheSet(cacheKey, { showCongregation, timestamp: new Date().toISOString() });
       } catch {
         setOk(false);
       }
     })();
-  }, []);
+  }, [isOffline]);
   return ok;
 }
 
 function useShowBusinessTab() {
   const [ok, setOk] = useState(false);
+  const [isOffline, setIsOffline] = useState(false);
+  
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    
+    // Set initial state
+    setIsOffline(!navigator.onLine);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+  
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
     (async () => {
       try {
-        await supabase.auth.getSession();
+        const { data } = await supabase.auth.getSession();
+        const id = data.session?.user?.id ?? null;
+        if (!id) return setOk(false);
+        
+        const cacheKey = `business-tab-${id}`;
+        
+        // Try to load from cache first
+        const cachedData = await cacheGet(cacheKey);
+        if (cachedData) {
+          setOk(cachedData.showBusiness);
+        }
+        
+        // If offline, don't attempt network request
+        if (isOffline) {
+          return;
+        }
+        
         const { data: enabled } = await supabase.rpc('is_business_enabled');
         const { data: participant } = await supabase.rpc('is_business_participant');
-        setOk(!!enabled && !!participant);
+        const showBusiness = !!enabled && !!participant;
+        setOk(showBusiness);
+        
+        // Cache the result
+        await cacheSet(cacheKey, { showBusiness, timestamp: new Date().toISOString() });
       } catch {
         setOk(false);
       }
     })();
-  }, []);
+  }, [isOffline]);
   return ok;
 }
 

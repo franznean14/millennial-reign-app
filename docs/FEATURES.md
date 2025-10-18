@@ -45,6 +45,44 @@
 - **Context-Aware Badges**: Smart badge display showing establishment names in householder context and householder names in establishment context
 - **Complete Status Options**: All establishment status options including "For Replenishment" for proper business territory management
 - **Offline-First Home Page**: Cached data display with offline indicators and graceful degradation for seamless user experience
+- **Offline-Ready Navigation**: All navigation components work offline with cached permissions
+- **Offline-Ready BWI View**: Complete business witnessing functionality works offline
+
+## 📱 Offline-First Architecture
+
+### Navigation Offline Support
+- **BottomNav Offline**: Mobile navigation works offline with cached permissions
+- **DesktopNav Offline**: Desktop navigation works offline with cached permissions  
+- **MobileNav Offline**: Mobile sheet navigation works offline with cached permissions
+- **Permission Caching**: User permissions cached for congregation and business tab visibility
+- **Network Detection**: Automatic offline detection with graceful fallback to cached data
+- **Cache Updates**: Automatic cache updates when online with fresh permission data
+
+### BWI View Offline Support
+- **Establishment List**: Complete establishment list works offline with cached data
+- **Householder List**: Complete householder list works offline with cached data
+- **Establishment Details**: Full establishment details work offline including:
+  - Establishment information with cached data
+  - Visit history with cached visits and user details
+  - Householder list with cached householder data
+  - Top visitors with cached participant information
+- **Householder Details**: Full householder details work offline including:
+  - Householder information with cached data
+  - Visit history with cached visits and user details
+  - Establishment context with cached establishment data
+  - Partner publisher information with cached participant data
+- **Map View**: Interactive map works offline with cached establishment coordinates
+- **Visit Forms**: Visit creation forms work offline with cached participant data
+- **Data Persistence**: All business data cached in IndexedDB for offline access
+- **Cache Strategy**: Comprehensive caching for all business data types with timestamps
+
+### Offline Data Management
+- **Cache-First Strategy**: Load from cache immediately, update when online
+- **Network Detection**: Automatic online/offline state detection
+- **Graceful Degradation**: Appropriate offline states and error messages
+- **Background Sync**: Automatic data synchronization when connection restored
+- **Optimistic Updates**: UI updates immediately, handles sync conflicts gracefully
+- **Service Worker**: Cache static assets and API responses for offline use
 
 ## 🔔 Push Notifications
 

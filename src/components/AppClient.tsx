@@ -426,6 +426,9 @@ export function AppClient() {
   // Business functions
   const loadBusinessData = useCallback(async () => {
     try {
+      // Check if offline and load from cache if needed
+      const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+      
       const [establishmentsData, householdersData] = await Promise.all([
         getEstablishmentsWithDetails(),
         listHouseholders()
@@ -530,6 +533,9 @@ export function AppClient() {
 
   const loadEstablishmentDetails = useCallback(async (establishmentId: string) => {
     try {
+      // Check if offline and load from cache if needed
+      const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+      
       const details = await getEstablishmentDetails(establishmentId);
       setSelectedEstablishmentDetails(details);
     } catch (error) {
@@ -563,6 +569,9 @@ export function AppClient() {
 
   const loadHouseholderDetails = useCallback(async (householderId: string) => {
     try {
+      // Check if offline and load from cache if needed
+      const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+      
       const details = await getHouseholderDetails(householderId);
       setSelectedHouseholderDetails(details);
     } catch (error) {
@@ -1056,8 +1065,6 @@ export function AppClient() {
           <BWIVisitHistory 
             userId={userId} 
             onVisitClick={async (visit) => {
-              // Debug: Log the full visit record to see what fields are available
-              console.log('Full visit record:', visit);
               
               // Navigate to business section and show details
               if (visit.visit_type === 'establishment' && visit.establishment_id) {
@@ -1070,10 +1077,8 @@ export function AppClient() {
                     .eq('id', visit.establishment_id)
                     .maybeSingle(); // Use maybeSingle() instead of single()
                   
-                  console.log('Establishment query result:', { establishment, error, establishmentId: visit.establishment_id });
                   
                   if (establishment && !error) {
-                    console.log('Setting selected establishment:', establishment);
                     setSelectedEstablishment(establishment);
                     setBusinessTab('establishments');
                     // Push current section to navigation stack before showing details
@@ -1105,10 +1110,8 @@ export function AppClient() {
                     .eq('id', visit.householder_id)
                     .maybeSingle(); // Use maybeSingle() instead of single()
                   
-                  console.log('Householder query result:', { householder, error, householderId: visit.householder_id });
                   
                   if (householder && !error) {
-                    console.log('Setting selected householder:', householder);
                     setSelectedHouseholder(householder);
                     setBusinessTab('householders');
                     // Push current section to navigation stack before showing details
