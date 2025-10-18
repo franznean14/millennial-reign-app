@@ -1,4 +1,4 @@
-const CACHE = "mr-app-v2";
+const CACHE = "mr-app-v3"; // Updated cache version to force refresh
 const OFFLINE_URL = "/offline";
 
 self.addEventListener("install", (event) => {
@@ -59,6 +59,27 @@ self.addEventListener('notificationclick', (event) => {
         }
       })
   );
+});
+
+// Handle messages from the main thread
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'CLEAR_PUSH_SUBSCRIPTION') {
+    event.waitUntil(
+      self.registration.pushManager.getSubscription()
+        .then(subscription => {
+          if (subscription) {
+            return subscription.unsubscribe();
+          }
+        })
+        .then(() => {
+          // Send confirmation back to main thread
+          event.ports[0].postMessage({ success: true });
+        })
+        .catch(error => {
+          event.ports[0].postMessage({ success: false, error: error.message });
+        })
+    );
+  }
 });
 
 self.addEventListener("fetch", (event) => {
