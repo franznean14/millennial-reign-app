@@ -32,7 +32,24 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
   const [allVisits, setAllVisits] = useState<VisitRecord[]>([]);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [isOffline, setIsOffline] = useState(false);
 
+  // Offline detection
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    
+    // Set initial state
+    setIsOffline(!navigator.onLine);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Load initial visits (last 5)
   useEffect(() => {
@@ -48,6 +65,12 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
       if (cachedData) {
         setVisits(cachedData.visits || []);
         setLoading(false);
+      }
+      
+      // If offline, don't attempt network request
+      if (isOffline) {
+        setLoading(false);
+        return;
       }
       
       try {
@@ -158,6 +181,12 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
         setLoadingMore(false);
         return;
       }
+    }
+    
+    // If offline, don't attempt network request
+    if (isOffline) {
+      setLoadingMore(false);
+      return;
     }
     
     try {

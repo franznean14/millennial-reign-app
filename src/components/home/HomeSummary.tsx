@@ -46,6 +46,7 @@ export function HomeSummary({
   const [localPioneer, setLocalPioneer] = useState(false);
   const [timeZone, setTimeZone] = useState<string | null>(null);
   const [uid, setUid] = useState<string | null>(null);
+  const [isOffline, setIsOffline] = useState(false);
   const [range, setRange] = useState({
     mStart: monthStart,
     mNext: nextMonthStart,
@@ -61,6 +62,23 @@ export function HomeSummary({
   // Get user timezone
   useEffect(() => {
     setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  }, []);
+
+  // Offline detection
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    
+    // Set initial state
+    setIsOffline(!navigator.onLine);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
   }, []);
 
 
@@ -91,6 +109,11 @@ export function HomeSummary({
       setSyHours(cachedData.syHours || 0);
       setStudies(cachedData.studies || []);
       setLocalPioneer(cachedData.localPioneer || false);
+    }
+    
+    // If offline, don't attempt network request
+    if (isOffline) {
+      return;
     }
     
     // Create AbortController for this request
