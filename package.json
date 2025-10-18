@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbo",
+    "dev:https": "node scripts/dev-https.js",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
@@ -50,6 +51,8 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "^15.5.4",
+    "local-ssl-proxy": "^2.0.5",
+    "mkcert": "^3.2.0",
     "tailwindcss": "^4",
     "tw-animate-css": "^1.3.7",
     "typescript": "^5"
