@@ -6,10 +6,13 @@ A modern Kingdom Ministry application built with Next.js 15, React 19, and Supab
 
 ### Core Functionality
 - **User Management**: Profile management with roles (user/admin/superadmin)
+- **Contact Information**: Phone numbers, addresses, and GPS coordinates for emergency contact
 - **Monthly Records**: Track hours, bible studies, and notes
 - **Congregation Management**: Add users, manage groups, and track activities
 - **Field Service**: Territory management and visit tracking
 - **Business Territory**: Establishment and householder management with interactive maps
+- **Push Notifications**: Real-time updates and assignments
+- **Privacy Policy**: Comprehensive privacy protection and data handling
 
 ### Technical Features
 - **PWA Support**: Offline-ready with service worker caching
@@ -18,6 +21,9 @@ A modern Kingdom Ministry application built with Next.js 15, React 19, and Supab
 - **Responsive Design**: Mobile-first with dark theme
 - **Biometric Security**: Optional biometric authentication
 - **Offline-First**: Works without internet connection
+- **Smart Forms**: Change detection and intelligent save buttons
+- **Geolocation**: GPS coordinates and "Get Directions" functionality
+- **Vercel Speed Insights**: Performance monitoring and optimization
 
 ## 🛠️ Tech Stack
 
@@ -66,12 +72,13 @@ A modern Kingdom Ministry application built with Next.js 15, React 19, and Supab
 ## 🗄️ Database Schema
 
 ### Core Tables
-- **profiles**: User information and roles
+- **profiles**: User information, roles, and contact details (phone, address, coordinates)
 - **monthly_records**: Service hours and bible studies
 - **congregations**: Group management
 - **business_establishments**: Territory locations
 - **business_householders**: Individual contacts
 - **business_visits**: Field service records
+- **push_subscriptions**: Push notification subscriptions
 
 ### Security
 - **Row Level Security (RLS)**: Data access control
@@ -152,6 +159,8 @@ src/
 - `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Supabase anonymous key
 - `NEXT_PUBLIC_APP_URL` - Application URL for callbacks
+- `NEXT_PUBLIC_VAPID_PUBLIC_KEY` - VAPID public key for push notifications
+- `VAPID_PRIVATE_KEY` - VAPID private key for push notifications (server-side)
 
 ### Supabase Setup
 1. Create a new Supabase project
@@ -176,8 +185,10 @@ src/
 - **Installable**: Add to home screen
 - **Offline Support**: Works without internet
 - **Background Sync**: Syncs data when online
-- **Push Notifications**: Real-time updates
+- **Push Notifications**: Real-time updates with VAPID keys
 - **App-like Experience**: Native feel on mobile
+- **Contact Information**: Emergency contact details with GPS coordinates
+- **Get Directions**: Direct integration with Google Maps
 
 ## 🔒 Security Features
 

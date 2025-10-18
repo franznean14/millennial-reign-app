@@ -32,7 +32,7 @@ import { LogoutButton } from "@/components/account/LogoutButton";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Search, Building2, Users, MapPin, User, UserCheck, Filter as FilterIcon, LayoutGrid, List, Table as TableIcon } from "lucide-react";
+import { Search, Building2, Users, MapPin, User, UserCheck, Filter as FilterIcon, LayoutGrid, List, Table as TableIcon, ChevronRight } from "lucide-react";
 import { cacheSet } from "@/lib/offline/store";
 import { LoginView } from "@/components/views/LoginView";
 import { LoadingView } from "@/components/views/LoadingView";
@@ -258,6 +258,7 @@ export function AppClient({ currentSection }: AppClientProps) {
   // BWI state (global to prevent layout shifts)
   const [bwiEnabled, setBwiEnabled] = useState(false);
   const [isBwiParticipant, setIsBwiParticipant] = useState(false);
+  const [privacyPolicyOpen, setPrivacyPolicyOpen] = useState(false);
 
   // Add this state to track user's visited establishments
   const [userVisitedEstablishments, setUserVisitedEstablishments] = useState<Set<string>>(new Set());
@@ -1629,15 +1630,103 @@ export function AppClient({ currentSection }: AppClientProps) {
               }}
             />
 
+            {/* Privacy Policy Drawer */}
+            <ResponsiveModal
+              open={privacyPolicyOpen}
+              onOpenChange={setPrivacyPolicyOpen}
+              title="Privacy Policy"
+              description="Learn how we collect, use, and protect your information"
+            >
+              <div className="space-y-6 max-h-[70vh] overflow-y-auto pb-24">
+                <div className="text-sm text-muted-foreground mb-4">
+                  Last updated: January 18, 2025
+                </div>
+
+                <section className="space-y-4">
+                  <h2 className="text-lg font-semibold">1. Introduction</h2>
+                  <p className="text-sm leading-relaxed">
+                    Welcome to Millennial Reign App. We are committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our mobile application (the "App").
+                  </p>
+                  <p className="text-sm leading-relaxed">
+                    Please read this Privacy Policy carefully. If you do not agree with the terms of this Privacy Policy, please do not access the App.
+                  </p>
+                </section>
+
+                <section className="space-y-4">
+                  <h2 className="text-lg font-semibold">2. Information We Collect</h2>
+                  <h3 className="text-base font-medium">2.1 Personal Data</h3>
+                  <p className="text-sm leading-relaxed">
+                    We collect personal data that you voluntarily provide to us when you register with the App, express an interest in obtaining information about us or our products and services, when you participate in activities on the App, or otherwise when you contact us.
+                  </p>
+                  <ul className="text-sm leading-relaxed space-y-1 ml-4">
+                    <li>• <strong>Profile Data:</strong> First name, last name, middle name, date of birth, date of baptism, gender, privileges, avatar URL, username, time zone, congregation ID, group name.</li>
+                    <li>• <strong>Contact Information:</strong> Phone number, address, address latitude, address longitude (for emergency contact purposes, visible to congregation elders).</li>
+                    <li>• <strong>Authentication Data:</strong> Email address, password (hashed and never stored in plain text).</li>
+                  </ul>
+                  
+                  <h3 className="text-base font-medium">2.2 Usage Data</h3>
+                  <p className="text-sm leading-relaxed">
+                    We automatically collect certain information when you access the App, such as your IP address, browser type, operating system, access times, and the pages you have viewed directly before and after accessing the App.
+                  </p>
+                  
+                  <h3 className="text-base font-medium">2.3 Geolocation Data</h3>
+                  <p className="text-sm leading-relaxed">
+                    With your explicit permission, we may collect precise location data from your mobile device. This is used for features like the "Nearby" filter for establishments and for saving coordinates for your address.
+                  </p>
+                </section>
+
+                <section className="space-y-4">
+                  <h2 className="text-lg font-semibold">3. How We Use Your Information</h2>
+                  <p className="text-sm leading-relaxed">
+                    We use information collected about you via the App for various purposes, including to:
+                  </p>
+                  <ul className="text-sm leading-relaxed space-y-1 ml-4">
+                    <li>• Create and manage your account</li>
+                    <li>• Provide and maintain the functionality of the App</li>
+                    <li>• Personalize your experience with the App</li>
+                    <li>• Enable location-based features (e.g., "Nearby" establishments)</li>
+                    <li>• Send you push notifications for important updates and assignments</li>
+                    <li>• Facilitate communication among congregation members and elders</li>
+                    <li>• Improve our App and services</li>
+                  </ul>
+                </section>
+
+                <section className="space-y-4">
+                  <h2 className="text-lg font-semibold">4. Security of Your Information</h2>
+                  <p className="text-sm leading-relaxed">
+                    We use administrative, technical, and physical security measures to help protect your personal information. While we have taken reasonable steps to secure the personal information you provide to us, please be aware that despite our efforts, no security measures are perfect or impenetrable.
+                  </p>
+                </section>
+
+                <section className="space-y-4">
+                  <h2 className="text-lg font-semibold">5. Your Rights</h2>
+                  <p className="text-sm leading-relaxed">
+                    You have the right to access, update, or delete your personal information at any time through your account settings or by contacting us directly.
+                  </p>
+                </section>
+
+                <section className="space-y-4">
+                  <h2 className="text-lg font-semibold">6. Contact Us</h2>
+                  <p className="text-sm leading-relaxed">
+                    If you have questions or comments about this Privacy Policy, please contact us through the app or your congregation administrators.
+                  </p>
+                </section>
+              </div>
+            </ResponsiveModal>
+
             <Separator />
 
             {/* Privacy Policy */}
             <section className="space-y-4">
               <h3 className="text-lg font-semibold">Legal</h3>
               <div className="text-sm text-muted-foreground">
-                <Link href="/privacy" className="text-primary hover:underline">
-                  Privacy Policy
-                </Link>
+                <button 
+                  onClick={() => setPrivacyPolicyOpen(true)}
+                  className="flex items-center gap-2 text-primary hover:underline hover:bg-muted/50 rounded-md px-2 py-1 -mx-2 -my-1 transition-colors"
+                >
+                  <span>Learn more</span>
+                  <ChevronRight className="h-4 w-4" />
+                </button>
                 <p className="mt-1">
                   Learn how we collect, use, and protect your information.
                 </p>
