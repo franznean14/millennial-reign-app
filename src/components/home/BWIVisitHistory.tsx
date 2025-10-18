@@ -6,6 +6,7 @@ import { formatDateHuman } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ResponsiveModal } from "@/components/ui/responsive-modal";
 import { Calendar, ChevronRight } from "lucide-react";
+import { cacheGet, cacheSet } from "@/lib/offline/store";
 
 interface VisitRecord {
   id: string;
@@ -39,6 +40,16 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
       if (!userId) return;
       
       setLoading(true);
+      
+      const cacheKey = `bwi-visits-${userId}`;
+      
+      // Try to load from cache first
+      const cachedData = await cacheGet(cacheKey);
+      if (cachedData) {
+        setVisits(cachedData.visits || []);
+        setLoading(false);
+      }
+      
       try {
         const supabase = createSupabaseBrowserClient();
         
@@ -114,6 +125,13 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
 
         setVisits(sortedVisits);
         
+        // Cache the data
+        const dataToCache = {
+          visits: sortedVisits,
+          timestamp: new Date().toISOString()
+        };
+        await cacheSet(cacheKey, dataToCache);
+        
       } catch (error) {
         console.error('Error loading visit history:', error);
       } finally {
@@ -129,6 +147,19 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
     if (!userId) return;
     
     setLoadingMore(true);
+    
+    const cacheKey = `bwi-all-visits-${userId}-${offset}`;
+    
+    // Try to load from cache first (only for initial load)
+    if (offset === 0) {
+      const cachedData = await cacheGet(`bwi-all-visits-${userId}-0`);
+      if (cachedData) {
+        setAllVisits(cachedData.visits || []);
+        setLoadingMore(false);
+        return;
+      }
+    }
+    
     try {
       const supabase = createSupabaseBrowserClient();
       
@@ -203,6 +234,13 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
 
       if (offset === 0) {
         setAllVisits(sortedVisits);
+        
+        // Cache the initial data
+        const dataToCache = {
+          visits: sortedVisits,
+          timestamp: new Date().toISOString()
+        };
+        await cacheSet(`bwi-all-visits-${userId}-0`, dataToCache);
       } else {
         setAllVisits(prev => [...prev, ...sortedVisits]);
       }

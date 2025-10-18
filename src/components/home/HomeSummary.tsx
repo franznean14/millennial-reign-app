@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import NumberFlow from "@number-flow/react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatDateHuman } from "@/lib/utils";
+import { cacheGet, cacheSet } from "@/lib/offline/store";
 
 type StudyCount = [string, number];
 
@@ -81,6 +82,17 @@ export function HomeSummary({
   const refresh = async () => {
     if (!uid || !range.mStart || !range.mNext || !range.syStart || !range.syEnd) return;
     
+    const cacheKey = `home-summary-${uid}-${range.mStart}-${range.mNext}-${range.syStart}-${range.syEnd}`;
+    
+    // Try to load from cache first
+    const cachedData = await cacheGet(cacheKey);
+    if (cachedData) {
+      setMonthHours(cachedData.monthHours || 0);
+      setSyHours(cachedData.syHours || 0);
+      setStudies(cachedData.studies || []);
+      setLocalPioneer(cachedData.localPioneer || false);
+    }
+    
     // Create AbortController for this request
     const abortController = new AbortController();
     
@@ -108,14 +120,32 @@ export function HomeSummary({
       ]);
 
       if (month.data) {
-        setMonthHours(sumHours(month.data));
-        setStudies(topStudies(month.data, 5));
+        const monthHoursValue = sumHours(month.data);
+        const studiesValue = topStudies(month.data, 5);
+        setMonthHours(monthHoursValue);
+        setStudies(studiesValue);
       }
-      if (sy.data) setSyHours(sumHours(sy.data));
+      if (sy.data) {
+        const syHoursValue = sumHours(sy.data);
+        setSyHours(syHoursValue);
+      }
       if (profile.data) {
         const privileges = profile.data.privileges;
-        setLocalPioneer(Array.isArray(privileges) && privileges.includes("Regular Pioneer"));
+        const pioneerValue = Array.isArray(privileges) && privileges.includes("Regular Pioneer");
+        setLocalPioneer(pioneerValue);
       }
+      
+      // Cache the data
+      const dataToCache = {
+        monthHours: month.data ? sumHours(month.data) : 0,
+        syHours: sy.data ? sumHours(sy.data) : 0,
+        studies: month.data ? topStudies(month.data, 5) : [],
+        localPioneer: profile.data ? (Array.isArray(profile.data.privileges) && profile.data.privileges.includes("Regular Pioneer")) : false,
+        timestamp: new Date().toISOString()
+      };
+      
+      await cacheSet(cacheKey, dataToCache);
+      
     } catch (error) {
       // Only log errors that aren't from cancellation
       if (error instanceof Error && error.name !== 'AbortError') {
