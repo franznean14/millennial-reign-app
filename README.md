@@ -47,6 +47,7 @@ A modern Kingdom Ministry application built with Next.js 15, React 19, and Supab
 - **Smart Tab Visibility**: Uses cached user roles to determine congregation and business tab visibility
 - **Simplified Offline Logic**: Clean offline navigation with default tab visibility for better UX
 - **Streamlined Error Handling**: Removed debugging logs and simplified error handling across all nav components
+- **Optimized Bottom Padding**: Minimized bottom navigation padding by removing fallback value from safe area inset
 
 ## 🛠️ Tech Stack
 
