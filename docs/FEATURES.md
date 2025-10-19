@@ -48,6 +48,15 @@
 - **Offline-Ready Navigation**: All navigation components work offline with cached permissions
 - **Offline-Ready BWI View**: Complete business witnessing functionality works offline
 
+### Desktop Home View
+- **Enhanced Desktop Experience**: Comprehensive field service management in 1/3 width card
+- **Integrated Calendar**: Month/year navigation with date selection and activity indicators
+- **Form Integration**: Hours input, bible studies, and notes in unified interface
+- **Responsive Design**: Mobile shows simple summary, desktop shows enhanced layout
+- **Automatic Saving**: All form fields save automatically with debounced updates
+- **Service Year Tracking**: Pioneer hours and service year progress display
+- **Activity Indicators**: Visual dots on calendar showing days with recorded activity
+
 ## 📱 Offline-First Architecture
 
 ### Navigation Offline Support

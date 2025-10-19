@@ -5,6 +5,9 @@ All notable changes to the Millennial Reign App will be documented in this file.
 ## [Latest] - 2025-01-18
 
 ### ✨ Added
+- **Desktop Home View** - Enhanced desktop experience with integrated calendar and form in 1/3 width card
+- **Responsive Home Layout** - Mobile shows simple summary, desktop shows comprehensive field service management
+- **Integrated Field Service** - Calendar, hours tracking, and bible studies in unified desktop interface
 - **Clean Mobile Navigation** - Removed extra bottom padding for better mobile UX
 
 ### 🐛 Fixed

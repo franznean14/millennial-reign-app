@@ -48,6 +48,9 @@ A modern Kingdom Ministry application built with Next.js 15, React 19, and Supab
 - **Simplified Offline Logic**: Clean offline navigation with default tab visibility for better UX
 - **Streamlined Error Handling**: Removed debugging logs and simplified error handling across all nav components
 - **Optimized Bottom Padding**: Minimized bottom navigation padding by removing fallback value from safe area inset
+- **Desktop Home View**: Enhanced desktop experience with integrated calendar and form in 1/3 width card
+- **Responsive Home Layout**: Mobile shows simple summary, desktop shows comprehensive field service management
+- **Integrated Field Service**: Calendar, hours tracking, and bible studies in unified desktop interface
 
 ## 🛠️ Tech Stack
 
