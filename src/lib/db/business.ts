@@ -2,6 +2,7 @@
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cacheGet, cacheSet } from "@/lib/offline/store";
+import { getBestStatus } from "@/lib/utils/status-hierarchy";
 
 // Calculate distance between two coordinates using Haversine formula
 export function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -120,6 +121,7 @@ export interface VisitWithUser {
   establishment?: {
     id: string;
     name: string;
+    status?: string;
   } | null;
 }
 
@@ -197,7 +199,7 @@ export async function listHouseholders(): Promise<HouseholderWithDetails[]> {
       .from('business_householders')
       .select(`
         *,
-        establishment:business_establishments(name),
+        establishment:business_establishments(name, statuses),
         visits:business_visits(
           publisher_id,
           partner_id,
@@ -915,7 +917,7 @@ export async function getHouseholderDetails(householderId: string): Promise<{
   // Householder with establishment
   const { data: hh } = await supabase
     .from('business_householders')
-    .select('id,name,status,note,establishment_id, establishment:business_establishments(id,name)')
+    .select('id,name,status,note,establishment_id, establishment:business_establishments(id,name,statuses)')
     .eq('id', householderId)
     .single();
 
@@ -935,7 +937,7 @@ export async function getHouseholderDetails(householderId: string): Promise<{
       publisher:profiles!business_visits_publisher_id_fkey(id, first_name, last_name, avatar_url),
       partner:profiles!business_visits_partner_id_fkey(id, first_name, last_name, avatar_url),
       householder:business_householders!business_visits_householder_id_fkey(id, name, status),
-      establishment:business_establishments!business_visits_establishment_id_fkey(id, name)
+      establishment:business_establishments!business_visits_establishment_id_fkey(id, name, statuses)
     `)
     .eq('householder_id', householderId)
     .order('visit_date', { ascending: false });
@@ -951,7 +953,13 @@ export async function getHouseholderDetails(householderId: string): Promise<{
     publisher: Array.isArray(visit.publisher) ? visit.publisher[0] || null : visit.publisher || null,
     partner: Array.isArray(visit.partner) ? visit.partner[0] || null : visit.partner || null,
     householder: Array.isArray(visit.householder) ? visit.householder[0] || null : visit.householder || null,
-    establishment: Array.isArray(visit.establishment) ? visit.establishment[0] || null : visit.establishment || null,
+    establishment: Array.isArray(visit.establishment) ? {
+      ...(visit.establishment[0] || {}),
+      status: getBestStatus((visit.establishment[0] as any)?.statuses || [])
+    } : visit.establishment ? {
+      ...visit.establishment,
+      status: getBestStatus((visit.establishment as any)?.statuses || [])
+    } : null,
   })) || [];
 
   const establishment = Array.isArray((hh as any).establishment) ? (hh as any).establishment[0] : (hh as any).establishment;

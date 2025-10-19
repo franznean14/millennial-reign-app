@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ResponsiveModal } from "@/components/ui/responsive-modal";
 import { Calendar, ChevronRight } from "lucide-react";
 import { cacheGet, cacheSet } from "@/lib/offline/store";
+import { getStatusTextColor, getBestStatus, getStatusColor } from "@/lib/utils/status-hierarchy";
 
 interface VisitRecord {
   id: string;
@@ -16,6 +17,7 @@ interface VisitRecord {
   visit_type: 'establishment' | 'householder';
   establishment_id?: string;
   householder_id?: string;
+  establishment_status?: string;
   notes?: string;
   created_at: string;
 }
@@ -85,7 +87,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
             note,
             created_at,
             establishment_id,
-            business_establishments(name)
+            business_establishments(name, statuses)
           `)
           .eq('publisher_id', userId)
           .is('householder_id', null)
@@ -105,7 +107,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
             created_at,
             householder_id,
             business_householders(name, establishment_id),
-            business_establishments(name)
+            business_establishments(name, statuses)
           `)
           .eq('publisher_id', userId)
           .not('householder_id', 'is', null)
@@ -120,6 +122,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
             id: `est-${v.id}`,
             visit_date: v.visit_date,
             establishment_name: (v.business_establishments as any)?.name,
+            establishment_status: getBestStatus((v.business_establishments as any)?.statuses || []),
             visit_type: 'establishment' as const,
             establishment_id: v.establishment_id,
             notes: v.note,
@@ -130,6 +133,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
             visit_date: v.visit_date,
             householder_name: (v.business_householders as any)?.name,
             establishment_name: (v.business_establishments as any)?.name,
+            establishment_status: getBestStatus((v.business_establishments as any)?.statuses || []),
             visit_type: 'householder' as const,
             householder_id: v.householder_id,
             notes: v.note,
@@ -177,9 +181,8 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
     if (offset === 0) {
       const cachedData = await cacheGet(`bwi-all-visits-${userId}-0`);
       if (cachedData) {
-        setAllVisits(cachedData.visits || []);
-        setLoadingMore(false);
-        return;
+        // Clear the cache to force fresh data fetch with correct status information
+        await cacheSet(`bwi-all-visits-${userId}-0`, null);
       }
     }
     
@@ -201,7 +204,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
             note,
             created_at,
             establishment_id,
-            business_establishments(name)
+            business_establishments(name, statuses)
           `)
           .eq('publisher_id', userId)
           .is('householder_id', null)
@@ -221,7 +224,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
           created_at,
           householder_id,
           business_householders(name, establishment_id),
-          business_establishments(name)
+          business_establishments(name, statuses)
         `)
         .eq('publisher_id', userId)
         .not('householder_id', 'is', null)
@@ -236,6 +239,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
           id: `est-${v.id}`,
           visit_date: v.visit_date,
           establishment_name: (v.business_establishments as any)?.name,
+          establishment_status: getBestStatus((v.business_establishments as any)?.statuses || []),
           visit_type: 'establishment' as const,
           establishment_id: v.establishment_id,
           notes: v.note,
@@ -246,6 +250,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
           visit_date: v.visit_date,
           householder_name: (v.business_householders as any)?.name,
           establishment_name: (v.business_establishments as any)?.name,
+          establishment_status: getBestStatus((v.business_establishments as any)?.statuses || []),
           visit_type: 'householder' as const,
           householder_id: v.householder_id,
           notes: v.note,
@@ -284,10 +289,16 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
 
   const handleSeeMore = () => {
     setShowDrawer(true);
-    if (allVisits.length === 0) {
+    // Always load data when drawer opens
+    loadAllVisits(0);
+  };
+
+  // Load data when drawer opens
+  useEffect(() => {
+    if (showDrawer && allVisits.length === 0) {
       loadAllVisits(0);
     }
-  };
+  }, [showDrawer]);
 
   const handleLoadMore = () => {
     if (!loadingMore && hasMore) {
@@ -381,7 +392,10 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
                       {visit.householder_name || visit.establishment_name}
                     </span>
                     {visit.visit_type === 'householder' && visit.establishment_name && (
-                      <span className="text-xs bg-gray-600/50 text-gray-300 px-2 py-0.5 rounded-full">
+                      <span 
+                        className={`text-xs px-2 py-0.5 rounded-full border ${getStatusTextColor(visit.establishment_status || 'for_scouting')}`}
+                        title={`Status: ${visit.establishment_status || 'for_scouting'}`}
+                      >
                         {visit.establishment_name}
                       </span>
                     )}
@@ -438,7 +452,10 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
                       {visit.householder_name || visit.establishment_name}
                     </span>
                     {visit.visit_type === 'householder' && visit.establishment_name && (
-                      <span className="text-xs bg-gray-600/50 text-gray-300 px-2 py-0.5 rounded-full">
+                      <span 
+                        className={`text-xs px-2 py-0.5 rounded-full border ${getStatusTextColor(visit.establishment_status || 'for_scouting')}`}
+                        title={`Status: ${visit.establishment_status || 'for_scouting'}`}
+                      >
                         {visit.establishment_name}
                       </span>
                     )}

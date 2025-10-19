@@ -6,6 +6,7 @@ import { ResponsiveModal } from '@/components/ui/responsive-modal';
 import { format } from 'date-fns';
 import Image from 'next/image';
 import { type VisitWithUser } from '@/lib/db/business';
+import { getStatusTextColor, getBestStatus } from '@/lib/utils/status-hierarchy';
 
 interface VisitUpdatesSectionProps {
   visits: VisitWithUser[];
@@ -60,12 +61,12 @@ export function VisitUpdatesSection({ visits, isHouseholderContext = false }: Vi
               {formatVisitDate(visit.visit_date)}
             </span>
             {visit.householder_id && visit.householder?.name && !isHouseholderContext && (
-              <span className="text-xs bg-gray-600/50 text-gray-300 px-2 py-0.5 rounded-full">
+              <span className={`text-xs px-2 py-0.5 rounded-full border ${getStatusTextColor(visit.householder.status || 'potential')}`}>
                 {visit.householder.name}
               </span>
             )}
             {visit.establishment_id && visit.establishment?.name && isHouseholderContext && (
-              <span className="text-xs bg-gray-600/50 text-gray-300 px-2 py-0.5 rounded-full">
+              <span className={`text-xs px-2 py-0.5 rounded-full border ${getStatusTextColor(visit.establishment.status || 'for_scouting')}`}>
                 {visit.establishment.name}
               </span>
             )}

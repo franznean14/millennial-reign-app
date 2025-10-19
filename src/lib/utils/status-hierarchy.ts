@@ -50,6 +50,7 @@ export const getStatusColor = (status: string) => {
 
 export const getStatusTextColor = (status: string) => {
   switch (status) {
+    // Establishment statuses
     case 'inappropriate':
       return 'text-white border-red-800/50 bg-red-800';
     case 'declined_rack':
@@ -64,6 +65,17 @@ export const getStatusTextColor = (status: string) => {
       return 'text-purple-500 border-purple-500/50';
     case 'has_bible_studies':
       return 'text-emerald-500 border-emerald-500/50';
+    // Householder statuses
+    case 'potential':
+      return 'text-gray-500 border-gray-500/50';
+    case 'interested':
+      return 'text-blue-500 border-blue-500/50';
+    case 'return_visit':
+      return 'text-orange-500 border-orange-500/50';
+    case 'bible_study':
+      return 'text-emerald-500 border-emerald-500/50';
+    case 'do_not_call':
+      return 'text-red-500 border-red-500/50';
     default:
       return 'text-gray-500 border-gray-500/50';
   }
