@@ -1,11 +1,15 @@
 "use client";
 
+import { useState } from "react";
 import dynamic from "next/dynamic";
 import { Label } from "@/components/ui/label";
 import type { Congregation } from "@/lib/db/congregations";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Pencil, MapPinned } from "lucide-react";
+import { PortaledCongregationControls } from "../congregation/PortaledCongregationControls";
+import { MeetingsSection } from "../congregation/MeetingsSection";
+import { MinistrySection } from "../congregation/MinistrySection";
 
 // Dynamic import to avoid circular dependencies
 const CongregationMembers = dynamic(() => import("../congregation/CongregationMembers").then(m => m.CongregationMembers), { ssr: false });
@@ -24,6 +28,7 @@ interface CongregationViewProps {
 }
 
 export function CongregationView({ data, onEdit, canEdit }: CongregationViewProps) {
+  const [congregationTab, setCongregationTab] = useState<'meetings' | 'ministry'>('meetings');
   const googleMapsHref = (() => {
     if (data.lat != null && data.lng != null) {
       return `https://www.google.com/maps/dir/?api=1&destination=${data.lat},${data.lng}`;
@@ -44,7 +49,25 @@ export function CongregationView({ data, onEdit, canEdit }: CongregationViewProp
   };
 
   return (
-    <div className="space-y-6"> {/* Remove pb-24 since parent handles it */}
+    <>
+      {/* Sticky Navigation Controls */}
+      <PortaledCongregationControls
+        congregationTab={congregationTab}
+        onCongregationTabChange={setCongregationTab}
+        isVisible={true}
+      />
+      
+      <div className="space-y-6"> {/* Remove pb-24 since parent handles it */}
+      
+      {/* Tab Content */}
+      {congregationTab === 'meetings' && (
+        <MeetingsSection congregationData={data} />
+      )}
+      
+      {congregationTab === 'ministry' && (
+        <MinistrySection congregationData={data} />
+      )}
+      
       {/* Congregation Details Card */}
       <section className="rounded-md border p-4 space-y-4">
         <div className="flex items-center justify-between">
@@ -98,6 +121,7 @@ export function CongregationView({ data, onEdit, canEdit }: CongregationViewProp
       <CongregationMembers 
         congregationId={data.id!} // Add ! to assert non-null
       />
-    </div>
+      </div>
+    </>
   );
 }
