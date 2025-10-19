@@ -50,7 +50,7 @@ export function PortaledCongregationControls({
             <CongregationTabToggle
               value={congregationTab}
               onValueChange={onCongregationTabChange}
-              className="w-full max-w-sm sm:max-w-md mx-2 sm:mx-4"
+              className="w-full max-w-4xl mx-4"
             />
           </motion.div>
         </motion.div>

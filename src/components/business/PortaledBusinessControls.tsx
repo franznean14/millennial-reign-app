@@ -83,7 +83,7 @@ export function PortaledBusinessControls({
                 onFiltersChange({ ...filters, statuses: [] });
               }}
               onClearStatusFilters={() => onFiltersChange({ ...filters, statuses: [] })}
-              className="w-full max-w-sm sm:max-w-md mx-2 sm:mx-4"
+              className="w-full max-w-4xl mx-4"
             />
           </motion.div>
 
@@ -196,7 +196,7 @@ export function PortaledBusinessControls({
                 damping: 30
               }}
             >
-              <div className="flex flex-wrap items-center gap-2 bg-background/95 backdrop-blur-sm border rounded-lg p-2 shadow-lg max-w-md">
+              <div className="flex flex-wrap items-center gap-2 bg-background/95 backdrop-blur-sm border rounded-lg p-2 shadow-lg max-w-4xl">
                 {filters.statuses.map((s) => (
                   <Badge key={s} variant="secondary" className="px-2 py-1 text-xs inline-flex items-center gap-1">
                     <span>{formatStatusLabel(s)}</span>
