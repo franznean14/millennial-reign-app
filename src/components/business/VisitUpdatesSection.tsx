@@ -136,7 +136,7 @@ export function VisitUpdatesSection({ visits, isHouseholderContext = false }: Vi
         onOpenChange={setDrawerOpen}
         title="All Visit Updates"
       >
-        <div ref={drawerRef} className="flex-1 overflow-y-auto p-4 pb-24">
+        <div ref={drawerRef} className="flex-1 overflow-y-auto p-4 pb-20">
           {visits.length === 0 ? (
             <div className="text-gray-400">No visit updates found.</div>
           ) : (

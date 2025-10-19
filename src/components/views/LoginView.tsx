@@ -13,7 +13,7 @@ export function LoginView() {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ duration: 0.3 }}
-      className="min-h-screen flex items-center justify-center bg-background pb-24" // Add bottom padding
+      className="min-h-screen flex items-center justify-center bg-background pb-20" // Add bottom padding
     >
       <div className="w-full max-w-sm px-4">
         <motion.div

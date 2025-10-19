@@ -1052,7 +1052,7 @@ export function AppClient() {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 20 }}
           transition={{ duration: 0.3 }}
-          className="space-y-6 pb-24 w-full max-w-full overflow-x-hidden" // Ensure mobile width is respected
+          className="space-y-6 pb-20 w-full max-w-full overflow-x-hidden" // Ensure mobile width is respected
         >
           <HomeSummary
             userId={userId}
@@ -1154,7 +1154,7 @@ export function AppClient() {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 20 }}
           transition={{ duration: 0.3 }}
-          className={businessTab === 'map' ? "fixed inset-0 z-10" : selectedEstablishment || selectedHouseholder ? "space-y-6 pb-24" : "space-y-6 pb-24 pt-20"} // Full screen for map, normal for details, with top padding for lists
+          className={businessTab === 'map' ? "fixed inset-0 z-10" : selectedEstablishment || selectedHouseholder ? "space-y-6 pb-20" : "space-y-6 pb-20 pt-20"} // Full screen for map, normal for details, with top padding for lists
         >
           {/* Portaled Business Controls - Always visible, truly sticky */}
           <PortaledBusinessControls
@@ -1292,7 +1292,7 @@ export function AppClient() {
                   className="w-full"
                   layout
                 >
-                  <div className={businessTab === 'map' ? "space-y-6 pb-24 px-4 py-6" : ""}>
+                  <div className={businessTab === 'map' ? "space-y-6 pb-20 px-4 py-6" : ""}>
                   <HouseholderDetails
                     householder={selectedHouseholder}
                     visits={selectedHouseholderDetails?.visits || []}
@@ -1328,7 +1328,7 @@ export function AppClient() {
                   layout // Add layout animation to the details
                 >
                   {selectedEstablishment && (
-                    <div className={businessTab === 'map' ? "space-y-6 pb-24 px-4 py-6" : ""}>
+                    <div className={businessTab === 'map' ? "space-y-6 pb-20 px-4 py-6" : ""}>
                   <EstablishmentDetails
                     establishment={selectedEstablishment}
                     visits={selectedEstablishmentDetails?.visits || []}
@@ -1440,7 +1440,7 @@ export function AppClient() {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 20 }}
           transition={{ duration: 0.3 }}
-          className="space-y-6 pb-24"
+          className="space-y-6 pb-20"
         >
           {cong?.id ? (
             <CongregationView
@@ -1507,7 +1507,7 @@ export function AppClient() {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 20 }}
           transition={{ duration: 0.3 }}
-          className="space-y-6 pb-24" // Add bottom padding for navbar
+          className="space-y-6 pb-20" // Add bottom padding for navbar
         >
           <div className="flex items-center justify-between gap-4">
             <h1 className="text-xl font-semibold">Account</h1>
@@ -1750,7 +1750,7 @@ export function AppClient() {
               title="Privacy Policy"
               description="Learn how we collect, use, and protect your information"
             >
-              <div className="space-y-6 max-h-[70vh] overflow-y-auto pb-24">
+              <div className="space-y-6 max-h-[70vh] overflow-y-auto pb-20">
                 <div className="text-sm text-muted-foreground mb-4">
                   Last updated: January 18, 2025
                 </div>
@@ -1857,7 +1857,7 @@ export function AppClient() {
           animate={{ opacity: 1, x: 0 }}
           exit={{ opacity: 0, x: 20 }}
           transition={{ duration: 0.3 }}
-          className="space-y-6 pb-24" // Add bottom padding for navbar
+          className="space-y-6 pb-20" // Add bottom padding for navbar
         >
           <HomeSummary
             userId={userId}
