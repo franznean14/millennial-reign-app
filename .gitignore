@@ -153,3 +153,6 @@ public
 
 # Cursor AI rules (private development config)
 cursor/
+
+# JW.org reference documents (copyrighted content)
+docs/jw-reference-*.md

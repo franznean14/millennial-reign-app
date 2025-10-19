@@ -51,6 +51,7 @@ import { archiveEstablishment, deleteEstablishment } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 
 // Lazy-load heavy UI components to reduce initial bundle
+import { HomeView } from "@/components/views/HomeView";
 const HomeSummary = dynamic(() => import("@/components/home/HomeSummary").then(m => m.HomeSummary), { ssr: false });
 const BWIVisitHistory = dynamic(() => import("@/components/home/BWIVisitHistory").then(m => m.BWIVisitHistory), { ssr: false });
 const EstablishmentList = dynamic(() => import("@/components/business/EstablishmentList").then(m => m.EstablishmentList), { ssr: false });
@@ -158,6 +159,17 @@ export function AppClient() {
   const [establishments, setEstablishments] = useState<EstablishmentWithDetails[]>([]);
   const [householders, setHouseholders] = useState<HouseholderWithDetails[]>([]);
   const [businessTab, setBusinessTab] = useState<'establishments' | 'householders' | 'map'>('establishments');
+  
+  // Update business tab based on current section
+  useEffect(() => {
+    if (currentSection === 'business-establishments') {
+      setBusinessTab('establishments');
+    } else if (currentSection === 'business-householders') {
+      setBusinessTab('householders');
+    } else if (currentSection === 'business-map') {
+      setBusinessTab('map');
+    }
+  }, [currentSection]);
   const [viewMode, setViewMode] = useState<'detailed' | 'compact' | 'table'>(() => {
     // Load view mode preference from localStorage on initialization
     if (typeof window !== 'undefined') {
@@ -1045,104 +1057,78 @@ export function AppClient() {
   // Render based on current section
   switch (currentSection) {
     case 'home':
-      return (
-        <motion.div
-          key="home"
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: 20 }}
-          transition={{ duration: 0.3 }}
-          className="space-y-6 pb-20 w-full max-w-full overflow-x-hidden" // Ensure mobile width is respected
-        >
-          <HomeSummary
-            userId={userId}
-            monthStart={dateRanges.monthStart}
-            nextMonthStart={dateRanges.nextMonthStart}
-            serviceYearStart={dateRanges.serviceYearStart}
-            serviceYearEnd={dateRanges.serviceYearEnd}
-          />
-          
-          <BWIVisitHistory 
-            userId={userId} 
-            onVisitClick={async (visit) => {
-              
-              // Navigate to business section and show details
-              if (visit.visit_type === 'establishment' && visit.establishment_id) {
-                try {
-                  // Load the full establishment data
-                  const supabase = createSupabaseBrowserClient();
-                  const { data: establishment, error } = await supabase
-                    .from('business_establishments')
-                    .select('*')
-                    .eq('id', visit.establishment_id)
-                    .maybeSingle(); // Use maybeSingle() instead of single()
-                  
-                  
-                  if (establishment && !error) {
-                    setSelectedEstablishment(establishment);
-                    setBusinessTab('establishments');
-                    // Push current section to navigation stack before showing details
-                    pushNavigation(currentSection);
-                    // Load full establishment details
-                    loadEstablishmentDetails(establishment.id);
-                    // Small delay to ensure state is set before navigation
-                    setTimeout(() => {
-                      onSectionChange('business');
-                    }, 100);
-                  } else if (error) {
-                    console.error('Error loading establishment:', error);
-                  } else {
-                    // Show a toast or alert to the user that the establishment was not found
-                    alert(`Establishment not found. It may have been deleted.`);
-                    // Don't navigate if establishment not found
-                    return;
-                  }
-                } catch (error) {
-                  console.error('Error loading establishment:', error);
-                }
-              } else if (visit.visit_type === 'householder' && visit.householder_id) {
-                try {
-                  // Load the full householder data
-                  const supabase = createSupabaseBrowserClient();
-                  const { data: householder, error } = await supabase
-                    .from('business_householders')
-                    .select('*')
-                    .eq('id', visit.householder_id)
-                    .maybeSingle(); // Use maybeSingle() instead of single()
-                  
-                  
-                  if (householder && !error) {
-                    setSelectedHouseholder(householder);
-                    setBusinessTab('householders');
-                    // Push current section to navigation stack before showing details
-                    pushNavigation(currentSection);
-                    // Load full householder details
-                    loadHouseholderDetails(householder.id);
-                    // Small delay to ensure state is set before navigation
-                    setTimeout(() => {
-                      onSectionChange('business');
-                    }, 100);
-                  } else if (error) {
-                    console.error('Error loading householder:', error);
-                  } else {
-                    // Show a toast or alert to the user that the householder was not found
-                    alert(`Householder not found. It may have been deleted.`);
-                    // Don't navigate if householder not found
-                    return;
-                  }
-                } catch (error) {
-                  console.error('Error loading householder:', error);
-                }
-              }
-            }}
-          />
-          
-          {/* Home: Field Service drawer trigger */}
-          <div className="px-4">
-            <FieldServiceDrawerDialog userId={userId} triggerLabel="Field Service" />
-          </div>
-        </motion.div>
-      );
+      const handleVisitClick = async (visit: any) => {
+        // Navigate to business section and show details
+        if (visit.visit_type === 'establishment' && visit.establishment_id) {
+          try {
+            // Load the full establishment data
+            const supabase = createSupabaseBrowserClient();
+            const { data: establishment, error } = await supabase
+              .from('business_establishments')
+              .select('*')
+              .eq('id', visit.establishment_id)
+              .maybeSingle(); // Use maybeSingle() instead of single()
+            
+            
+            if (establishment && !error) {
+              setSelectedEstablishment(establishment);
+              setBusinessTab('establishments');
+              // Push current section to navigation stack before showing details
+              pushNavigation(currentSection);
+              // Load full establishment details
+              loadEstablishmentDetails(establishment.id);
+              // Small delay to ensure state is set before navigation
+              setTimeout(() => {
+                onSectionChange('business');
+              }, 100);
+            } else if (error) {
+              console.error('Error loading establishment:', error);
+            } else {
+              // Show a toast or alert to the user that the establishment was not found
+              alert(`Establishment not found. It may have been deleted.`);
+              // Don't navigate if establishment not found
+              return;
+            }
+          } catch (error) {
+            console.error('Error loading establishment:', error);
+          }
+        } else if (visit.visit_type === 'householder' && visit.householder_id) {
+          try {
+            // Load the full householder data
+            const supabase = createSupabaseBrowserClient();
+            const { data: householder, error } = await supabase
+              .from('business_householders')
+              .select('*')
+              .eq('id', visit.householder_id)
+              .maybeSingle(); // Use maybeSingle() instead of single()
+            
+            
+            if (householder && !error) {
+              setSelectedHouseholder(householder);
+              setBusinessTab('householders');
+              // Push current section to navigation stack before showing details
+              pushNavigation(currentSection);
+              // Load full householder details
+              loadHouseholderDetails(householder.id);
+              // Small delay to ensure state is set before navigation
+              setTimeout(() => {
+                onSectionChange('business');
+              }, 100);
+            } else if (error) {
+              console.error('Error loading householder:', error);
+            } else {
+              // Show a toast or alert to the user that the householder was not found
+              alert(`Householder not found. It may have been deleted.`);
+              // Don't navigate if householder not found
+              return;
+            }
+          } catch (error) {
+            console.error('Error loading householder:', error);
+          }
+        }
+      };
+      
+      return <HomeView userId={userId} onVisitClick={handleVisitClick} />;
 
     case 'business':
       const hasActiveFilters = filters.search !== "" || filters.statuses.length > 0 || filters.areas.length > 0 || filters.myEstablishments || !!filters.sort;
@@ -1156,7 +1142,7 @@ export function AppClient() {
           transition={{ duration: 0.3 }}
           className={businessTab === 'map' ? "fixed inset-0 z-10" : selectedEstablishment || selectedHouseholder ? "space-y-6 pb-20" : "space-y-6 pb-20 pt-20"} // Full screen for map, normal for details, with top padding for lists
         >
-          {/* Portaled Business Controls - Always visible, truly sticky */}
+          {/* Portaled Business Controls - Tab toggle hidden on desktop, filters always visible */}
           <PortaledBusinessControls
             businessTab={businessTab}
             onBusinessTabChange={setBusinessTab}
@@ -1304,14 +1290,19 @@ export function AppClient() {
                       // Use SPA navigation stack instead of browser history
                       const previousSection = popNavigation();
                       if (previousSection) {
-                        setCurrentSection(previousSection);
-                        // Update URL to match the previous section
+                        // Ensure we go back to the correct business subsection
+                        const targetSection = previousSection.startsWith('business-') ? previousSection : 'business-householders';
+                        setCurrentSection(targetSection);
+                        // Update URL to match the business section (not the subsection)
                         const url = new URL(window.location.href);
-                        url.pathname = previousSection === 'home' ? '/' : `/${previousSection}`;
+                        url.pathname = targetSection === 'home' ? '/' : '/business';
                         window.history.pushState({}, '', url.toString());
                       } else {
-                        // Fallback to business view if no previous section
-                        onSectionChange('business');
+                        // Fallback to business householders view
+                        setCurrentSection('business-householders');
+                        const url = new URL(window.location.href);
+                        url.pathname = '/business';
+                        window.history.pushState({}, '', url.toString());
                       }
                     }}
                   />
@@ -1339,14 +1330,19 @@ export function AppClient() {
                       // Use SPA navigation stack instead of browser history
                       const previousSection = popNavigation();
                       if (previousSection) {
-                        setCurrentSection(previousSection);
-                        // Update URL to match the previous section
+                        // Ensure we go back to the correct business subsection
+                        const targetSection = previousSection.startsWith('business-') ? previousSection : 'business-establishments';
+                        setCurrentSection(targetSection);
+                        // Update URL to match the business section (not the subsection)
                         const url = new URL(window.location.href);
-                        url.pathname = previousSection === 'home' ? '/' : `/${previousSection}`;
+                        url.pathname = targetSection === 'home' ? '/' : '/business';
                         window.history.pushState({}, '', url.toString());
                       } else {
-                        // Fallback to business view if no previous section
-                        onSectionChange('business');
+                        // Fallback to business establishments view
+                        setCurrentSection('business-establishments');
+                        const url = new URL(window.location.href);
+                        url.pathname = '/business';
+                        window.history.pushState({}, '', url.toString());
                       }
                     }}
                     onEstablishmentUpdated={(est) => est?.id && updateEstablishment({ id: est.id!, ...est })}

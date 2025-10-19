@@ -59,12 +59,14 @@ export function SPAProvider({ children }: { children: ReactNode }) {
   };
 
   const handleSectionChange = (section: string) => {
+    // Map business subsections to main business section
+    const mainSection = section.startsWith('business-') ? 'business' : section;
     setCurrentSection(section);
     pushNavigation(section);
     
     // Update URL without page reload
     const url = new URL(window.location.href);
-    url.pathname = section === 'home' ? '/' : `/${section}`;
+    url.pathname = mainSection === 'home' ? '/' : `/${mainSection}`;
     window.history.pushState({}, '', url.toString());
   };
 

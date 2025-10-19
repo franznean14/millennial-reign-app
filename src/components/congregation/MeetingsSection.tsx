@@ -69,18 +69,6 @@ export function MeetingsSection({ congregationData }: MeetingsSectionProps) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Upcoming Events</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>No upcoming events scheduled</p>
-            <p className="text-sm">Events will appear here when added</p>
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

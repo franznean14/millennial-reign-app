@@ -32,14 +32,14 @@ export function PortaledCongregationControls({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
           transition={{ duration: 0.3 }}
-          className="fixed left-1/2 transform -translate-x-1/2 z-[100] space-y-3"
+          className="fixed left-0 right-0 z-[100] space-y-3 px-4"
           style={{
             top: 64 // top-16 = 64px
           }}
         >
           {/* Tab Navigation */}
           <motion.div 
-            className="flex justify-center"
+            className="w-full"
             layout
             transition={{
               type: "spring",
@@ -50,7 +50,7 @@ export function PortaledCongregationControls({
             <CongregationTabToggle
               value={congregationTab}
               onValueChange={onCongregationTabChange}
-              className="w-full max-w-4xl mx-4"
+              className="w-full"
             />
           </motion.div>
         </motion.div>

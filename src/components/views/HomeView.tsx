@@ -1,14 +1,18 @@
 "use client";
 
 import { HomeSummary } from "@/components/home/HomeSummary";
+import { DesktopHomeSummary } from "@/components/home/DesktopHomeSummary";
+import { BWIVisitHistory } from "@/components/home/BWIVisitHistory";
+import { FieldServiceDrawerDialog } from "@/components/fieldservice/FieldServiceDrawerDialog";
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 
 interface HomeViewProps {
   userId: string;
+  onVisitClick?: (visit: any) => Promise<void>;
 }
 
-export function HomeView({ userId }: HomeViewProps) {
+export function HomeView({ userId, onVisitClick }: HomeViewProps) {
   const [dateRanges, setDateRanges] = useState({
     monthStart: "",
     nextMonthStart: "",
@@ -48,16 +52,39 @@ export function HomeView({ userId }: HomeViewProps) {
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 20 }}
       transition={{ duration: 0.3 }}
-      className="space-y-6"
+      className="space-y-6 pb-20 w-full max-w-full overflow-x-hidden"
     >
-      {/* Home Summary - This already includes TopStudies */}
-      <HomeSummary
-        userId={userId}
-        monthStart={dateRanges.monthStart}
-        nextMonthStart={dateRanges.nextMonthStart}
-        serviceYearStart={dateRanges.serviceYearStart}
-        serviceYearEnd={dateRanges.serviceYearEnd}
-      />
+      {/* Mobile: Simple Home Summary */}
+      <div className="lg:hidden">
+        <HomeSummary
+          userId={userId}
+          monthStart={dateRanges.monthStart}
+          nextMonthStart={dateRanges.nextMonthStart}
+          serviceYearStart={dateRanges.serviceYearStart}
+          serviceYearEnd={dateRanges.serviceYearEnd}
+        />
+        
+        <BWIVisitHistory 
+          userId={userId} 
+          onVisitClick={onVisitClick}
+        />
+        
+        {/* Field Service drawer trigger - Mobile only */}
+        <div className="px-4">
+          <FieldServiceDrawerDialog userId={userId} triggerLabel="Field Service" />
+        </div>
+      </div>
+
+      {/* Desktop: Desktop Home Summary with Calendar and Form */}
+      <div className="hidden lg:block">
+        <DesktopHomeSummary
+          userId={userId}
+          monthStart={dateRanges.monthStart}
+          nextMonthStart={dateRanges.nextMonthStart}
+          serviceYearStart={dateRanges.serviceYearStart}
+          serviceYearEnd={dateRanges.serviceYearEnd}
+        />
+      </div>
     </motion.div>
   );
 }

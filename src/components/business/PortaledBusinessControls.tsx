@@ -61,35 +61,45 @@ export function PortaledBusinessControls({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
           transition={{ duration: 0.3 }}
-          className="fixed left-1/2 transform -translate-x-1/2 z-[100] space-y-3"
+          className={`fixed z-[100] space-y-3 px-4 ${
+            typeof window !== 'undefined' && window.innerWidth >= 1024 
+              ? 'left-64 right-0' // Desktop: start after sidebar (16rem = 256px = 64 in Tailwind)
+              : 'left-0 right-0' // Mobile: full width
+          }`}
           style={{
-            top: businessTab === 'map' ? 16 : 64 // top-4 = 16px, top-16 = 64px
+            top: businessTab === 'map' ? 16 : (typeof window !== 'undefined' && window.innerWidth >= 1024 ? 100 : 64) // Lower on desktop, normal on mobile
           }}
         >
-          {/* Tab Navigation */}
-          <motion.div 
-            className="flex justify-center"
-            layout
-            transition={{
-              type: "spring",
-              stiffness: 300,
-              damping: 30
-            }}
-          >
-            <BusinessTabToggle
-              value={businessTab}
-              onValueChange={(value) => {
-                onBusinessTabChange(value);
-                onFiltersChange({ ...filters, statuses: [] });
+          {/* Tab Navigation - Only on mobile */}
+          {typeof window !== 'undefined' && window.innerWidth < 1024 && (
+            <motion.div 
+              className="w-full"
+              layout
+              transition={{
+                type: "spring",
+                stiffness: 300,
+                damping: 30
               }}
-              onClearStatusFilters={() => onFiltersChange({ ...filters, statuses: [] })}
-              className="w-full max-w-4xl mx-4"
-            />
-          </motion.div>
+            >
+              <BusinessTabToggle
+                value={businessTab}
+                onValueChange={(value) => {
+                  onBusinessTabChange(value);
+                  onFiltersChange({ ...filters, statuses: [] });
+                }}
+                onClearStatusFilters={() => onFiltersChange({ ...filters, statuses: [] })}
+                className="w-full"
+              />
+            </motion.div>
+          )}
 
                 {/* Controls Row */}
                 <motion.div
-                  className="flex items-center justify-center gap-3 max-w-full px-4"
+                  className={`flex items-center gap-3 max-w-full px-4 ${
+                    typeof window !== 'undefined' && window.innerWidth >= 1024 
+                      ? 'justify-center' // Desktop: center in main content area
+                      : 'justify-center' // Mobile: center as before
+                  }`}
                   layout
                   transition={{
                     type: "spring",
@@ -188,7 +198,7 @@ export function PortaledBusinessControls({
           {/* Filter Controls */}
           {(filters.statuses.length > 0 || filters.areas.length > 0 || filters.myEstablishments || filters.nearMe) && (
             <motion.div 
-              className="flex justify-center"
+              className="w-full"
               layout
               transition={{
                 type: "spring",
@@ -196,7 +206,7 @@ export function PortaledBusinessControls({
                 damping: 30
               }}
             >
-              <div className="flex flex-wrap items-center gap-2 bg-background/95 backdrop-blur-sm border rounded-lg p-2 shadow-lg max-w-4xl">
+              <div className="flex flex-wrap items-center gap-2 bg-background/95 backdrop-blur-sm border rounded-lg p-2 shadow-lg w-full">
                 {filters.statuses.map((s) => (
                   <Badge key={s} variant="secondary" className="px-2 py-1 text-xs inline-flex items-center gap-1">
                     <span>{formatStatusLabel(s)}</span>

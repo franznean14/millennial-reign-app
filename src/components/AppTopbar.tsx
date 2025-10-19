@@ -7,6 +7,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { AuthButtons } from "@/components/auth/AuthButtons";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import InstallPrompt from "@/components/InstallPrompt";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 
 interface AppTopbarProps {
   currentSection: string;
@@ -36,7 +37,7 @@ export function AppTopbar({ currentSection, onSectionChange, userPermissions }: 
           {/* Mobile Menu */}
           <Sheet>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" aria-label="Open navigation" className="md:hidden">
+              <Button variant="ghost" size="icon" aria-label="Open navigation" className="lg:hidden">
                 <Menu className="h-5 w-5" />
               </Button>
             </SheetTrigger>
@@ -62,25 +63,6 @@ export function AppTopbar({ currentSection, onSectionChange, userPermissions }: 
               </nav>
             </SheetContent>
           </Sheet>
-
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center gap-1">
-            {navItems.map(({ id, label, icon: Icon }) => {
-              const isActive = currentSection === id;
-              return (
-                <Button
-                  key={id}
-                  variant={isActive ? "secondary" : "ghost"}
-                  size="sm"
-                  onClick={() => handleNavClick(id)}
-                  className="flex items-center gap-2"
-                >
-                  <Icon className="h-4 w-4" />
-                  {label}
-                </Button>
-              );
-            })}
-          </nav>
         </div>
 
         <div className="flex items-center gap-2">
