@@ -64,6 +64,9 @@ export function HomeView({ userId, onVisitClick }: HomeViewProps) {
           serviceYearEnd={dateRanges.serviceYearEnd}
         />
         
+        {/* Gap between cards */}
+        <div className="h-6" />
+        
         <BWIVisitHistory 
           userId={userId} 
           onVisitClick={onVisitClick}

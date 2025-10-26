@@ -89,15 +89,19 @@ export function NumberFlowInput({
         <Minus className="size-4 text-zinc-600 dark:text-zinc-400" absoluteStrokeWidth strokeWidth={3.5} />
       </Button>
       
-      <div className="relative text-center mx-8 flex items-center justify-center py-2">
+      <div className="relative text-center mx-8 flex items-center justify-center bg-transparent">
         <Input
           ref={inputRef}
           className={cn(
             showCaret ? 'caret-primary' : 'caret-transparent',
-            'w-[1.5em] bg-transparent border-0 text-center font-[inherit] text-transparent outline-none shadow-none focus-visible:ring-0',
+            'w-[1.5em] bg-transparent border-0 text-center font-[inherit] text-transparent outline-none shadow-none focus-visible:ring-0 focus:bg-transparent focus:border-0 focus:outline-none focus:shadow-none hover:bg-transparent active:bg-transparent',
             sizeClasses[size]
           )}
-          style={{ fontKerning: 'none' }}
+          style={{ 
+            fontKerning: 'none',
+            backgroundColor: 'transparent',
+            background: 'transparent'
+          }}
           type="number"
           min={min}
           step={1}
@@ -116,7 +120,7 @@ export function NumberFlowInput({
           animated={animated}
           onAnimationsStart={() => setShowCaret(false)}
           onAnimationsFinish={() => setShowCaret(true)}
-          className="pointer-events-none text-7xl font-extrabold tracking-tight text-foreground absolute inset-0 flex items-center justify-center"
+          className="pointer-events-none text-7xl font-extrabold tracking-tight text-foreground absolute inset-0 flex items-center justify-center bg-transparent"
           willChange
         />
       </div>

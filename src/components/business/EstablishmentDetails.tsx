@@ -325,7 +325,15 @@ export function EstablishmentDetails({
 
       {/* Visit Updates Section */}
       <motion.div layout className="w-full">
-        <VisitUpdatesSection visits={visits} />
+        <VisitUpdatesSection 
+          visits={visits} 
+          isHouseholderContext={false}
+          establishments={[{ id: establishment.id, name: establishment.name }]}
+          selectedEstablishmentId={establishment.id}
+          onVisitUpdated={() => {
+            // Visit updates will be handled by the parent component's data refresh
+          }}
+        />
       </motion.div>
 
       {/* Householders Section */}

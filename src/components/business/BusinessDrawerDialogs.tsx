@@ -293,6 +293,7 @@ export function BusinessDrawerDialogs({
                 selectedEstablishmentId={selectedEstablishment?.id}
                 householderId={selectedHouseholder?.id}
                 householderName={selectedHouseholder?.name}
+                householderStatus={selectedHouseholder?.status}
                 onSaved={() => setOpenVisit(false)}
                 disableEstablishmentSelect={!!showExpandableButtons}
               />

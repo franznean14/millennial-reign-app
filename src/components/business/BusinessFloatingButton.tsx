@@ -14,13 +14,21 @@ export function BusinessFloatingButton({
   selectedEstablishmentId,
   onEstablishmentAdded,
   onHouseholderAdded,
-  onVisitAdded
+  onVisitAdded,
+  // Householder context props
+  householderId,
+  householderName,
+  householderStatus
 }: { 
   selectedArea?: string; 
   selectedEstablishmentId?: string;
   onEstablishmentAdded?: (establishment: any) => void;
   onHouseholderAdded?: (householder: any) => void;
   onVisitAdded?: (visit: any) => void;
+  // Householder context props
+  householderId?: string;
+  householderName?: string;
+  householderStatus?: string;
 }) {
   const [enabled, setEnabled] = useState(false);
   const [participant, setParticipant] = useState(false);
@@ -131,6 +139,9 @@ export function BusinessFloatingButton({
         <VisitForm 
           establishments={establishments} 
           selectedEstablishmentId={selectedEstablishmentId}
+          householderId={householderId}
+          householderName={householderName}
+          householderStatus={householderStatus}
           onSaved={() => {
             setOpen(null);
           }} 

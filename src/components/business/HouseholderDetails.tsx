@@ -227,7 +227,19 @@ export function HouseholderDetails({ householder, visits, establishment, establi
       </motion.div>
 
       <motion.div layout className="w-full">
-        <VisitUpdatesSection visits={visits} isHouseholderContext={true} />
+        <VisitUpdatesSection 
+          visits={visits} 
+          isHouseholderContext={true}
+          establishments={establishments}
+          selectedEstablishmentId={establishment?.id}
+          householderId={householder.id}
+          householderName={householder.name}
+          householderStatus={householder.status}
+          onVisitUpdated={() => {
+            // Visit updates will be handled by the parent component's data refresh
+          }}
+        />
+        
       </motion.div>
 
       {/* Edit Householder */}
@@ -287,6 +299,8 @@ export function HouseholderDetails({ householder, visits, establishment, establi
                 selectedEstablishmentId={establishment?.id}
                 initialVisit={editVisit || undefined}
                 householderId={householder.id}
+                householderName={householder.name}
+                householderStatus={householder.status}
                 onSaved={() => { setEditVisit(null); }}
               />
             </div>
@@ -305,6 +319,8 @@ export function HouseholderDetails({ householder, visits, establishment, establi
                 selectedEstablishmentId={establishment?.id}
                 initialVisit={editVisit || undefined}
                 householderId={householder.id}
+                householderName={householder.name}
+                householderStatus={householder.status}
                 onSaved={() => { setEditVisit(null); }}
               />
             </div>

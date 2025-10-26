@@ -636,6 +636,12 @@ export function AppClient() {
       if (visitExists) return prev;
       return { ...prev, visits: [visit, ...prev.visits] };
     });
+    setSelectedHouseholderDetails(prev => {
+      if (!prev) return prev;
+      const visitExists = prev.visits.some(existingVisit => existingVisit.id === visit.id);
+      if (visitExists) return prev;
+      return { ...prev, visits: [visit, ...prev.visits] };
+    });
   }, []);
 
   const handleDeleteEstablishment = useCallback(async (establishment: EstablishmentWithDetails) => {

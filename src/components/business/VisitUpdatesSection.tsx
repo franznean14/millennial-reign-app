@@ -3,19 +3,40 @@
 import React, { useState, useRef } from 'react';
 import { ChevronRight, Calendar } from 'lucide-react';
 import { ResponsiveModal } from '@/components/ui/responsive-modal';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
 import { format } from 'date-fns';
 import Image from 'next/image';
 import { type VisitWithUser } from '@/lib/db/business';
 import { getStatusTextColor, getBestStatus } from '@/lib/utils/status-hierarchy';
+import { VisitForm } from './VisitForm';
+import { useMobile } from '@/lib/hooks/use-mobile';
 
 interface VisitUpdatesSectionProps {
   visits: VisitWithUser[];
   isHouseholderContext?: boolean;
+  establishments?: any[];
+  selectedEstablishmentId?: string;
+  householderId?: string;
+  householderName?: string;
+  householderStatus?: string;
+  onVisitUpdated?: () => void;
 }
 
-export function VisitUpdatesSection({ visits, isHouseholderContext = false }: VisitUpdatesSectionProps) {
+export function VisitUpdatesSection({ 
+  visits, 
+  isHouseholderContext = false, 
+  establishments = [], 
+  selectedEstablishmentId, 
+  householderId, 
+  householderName,
+  householderStatus,
+  onVisitUpdated 
+}: VisitUpdatesSectionProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editVisit, setEditVisit] = useState<VisitWithUser | null>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
+  const isMobile = useMobile();
 
   // Show only first 3 visits in main view
   const mainVisits = visits.slice(0, 3);
@@ -37,20 +58,26 @@ export function VisitUpdatesSection({ visits, isHouseholderContext = false }: Vi
     const avatarSizeClass = 'w-8 h-8'; // 10% smaller than w-9 h-9 (36px -> 32px)
 
     return (
-      <div key={visit.id} className="relative flex items-start py-2">
+      <button 
+        key={visit.id} 
+        onClick={() => setEditVisit(visit)}
+        className="relative flex items-start py-2 w-full text-left hover:bg-gray-700/50 rounded-lg transition-colors"
+      >
         {/* Timeline Line */}
         {index < (isDrawer ? visits.length : mainVisits.length) - 1 && (
           <div
-            className={`absolute w-0.5 bg-gray-500/60 left-[6px] top-[6px] ${lineLengthClass}`}
+            className={`absolute w-0.5 bg-gray-500/60 left-[5px] top-[12px] ${lineLengthClass}`}
             style={{ zIndex: 0 }}
           ></div>
         )}
 
         {/* Timeline Dot */}
         <div
-          className={`relative ${dotSizeClass} rounded-full ${
-            visit.householder_id ? 'bg-green-500' : 'bg-blue-500'
-          } flex-shrink-0`}
+          className={`relative ${dotSizeClass} rounded-full flex-shrink-0 border-2 ${
+            visit.householder_id 
+              ? getStatusTextColor(visit.householder?.status || 'potential')
+              : getStatusTextColor(visit.establishment?.status || 'for_scouting')
+          }`}
           style={{ zIndex: 1 }}
         ></div>
 
@@ -109,7 +136,7 @@ export function VisitUpdatesSection({ visits, isHouseholderContext = false }: Vi
             />
           )}
         </div>
-      </div>
+      </button>
     );
   };
 
@@ -146,6 +173,59 @@ export function VisitUpdatesSection({ visits, isHouseholderContext = false }: Vi
           )}
         </div>
       </ResponsiveModal>
+
+      {/* Edit Visit Modal/Drawer */}
+      {isMobile ? (
+        <Drawer open={!!editVisit} onOpenChange={(o) => setEditVisit(o ? editVisit : null)}>
+          <DrawerContent>
+            <DrawerHeader className="text-center">
+              <DrawerTitle>Edit Visit</DrawerTitle>
+              <DrawerDescription>Update visit details</DrawerDescription>
+            </DrawerHeader>
+            <div className="px-4">
+              {editVisit && (
+                <VisitForm
+                  establishments={establishments}
+                  selectedEstablishmentId={selectedEstablishmentId}
+                  initialVisit={editVisit}
+                  householderId={householderId}
+                  householderName={householderName}
+                  householderStatus={householderStatus}
+                  onSaved={() => {
+                    setEditVisit(null);
+                    onVisitUpdated?.();
+                  }}
+                />
+              )}
+            </div>
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        <Dialog open={!!editVisit} onOpenChange={(o) => setEditVisit(o ? editVisit : null)}>
+          <DialogContent>
+            <DialogHeader className="text-center">
+              <DialogTitle>Edit Visit</DialogTitle>
+              <DialogDescription>Update visit details</DialogDescription>
+            </DialogHeader>
+            <div className="px-4">
+              {editVisit && (
+                <VisitForm
+                  establishments={establishments}
+                  selectedEstablishmentId={selectedEstablishmentId}
+                  initialVisit={editVisit}
+                  householderId={householderId}
+                  householderName={householderName}
+                  householderStatus={householderStatus}
+                  onSaved={() => {
+                    setEditVisit(null);
+                    onVisitUpdated?.();
+                  }}
+                />
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 }

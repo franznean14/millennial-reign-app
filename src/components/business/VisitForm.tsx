@@ -14,6 +14,7 @@ import { toast } from "@/components/ui/sonner";
 import { addVisit, getBwiParticipants, updateVisit, deleteVisit } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { getBestStatus } from "@/lib/utils/status-hierarchy";
 import { cacheGet } from "@/lib/offline/store";
 import { useMobile } from "@/lib/hooks/use-mobile";
 
@@ -33,12 +34,13 @@ interface VisitFormProps {
   // Householder context
   householderId?: string;
   householderName?: string;
+  householderStatus?: string;
   // Optional prefill for note (used when creating)
   prefillNote?: string;
   disableEstablishmentSelect?: boolean;
 }
 
-export function VisitForm({ establishments, selectedEstablishmentId, onSaved, initialVisit, householderId, householderName, prefillNote, disableEstablishmentSelect = false }: VisitFormProps) {
+export function VisitForm({ establishments, selectedEstablishmentId, onSaved, initialVisit, householderId, householderName, householderStatus, prefillNote, disableEstablishmentSelect = false }: VisitFormProps) {
   const [estId, setEstId] = useState<string>(
     selectedEstablishmentId || initialVisit?.establishment_id || establishments[0]?.id || "none"
   );
@@ -205,6 +207,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
               const newVisit = {
                 id: created.id,
                 establishment_id: created.establishment_id || (estId === "none" ? undefined : estId),
+                householder_id: created.householder_id || householderId,
                 note: created.note || null,
                 visit_date: created.visit_date!,
                 publisher_id: publisherId,
@@ -221,7 +224,20 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
                   last_name: partner.last_name,
                   avatar_url: partner.avatar_url,
                 } : undefined,
+                // Add establishment relationship if available
+                establishment: estId && estId !== "none" ? establishments.find(e => e.id === estId) ? {
+                  id: estId,
+                  name: establishments.find(e => e.id === estId)!.name,
+                  status: getBestStatus(establishments.find(e => e.id === estId)!.statuses || []) || 'for_scouting'
+                } : undefined : undefined,
+                // Add householder relationship if available
+                householder: householderId && householderName ? {
+                  id: householderId,
+                  name: householderName,
+                  status: householderStatus || 'potential'
+                } : undefined,
               } as any;
+              
               businessEventBus.emit('visit-added', newVisit);
               toast.success("Visit recorded successfully!");
             } else {
