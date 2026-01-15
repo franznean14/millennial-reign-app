@@ -9,6 +9,11 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // Allow auth routes to pass through without auth check
+  if (pathname.startsWith("/auth/")) {
+    return NextResponse.next();
+  }
+
   // Heuristic: Supabase sets cookies containing 'sb-' and '-auth-token' with JSON value including access_token
   const authCookie = req.cookies
     .getAll()
@@ -23,17 +28,23 @@ export function middleware(req: NextRequest) {
     }
   }
 
+  // Prevent accessing /login when already authenticated
+  if (pathname === "/login" && hasAuthCookie) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/";
+    return NextResponse.redirect(url);
+  }
+
+  // Allow /login to pass through if not authenticated (prevents redirect loop)
+  if (pathname === "/login") {
+    return NextResponse.next();
+  }
+
+  // Redirect to login if not authenticated
   if (!hasAuthCookie) {
     const url = req.nextUrl.clone();
     url.pathname = "/login";
     url.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(url);
-  }
-
-  // Prevent accessing /login when already authenticated
-  if (pathname === "/login") {
-    const url = req.nextUrl.clone();
-    url.pathname = "/";
     return NextResponse.redirect(url);
   }
 
