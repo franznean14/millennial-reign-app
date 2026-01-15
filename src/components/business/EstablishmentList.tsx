@@ -119,6 +119,18 @@ export function EstablishmentList({
     window.scrollTo(0, 0);
   }, []);
   const [viewMode, setViewMode] = useState<ViewMode>(externalViewMode || 'detailed');
+
+  // Prevent page scrolling when in table view
+  useEffect(() => {
+    if (viewMode === 'table') {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [viewMode]);
   const [visibleCount, setVisibleCount] = useState<number>(0);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
@@ -524,22 +536,22 @@ export function EstablishmentList({
   );
 
   const renderTableView = () => (
-    <div className="w-full h-[calc(100vh-200px)] flex flex-col">
+    <div className="w-full h-full flex flex-col overscroll-none" style={{ overscrollBehavior: 'none' }}>
       {/* Fixed Table Header */}
       <div className="flex-shrink-0 border-b bg-background">
         <table className="w-full text-sm table-fixed">
           <thead>
             <tr className="border-b">
-              <th className="text-left p-3 w-[50%]">Name</th>
-              <th className="text-left p-3 w-[23%]">Status</th>
-              <th className="text-left p-3 w-[27%]">Area</th>
+              <th className="text-left py-3 px-3 w-[50%]">Name</th>
+              <th className="text-left py-3 px-3 w-[23%]">Status</th>
+              <th className="text-left py-3 px-3 w-[27%]">Area</th>
             </tr>
           </thead>
         </table>
       </div>
       
       {/* Scrollable Table Body */}
-      <div className="flex-1 overflow-y-auto no-scrollbar">
+      <div className="flex-1 overflow-y-auto no-scrollbar overscroll-none" style={{ overscrollBehavior: 'contain', touchAction: 'pan-y' }}>
         <table className="w-full text-sm table-fixed">
           <tbody>
             {establishments.map((establishment, index) => (
@@ -580,11 +592,11 @@ export function EstablishmentList({
   );
 
   return (
-    <div className="w-full">
+    <div className={viewMode === 'table' ? "w-full h-[calc(100vh-280px)] overflow-hidden flex flex-col overscroll-none" : "w-full"} style={viewMode === 'table' ? { overscrollBehavior: 'none' } : undefined}>
 
       {/* Establishments */}
       {viewMode === 'table' ? (
-        <div className="mt-6 w-full">{renderTableView()}</div>
+        <div className="w-full h-full flex-1 min-h-0">{renderTableView()}</div>
       ) : (
         <>
           <div className="grid gap-4 mt-6 w-full">
