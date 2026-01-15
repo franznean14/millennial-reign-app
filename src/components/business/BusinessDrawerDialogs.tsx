@@ -30,7 +30,9 @@ export function BusinessDrawerDialogs({
   selectedEstablishment,
   selectedHouseholder 
 }: BusinessDrawerDialogsProps) {
-  const establishmentId = selectedEstablishment?.id || selectedEstablishmentId;
+  // When viewing a householder, use the householder's establishment_id
+  // Otherwise, use the selected establishment's ID or the provided selectedEstablishmentId
+  const establishmentId = selectedHouseholder?.establishment_id || selectedEstablishment?.id || selectedEstablishmentId;
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const [openEst, setOpenEst] = useState(false);
   const [openHh, setOpenHh] = useState(false);
@@ -181,9 +183,10 @@ export function BusinessDrawerDialogs({
               <div className="px-4">
                 <VisitForm
                   establishments={establishments}
-                  selectedEstablishmentId={selectedEstablishment?.id}
+                  selectedEstablishmentId={establishmentId}
                   householderId={selectedHouseholder?.id}
                   householderName={selectedHouseholder?.name}
+                  householderStatus={selectedHouseholder?.status}
                   onSaved={() => setOpenVisit(false)}
                   disableEstablishmentSelect={!!showExpandableButtons}
                 />
@@ -290,7 +293,7 @@ export function BusinessDrawerDialogs({
             <div className="px-4">
               <VisitForm
                 establishments={establishments}
-                selectedEstablishmentId={selectedEstablishment?.id}
+                selectedEstablishmentId={establishmentId}
                 householderId={selectedHouseholder?.id}
                 householderName={selectedHouseholder?.name}
                 householderStatus={selectedHouseholder?.status}
