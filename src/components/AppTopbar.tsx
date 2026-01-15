@@ -8,6 +8,7 @@ import { AuthButtons } from "@/components/auth/AuthButtons";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import InstallPrompt from "@/components/InstallPrompt";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { cn } from "@/lib/utils";
 
 interface AppTopbarProps {
   currentSection: string;
@@ -16,9 +17,10 @@ interface AppTopbarProps {
     showCongregation: boolean;
     showBusiness: boolean;
   };
+  className?: string;
 }
 
-export function AppTopbar({ currentSection, onSectionChange, userPermissions }: AppTopbarProps) {
+export function AppTopbar({ currentSection, onSectionChange, userPermissions, className }: AppTopbarProps) {
   const navItems = [
     { id: 'home', label: "Home", icon: Home },
     ...(userPermissions.showCongregation ? [{ id: 'congregation', label: "Congregation", icon: Landmark }] : []),
@@ -31,7 +33,7 @@ export function AppTopbar({ currentSection, onSectionChange, userPermissions }: 
   };
 
   return (
-    <header className="sticky top-0 z-20 w-full border-b border-border/80 bg-background/70 backdrop-blur">
+    <header className={cn("sticky top-0 z-20 w-full border-b border-border/80 bg-background/70 backdrop-blur", className)}>
       <div className="mx-auto max-w-screen-lg px-4 h-14 flex items-center justify-between">
         <div className="flex items-center gap-4">
           {/* Mobile Menu */}

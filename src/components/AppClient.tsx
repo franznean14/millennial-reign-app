@@ -29,6 +29,7 @@ import { BiometricToggle } from "@/components/account/BiometricToggle";
 import { NotificationSettings } from "@/components/account/NotificationSettings";
 import { ProfileForm } from "@/components/account/ProfileForm";
 import { LogoutButton } from "@/components/account/LogoutButton";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -1659,7 +1660,10 @@ export function AppClient() {
         >
           <div className="flex items-center justify-between gap-4">
             <h1 className="text-xl font-semibold">Account</h1>
-            <LogoutButton />
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              <LogoutButton />
+            </div>
           </div>
 
           <div className="space-y-6 p-4">

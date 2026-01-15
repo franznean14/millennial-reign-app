@@ -367,7 +367,7 @@ body {
   
   /* Ensure main content area accounts for fixed headers */
   main {
-    margin-top: 56px !important; /* Account for topbar height */
+    margin-top: 10px !important; /* Account for topbar height */
     margin-bottom: 80px !important; /* Account for bottom navbar height */
   }
 }

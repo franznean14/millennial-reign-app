@@ -163,7 +163,7 @@ export function PortaledBusinessControls({
               : 'left-0 right-0' // Mobile: full width
           }`}
           style={{
-            top: businessTab === 'map' ? 16 : (typeof window !== 'undefined' && window.innerWidth >= 1024 ? 100 : 64) // Lower on desktop, normal on mobile
+            top: businessTab === 'map' ? 16 : (typeof window !== 'undefined' && window.innerWidth >= 1024 ? 100 : 10) // Lower on desktop, normal on mobile
           }}
         >
           {/* Tab Navigation - Only on mobile */}

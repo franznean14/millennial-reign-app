@@ -77,9 +77,10 @@ export function AppChrome({ children }: AppChromeProps) {
             currentSection={currentSection}
             onSectionChange={onSectionChange}
             userPermissions={userPermissions}
+            className="hidden lg:block"
           />
           
-          <main className="min-h-[calc(100dvh-56px)] flex-1 px-4 w-full overflow-x-hidden !mt-4">
+          <main className="min-h-[calc(100dvh-56px)] flex-1 px-4 w-full overflow-x-hidden lg:!mt-4">
             {children}
           </main>
         </SidebarInset>
