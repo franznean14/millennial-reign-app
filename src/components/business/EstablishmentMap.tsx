@@ -759,7 +759,8 @@ export function EstablishmentMap({
           ref={clusterGroupRef}
           key={`markers-${establishmentsWithCoords.length}-${establishmentsWithCoords.map(e => e.id).join(',')}`}
           chunkedLoading
-          maxClusterRadius={50}
+          maxClusterRadius={25}
+          disableClusteringAtZoom={18}
           spiderfyOnMaxZoom={true}
           showCoverageOnHover={false}
           zoomToBoundsOnClick={true}
