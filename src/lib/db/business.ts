@@ -22,6 +22,7 @@ export interface BusinessFiltersState {
   search: string;
   statuses: string[];
   areas: string[];
+  floors: string[];
   myEstablishments: boolean;
   nearMe: boolean;
   userLocation?: [number, number] | null;

@@ -24,6 +24,7 @@ interface HouseholderListProps {
   onClearSearch?: () => void;
   onRemoveStatus?: (status: string) => void;
   onRemoveArea?: (area: string) => void;
+  onRemoveFloor?: (floor: string) => void;
   viewMode?: 'detailed' | 'compact' | 'table';
   onViewModeChange?: (viewMode: 'detailed' | 'compact' | 'table') => void;
 }

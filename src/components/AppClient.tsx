@@ -235,6 +235,7 @@ export function AppClient() {
     search: "",
     statuses: [],
     areas: [],
+    floors: [],
     myEstablishments: false,
     nearMe: false,
     userLocation: null,
@@ -742,6 +743,11 @@ export function AppClient() {
         return false;
       }
       
+      // Floor filter
+      if (filters.floors.length > 0 && establishment.floor && !filters.floors.includes(establishment.floor)) {
+        return false;
+      }
+      
       // My Establishments filter: show only establishments the user has visited
       if (filters.myEstablishments) {
         const visitedByUser = establishment.id ? userVisitedEstablishments.has(establishment.id) : false;
@@ -917,6 +923,10 @@ export function AppClient() {
     setFilters((prev) => ({ ...prev, areas: prev.areas.filter((a) => a !== area) }));
   };
 
+  const handleRemoveFloor = (floor: string) => {
+    setFilters((prev) => ({ ...prev, floors: prev.floors.filter((f) => f !== floor) }));
+  };
+
   const handleClearSearch = () => {
     setFilters((prev) => ({ ...prev, search: "" }));
   };
@@ -930,6 +940,7 @@ export function AppClient() {
       search: "",
       statuses: [],
       areas: [],
+      floors: [],
       myEstablishments: false,
       nearMe: false,
       userLocation: null,
@@ -1008,18 +1019,155 @@ export function AppClient() {
     }
   }, [filters.nearMe, locationWatchId]);
 
-  const areaOptions = useMemo(() => {
-    const areas = establishments
-      .map(e => e.area)
-      .filter(area => area && typeof area === 'string' && area.trim() !== "")
-      .filter((area, index, arr) => arr.indexOf(area) === index)
-      .sort();
+  // Helper function to filter establishments excluding a specific filter type
+  const getFilteredEstablishmentsExcluding = useCallback((
+    excludeType: 'statuses' | 'areas' | 'floors' | null
+  ) => {
+    return establishments.filter(establishment => {
+      // Search filter
+      if (filters.search && filters.search.trim() !== '') {
+        const searchTerm = filters.search.toLowerCase().trim();
+        const establishmentName = establishment.name?.toLowerCase() || '';
+        if (!establishmentName.includes(searchTerm)) {
+          return false;
+        }
+      }
+      
+      // Status filter (exclude if computing status options)
+      if (excludeType !== 'statuses' && filters.statuses.length > 0 && !establishment.statuses?.some(status => filters.statuses.includes(status))) {
+        return false;
+      }
+      
+      // Area filter (exclude if computing area options)
+      if (excludeType !== 'areas' && filters.areas.length > 0 && establishment.area && !filters.areas.includes(establishment.area)) {
+        return false;
+      }
+      
+      // Floor filter (exclude if computing floor options)
+      if (excludeType !== 'floors' && filters.floors.length > 0 && establishment.floor && !filters.floors.includes(establishment.floor)) {
+        return false;
+      }
+      
+      // My Establishments filter
+      if (filters.myEstablishments) {
+        const visitedByUser = establishment.id ? userVisitedEstablishments.has(establishment.id) : false;
+        if (!visitedByUser) return false;
+      }
+      
+      // Near Me filter
+      if (filters.nearMe) {
+        if (!filters.userLocation || establishment.lat == null || establishment.lng == null) {
+          return false;
+        }
+        const distanceKm = calculateDistance(
+          filters.userLocation[0],
+          filters.userLocation[1],
+          establishment.lat,
+          establishment.lng
+        );
+        if (distanceKm > 0.15) return false;
+      }
+      
+      return true;
+    });
+  }, [establishments, filters, userVisitedEstablishments]);
+
+  // Dynamic status options based on other filters
+  const dynamicStatusOptions = useMemo(() => {
+    const filtered = getFilteredEstablishmentsExcluding('statuses');
+    const allStatuses = new Set<string>();
+    
+    // Include currently selected statuses so they can be deselected
+    filters.statuses.forEach(status => allStatuses.add(status));
+    
+    // Add statuses from filtered establishments
+    filtered.forEach(establishment => {
+      establishment.statuses?.forEach(status => {
+        allStatuses.add(status);
+      });
+    });
+    
+    const statusList = Array.from(allStatuses).sort();
+    
+    // Map to options format based on business tab
+    if (businessTab === 'establishments' || businessTab === 'map') {
+      const statusMap: Record<string, string> = {
+        'for_scouting': 'For Scouting',
+        'for_follow_up': 'For Follow Up',
+        'for_replenishment': 'For Replenishment',
+        'accepted_rack': 'Accepted Rack',
+        'declined_rack': 'Declined Rack',
+        'has_bible_studies': 'Has Bible Studies'
+      };
+      return statusList
+        .filter(s => s in statusMap)
+        .map(s => ({ value: s, label: statusMap[s] }));
+    } else {
+      const statusMap: Record<string, string> = {
+        'interested': 'Interested',
+        'return_visit': 'Return Visit',
+        'bible_study': 'Bible Study',
+        'do_not_call': 'Do Not Call'
+      };
+      return statusList
+        .filter(s => s in statusMap)
+        .map(s => ({ value: s, label: statusMap[s] }));
+    }
+  }, [getFilteredEstablishmentsExcluding, businessTab, filters.statuses]);
+
+  // Dynamic area options based on other filters
+  const dynamicAreaOptions = useMemo(() => {
+    const filtered = getFilteredEstablishmentsExcluding('areas');
+    const areaSet = new Set<string>();
+    
+    // Include currently selected areas so they can be deselected
+    filters.areas.forEach(area => {
+      if (area && area.trim() !== '') {
+        areaSet.add(area);
+      }
+    });
+    
+    // Add areas from filtered establishments
+    filtered.forEach(e => {
+      if (e.area && typeof e.area === 'string' && e.area.trim() !== '') {
+        areaSet.add(e.area);
+      }
+    });
+    
+    const areas = Array.from(areaSet).sort();
     
     return areas.map(area => ({
       value: area || '',
       label: area || ''
     }));
-  }, [establishments]);
+  }, [getFilteredEstablishmentsExcluding, filters.areas]);
+
+  // Dynamic floor options based on other filters
+  const dynamicFloorOptions = useMemo(() => {
+    const filtered = getFilteredEstablishmentsExcluding('floors');
+    const floorSet = new Set<string>();
+    
+    // Include currently selected floors so they can be deselected
+    filters.floors.forEach(floor => {
+      if (floor && floor.trim() !== '') {
+        floorSet.add(floor);
+      }
+    });
+    
+    // Add floors from filtered establishments
+    filtered.forEach(e => {
+      if (e.floor && typeof e.floor === 'string' && e.floor.trim() !== '') {
+        floorSet.add(e.floor);
+      }
+    });
+    
+    const floors = Array.from(floorSet).sort();
+    
+    return floors.map(floor => ({
+      value: floor || '',
+      label: floor || ''
+    }));
+  }, [getFilteredEstablishmentsExcluding, filters.floors]);
 
   // Congregation functions
   const isElder = Array.isArray((profile as any)?.privileges) && (profile as any).privileges.includes('Elder');
@@ -1137,7 +1285,7 @@ export function AppClient() {
       return <HomeView userId={userId} onVisitClick={handleVisitClick} />;
 
     case 'business':
-      const hasActiveFilters = filters.search !== "" || filters.statuses.length > 0 || filters.areas.length > 0 || filters.myEstablishments || !!filters.sort;
+      const hasActiveFilters = filters.search !== "" || filters.statuses.length > 0 || filters.areas.length > 0 || filters.floors.length > 0 || filters.myEstablishments || !!filters.sort;
       
       return (
         <motion.div
@@ -1161,6 +1309,7 @@ export function AppClient() {
             onClearSearch={handleClearSearch}
             onRemoveStatus={handleRemoveStatus}
             onRemoveArea={handleRemoveArea}
+            onRemoveFloor={handleRemoveFloor}
             onClearMyEstablishments={handleClearMyEstablishments}
             onClearAllFilters={handleClearAllFilters}
             onToggleNearMe={handleToggleNearMe}
@@ -1212,6 +1361,7 @@ export function AppClient() {
                     onClearSearch={handleClearSearch}
                     onRemoveStatus={handleRemoveStatus}
                     onRemoveArea={handleRemoveArea}
+                    onRemoveFloor={handleRemoveFloor}
                     viewMode={viewMode}
                     onViewModeChange={setViewMode}
                   />
@@ -1245,6 +1395,7 @@ export function AppClient() {
                       onClearSearch={handleClearSearch}
                       onRemoveStatus={handleRemoveStatus}
                       onRemoveArea={handleRemoveArea}
+                      onRemoveFloor={handleRemoveFloor}
                       viewMode={viewMode}
                       onViewModeChange={setViewMode}
                     />
@@ -1377,26 +1528,16 @@ export function AppClient() {
                 search: "",
                 statuses: [],
                 areas: [],
+                floors: [],
                 myEstablishments: false,
                 nearMe: false,
                 userLocation: null,
                 sort: 'last_visit_desc'
               })}
               hasActiveFilters={hasActiveFilters}
-              statusOptions={businessTab === 'establishments' || businessTab === 'map' ? [
-                { value: "for_scouting", label: "For Scouting" },
-                { value: "for_follow_up", label: "For Follow Up" },
-                { value: "for_replenishment", label: "For Replenishment" },
-                { value: "accepted_rack", label: "Accepted Rack" },
-                { value: "declined_rack", label: "Declined Rack" },
-                { value: "has_bible_studies", label: "Has Bible Studies" }
-              ] : [
-                { value: "interested", label: "Interested" },
-                { value: "return_visit", label: "Return Visit" },
-                { value: "bible_study", label: "Bible Study" },
-                { value: "do_not_call", label: "Do Not Call" }
-              ]}
-              areaOptions={areaOptions}
+              statusOptions={dynamicStatusOptions}
+              areaOptions={dynamicAreaOptions}
+              floorOptions={dynamicFloorOptions}
               onClose={() => setFiltersModalOpen(false)}
               isMapView={businessTab === 'map'}
             />

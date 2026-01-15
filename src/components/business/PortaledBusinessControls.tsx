@@ -22,6 +22,7 @@ interface PortaledBusinessControlsProps {
   onClearSearch: () => void;
   onRemoveStatus: (status: string) => void;
   onRemoveArea: (area: string) => void;
+  onRemoveFloor: (floor: string) => void;
   onClearMyEstablishments: () => void;
   onClearAllFilters: () => void;
   onToggleNearMe: () => void;
@@ -40,6 +41,7 @@ export function PortaledBusinessControls({
   onClearSearch,
   onRemoveStatus,
   onRemoveArea,
+  onRemoveFloor,
   onClearMyEstablishments,
   onClearAllFilters,
   onToggleNearMe,
@@ -196,7 +198,7 @@ export function PortaledBusinessControls({
           </motion.div>
 
           {/* Filter Controls */}
-          {(filters.statuses.length > 0 || filters.areas.length > 0 || filters.myEstablishments || filters.nearMe) && (
+          {(filters.statuses.length > 0 || filters.areas.length > 0 || filters.floors.length > 0 || filters.myEstablishments || filters.nearMe) && (
             <motion.div 
               className="w-full"
               layout
@@ -219,6 +221,14 @@ export function PortaledBusinessControls({
                   <Badge key={a} variant="secondary" className="px-2 py-1 text-xs inline-flex items-center gap-1">
                     <span>{a}</span>
                     <button type="button" onClick={() => onRemoveArea(a)} aria-label={`Remove ${a}`} className="ml-1 rounded hover:bg-muted p-0.5">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+                {filters.floors.map((f) => (
+                  <Badge key={f} variant="secondary" className="px-2 py-1 text-xs inline-flex items-center gap-1">
+                    <span>{f}</span>
+                    <button type="button" onClick={() => onRemoveFloor(f)} aria-label={`Remove ${f}`} className="ml-1 rounded hover:bg-muted p-0.5">
                       <X className="h-3 w-3" />
                     </button>
                   </Badge>

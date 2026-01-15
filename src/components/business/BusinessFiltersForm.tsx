@@ -14,6 +14,7 @@ interface BusinessFiltersFormProps {
   hasActiveFilters: boolean;
   statusOptions: Array<{ value: string; label: string }>;
   areaOptions: Array<{ value: string; label: string }>;
+  floorOptions: Array<{ value: string; label: string }>;
   onClose: () => void;
   isMapView?: boolean;
 }
@@ -25,6 +26,7 @@ export function BusinessFiltersForm({
   hasActiveFilters, 
   statusOptions, 
   areaOptions,
+  floorOptions,
   onClose,
   isMapView = false
 }: BusinessFiltersFormProps) {
@@ -46,6 +48,7 @@ export function BusinessFiltersForm({
       search: "",
       statuses: [],
       areas: [],
+      floors: [],
       myEstablishments: false
     });
   };
@@ -70,6 +73,17 @@ export function BusinessFiltersForm({
     };
     setLocalFilters(newFilters);
     applyFiltersImmediately(newFilters); // Apply immediately for area changes
+  };
+
+  const toggleFloor = (floor: string) => {
+    const newFilters = {
+      ...localFilters,
+      floors: localFilters.floors.includes(floor) 
+        ? localFilters.floors.filter(f => f !== floor)
+        : [...localFilters.floors, floor]
+    };
+    setLocalFilters(newFilters);
+    applyFiltersImmediately(newFilters); // Apply immediately for floor changes
   };
 
   // Search field removed from filters form
@@ -103,6 +117,23 @@ export function BusinessFiltersForm({
                 variant={localFilters.areas.includes(option.value) ? "default" : "outline"}
                 size="sm"
                 onClick={() => toggleArea(option.value)}
+                className="h-8"
+              >
+                {option.value}
+              </Button>
+            ))}
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Floors</Label>
+          <div className="flex flex-wrap gap-2">
+            {floorOptions.map((option) => (
+              <Button
+                key={option.value}
+                variant={localFilters.floors.includes(option.value) ? "default" : "outline"}
+                size="sm"
+                onClick={() => toggleFloor(option.value)}
                 className="h-8"
               >
                 {option.value}
