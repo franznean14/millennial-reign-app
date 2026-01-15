@@ -566,7 +566,7 @@ function MapMarker({ establishment, onClick, isSelected, index = 0 }: MapMarkerP
         autoPan={false}
       >
         <div 
-          className={cn("min-w-[280px] max-w-[320px] cursor-pointer hover:shadow-xl transition-shadow p-4", getStatusColor(primaryStatus))}
+          className={cn("min-w-[280px] max-w-[320px] cursor-pointer hover:shadow-xl transition-shadow p-4 bg-background border rounded-lg", getStatusColor(primaryStatus))}
           onClick={(e) => {
             e.stopPropagation();
             onClick?.();
@@ -577,7 +577,7 @@ function MapMarker({ establishment, onClick, isSelected, index = 0 }: MapMarkerP
             <div className="flex items-start justify-between w-full gap-2">
               <div className="flex-1 min-w-0">
                 <div className="text-lg font-bold flex flex-col gap-2 w-full">
-                  <span className="truncate" title={establishment.name}>{establishment.name}</span>
+                  <span className="truncate text-foreground" title={establishment.name}>{establishment.name}</span>
                   
                   {/* Status Badge with Hierarchy */}
                   <div className="flex items-center gap-2 flex-shrink-0">
@@ -592,19 +592,19 @@ function MapMarker({ establishment, onClick, isSelected, index = 0 }: MapMarkerP
                 
                 {/* Area label below the status badge */}
                 {establishment.area && (
-                  <div className="mt-2 text-sm font-medium text-muted-foreground">{establishment.area}</div>
+                  <div className="mt-2 text-sm font-medium text-foreground/80">{establishment.area}</div>
                 )}
               </div>
               
               {/* Stats */}
               <div className="flex items-center gap-3 flex-shrink-0">
                 <div className="text-right">
-                  <p className="text-sm font-medium">{establishment.visit_count || 0}</p>
-                  <p className="text-xs text-muted-foreground">Visits</p>
+                  <p className="text-sm font-medium text-foreground">{establishment.visit_count || 0}</p>
+                  <p className="text-xs text-foreground/70">Visits</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm font-medium">{establishment.householder_count || 0}</p>
-                  <p className="text-xs text-muted-foreground">BS</p>
+                  <p className="text-sm font-medium text-foreground">{establishment.householder_count || 0}</p>
+                  <p className="text-xs text-foreground/70">BS</p>
                 </div>
               </div>
             </div>
@@ -629,18 +629,18 @@ function MapMarker({ establishment, onClick, isSelected, index = 0 }: MapMarkerP
                       </Avatar>
                     ))}
                     {establishment.top_visitors.length > 3 && (
-                      <span className="text-xs text-muted-foreground flex-shrink-0 ml-1">
+                      <span className="text-xs text-foreground/70 flex-shrink-0 ml-1">
                         +{establishment.top_visitors.length - 3}
                       </span>
                     )}
                   </div>
                 )}
                 {establishment.description && (
-                  <span className="text-xs text-muted-foreground truncate">{establishment.description}</span>
+                  <span className="text-xs text-foreground/70 truncate">{establishment.description}</span>
                 )}
               </div>
               {establishment.floor && (
-                <span className="text-xs text-muted-foreground flex-shrink-0">{establishment.floor}</span>
+                <span className="text-xs text-foreground/70 flex-shrink-0">{establishment.floor}</span>
               )}
             </div>
           </div>
@@ -662,9 +662,22 @@ export function EstablishmentMap({
   const [watchId, setWatchId] = useState<number | null>(null);
   const [hasInitiallyFitted, setHasInitiallyFitted] = useState(false);
   const clusterGroupRef = useRef<any>(null);
+  const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
+
+    // Track theme changes for map tiles and cluster styling
+    const checkTheme = () => {
+      setIsDarkMode(document.documentElement.classList.contains('dark'));
+    };
+    checkTheme();
+    const observer = new MutationObserver(checkTheme);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+    return () => observer.disconnect();
   }, []);
 
   // Filter establishments with valid coordinates
@@ -720,7 +733,10 @@ export function EstablishmentMap({
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          url={isDarkMode
+            ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+            : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+          }
           subdomains={['a', 'b', 'c', 'd']}
           maxZoom={22}
         />
@@ -784,13 +800,20 @@ export function EstablishmentMap({
               }
             }
             
-              return L.divIcon({
+            const textColor = isDarkMode ? '#ffffff' : '#0f172a';
+            const borderColor = isDarkMode ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.15)';
+            const shadowColor = isDarkMode ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.2)';
+            const shadowColorLight = isDarkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.1)';
+            const shadowColorBorder = isDarkMode ? 'rgba(0,0,0,0.1)' : 'rgba(0,0,0,0.05)';
+            const backgroundColor = isDarkMode ? 'transparent' : 'rgba(255,255,255,0.9)';
+
+            return L.divIcon({
                 className: 'custom-cluster',
                 html: `
                   <div style="
-                    background: transparent;
-                    color: #ffffff;
-                    border: 3px solid rgba(255,255,255,0.3);
+                    background: ${backgroundColor};
+                    color: ${textColor};
+                    border: 3px solid ${borderColor};
                     backdrop-filter: blur(8px);
                     -webkit-backdrop-filter: blur(8px);
                     border-radius: 50%;
@@ -801,7 +824,7 @@ export function EstablishmentMap({
                     justify-content: center;
                     font-size: 18px;
                     font-weight: 900;
-                    box-shadow: 0 6px 24px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3), 0 0 0 1px rgba(0,0,0,0.1);
+                    box-shadow: 0 6px 24px ${shadowColor}, 0 2px 8px ${shadowColorLight}, 0 0 0 1px ${shadowColorBorder};
                     transform: translate(-50%, -50%);
                     transition: all 0.2s ease;
                   ">

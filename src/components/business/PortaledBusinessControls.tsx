@@ -204,7 +204,7 @@ export function PortaledBusinessControls({
                       <div className="relative flex-1">
                         <Input
                           ref={searchInputRef}
-                          placeholder={businessTab === 'establishments' ? "Search establishments..." : businessTab === 'householders' ? "Search householders..." : "Search locations..."}
+                          placeholder="Search ..."
                           value={filters.search}
                           onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
                           onFocus={() => setIsSearchFocused(true)}
@@ -234,7 +234,7 @@ export function PortaledBusinessControls({
                             onClick={handleClearSearchAndRestore}
                             aria-label="Clear search"
                           >
-                            <X className="h-4 w-4" />
+                            <X className="h-4 w-4 text-foreground" />
                           </Button>
                         )}
                       </div>
@@ -276,9 +276,9 @@ export function PortaledBusinessControls({
                               onClick={onClearMyEstablishments}
                               aria-label="My establishments"
                             >
-                              <UserCheck className="h-4 w-4 flex-shrink-0" />
-                              <span className="text-sm whitespace-nowrap">My Establishments</span>
-                              <X className="h-4 w-4 flex-shrink-0" />
+                              <UserCheck className="h-4 w-4 flex-shrink-0 text-foreground" />
+                              <span className="text-sm whitespace-nowrap text-foreground">My Establishments</span>
+                              <X className="h-4 w-4 flex-shrink-0 text-foreground" />
                             </Button>
                           </motion.div>
                         ) : (
@@ -302,7 +302,7 @@ export function PortaledBusinessControls({
                               aria-label="My establishments"
                               title="My establishments"
                             >
-                              <User className="h-4 w-4" />
+                              <User className="h-4 w-4 text-foreground" />
                             </Button>
                           </motion.div>
                           )}
@@ -381,7 +381,7 @@ export function PortaledBusinessControls({
                           aria-label="Search"
                           title="Search"
                         >
-                          <Search className="h-4 w-4" />
+                          <Search className="h-4 w-4 text-foreground" />
                         </Button>
                       )}
 
@@ -413,8 +413,8 @@ export function PortaledBusinessControls({
                               }}
                               aria-label="Filters"
                             >
-                              <FilterIcon className="h-4 w-4 flex-shrink-0" />
-                              <span className="text-sm whitespace-nowrap flex-shrink-0">Filters</span>
+                              <FilterIcon className="h-4 w-4 flex-shrink-0 text-foreground" />
+                              <span className="text-sm whitespace-nowrap flex-shrink-0 text-foreground">Filters</span>
                               <div className="flex items-center gap-1 min-w-0 flex-1 overflow-hidden">
                                 {badges.map((badge, index) => {
                                   // Contract the rightmost badges (last 2) if there are many badges
@@ -467,7 +467,7 @@ export function PortaledBusinessControls({
                                 }}
                                 aria-label="Clear filters"
                               >
-                                <X className="h-4 w-4" />
+                                <X className="h-4 w-4 text-foreground" />
                               </div>
                             </Button>
                           </motion.div>
@@ -490,7 +490,7 @@ export function PortaledBusinessControls({
                               onClick={onOpenFilters}
                               title="Filters"
                             >
-                              <FilterIcon className="h-4 w-4" />
+                              <FilterIcon className="h-4 w-4 text-foreground" />
                             </Button>
                           </motion.div>
                         )}

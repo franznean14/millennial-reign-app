@@ -550,26 +550,26 @@ body {
   display: none !important;
 }
 
-/* Dark map container background */
-.leaflet-container {
+/* Dark map container background (retain current dark scheme) */
+.dark .leaflet-container {
   background: #000000 !important;
 }
 
-/* Darken CartoDB tiles further */
-.leaflet-tile {
+/* Darken CartoDB tiles further (dark mode only) */
+.dark .leaflet-tile {
   filter: brightness(2.1) contrast(0.85) !important;
 }
 
-
-/* Dark popup styling */
-.leaflet-popup-content-wrapper {
-  background: #1a1a1a !important;
-  color: #ffffff !important;
+/* Light map container background */
+.leaflet-container {
+  background: #f5f5f5 !important;
 }
 
-.leaflet-popup-tip {
-  background: #1a1a1a !important;
+/* Light mode tile tuning */
+.leaflet-tile {
+  filter: brightness(1.1) contrast(1.05) saturate(0.95) !important;
 }
+
 
 /* Custom cluster styling - matches pin design */
 .custom-cluster {
@@ -579,13 +579,21 @@ body {
 
 /* Custom popup styling for map markers */
 .leaflet-popup-content-wrapper {
-  background: rgba(0, 0, 0, 0.9) !important;
+  background: hsl(var(--background)) !important;
   color: hsl(var(--foreground)) !important;
   border: 2px solid hsl(var(--border)) !important;
   border-radius: 8px !important;
-  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.8), 0 10px 25px -15px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
+  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.1), 0 10px 25px -15px rgba(0, 0, 0, 0.05), 0 0 0 1px hsl(var(--border)) !important;
   padding: 0 !important;
   opacity: 1 !important;
+}
+
+/* Dark mode popup styling (retain current dark scheme) */
+.dark .leaflet-popup-content-wrapper {
+  background: #1a1a1a !important;
+  color: #ffffff !important;
+  border: 2px solid hsl(var(--border)) !important;
+  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.8), 0 10px 25px -15px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
 }
 
 .leaflet-popup-content {
@@ -600,7 +608,13 @@ body {
   border-top: none !important;
   border-left: none !important;
   opacity: 0.98 !important;
-  filter: brightness(0.85) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Dark mode popup tip */
+.dark .leaflet-popup-tip {
+  background: #1a1a1a !important;
+  border: 2px solid hsl(var(--border)) !important;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
 }
 

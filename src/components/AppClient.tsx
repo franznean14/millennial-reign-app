@@ -751,9 +751,17 @@ export function AppClient() {
         return false;
       }
       
-      // Floor filter
-      if (filters.floors.length > 0 && establishment.floor && !filters.floors.includes(establishment.floor)) {
-        return false;
+      // Floor filter - exclude establishments without floor or with floor not in filter list
+      // Normalize comparison by trimming whitespace and comparing case-insensitively
+      if (filters.floors.length > 0) {
+        const establishmentFloor = establishment.floor ? String(establishment.floor).trim() : null;
+        if (!establishmentFloor) {
+          return false; // Exclude establishments without floor when filtering by floor
+        }
+        const normalizedFloors = filters.floors.map(f => String(f).trim().toLowerCase());
+        if (!normalizedFloors.includes(establishmentFloor.toLowerCase())) {
+          return false;
+        }
       }
       
       // My Establishments filter: show only establishments the user has visited
@@ -1051,9 +1059,17 @@ export function AppClient() {
         return false;
       }
       
-      // Floor filter (exclude if computing floor options)
-      if (excludeType !== 'floors' && filters.floors.length > 0 && establishment.floor && !filters.floors.includes(establishment.floor)) {
-        return false;
+      // Floor filter (exclude if computing floor options) - exclude establishments without floor or with floor not in filter list
+      // Normalize comparison by trimming whitespace and comparing case-insensitively
+      if (excludeType !== 'floors' && filters.floors.length > 0) {
+        const establishmentFloor = establishment.floor ? String(establishment.floor).trim() : null;
+        if (!establishmentFloor) {
+          return false; // Exclude establishments without floor when filtering by floor
+        }
+        const normalizedFloors = filters.floors.map(f => String(f).trim().toLowerCase());
+        if (!normalizedFloors.includes(establishmentFloor.toLowerCase())) {
+          return false;
+        }
       }
       
       // My Establishments filter
