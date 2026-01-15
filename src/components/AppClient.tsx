@@ -1321,12 +1321,12 @@ export function AppClient() {
             formatStatusLabel={formatStatusLabel}
           />
 
-          {/* Sticky Search Bar - Above bottom navigation */}
+          {/* Sticky Search Bar - Hidden, search now in controls row */}
           <StickySearchBar
             filters={filters}
             onFiltersChange={setFilters}
             onClearSearch={handleClearSearch}
-            isVisible={!selectedEstablishment && !selectedHouseholder}
+            isVisible={false}
             businessTab={businessTab}
           />
 

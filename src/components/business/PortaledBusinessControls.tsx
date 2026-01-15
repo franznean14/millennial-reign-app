@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
@@ -48,10 +48,60 @@ export function PortaledBusinessControls({
   formatStatusLabel
 }: PortaledBusinessControlsProps) {
   const [mounted, setMounted] = useState(false);
+  const [isSearchActive, setIsSearchActive] = useState(false);
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Auto-activate search if there's search text
+  useEffect(() => {
+    if (filters.search && filters.search.trim() !== '') {
+      setIsSearchActive(true);
+    }
+  }, [filters.search]);
+
+  // Auto-focus search input when search becomes active
+  const handleSearchFieldReady = () => {
+    if (searchInputRef.current) {
+      // Multiple attempts to ensure focus works
+      const attemptFocus = () => {
+        if (searchInputRef.current) {
+          searchInputRef.current.focus();
+          // Force scroll into view on mobile
+          searchInputRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      };
+      
+      // Try immediately
+      attemptFocus();
+      
+      // Try after animation completes (200ms)
+      setTimeout(attemptFocus, 250);
+      
+      // One more attempt for stubborn cases
+      setTimeout(attemptFocus, 400);
+    }
+  };
+
+  useEffect(() => {
+    if (isSearchActive) {
+      // Wait for DOM update and animation
+      const timer = setTimeout(() => {
+        handleSearchFieldReady();
+      }, 250);
+      return () => clearTimeout(timer);
+    }
+  }, [isSearchActive]);
+
+  // Clear search and restore buttons when search is cleared
+  const handleClearSearchAndRestore = () => {
+    onClearSearch();
+    setIsSearchActive(false);
+    setIsSearchFocused(false);
+  };
 
   if (!mounted) return null;
 
@@ -95,107 +145,173 @@ export function PortaledBusinessControls({
             </motion.div>
           )}
 
-                {/* Controls Row */}
-                <motion.div
-                  className={`flex items-center gap-3 max-w-full px-4 ${
-                    typeof window !== 'undefined' && window.innerWidth >= 1024 
-                      ? 'justify-center' // Desktop: center in main content area
-                      : 'justify-center' // Mobile: center as before
-                  }`}
-                  layout
-                  transition={{
-                    type: "spring",
-                    stiffness: 300,
-                    damping: 30
-                  }}
-                >
-            {/* My Establishments Button - Left */}
-            <Button
-              type="button"
-              variant={filters.myEstablishments ? "default" : "outline"}
-              size="icon"
-              className="h-9 w-9 rounded-full flex-shrink-0"
-              onClick={() => onFiltersChange({ ...filters, myEstablishments: !filters.myEstablishments })}
-              aria-pressed={!!filters.myEstablishments}
-              aria-label="My establishments"
-              title="My establishments"
-            >
-              {filters.myEstablishments ? <UserCheck className="h-4 w-4" /> : <User className="h-4 w-4" />}
-            </Button>
+                {/* Controls Row - Toggle between buttons and search */}
+                <AnimatePresence mode="wait">
+                  {isSearchActive ? (
+                    <motion.div
+                      key="search-field"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ duration: 0.2 }}
+                      onAnimationComplete={handleSearchFieldReady}
+                      className="flex items-center gap-2 max-w-full px-4 w-full"
+                    >
+                      <div className="relative flex-1">
+                        <Input
+                          ref={searchInputRef}
+                          placeholder={businessTab === 'establishments' ? "Search establishments..." : businessTab === 'householders' ? "Search householders..." : "Search locations..."}
+                          value={filters.search}
+                          onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
+                          onFocus={() => setIsSearchFocused(true)}
+                          onBlur={() => {
+                            setIsSearchFocused(false);
+                            // If search is empty when blurring, restore buttons
+                            if (!filters.search || filters.search.trim() === '') {
+                              setIsSearchActive(false);
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.currentTarget.blur();
+                            }
+                            if (e.key === 'Escape') {
+                              handleClearSearchAndRestore();
+                            }
+                          }}
+                          className="bg-background/95 backdrop-blur-sm border shadow-lg h-9 rounded-full w-full pr-10"
+                        />
+                        {(filters.search && filters.search.trim() !== '') && (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 hover:bg-muted/50 rounded-full"
+                            onClick={handleClearSearchAndRestore}
+                            aria-label="Clear search"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="buttons-row"
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.95 }}
+                      transition={{ duration: 0.2 }}
+                      className={`flex items-center gap-3 max-w-full px-4 ${
+                        typeof window !== 'undefined' && window.innerWidth >= 1024 
+                          ? 'justify-center' // Desktop: center in main content area
+                          : 'justify-center' // Mobile: center as before
+                      }`}
+                      layout
+                    >
+                      {/* My Establishments Button - Left */}
+                      <Button
+                        type="button"
+                        variant={filters.myEstablishments ? "default" : "outline"}
+                        size="icon"
+                        className="h-9 w-9 rounded-full flex-shrink-0"
+                        onClick={() => onFiltersChange({ ...filters, myEstablishments: !filters.myEstablishments })}
+                        aria-pressed={!!filters.myEstablishments}
+                        aria-label="My establishments"
+                        title="My establishments"
+                      >
+                        {filters.myEstablishments ? <UserCheck className="h-4 w-4" /> : <User className="h-4 w-4" />}
+                      </Button>
 
-            {/* Near Me Button - Only for non-map views */}
-            <AnimatePresence mode="wait">
-              {businessTab !== 'map' && (
-                <motion.div
-                  key="near-me-button"
-                  initial={{ opacity: 0, x: 40 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 40, transition: { duration: 0 } }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 300,
-                    damping: 30
-                  }}
-                >
-                  <Button
-                    type="button"
-                    variant={filters.nearMe ? "default" : "outline"}
-                    size="icon"
-                    className="h-9 w-9 rounded-full flex-shrink-0"
-                    onClick={onToggleNearMe}
-                    aria-pressed={!!filters.nearMe}
-                    aria-label="Near me"
-                    title="Near me"
-                  >
-                    <Crosshair className="h-4 w-4" />
-                  </Button>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                      {/* Near Me Button - Only for non-map views */}
+                      <AnimatePresence mode="wait">
+                        {businessTab !== 'map' && (
+                          <motion.div
+                            key="near-me-button"
+                            initial={{ opacity: 0, x: 40 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 40, transition: { duration: 0 } }}
+                            transition={{
+                              type: "spring",
+                              stiffness: 300,
+                              damping: 30
+                            }}
+                          >
+                            <Button
+                              type="button"
+                              variant={filters.nearMe ? "default" : "outline"}
+                              size="icon"
+                              className="h-9 w-9 rounded-full flex-shrink-0"
+                              onClick={onToggleNearMe}
+                              aria-pressed={!!filters.nearMe}
+                              aria-label="Near me"
+                              title="Near me"
+                            >
+                              <Crosshair className="h-4 w-4" />
+                            </Button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
 
+                      {/* Search Button */}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 rounded-full flex-shrink-0"
+                        onClick={() => {
+                          setIsSearchActive(true);
+                        }}
+                        aria-label="Search"
+                        title="Search"
+                      >
+                        <Search className="h-4 w-4" />
+                      </Button>
 
-            {/* Filter Button - Right */}
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              className="h-9 w-9 rounded-full flex-shrink-0"
-              onClick={onOpenFilters}
-              title="Filters"
-            >
-              <FilterIcon className="h-4 w-4" />
-            </Button>
+                      {/* Filter Button */}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-9 w-9 rounded-full flex-shrink-0"
+                        onClick={onOpenFilters}
+                        title="Filters"
+                      >
+                        <FilterIcon className="h-4 w-4" />
+                      </Button>
 
-            {/* View Toggle - Only for non-map views */}
-            <AnimatePresence mode="wait">
-              {businessTab !== 'map' && (
-                <motion.div
-                  key="view-toggle"
-                  initial={{ opacity: 0, x: 40 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 40, transition: { duration: 0 } }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 300,
-                    damping: 30
-                  }}
-                >
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="h-9 w-9 rounded-full flex-shrink-0"
-                    onClick={onCycleViewMode}
-                    title={`View: ${viewMode}`}
-                  >
-                    {viewMode === 'detailed' && <LayoutGrid className="h-4 w-4" />}
-                    {viewMode === 'compact' && <List className="h-4 w-4" />}
-                    {viewMode === 'table' && <TableIcon className="h-4 w-4" />}
-                  </Button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
+                      {/* View Toggle - Only for non-map views */}
+                      <AnimatePresence mode="wait">
+                        {businessTab !== 'map' && (
+                          <motion.div
+                            key="view-toggle"
+                            initial={{ opacity: 0, x: 40 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 40, transition: { duration: 0 } }}
+                            transition={{
+                              type: "spring",
+                              stiffness: 300,
+                              damping: 30
+                            }}
+                          >
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-9 w-9 rounded-full flex-shrink-0"
+                              onClick={onCycleViewMode}
+                              title={`View: ${viewMode}`}
+                            >
+                              {viewMode === 'detailed' && <LayoutGrid className="h-4 w-4" />}
+                              {viewMode === 'compact' && <List className="h-4 w-4" />}
+                              {viewMode === 'table' && <TableIcon className="h-4 w-4" />}
+                            </Button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
           {/* Filter Controls */}
           {(filters.statuses.length > 0 || filters.areas.length > 0 || filters.floors.length > 0 || filters.myEstablishments || filters.nearMe) && (
