@@ -145,6 +145,14 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
     }
   }, [initialVisit?.id, initialVisit?.publisher_id, initialVisit?.partner_id]);
   
+  // Helper to format date as YYYY-MM-DD in local timezone (not UTC)
+  const formatLocalDate = (date: Date): string => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
@@ -152,7 +160,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
       const payload = { 
         establishment_id: estId === "none" ? undefined : estId || undefined, 
         note: note?.trim() || null,
-        visit_date: visitDate.toISOString().split('T')[0],
+        visit_date: formatLocalDate(visitDate),
         publisher_id: publishers[0] || undefined,
         partner_id: publishers[1] || undefined,
         householder_id: householderId || initialVisit?.householder_id || undefined,
