@@ -1,13 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Allow cross-origin requests from local network during development
-  allowedDevOrigins: ["192.168.254.104"],
-  // Speed up CI/Vercel deploys by skipping lint and type errors during build.
+  // Speed up CI/Vercel deploys by skipping type errors during build.
   // We will still catch these locally via `npm run lint` and editor tooling.
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  // Note: eslint config is now handled via CLI flags or .eslintrc, not next.config.ts
   typescript: {
     ignoreBuildErrors: true,
   },

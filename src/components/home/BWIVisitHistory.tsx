@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatDateHuman } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ResponsiveModal } from "@/components/ui/responsive-modal";
-import { Calendar, ChevronRight } from "lucide-react";
+import { Calendar, ChevronRight, User, UserCheck, X } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import Image from "next/image";
 import { cacheGet, cacheSet } from "@/lib/offline/store";
 import { getStatusTextColor, getBestStatus, getStatusColor } from "@/lib/utils/status-hierarchy";
 
@@ -20,6 +22,17 @@ interface VisitRecord {
   establishment_status?: string;
   notes?: string;
   created_at: string;
+  publisher_id?: string;
+  publisher?: {
+    first_name: string;
+    last_name: string;
+    avatar_url?: string;
+  };
+  partner?: {
+    first_name: string;
+    last_name: string;
+    avatar_url?: string;
+  };
 }
 
 interface BWIVisitHistoryProps {
@@ -31,10 +44,20 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
   const [visits, setVisits] = useState<VisitRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [showDrawer, setShowDrawer] = useState(false);
-  const [allVisits, setAllVisits] = useState<VisitRecord[]>([]);
+  const [allVisitsRaw, setAllVisitsRaw] = useState<VisitRecord[]>([]); // Store all visits without filtering
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [isOffline, setIsOffline] = useState(false);
+  const [myUpdatesOnly, setMyUpdatesOnly] = useState(false);
+  
+  // Filter visits based on myUpdatesOnly toggle
+  const allVisits = useMemo(() => {
+    if (!myUpdatesOnly) {
+      return allVisitsRaw; // Show all visits
+    }
+    // Filter to show only visits by current user
+    return allVisitsRaw.filter(visit => visit.publisher_id === userId);
+  }, [allVisitsRaw, myUpdatesOnly, userId]);
 
   // Offline detection
   useEffect(() => {
@@ -53,7 +76,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
     };
   }, []);
 
-  // Load initial visits (last 5)
+  // Load initial visits (last 5) - always show user's visits only
   useEffect(() => {
     const loadInitialVisits = async () => {
       if (!userId) return;
@@ -78,7 +101,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
       try {
         const supabase = createSupabaseBrowserClient();
         
-        // Get establishment visits (only those without householder_id)
+        // Get establishment visits (only those without householder_id) - always user's visits
         const { data: establishmentVisits, error: estError } = await supabase
           .from('business_visits')
           .select(`
@@ -87,7 +110,9 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
             note,
             created_at,
             establishment_id,
-            business_establishments(name, statuses)
+            business_establishments(name, statuses),
+            publisher:profiles!business_visits_publisher_id_fkey(first_name, last_name, avatar_url),
+            partner:profiles!business_visits_partner_id_fkey(first_name, last_name, avatar_url)
           `)
           .eq('publisher_id', userId)
           .is('householder_id', null)
@@ -97,7 +122,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
 
         if (estError) throw estError;
 
-        // Get householder visits (prioritize householder visits)
+        // Get householder visits - always user's visits
         const { data: householderVisits, error: hhError } = await supabase
           .from('business_visits')
           .select(`
@@ -107,7 +132,9 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
             created_at,
             householder_id,
             business_householders(name, establishment_id),
-            business_establishments(name, statuses)
+            business_establishments(name, statuses),
+            publisher:profiles!business_visits_publisher_id_fkey(first_name, last_name, avatar_url),
+            partner:profiles!business_visits_partner_id_fkey(first_name, last_name, avatar_url)
           `)
           .eq('publisher_id', userId)
           .not('householder_id', 'is', null)
@@ -126,7 +153,9 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
             visit_type: 'establishment' as const,
             establishment_id: v.establishment_id,
             notes: v.note,
-            created_at: v.created_at
+            created_at: v.created_at,
+            publisher: (v.publisher as any) || undefined,
+            partner: (v.partner as any) || undefined
           })),
           ...(householderVisits || []).map(v => ({
             id: `hh-${v.id}`,
@@ -137,7 +166,9 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
             visit_type: 'householder' as const,
             householder_id: v.householder_id,
             notes: v.note,
-            created_at: v.created_at
+            created_at: v.created_at,
+            publisher: (v.publisher as any) || undefined,
+            partner: (v.partner as any) || undefined
           }))
         ];
 
@@ -195,27 +226,31 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
     try {
       const supabase = createSupabaseBrowserClient();
       
-        // Get establishment visits (only those without householder_id)
-        const { data: establishmentVisits, error: estError } = await supabase
-          .from('business_visits')
-          .select(`
-            id,
-            visit_date,
-            note,
-            created_at,
-            establishment_id,
-            business_establishments(name, statuses)
-          `)
-          .eq('publisher_id', userId)
-          .is('householder_id', null)
-          .not('establishment_id', 'is', null)
-          .order('visit_date', { ascending: false })
-          .range(offset, offset + 19);
+      // Build query for establishment visits - always load all, filter client-side
+      let establishmentQuery = supabase
+        .from('business_visits')
+        .select(`
+          id,
+          visit_date,
+          note,
+          created_at,
+          establishment_id,
+          publisher_id,
+          business_establishments(name, statuses),
+          publisher:profiles!business_visits_publisher_id_fkey(first_name, last_name, avatar_url),
+          partner:profiles!business_visits_partner_id_fkey(first_name, last_name, avatar_url)
+        `)
+        .is('householder_id', null)
+        .not('establishment_id', 'is', null);
+      
+      const { data: establishmentVisits, error: estError } = await establishmentQuery
+        .order('visit_date', { ascending: false })
+        .range(offset, offset + 19);
 
       if (estError) throw estError;
 
-      // Get householder visits (prioritize householder visits)
-      const { data: householderVisits, error: hhError } = await supabase
+      // Build query for householder visits - always load all, filter client-side
+      let householderQuery = supabase
         .from('business_visits')
         .select(`
           id,
@@ -223,11 +258,15 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
           note,
           created_at,
           householder_id,
+          publisher_id,
           business_householders(name, establishment_id),
-          business_establishments(name, statuses)
+          business_establishments(name, statuses),
+          publisher:profiles!business_visits_publisher_id_fkey(first_name, last_name, avatar_url),
+          partner:profiles!business_visits_partner_id_fkey(first_name, last_name, avatar_url)
         `)
-        .eq('publisher_id', userId)
-        .not('householder_id', 'is', null)
+        .not('householder_id', 'is', null);
+      
+      const { data: householderVisits, error: hhError } = await householderQuery
         .order('visit_date', { ascending: false })
         .range(offset, offset + 19);
 
@@ -243,7 +282,10 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
           visit_type: 'establishment' as const,
           establishment_id: v.establishment_id,
           notes: v.note,
-          created_at: v.created_at
+          created_at: v.created_at,
+          publisher_id: (v as any).publisher_id,
+          publisher: (v.publisher as any) || undefined,
+          partner: (v.partner as any) || undefined
         })),
         ...(householderVisits || []).map(v => ({
           id: `hh-${v.id}`,
@@ -254,7 +296,10 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
           visit_type: 'householder' as const,
           householder_id: v.householder_id,
           notes: v.note,
-          created_at: v.created_at
+          created_at: v.created_at,
+          publisher_id: (v as any).publisher_id,
+          publisher: (v.publisher as any) || undefined,
+          partner: (v.partner as any) || undefined
         }))
       ];
 
@@ -267,16 +312,16 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
         .sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
 
       if (offset === 0) {
-        setAllVisits(sortedVisits);
+        setAllVisitsRaw(sortedVisits);
         
-        // Cache the initial data
+        // Cache the initial data (always cache without filter)
         const dataToCache = {
           visits: sortedVisits,
           timestamp: new Date().toISOString()
         };
         await cacheSet(`bwi-all-visits-${userId}-0`, dataToCache);
       } else {
-        setAllVisits(prev => [...prev, ...sortedVisits]);
+        setAllVisitsRaw(prev => [...prev, ...sortedVisits]);
       }
 
       setHasMore(sortedVisits.length === 40); // 20 from each query
@@ -293,9 +338,9 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
     loadAllVisits(0);
   };
 
-  // Load data when drawer opens
+  // Load data when drawer opens (only once, not when filter changes)
   useEffect(() => {
-    if (showDrawer && allVisits.length === 0) {
+    if (showDrawer && allVisitsRaw.length === 0) {
       loadAllVisits(0);
     }
   }, [showDrawer]);
@@ -410,6 +455,34 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
                     </div>
                   )}
                 </button>
+                
+                {/* Avatars - Publisher and Partner */}
+                {visit.publisher && (
+                  <div className="flex-shrink-0 flex items-center ml-4">
+                    {visit.publisher.avatar_url ? (
+                      <Image
+                        src={visit.publisher.avatar_url}
+                        alt={`${visit.publisher.first_name} ${visit.publisher.last_name}`}
+                        width={24}
+                        height={24}
+                        className="rounded-full object-cover ring-2 ring-background w-6 h-6"
+                      />
+                    ) : (
+                      <div className="rounded-full bg-gray-600 flex items-center justify-center text-white text-[10px] ring-2 ring-background w-6 h-6">
+                        {visit.publisher.first_name?.charAt(0) || '?'}
+                      </div>
+                    )}
+                    {visit.partner && (
+                      <Image
+                        src={visit.partner.avatar_url || ''}
+                        alt={`${visit.partner.first_name} ${visit.partner.last_name}`}
+                        width={24}
+                        height={24}
+                        className="rounded-full object-cover ring-2 ring-background -ml-2 w-6 h-6"
+                      />
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -423,10 +496,68 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
         title="BWI Visit History"
         description="Complete visit history with infinite scroll"
       >
+        {/* My Updates Toggle Button */}
+        <div className="mb-4 flex justify-end">
+          <AnimatePresence mode="wait">
+            {myUpdatesOnly ? (
+              <motion.div
+                key="my-updates-expanded"
+                initial={{ width: 36, opacity: 0 }}
+                animate={{ width: "auto", opacity: 1 }}
+                exit={{ width: 36, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="flex items-center gap-1"
+              >
+                <Button
+                  type="button"
+                  variant="default"
+                  size="sm"
+                  className="h-9 rounded-full px-3 flex items-center gap-2"
+                  onClick={() => setMyUpdatesOnly(false)}
+                  aria-label="My updates"
+                >
+                  <UserCheck className="h-4 w-4 flex-shrink-0" />
+                  <span className="text-sm whitespace-nowrap">My Updates</span>
+                  <X className="h-4 w-4 flex-shrink-0" />
+                </Button>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="my-updates-icon"
+                initial={{ width: "auto", opacity: 0 }}
+                animate={{ width: 36, opacity: 1 }}
+                exit={{ width: "auto", opacity: 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 rounded-full flex-shrink-0"
+                  onClick={() => setMyUpdatesOnly(true)}
+                  aria-pressed={false}
+                  aria-label="My updates"
+                  title="My updates"
+                >
+                  <User className="h-4 w-4" />
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+        
         <div className="relative max-h-[70vh] overflow-y-auto">
           <div className="space-y-6">
-            {allVisits.map((visit, index) => (
-              <div key={visit.id} className="flex items-start gap-3 relative pb-4">
+            <AnimatePresence mode="popLayout">
+              {allVisits.map((visit, index) => (
+                <motion.div
+                  key={visit.id}
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="flex items-start gap-3 relative pb-4"
+                >
                 {/* Timeline line segment - only show if not the last item */}
                 {index < allVisits.length - 1 && (
                   <div 
@@ -470,8 +601,37 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
                     </div>
                   )}
                 </button>
-              </div>
-            ))}
+                
+                {/* Avatars - Publisher and Partner */}
+                {visit.publisher && (
+                  <div className="flex-shrink-0 flex items-center ml-4">
+                    {visit.publisher.avatar_url ? (
+                      <Image
+                        src={visit.publisher.avatar_url}
+                        alt={`${visit.publisher.first_name} ${visit.publisher.last_name}`}
+                        width={24}
+                        height={24}
+                        className="rounded-full object-cover ring-2 ring-background w-6 h-6"
+                      />
+                    ) : (
+                      <div className="rounded-full bg-gray-600 flex items-center justify-center text-white text-[10px] ring-2 ring-background w-6 h-6">
+                        {visit.publisher.first_name?.charAt(0) || '?'}
+                      </div>
+                    )}
+                    {visit.partner && (
+                      <Image
+                        src={visit.partner.avatar_url || ''}
+                        alt={`${visit.partner.first_name} ${visit.partner.last_name}`}
+                        width={24}
+                        height={24}
+                        className="rounded-full object-cover ring-2 ring-background -ml-2 w-6 h-6"
+                      />
+                    )}
+                  </div>
+                )}
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
           
           {loadingMore && (
