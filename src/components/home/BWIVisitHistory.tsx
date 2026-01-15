@@ -549,15 +549,24 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
         </div>
         
         <div className="relative max-h-[70vh] overflow-y-auto">
-          <div className="space-y-6">
+          <motion.div 
+            className="space-y-6"
+            layout
+            transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+          >
             <AnimatePresence mode="popLayout">
               {allVisits.map((visit, index) => (
                 <motion.div
                   key={visit.id}
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.2 }}
+                  layout
+                  initial={{ opacity: 0, height: 0, y: -10 }}
+                  animate={{ opacity: 1, height: "auto", y: 0 }}
+                  exit={{ opacity: 0, height: 0, y: -10 }}
+                  transition={{ 
+                    duration: 0.3,
+                    ease: [0.4, 0, 0.2, 1],
+                    layout: { duration: 0.3, ease: [0.4, 0, 0.2, 1] }
+                  }}
                   className="flex items-start gap-3 relative pb-4"
                 >
                 {/* Timeline line segment - only show if not the last item */}
@@ -634,7 +643,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
                 </motion.div>
               ))}
             </AnimatePresence>
-          </div>
+          </motion.div>
           
           {loadingMore && (
             <div className="text-center py-4">
