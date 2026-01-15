@@ -69,7 +69,7 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
   const [area, setArea] = useState(initialData?.area || selectedArea || "");
   const [lat, setLat] = useState<number | null>(initialData?.lat || null);
   const [lng, setLng] = useState<number | null>(initialData?.lng || null);
-  const [floor, setFloor] = useState(initialData?.floor || "");
+  const [floor, setFloor] = useState(initialData?.floor || "Ground Floor");
   const [status, setStatus] = useState<string[]>(initialData?.statuses || (isEditing ? [] : ['for_scouting']));
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const [note, setNote] = useState(initialData?.note || "");
@@ -468,6 +468,7 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
               { value: "declined_rack", label: "Declined Rack" },
               { value: "for_replenishment", label: "For Replenishment" },
               { value: "has_bible_studies", label: "Has Bible Studies" },
+              { value: "closed", label: "Closed" },
               { value: "inappropriate", label: "Inappropriate" }
             ].map((statusOption) => (
               <DropdownMenuCheckboxItem

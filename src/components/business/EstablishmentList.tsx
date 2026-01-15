@@ -203,6 +203,8 @@ export function EstablishmentList({
         return 'Scouting';
       case 'has_bible_studies':
         return 'BS';
+      case 'closed':
+        return 'Closed';
       default:
         return formatStatusText(status);
     }
@@ -217,7 +219,7 @@ export function EstablishmentList({
       case 'declined_rack':
         return 'bg-red-500';
       case 'for_scouting':
-        return 'bg-gray-500';
+        return 'bg-cyan-500';
       case 'for_follow_up':
         return 'bg-orange-500';
       case 'accepted_rack':
@@ -226,6 +228,8 @@ export function EstablishmentList({
         return 'bg-purple-500';
       case 'has_bible_studies':
         return 'bg-emerald-500';
+      case 'closed':
+        return 'bg-slate-500';
       default:
         return 'bg-gray-500';
     }
@@ -297,7 +301,7 @@ export function EstablishmentList({
                                 dotColor = 'bg-red-500';
                                 break;
                               case 'for_scouting':
-                                dotColor = 'bg-gray-500';
+                                dotColor = 'bg-cyan-500';
                                 break;
                               case 'for_follow_up':
                                 dotColor = 'bg-orange-500';
@@ -450,7 +454,7 @@ export function EstablishmentList({
                               dotColor = 'bg-red-500';
                               break;
                             case 'for_scouting':
-                              dotColor = 'bg-gray-500';
+                              dotColor = 'bg-cyan-500';
                               break;
                             case 'for_follow_up':
                               dotColor = 'bg-orange-500';

@@ -2,7 +2,8 @@
 export const STATUS_HIERARCHY = [
   'inappropriate',      // Worst
   'declined_rack',      // Bad
-  'for_scouting',       // Better
+  'closed',             // Neutral - establishment closed
+  'for_scouting',        // Better
   'for_follow_up',      // Good
   'accepted_rack',      // Better
   'has_bible_studies'   // Best
@@ -34,7 +35,7 @@ export const getStatusColor = (status: string) => {
     case 'declined_rack':
       return 'border-red-500/50 bg-red-500/5';
     case 'for_scouting':
-      return 'border-gray-500/50 bg-gray-500/5';
+      return 'border-cyan-500/50 bg-cyan-500/5';
     case 'for_follow_up':
       return 'border-orange-500/50 bg-orange-500/5';
     case 'accepted_rack':
@@ -43,6 +44,8 @@ export const getStatusColor = (status: string) => {
       return 'border-purple-500/50 bg-purple-500/5';
     case 'has_bible_studies':
       return 'border-emerald-500/50 bg-emerald-500/10';
+    case 'closed':
+      return 'border-slate-500/50 bg-slate-500/5';
     default:
       return 'border-gray-500/50 bg-gray-500/5';
   }
@@ -56,7 +59,7 @@ export const getStatusTextColor = (status: string) => {
     case 'declined_rack':
       return 'text-red-500 border-red-500/50';
     case 'for_scouting':
-      return 'text-gray-500 border-gray-500/50';
+      return 'text-cyan-500 border-cyan-500/50';
     case 'for_follow_up':
       return 'text-orange-500 border-orange-500/50';
     case 'accepted_rack':
@@ -65,6 +68,8 @@ export const getStatusTextColor = (status: string) => {
       return 'text-purple-500 border-purple-500/50';
     case 'has_bible_studies':
       return 'text-emerald-500 border-emerald-500/50';
+    case 'closed':
+      return 'text-slate-500 border-slate-500/50';
     // Householder statuses
     case 'potential':
       return 'text-gray-500 border-gray-500/50';

@@ -252,7 +252,7 @@ export function EstablishmentDetails({
                               dotColor = 'bg-red-500';
                               break;
                             case 'for_scouting':
-                              dotColor = 'bg-gray-500';
+                              dotColor = 'bg-cyan-500';
                               break;
                             case 'for_follow_up':
                               dotColor = 'bg-orange-500';
@@ -265,6 +265,9 @@ export function EstablishmentDetails({
                               break;
                             case 'has_bible_studies':
                               dotColor = 'bg-emerald-500';
+                              break;
+                            case 'closed':
+                              dotColor = 'bg-slate-500';
                               break;
                             default:
                               dotColor = 'bg-gray-500';

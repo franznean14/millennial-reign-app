@@ -35,7 +35,8 @@ export type EstablishmentStatus =
   | 'for_replenishment'
   | 'accepted_rack'
   | 'declined_rack'
-  | 'has_bible_studies';
+  | 'has_bible_studies'
+  | 'closed';
 export type HouseholderStatus = 'potential'|'interested'|'return_visit'|'bible_study'|'do_not_call';
 
 export interface Establishment {

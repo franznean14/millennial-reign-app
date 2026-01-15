@@ -443,7 +443,7 @@ function MapMarker({ establishment, onClick, isSelected, index = 0 }: MapMarkerP
       case 'declined_rack':
         return '#ef4444'; // red-500
       case 'for_scouting':
-        return '#6b7280'; // gray-500
+        return '#06b6d4'; // cyan-500
       case 'for_follow_up':
         return '#f97316'; // orange-500
       case 'accepted_rack':
@@ -452,6 +452,8 @@ function MapMarker({ establishment, onClick, isSelected, index = 0 }: MapMarkerP
         return '#a855f7'; // purple-500
       case 'has_bible_studies':
         return '#10b981'; // emerald-500
+      case 'closed':
+        return '#64748b'; // slate-500
       default:
         return '#6b7280'; // gray-500
     }
