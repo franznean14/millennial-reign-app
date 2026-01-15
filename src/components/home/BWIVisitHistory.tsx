@@ -76,14 +76,14 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
     };
   }, []);
 
-  // Load initial visits (last 5) - always show user's visits only
+  // Load initial visits (last 5) - show all visits
   useEffect(() => {
     const loadInitialVisits = async () => {
       if (!userId) return;
       
       setLoading(true);
       
-      const cacheKey = `bwi-visits-${userId}`;
+      const cacheKey = `bwi-visits-all`;
       
       // Try to load from cache first
       const cachedData = await cacheGet(cacheKey);
@@ -101,7 +101,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
       try {
         const supabase = createSupabaseBrowserClient();
         
-        // Get establishment visits (only those without householder_id) - always user's visits
+        // Get establishment visits (only those without householder_id) - show all visits
         const { data: establishmentVisits, error: estError } = await supabase
           .from('business_visits')
           .select(`
@@ -110,11 +110,11 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
             note,
             created_at,
             establishment_id,
+            publisher_id,
             business_establishments(name, statuses),
             publisher:profiles!business_visits_publisher_id_fkey(first_name, last_name, avatar_url),
             partner:profiles!business_visits_partner_id_fkey(first_name, last_name, avatar_url)
           `)
-          .eq('publisher_id', userId)
           .is('householder_id', null)
           .not('establishment_id', 'is', null)
           .order('visit_date', { ascending: false })
@@ -122,7 +122,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
 
         if (estError) throw estError;
 
-        // Get householder visits - always user's visits
+        // Get householder visits - show all visits
         const { data: householderVisits, error: hhError } = await supabase
           .from('business_visits')
           .select(`
@@ -131,12 +131,12 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
             note,
             created_at,
             householder_id,
+            publisher_id,
             business_householders(name, establishment_id),
             business_establishments(name, statuses),
             publisher:profiles!business_visits_publisher_id_fkey(first_name, last_name, avatar_url),
             partner:profiles!business_visits_partner_id_fkey(first_name, last_name, avatar_url)
           `)
-          .eq('publisher_id', userId)
           .not('householder_id', 'is', null)
           .order('visit_date', { ascending: false })
           .limit(5);
@@ -154,6 +154,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
             establishment_id: v.establishment_id,
             notes: v.note,
             created_at: v.created_at,
+            publisher_id: (v as any).publisher_id,
             publisher: (v.publisher as any) || undefined,
             partner: (v.partner as any) || undefined
           })),
@@ -167,6 +168,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
             householder_id: v.householder_id,
             notes: v.note,
             created_at: v.created_at,
+            publisher_id: (v as any).publisher_id,
             publisher: (v.publisher as any) || undefined,
             partner: (v.partner as any) || undefined
           }))
