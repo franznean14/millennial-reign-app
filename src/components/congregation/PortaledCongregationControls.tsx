@@ -32,14 +32,18 @@ export function PortaledCongregationControls({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
           transition={{ duration: 0.3 }}
-          className="fixed left-0 right-0 z-[100] space-y-3 px-4"
+          className={`fixed z-[100] space-y-3 px-4 ${
+            typeof window !== 'undefined' && window.innerWidth >= 1024 
+              ? 'left-64 right-0' // Desktop: start after sidebar (16rem = 256px = 64 in Tailwind)
+              : 'left-0 right-0' // Mobile: full width
+          }`}
           style={{
-            top: 64 // top-16 = 64px
+            top: typeof window !== 'undefined' && window.innerWidth >= 1024 ? 100 : 10 // Lower on desktop, normal on mobile
           }}
         >
           {/* Tab Navigation */}
           <motion.div 
-            className="w-full"
+            className="w-full h-[52px]"
             layout
             transition={{
               type: "spring",

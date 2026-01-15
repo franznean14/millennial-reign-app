@@ -57,7 +57,7 @@ export function CongregationView({ data, onEdit, canEdit }: CongregationViewProp
         isVisible={true}
       />
       
-      <div className="space-y-6"> {/* Remove pb-24 since parent handles it */}
+      <div className="space-y-6 pt-15"> {/* Add top padding to account for fixed controls */}
       
       {/* Tab Content */}
       {congregationTab === 'meetings' && (
