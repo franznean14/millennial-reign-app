@@ -27,28 +27,28 @@ export function BusinessTabToggle({
           onClearStatusFilters();
         }
       }}
-      className={cn("bg-background/95 backdrop-blur-sm border p-1 rounded-lg shadow-lg w-full", className)}
+      className={cn("bg-background/95 backdrop-blur-sm border p-0.1 rounded-lg shadow-lg w-full", className)}
     >
       <ToggleGroupItem 
         value="establishments" 
-        className="data-[state=on]:bg-background data-[state=on]:shadow-sm flex-1 px-3 py-2 min-w-0 w-full flex flex-col items-center justify-center gap-1"
+        className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 w-full flex flex-col items-center justify-center gap-1 transition-colors"
       >
         <Building2 className="h-4 w-4 flex-shrink-0" />
-        <span className="text-[10px] font-medium text-center text-foreground">Establishments</span>
+        <span className="text-[10px] font-medium text-center">Establishments</span>
       </ToggleGroupItem>
       <ToggleGroupItem 
         value="householders" 
-        className="data-[state=on]:bg-background data-[state=on]:shadow-sm flex-1 px-3 py-2 min-w-0 w-full flex flex-col items-center justify-center gap-1"
+        className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 w-full flex flex-col items-center justify-center gap-1 transition-colors"
       >
         <Users className="h-4 w-4 flex-shrink-0" />
-        <span className="text-[10px] font-medium text-center text-foreground">Householders</span>
+        <span className="text-[10px] font-medium text-center">Householders</span>
       </ToggleGroupItem>
       <ToggleGroupItem 
         value="map" 
-        className="data-[state=on]:bg-background data-[state=on]:shadow-sm flex-1 px-3 py-2 min-w-0 w-full flex flex-col items-center justify-center gap-1"
+        className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 w-full flex flex-col items-center justify-center gap-1 transition-colors"
       >
         <MapPin className="h-4 w-4 flex-shrink-0" />
-        <span className="text-[10px] font-medium text-center text-foreground">Map</span>
+        <span className="text-[10px] font-medium text-center">Map</span>
       </ToggleGroupItem>
     </ToggleGroup>
   );

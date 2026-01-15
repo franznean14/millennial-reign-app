@@ -163,13 +163,13 @@ export function PortaledBusinessControls({
               : 'left-0 right-0' // Mobile: full width
           }`}
           style={{
-            top: businessTab === 'map' ? 16 : (typeof window !== 'undefined' && window.innerWidth >= 1024 ? 100 : 10) // Lower on desktop, normal on mobile
+            top: businessTab === 'map' ? 10 : (typeof window !== 'undefined' && window.innerWidth >= 1024 ? 100 : 10) // Lower on desktop, normal on mobile
           }}
         >
           {/* Tab Navigation - Only on mobile */}
           {typeof window !== 'undefined' && window.innerWidth < 1024 && (
             <motion.div 
-              className="w-full"
+              className="w-full h-[52px]"
               layout
               transition={{
                 type: "spring",
@@ -184,7 +184,7 @@ export function PortaledBusinessControls({
                   onFiltersChange({ ...filters, statuses: [] });
                 }}
                 onClearStatusFilters={() => onFiltersChange({ ...filters, statuses: [] })}
-                className="w-full"
+                className="w-full h-full"
               />
             </motion.div>
           )}
@@ -269,7 +269,10 @@ export function PortaledBusinessControls({
                               type="button"
                               variant="default"
                               size="sm"
-                              className="h-9 rounded-full px-3 flex items-center gap-2"
+                              className={cn(
+                                "h-9 rounded-full px-3 flex items-center gap-2",
+                                businessTab === 'map' && "!bg-background dark:!bg-background backdrop-blur-sm !border !border-border shadow-lg"
+                              )}
                               onClick={onClearMyEstablishments}
                               aria-label="My establishments"
                             >
@@ -290,7 +293,10 @@ export function PortaledBusinessControls({
                               type="button"
                               variant="outline"
                               size="icon"
-                              className="h-9 w-9 rounded-full flex-shrink-0"
+                              className={cn(
+                                "h-9 w-9 rounded-full flex-shrink-0",
+                                businessTab === 'map' && "!bg-background dark:!bg-background backdrop-blur-sm !border !border-border shadow-lg"
+                              )}
                               onClick={() => onFiltersChange({ ...filters, myEstablishments: !filters.myEstablishments })}
                               aria-pressed={false}
                               aria-label="My establishments"
@@ -365,7 +371,10 @@ export function PortaledBusinessControls({
                           type="button"
                           variant="outline"
                           size="icon"
-                          className="h-9 w-9 rounded-full flex-shrink-0"
+                          className={cn(
+                            "h-9 w-9 rounded-full flex-shrink-0",
+                            businessTab === 'map' && "!bg-background dark:!bg-background backdrop-blur-sm !border !border-border shadow-lg"
+                          )}
                           onClick={() => {
                             setIsSearchActive(true);
                           }}
@@ -391,7 +400,10 @@ export function PortaledBusinessControls({
                               type="button"
                               variant="default"
                               size="sm"
-                              className="h-auto min-h-9 rounded-full px-3 py-1.5 flex items-center gap-1.5 max-w-full"
+                              className={cn(
+                                "h-auto min-h-9 rounded-full px-3 py-1.5 flex items-center gap-1.5 max-w-full",
+                                businessTab === 'map' && "!bg-background dark:!bg-background backdrop-blur-sm !border !border-border shadow-lg"
+                              )}
                               onClick={(e) => {
                                 // If clicking a badge, don't open filter modal
                                 const target = e.target as HTMLElement;
@@ -471,7 +483,10 @@ export function PortaledBusinessControls({
                               type="button"
                               variant="outline"
                               size="icon"
-                              className="h-9 w-9 rounded-full flex-shrink-0"
+                              className={cn(
+                                "h-9 w-9 rounded-full flex-shrink-0",
+                                businessTab === 'map' && "!bg-background dark:!bg-background backdrop-blur-sm !border !border-border shadow-lg"
+                              )}
                               onClick={onOpenFilters}
                               title="Filters"
                             >

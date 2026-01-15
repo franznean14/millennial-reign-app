@@ -592,7 +592,7 @@ export function EstablishmentList({
   );
 
   return (
-    <div className={viewMode === 'table' ? "w-full h-[calc(100vh-320px)] overflow-hidden flex flex-col overscroll-none" : "w-full"} style={viewMode === 'table' ? { overscrollBehavior: 'none' } : undefined}>
+    <div className={viewMode === 'table' ? "w-full h-[calc(100vh-320px)] overflow-hidden flex flex-col overscroll-none mt-4" : "w-full"} style={viewMode === 'table' ? { overscrollBehavior: 'none' } : undefined}>
 
       {/* Establishments */}
       {viewMode === 'table' ? (
