@@ -5,7 +5,80 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { ArrowDownAZ, ArrowUpAZ, ArrowDownWideNarrow, ArrowUpWideNarrow } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
+import { cn } from "@/lib/utils";
 import type { BusinessFiltersState } from "@/lib/db/business";
+
+// Helper function to get faded status color for unselected state
+const getFadedStatusColor = (status: string) => {
+  switch (status) {
+    case 'inappropriate':
+      return 'text-red-800/50 border-red-800/30';
+    case 'declined_rack':
+      return 'text-red-500/50 border-red-500/30';
+    case 'for_scouting':
+      return 'text-cyan-500/50 border-cyan-500/30';
+    case 'for_follow_up':
+      return 'text-orange-500/50 border-orange-500/30';
+    case 'accepted_rack':
+      return 'text-blue-500/50 border-blue-500/30';
+    case 'for_replenishment':
+      return 'text-purple-500/50 border-purple-500/30';
+    case 'has_bible_studies':
+      return 'text-emerald-500/50 border-emerald-500/30';
+    case 'closed':
+      return 'text-slate-500/50 border-slate-500/30';
+    // Householder statuses
+    case 'potential':
+      return 'text-gray-500/50 border-gray-500/30';
+    case 'interested':
+      return 'text-blue-500/50 border-blue-500/30';
+    case 'return_visit':
+      return 'text-orange-500/50 border-orange-500/30';
+    case 'bible_study':
+      return 'text-emerald-500/50 border-emerald-500/30';
+    case 'do_not_call':
+      return 'text-red-500/50 border-red-500/30';
+    default:
+      return 'text-gray-500/50 border-gray-500/30';
+  }
+};
+
+// Helper function to get selected status color (solid outline with faded background)
+const getSelectedStatusColor = (status: string) => {
+  // Extract color names and create solid border with faded background
+  switch (status) {
+    case 'inappropriate':
+      return 'text-red-800 border-red-800 bg-red-800/5';
+    case 'declined_rack':
+      return 'text-red-500 border-red-500 bg-red-500/5';
+    case 'for_scouting':
+      return 'text-cyan-500 border-cyan-500 bg-cyan-500/5';
+    case 'for_follow_up':
+      return 'text-orange-500 border-orange-500 bg-orange-500/5';
+    case 'accepted_rack':
+      return 'text-blue-500 border-blue-500 bg-blue-500/5';
+    case 'for_replenishment':
+      return 'text-purple-500 border-purple-500 bg-purple-500/5';
+    case 'has_bible_studies':
+      return 'text-emerald-500 border-emerald-500 bg-emerald-500/10';
+    case 'closed':
+      return 'text-slate-500 border-slate-500 bg-slate-500/5';
+    // Householder statuses
+    case 'potential':
+      return 'text-gray-500 border-gray-500 bg-gray-500/5';
+    case 'interested':
+      return 'text-blue-500 border-blue-500 bg-blue-500/5';
+    case 'return_visit':
+      return 'text-orange-500 border-orange-500 bg-orange-500/5';
+    case 'bible_study':
+      return 'text-emerald-500 border-emerald-500 bg-emerald-500/10';
+    case 'do_not_call':
+      return 'text-red-500 border-red-500 bg-red-500/5';
+    default:
+      return 'text-gray-500 border-gray-500 bg-gray-500/5';
+  }
+};
 
 interface BusinessFiltersFormProps {
   filters: BusinessFiltersState;
@@ -94,17 +167,25 @@ export function BusinessFiltersForm({
         <div className="space-y-2">
           <Label>Status</Label>
           <div className="flex flex-wrap gap-2">
-            {statusOptions.map((option) => (
-              <Button
-                key={option.value}
-                variant={localFilters.statuses.includes(option.value) ? "default" : "outline"}
-                size="sm"
-                onClick={() => toggleStatus(option.value)}
-                className="h-8"
-              >
-                {option.label}
-              </Button>
-            ))}
+            {statusOptions.map((option) => {
+              const isSelected = localFilters.statuses.includes(option.value);
+              return (
+                <Button
+                  key={option.value}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => toggleStatus(option.value)}
+                  className={cn(
+                    "h-8 border rounded-full",
+                    isSelected 
+                      ? getSelectedStatusColor(option.value)
+                      : getFadedStatusColor(option.value)
+                  )}
+                >
+                  {option.label}
+                </Button>
+              );
+            })}
           </div>
         </div>
 

@@ -8,6 +8,8 @@ import { Input } from "@/components/ui/input";
 import { BusinessTabToggle } from "./BusinessTabToggle";
 import { Search, Filter as FilterIcon, User, UserCheck, LayoutGrid, List, Table as TableIcon, X, Crosshair } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
+import { cn } from "@/lib/utils";
 import type { BusinessFiltersState } from "@/lib/db/business";
 
 interface PortaledBusinessControlsProps {
@@ -104,6 +106,48 @@ export function PortaledBusinessControls({
   };
 
   if (!mounted) return null;
+
+  // Check if filter button should be expanded (has statuses, areas, or floors)
+  const hasFilterOptions = filters.statuses.length > 0 || filters.areas.length > 0 || filters.floors.length > 0;
+  
+  // Determine which buttons to show when filter is expanded
+  const showOtherButtons = !hasFilterOptions;
+
+  // Get all applied filter badges
+  const getAppliedFilterBadges = () => {
+    const badges: Array<{ type: 'status' | 'area' | 'floor'; value: string; label: string }> = [];
+    
+    // Add status badges
+    filters.statuses.forEach(status => {
+      badges.push({
+        type: 'status',
+        value: status,
+        label: formatStatusLabel(status)
+      });
+    });
+    
+    // Add area badges
+    filters.areas.forEach(area => {
+      badges.push({
+        type: 'area',
+        value: area,
+        label: area
+      });
+    });
+    
+    // Add floor badges
+    filters.floors.forEach(floor => {
+      badges.push({
+        type: 'floor',
+        value: floor,
+        label: floor
+      });
+    });
+    
+    return badges;
+  };
+
+  const badges = getAppliedFilterBadges();
 
   return createPortal(
     <AnimatePresence>
@@ -209,173 +253,268 @@ export function PortaledBusinessControls({
                       }`}
                       layout
                     >
-                      {/* My Establishments Button - Left */}
-                      <Button
-                        type="button"
-                        variant={filters.myEstablishments ? "default" : "outline"}
-                        size="icon"
-                        className="h-9 w-9 rounded-full flex-shrink-0"
-                        onClick={() => onFiltersChange({ ...filters, myEstablishments: !filters.myEstablishments })}
-                        aria-pressed={!!filters.myEstablishments}
-                        aria-label="My establishments"
-                        title="My establishments"
-                      >
-                        {filters.myEstablishments ? <UserCheck className="h-4 w-4" /> : <User className="h-4 w-4" />}
-                      </Button>
-
-                      {/* Near Me Button - Only for non-map views */}
-                      <AnimatePresence mode="wait">
-                        {businessTab !== 'map' && (
+                      {/* My Establishments Button - Expands when active, hidden when filters are expanded */}
+                      {showOtherButtons && (
+                        <AnimatePresence mode="wait">
+                          {filters.myEstablishments ? (
                           <motion.div
-                            key="near-me-button"
-                            initial={{ opacity: 0, x: 40 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: 40, transition: { duration: 0 } }}
-                            transition={{
-                              type: "spring",
-                              stiffness: 300,
-                              damping: 30
-                            }}
+                            key="my-establishments-expanded"
+                            initial={{ width: 36, opacity: 0 }}
+                            animate={{ width: "auto", opacity: 1 }}
+                            exit={{ width: 36, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="flex items-center gap-1"
                           >
                             <Button
                               type="button"
-                              variant={filters.nearMe ? "default" : "outline"}
-                              size="icon"
-                              className="h-9 w-9 rounded-full flex-shrink-0"
-                              onClick={onToggleNearMe}
-                              aria-pressed={!!filters.nearMe}
-                              aria-label="Near me"
-                              title="Near me"
+                              variant="default"
+                              size="sm"
+                              className="h-9 rounded-full px-3 flex items-center gap-2"
+                              onClick={onClearMyEstablishments}
+                              aria-label="My establishments"
                             >
-                              <Crosshair className="h-4 w-4" />
+                              <UserCheck className="h-4 w-4 flex-shrink-0" />
+                              <span className="text-sm whitespace-nowrap">My Establishments</span>
+                              <X className="h-4 w-4 flex-shrink-0" />
                             </Button>
                           </motion.div>
-                        )}
-                      </AnimatePresence>
-
-                      {/* Search Button */}
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className="h-9 w-9 rounded-full flex-shrink-0"
-                        onClick={() => {
-                          setIsSearchActive(true);
-                        }}
-                        aria-label="Search"
-                        title="Search"
-                      >
-                        <Search className="h-4 w-4" />
-                      </Button>
-
-                      {/* Filter Button */}
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className="h-9 w-9 rounded-full flex-shrink-0"
-                        onClick={onOpenFilters}
-                        title="Filters"
-                      >
-                        <FilterIcon className="h-4 w-4" />
-                      </Button>
-
-                      {/* View Toggle - Only for non-map views */}
-                      <AnimatePresence mode="wait">
-                        {businessTab !== 'map' && (
+                        ) : (
                           <motion.div
-                            key="view-toggle"
-                            initial={{ opacity: 0, x: 40 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            exit={{ opacity: 0, x: 40, transition: { duration: 0 } }}
-                            transition={{
-                              type: "spring",
-                              stiffness: 300,
-                              damping: 30
-                            }}
+                            key="my-establishments-icon"
+                            initial={{ width: "auto", opacity: 0 }}
+                            animate={{ width: 36, opacity: 1 }}
+                            exit={{ width: "auto", opacity: 0 }}
+                            transition={{ duration: 0.2 }}
                           >
                             <Button
                               type="button"
                               variant="outline"
                               size="icon"
                               className="h-9 w-9 rounded-full flex-shrink-0"
-                              onClick={onCycleViewMode}
-                              title={`View: ${viewMode}`}
+                              onClick={() => onFiltersChange({ ...filters, myEstablishments: !filters.myEstablishments })}
+                              aria-pressed={false}
+                              aria-label="My establishments"
+                              title="My establishments"
                             >
-                              {viewMode === 'detailed' && <LayoutGrid className="h-4 w-4" />}
-                              {viewMode === 'compact' && <List className="h-4 w-4" />}
-                              {viewMode === 'table' && <TableIcon className="h-4 w-4" />}
+                              <User className="h-4 w-4" />
+                            </Button>
+                          </motion.div>
+                          )}
+                        </AnimatePresence>
+                      )}
+
+                      {/* Near Me Button - Expands when active, only for non-map views, hidden when filters are expanded */}
+                      {showOtherButtons && (
+                        <AnimatePresence mode="wait">
+                          {businessTab !== 'map' && (
+                            filters.nearMe ? (
+                            <motion.div
+                              key="near-me-expanded"
+                              initial={{ width: 36, opacity: 0 }}
+                              animate={{ width: "auto", opacity: 1 }}
+                              exit={{ width: 36, opacity: 0 }}
+                              transition={{ duration: 0.2 }}
+                              className="flex items-center gap-1"
+                            >
+                              <Button
+                                type="button"
+                                variant="default"
+                                size="sm"
+                                className="h-9 rounded-full px-3 flex items-center gap-2"
+                                onClick={onToggleNearMe}
+                                aria-label="Near me"
+                              >
+                                <Crosshair className="h-4 w-4 flex-shrink-0" />
+                                <span className="text-sm whitespace-nowrap">Near Me</span>
+                                <X className="h-4 w-4 flex-shrink-0" />
+                              </Button>
+                            </motion.div>
+                          ) : (
+                            <motion.div
+                              key="near-me-icon"
+                              initial={{ opacity: 0, x: 40 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0, x: 40, transition: { duration: 0 } }}
+                              transition={{
+                                type: "spring",
+                                stiffness: 300,
+                                damping: 30
+                              }}
+                            >
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-9 w-9 rounded-full flex-shrink-0"
+                                onClick={onToggleNearMe}
+                                aria-pressed={false}
+                                aria-label="Near me"
+                                title="Near me"
+                              >
+                                <Crosshair className="h-4 w-4" />
+                              </Button>
+                            </motion.div>
+                            )
+                          )}
+                        </AnimatePresence>
+                      )}
+
+                      {/* Search Button - Hidden when filters are expanded */}
+                      {showOtherButtons && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-9 w-9 rounded-full flex-shrink-0"
+                          onClick={() => {
+                            setIsSearchActive(true);
+                          }}
+                          aria-label="Search"
+                          title="Search"
+                        >
+                          <Search className="h-4 w-4" />
+                        </Button>
+                      )}
+
+                      {/* Filter Button - Expands when filters are active */}
+                      <AnimatePresence mode="wait">
+                        {hasFilterOptions ? (
+                          <motion.div
+                            key="filter-expanded"
+                            initial={{ width: 36, opacity: 0 }}
+                            animate={{ width: "auto", opacity: 1 }}
+                            exit={{ width: 36, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="flex items-center gap-1 max-w-[calc(100vw-3rem)] mx-4"
+                          >
+                            <Button
+                              type="button"
+                              variant="default"
+                              size="sm"
+                              className="h-auto min-h-9 rounded-full px-3 py-1.5 flex items-center gap-1.5 max-w-full"
+                              onClick={(e) => {
+                                // If clicking a badge, don't open filter modal
+                                const target = e.target as HTMLElement;
+                                if (!target.closest('.filter-badge') && !target.closest('.filter-x-button')) {
+                                  onOpenFilters();
+                                }
+                              }}
+                              aria-label="Filters"
+                            >
+                              <FilterIcon className="h-4 w-4 flex-shrink-0" />
+                              <span className="text-sm whitespace-nowrap flex-shrink-0">Filters</span>
+                              <div className="flex items-center gap-1 min-w-0 flex-1 overflow-hidden">
+                                {badges.map((badge, index) => {
+                                  // Contract the rightmost badges (last 2) if there are many badges
+                                  const isRightmost = index >= badges.length - 2 && badges.length > 3;
+                                  // Apply status color scheme for status badges, neutral for areas/floors
+                                  const badgeClassName = badge.type === 'status' 
+                                    ? cn(
+                                        "filter-badge h-5 text-xs px-1.5 py-0 cursor-pointer hover:opacity-70 border rounded-full",
+                                        getStatusTextColor(badge.value),
+                                        isRightmost ? 'max-w-[60px] truncate' : 'flex-shrink-0'
+                                      )
+                                    : cn(
+                                        "filter-badge h-5 text-xs px-1.5 py-0 cursor-pointer hover:opacity-70 border rounded-full",
+                                        "text-muted-foreground border-muted-foreground/50 bg-muted",
+                                        isRightmost ? 'max-w-[60px] truncate' : 'flex-shrink-0'
+                                      );
+                                  return (
+                                    <Badge
+                                      key={`${badge.type}-${badge.value}-${index}`}
+                                      variant="secondary"
+                                      className={badgeClassName}
+                                      title={isRightmost ? badge.label : undefined}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        if (badge.type === 'status') {
+                                          onRemoveStatus(badge.value);
+                                        } else if (badge.type === 'area') {
+                                          onRemoveArea(badge.value);
+                                        } else if (badge.type === 'floor') {
+                                          onRemoveFloor(badge.value);
+                                        }
+                                      }}
+                                    >
+                                      {badge.label}
+                                    </Badge>
+                                  );
+                                })}
+                              </div>
+                              <div
+                                className="filter-x-button h-4 w-4 flex-shrink-0 flex items-center justify-center cursor-pointer hover:opacity-70"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  onFiltersChange({
+                                    ...filters,
+                                    statuses: [],
+                                    areas: [],
+                                    floors: []
+                                  });
+                                }}
+                                aria-label="Clear filters"
+                              >
+                                <X className="h-4 w-4" />
+                              </div>
+                            </Button>
+                          </motion.div>
+                        ) : (
+                          <motion.div
+                            key="filter-icon"
+                            initial={{ width: "auto", opacity: 0 }}
+                            animate={{ width: 36, opacity: 1 }}
+                            exit={{ width: "auto", opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-9 w-9 rounded-full flex-shrink-0"
+                              onClick={onOpenFilters}
+                              title="Filters"
+                            >
+                              <FilterIcon className="h-4 w-4" />
                             </Button>
                           </motion.div>
                         )}
                       </AnimatePresence>
+
+                      {/* View Toggle - Only for non-map views, hidden when filters are expanded */}
+                      {showOtherButtons && (
+                        <AnimatePresence mode="wait">
+                          {businessTab !== 'map' && (
+                            <motion.div
+                              key="view-toggle"
+                              initial={{ opacity: 0, x: 40 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0, x: 40, transition: { duration: 0 } }}
+                              transition={{
+                                type: "spring",
+                                stiffness: 300,
+                                damping: 30
+                              }}
+                            >
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-9 w-9 rounded-full flex-shrink-0"
+                                onClick={onCycleViewMode}
+                                title={`View: ${viewMode}`}
+                              >
+                                {viewMode === 'detailed' && <LayoutGrid className="h-4 w-4" />}
+                                {viewMode === 'compact' && <List className="h-4 w-4" />}
+                                {viewMode === 'table' && <TableIcon className="h-4 w-4" />}
+                              </Button>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>
-
-          {/* Filter Controls */}
-          {(filters.statuses.length > 0 || filters.areas.length > 0 || filters.floors.length > 0 || filters.myEstablishments || filters.nearMe) && (
-            <motion.div 
-              className="w-full"
-              layout
-              transition={{
-                type: "spring",
-                stiffness: 300,
-                damping: 30
-              }}
-            >
-              <div className="flex flex-wrap items-center gap-2 bg-background/95 backdrop-blur-sm border rounded-lg p-2 shadow-lg w-full">
-                {filters.statuses.map((s) => (
-                  <Badge key={s} variant="secondary" className="px-2 py-1 text-xs inline-flex items-center gap-1">
-                    <span>{formatStatusLabel(s)}</span>
-                    <button type="button" onClick={() => onRemoveStatus(s)} aria-label={`Remove ${formatStatusLabel(s)}`} className="ml-1 rounded hover:bg-muted p-0.5">
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
-                {filters.areas.map((a) => (
-                  <Badge key={a} variant="secondary" className="px-2 py-1 text-xs inline-flex items-center gap-1">
-                    <span>{a}</span>
-                    <button type="button" onClick={() => onRemoveArea(a)} aria-label={`Remove ${a}`} className="ml-1 rounded hover:bg-muted p-0.5">
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
-                {filters.floors.map((f) => (
-                  <Badge key={f} variant="secondary" className="px-2 py-1 text-xs inline-flex items-center gap-1">
-                    <span>{f}</span>
-                    <button type="button" onClick={() => onRemoveFloor(f)} aria-label={`Remove ${f}`} className="ml-1 rounded hover:bg-muted p-0.5">
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                ))}
-                {filters.myEstablishments && (
-                  <Badge variant="secondary" className="px-2 py-1 text-xs inline-flex items-center gap-1">
-                    <span>My Establishments</span>
-                    <button type="button" onClick={onClearMyEstablishments} aria-label="Remove My Establishments" className="ml-1 rounded hover:bg-muted p-0.5">
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                )}
-                {filters.nearMe && (
-                  <Badge variant="secondary" className="px-2 py-1 text-xs inline-flex items-center gap-1">
-                    <span>Near Me</span>
-                    <button type="button" onClick={onToggleNearMe} aria-label="Remove Near Me" className="ml-1 rounded hover:bg-muted p-0.5">
-                      <X className="h-3 w-3" />
-                    </button>
-                  </Badge>
-                )}
-                <Badge
-                  variant="outline"
-                  className="px-2 py-1 text-xs inline-flex items-center gap-1 cursor-pointer"
-                  onClick={onClearAllFilters}
-                >
-                  <span>Clear</span>
-                  <X className="h-3 w-3" />
-                </Badge>
-              </div>
-            </motion.div>
-          )}
         </motion.div>
       )}
     </AnimatePresence>,
