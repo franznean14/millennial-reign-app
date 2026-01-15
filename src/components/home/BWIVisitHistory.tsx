@@ -369,8 +369,8 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
   if (loading) {
     return (
       <div className="rounded-lg border p-4">
-        <div className="text-sm font-medium mb-2">BWI Visit History</div>
-        <div className="text-sm opacity-70">Loading...</div>
+        <div className="text-sm font-medium mb-2 text-foreground">BWI Visit History</div>
+        <div className="text-sm text-muted-foreground">Loading...</div>
       </div>
     );
   }
@@ -378,8 +378,8 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
   if (visits.length === 0) {
     return (
       <div className="rounded-lg border p-4">
-        <div className="text-sm font-medium mb-2">BWI Visit History</div>
-        <div className="text-sm opacity-70">No visits recorded yet.</div>
+        <div className="text-sm font-medium mb-2 text-foreground">BWI Visit History</div>
+        <div className="text-sm text-muted-foreground">No visits recorded yet.</div>
       </div>
     );
   }
@@ -390,7 +390,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
         <div className="flex items-center justify-between mb-3">
           <button 
             onClick={handleSeeMore}
-            className="flex items-center gap-2 text-sm font-bold hover:opacity-80 transition-opacity"
+            className="flex items-center gap-2 text-sm font-bold text-foreground hover:opacity-80 transition-opacity"
           >
             BWI Visit History
             <ChevronRight className="h-4 w-4" />
@@ -399,11 +399,11 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
           <div className="flex items-center gap-3 text-xs">
             <div className="flex items-center gap-1">
               <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-              <span className="text-gray-600">Establishment</span>
+              <span className="text-muted-foreground">Establishment</span>
             </div>
             <div className="flex items-center gap-1">
               <div className="w-2 h-2 rounded-full bg-green-500"></div>
-              <span className="text-gray-600">Householder</span>
+              <span className="text-muted-foreground">Householder</span>
             </div>
           </div>
         </div>
@@ -433,7 +433,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
                   className="flex-1 min-w-0 text-left hover:opacity-80 transition-opacity"
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm font-medium text-white">
+                    <span className="text-sm font-medium text-foreground">
                       {visit.householder_name || visit.establishment_name}
                     </span>
                     {visit.visit_type === 'householder' && visit.establishment_name && (
@@ -445,12 +445,12 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-1 text-xs text-gray-200">
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     <Calendar className="h-3 w-3" />
                     {formatVisitDate(visit.visit_date)}
                   </div>
                   {visit.notes && (
-                    <div className="text-xs text-gray-300 mt-1 line-clamp-1">
+                    <div className="text-xs text-muted-foreground mt-1 line-clamp-1">
                       {visit.notes}
                     </div>
                   )}
@@ -579,7 +579,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
                   className="flex-1 min-w-0 text-left hover:opacity-80 transition-opacity"
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm font-medium text-white">
+                    <span className="text-sm font-medium text-foreground">
                       {visit.householder_name || visit.establishment_name}
                     </span>
                     {visit.visit_type === 'householder' && visit.establishment_name && (
@@ -591,12 +591,12 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-1 text-xs text-gray-200 mb-2">
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
                     <Calendar className="h-3 w-3" />
                     {formatVisitDate(visit.visit_date)}
                   </div>
                   {visit.notes && (
-                    <div className="text-xs text-gray-300 leading-relaxed">
+                    <div className="text-xs text-muted-foreground leading-relaxed">
                       {visit.notes}
                     </div>
                   )}

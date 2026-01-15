@@ -61,7 +61,7 @@ export function VisitUpdatesSection({
       <button 
         key={visit.id} 
         onClick={() => setEditVisit(visit)}
-        className="relative flex items-start py-2 w-full text-left hover:bg-gray-700/50 rounded-lg transition-colors"
+        className="relative flex items-start py-2 w-full text-left hover:bg-muted/50 rounded-lg transition-colors"
       >
         {/* Timeline Line */}
         {index < (isDrawer ? visits.length : mainVisits.length) - 1 && (
@@ -84,7 +84,7 @@ export function VisitUpdatesSection({
         {/* Visit Content */}
         <div className="ml-4 flex-1 min-w-0 text-left">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-sm font-medium text-white">
+            <span className="text-sm font-medium text-foreground">
               {formatVisitDate(visit.visit_date)}
             </span>
             {visit.householder_id && visit.householder?.name && !isHouseholderContext && (
@@ -98,14 +98,14 @@ export function VisitUpdatesSection({
               </span>
             )}
           </div>
-          <div className="flex items-center gap-1 text-xs text-gray-200 mb-2">
+          <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
             <Calendar className="h-3 w-3" />
-            <span className="text-xs text-gray-300">
+            <span className="text-xs text-muted-foreground">
               {publisherName}
             </span>
           </div>
           {visit.note && (
-            <div className={`text-xs text-gray-300 leading-relaxed ${!isDrawer ? 'line-clamp-1' : ''}`}>
+            <div className={`text-xs text-muted-foreground leading-relaxed ${!isDrawer ? 'line-clamp-1' : ''}`}>
               {visit.note}
             </div>
           )}
@@ -141,17 +141,17 @@ export function VisitUpdatesSection({
   };
 
   return (
-    <div className="bg-gray-800 p-4 rounded-lg shadow-md">
+    <div className="bg-card p-4 rounded-lg shadow-md border">
       <button
         onClick={() => setDrawerOpen(true)}
-        className="flex items-center gap-2 text-base font-bold text-white hover:opacity-80 transition-opacity mb-4"
+        className="flex items-center gap-2 text-base font-bold text-foreground hover:opacity-80 transition-opacity mb-4"
       >
         Visit Updates
         <ChevronRight className="h-4 w-4" />
       </button>
 
       {visits.length === 0 ? (
-        <div className="text-gray-400">No visit updates found.</div>
+        <div className="text-muted-foreground">No visit updates found.</div>
       ) : (
         <div className="space-y-4">
           {mainVisits.map((visit, index) => renderVisitEntry(visit, index, false))}
@@ -165,7 +165,7 @@ export function VisitUpdatesSection({
       >
         <div ref={drawerRef} className="flex-1 overflow-y-auto p-4 pb-20">
           {visits.length === 0 ? (
-            <div className="text-gray-400">No visit updates found.</div>
+            <div className="text-muted-foreground">No visit updates found.</div>
           ) : (
             <div className="space-y-4">
               {visits.map((visit, index) => renderVisitEntry(visit, index, true))}
