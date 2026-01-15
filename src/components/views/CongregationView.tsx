@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { Label } from "@/components/ui/label";
 import type { Congregation } from "@/lib/db/congregations";
@@ -25,10 +25,18 @@ interface CongregationViewProps {
   data: Congregation;
   onEdit?: () => void;
   canEdit?: boolean;
+  initialTab?: 'meetings' | 'ministry';
 }
 
-export function CongregationView({ data, onEdit, canEdit }: CongregationViewProps) {
-  const [congregationTab, setCongregationTab] = useState<'meetings' | 'ministry'>('meetings');
+export function CongregationView({ data, onEdit, canEdit, initialTab = 'meetings' }: CongregationViewProps) {
+  const [congregationTab, setCongregationTab] = useState<'meetings' | 'ministry'>(initialTab);
+  
+  // Update tab when initialTab prop changes
+  useEffect(() => {
+    if (initialTab) {
+      setCongregationTab(initialTab);
+    }
+  }, [initialTab]);
   const googleMapsHref = (() => {
     if (data.lat != null && data.lng != null) {
       return `https://www.google.com/maps/dir/?api=1&destination=${data.lat},${data.lng}`;

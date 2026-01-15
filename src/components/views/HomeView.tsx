@@ -10,9 +10,10 @@ import { useEffect, useState } from "react";
 interface HomeViewProps {
   userId: string;
   onVisitClick?: (visit: any) => Promise<void>;
+  onNavigateToCongregation?: () => void;
 }
 
-export function HomeView({ userId, onVisitClick }: HomeViewProps) {
+export function HomeView({ userId, onVisitClick, onNavigateToCongregation }: HomeViewProps) {
   const [dateRanges, setDateRanges] = useState({
     monthStart: "",
     nextMonthStart: "",
@@ -62,6 +63,7 @@ export function HomeView({ userId, onVisitClick }: HomeViewProps) {
           nextMonthStart={dateRanges.nextMonthStart}
           serviceYearStart={dateRanges.serviceYearStart}
           serviceYearEnd={dateRanges.serviceYearEnd}
+          onNavigateToCongregation={onNavigateToCongregation}
         />
         
         {/* Gap between cards */}
@@ -86,6 +88,7 @@ export function HomeView({ userId, onVisitClick }: HomeViewProps) {
           nextMonthStart={dateRanges.nextMonthStart}
           serviceYearStart={dateRanges.serviceYearStart}
           serviceYearEnd={dateRanges.serviceYearEnd}
+          onNavigateToCongregation={onNavigateToCongregation}
         />
       </div>
     </motion.div>

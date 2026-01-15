@@ -31,6 +31,7 @@ interface HomeSummaryProps {
   nextMonthStart: string;
   serviceYearStart: string;
   serviceYearEnd: string;
+  onNavigateToCongregation?: () => void;
 }
 
 export function HomeSummary({
@@ -39,6 +40,7 @@ export function HomeSummary({
   nextMonthStart,
   serviceYearStart,
   serviceYearEnd,
+  onNavigateToCongregation,
 }: HomeSummaryProps) {
   const [monthHours, setMonthHours] = useState(0);
   const [syHours, setSyHours] = useState(0);
@@ -258,7 +260,10 @@ export function HomeSummary({
       <h2 className="text-lg font-semibold mb-3">This Month</h2>
       <div className="grid gap-3 sm:grid-cols-3">
         {/* Combined hours card */}
-        <div className="sm:col-span-3 rounded-lg border p-6">
+        <div 
+          className={`sm:col-span-3 rounded-lg border p-6 ${onNavigateToCongregation ? 'cursor-pointer hover:bg-muted/50 transition-colors' : ''}`}
+          onClick={onNavigateToCongregation}
+        >
           <div className="flex flex-row items-end justify-between gap-6">
             <div>
               <div className="text-5xl font-semibold leading-tight">

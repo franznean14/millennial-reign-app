@@ -46,6 +46,7 @@ interface DesktopHomeSummaryProps {
   nextMonthStart: string;
   serviceYearStart: string;
   serviceYearEnd: string;
+  onNavigateToCongregation?: () => void;
 }
 
 export function DesktopHomeSummary({
@@ -54,6 +55,7 @@ export function DesktopHomeSummary({
   nextMonthStart,
   serviceYearStart,
   serviceYearEnd,
+  onNavigateToCongregation,
 }: DesktopHomeSummaryProps) {
   // Home summary state
   const [monthHours, setMonthHours] = useState(0);
@@ -384,7 +386,10 @@ export function DesktopHomeSummary({
 
   return (
     <div className="w-1/3">
-      <Card>
+      <Card 
+        className={onNavigateToCongregation ? 'cursor-pointer hover:bg-muted/50 transition-colors' : ''}
+        onClick={onNavigateToCongregation}
+      >
         <CardHeader>
           <CardTitle>This Month</CardTitle>
         </CardHeader>

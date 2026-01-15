@@ -263,6 +263,7 @@ export function AppClient() {
   const [modalOpen, setModalOpen] = useState(false);
   const [mode, setMode] = useState<"create" | "edit">("create");
   const [busy, setBusy] = useState(false);
+  const [congregationInitialTab, setCongregationInitialTab] = useState<'meetings' | 'ministry' | undefined>(undefined);
 
   // Account state
   const [editing, setEditing] = useState(false);
@@ -438,6 +439,8 @@ export function AppClient() {
   useEffect(() => {
     if (currentSection !== 'congregation') {
       setHasTriedAutoOpen(false);
+      // Reset initial tab when leaving congregation section
+      setCongregationInitialTab(undefined);
     }
   }, [currentSection]);
 
@@ -1288,7 +1291,16 @@ export function AppClient() {
         }
       };
       
-      return <HomeView userId={userId} onVisitClick={handleVisitClick} />;
+      return (
+        <HomeView 
+          userId={userId} 
+          onVisitClick={handleVisitClick}
+          onNavigateToCongregation={() => {
+            setCongregationInitialTab('ministry');
+            onSectionChange('congregation');
+          }}
+        />
+      );
 
     case 'business':
       const hasActiveFilters = filters.search !== "" || filters.statuses.length > 0 || filters.areas.length > 0 || filters.floors.length > 0 || filters.myEstablishments || !!filters.sort;
@@ -1600,6 +1612,7 @@ export function AppClient() {
                 setModalOpen(true);
               }}
               canEdit={canEdit}
+              initialTab={congregationInitialTab}
             />
           ) : (
             <section className="rounded-md border p-4 space-y-2">
