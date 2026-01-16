@@ -53,10 +53,13 @@ export interface Establishment {
 
 export interface Householder {
   id?: string;
-  establishment_id: string;
+  establishment_id?: string | null;
+  publisher_id?: string | null;
   name: string;
   status: HouseholderStatus;
   note?: string | null;
+  lat?: number | null;
+  lng?: number | null;
 }
 
 export interface VisitUpdate {
@@ -132,8 +135,11 @@ export interface HouseholderWithDetails {
   name: string;
   status: HouseholderStatus;
   note?: string | null;
-  establishment_id?: string;
-  establishment_name?: string;
+  establishment_id?: string | null;
+  establishment_name?: string | null;
+  publisher_id?: string | null;
+  lat?: number | null;
+  lng?: number | null;
   assigned_user?: {
     id: string;
     first_name: string;
@@ -198,7 +204,7 @@ export async function listHouseholders(): Promise<HouseholderWithDetails[]> {
     }
     
     const { data, error } = await supabase
-      .from('business_householders')
+      .from('householders')
       .select(`
         *,
         establishment:business_establishments(name, statuses),
@@ -409,12 +415,20 @@ export async function findEstablishmentDuplicates(name: string, area?: string | 
 export async function upsertHouseholder(h: Householder): Promise<Householder | null> {
   const supabase = createSupabaseBrowserClient();
   await supabase.auth.getSession().catch(() => {});
-  const payload: any = { establishment_id: h.establishment_id, name: h.name, status: h.status, note: h.note ?? null };
+  const payload: any = { 
+    name: h.name, 
+    status: h.status, 
+    note: h.note ?? null,
+    establishment_id: h.establishment_id ?? null,
+    publisher_id: h.publisher_id ?? null,
+    lat: h.lat ?? null,
+    lng: h.lng ?? null
+  };
   if (h.id) {
-    const { data, error } = await supabase.from('business_householders').update(payload).eq('id', h.id).select().single();
+    const { data, error } = await supabase.from('householders').update(payload).eq('id', h.id).select().single();
     if (error) return null; return data as any;
   }
-  const { data, error } = await supabase.from('business_householders').insert(payload).select().single();
+  const { data, error } = await supabase.from('householders').insert(payload).select().single();
   if (error) return null; return data as any;
 }
 
@@ -457,7 +471,7 @@ export async function archiveHouseholder(householderId: string): Promise<boolean
   }
   
   const { error } = await supabase
-    .from('business_householders')
+    .from('householders')
     .update({
       is_archived: true,
       archived_at: new Date().toISOString(),
@@ -685,7 +699,7 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
             avatar_url
           )
         ),
-        householders:business_householders!business_householders_establishment_id_fkey(
+        householders:householders!householders_establishment_id_fkey(
           id
         )
       `)
@@ -806,7 +820,7 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
       establishment_id,
       publisher:profiles!business_visits_publisher_id_fkey(id, first_name, last_name, avatar_url),
       partner:profiles!business_visits_partner_id_fkey(id, first_name, last_name, avatar_url),
-      householder:business_householders!business_visits_householder_id_fkey(id, name, status)
+      householder:householders!business_visits_householder_id_fkey(id, name, status)
     `)
     .eq('establishment_id', establishmentId)
     .order('visit_date', { ascending: false });
@@ -829,7 +843,7 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
   
   // Get householders for this establishment only (no user assignment)
   const { data: householders } = await supabase
-    .from('business_householders')
+    .from('householders')
     .select(`
       id,
       name,
@@ -918,7 +932,7 @@ export async function getHouseholderDetails(householderId: string): Promise<{
 
   // Householder with establishment
   const { data: hh } = await supabase
-    .from('business_householders')
+    .from('householders')
     .select('id,name,status,note,establishment_id, establishment:business_establishments(id,name,statuses)')
     .eq('id', householderId)
     .single();
@@ -938,7 +952,7 @@ export async function getHouseholderDetails(householderId: string): Promise<{
       householder_id,
       publisher:profiles!business_visits_publisher_id_fkey(id, first_name, last_name, avatar_url),
       partner:profiles!business_visits_partner_id_fkey(id, first_name, last_name, avatar_url),
-      householder:business_householders!business_visits_householder_id_fkey(id, name, status),
+      householder:householders!business_visits_householder_id_fkey(id, name, status),
       establishment:business_establishments!business_visits_establishment_id_fkey(id, name, statuses)
     `)
     .eq('householder_id', householderId)
@@ -973,6 +987,9 @@ export async function getHouseholderDetails(householderId: string): Promise<{
     note: hh.note,
     establishment_id: hh.establishment_id,
     establishment_name: establishment?.name,
+    publisher_id: hh.publisher_id,
+    lat: hh.lat,
+    lng: hh.lng,
   };
 
   const result = {

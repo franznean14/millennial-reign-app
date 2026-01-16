@@ -132,7 +132,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
             created_at,
             householder_id,
             publisher_id,
-            business_householders(name, establishment_id),
+            householders(name, establishment_id),
             business_establishments(name, statuses),
             publisher:profiles!business_visits_publisher_id_fkey(first_name, last_name, avatar_url),
             partner:profiles!business_visits_partner_id_fkey(first_name, last_name, avatar_url)
@@ -161,7 +161,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
           ...(householderVisits || []).map(v => ({
             id: `hh-${v.id}`,
             visit_date: v.visit_date,
-            householder_name: (v.business_householders as any)?.name,
+            householder_name: (v.householders as any)?.name,
             establishment_name: (v.business_establishments as any)?.name,
             establishment_status: getBestStatus((v.business_establishments as any)?.statuses || []),
             visit_type: 'householder' as const,
@@ -292,7 +292,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
         ...(householderVisits || []).map(v => ({
           id: `hh-${v.id}`,
           visit_date: v.visit_date,
-          householder_name: (v.business_householders as any)?.name,
+          householder_name: (v.householders as any)?.name,
           establishment_name: (v.business_establishments as any)?.name,
           establishment_status: getBestStatus((v.business_establishments as any)?.statuses || []),
           visit_type: 'householder' as const,

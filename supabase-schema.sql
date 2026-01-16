@@ -74,7 +74,7 @@ EXCEPTION
 END $$;
 
 DO $$ BEGIN
-  CREATE TYPE public.business_householder_status_t AS ENUM (
+  CREATE TYPE public.householder_status_t AS ENUM (
     'potential','interested','return_visit','bible_study','do_not_call'
   );
 EXCEPTION
@@ -301,13 +301,16 @@ EXCEPTION
   WHEN duplicate_column THEN null;
 END $$;
 
--- Business householders
-CREATE TABLE IF NOT EXISTS public.business_householders (
+-- Householders (renamed from business_householders, supports both business and personal)
+CREATE TABLE IF NOT EXISTS public.householders (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  establishment_id uuid NOT NULL REFERENCES public.business_establishments(id) ON DELETE CASCADE,
+  establishment_id uuid REFERENCES public.business_establishments(id) ON DELETE CASCADE,
+  publisher_id uuid REFERENCES public.profiles(id),
   name text NOT NULL,
-  status public.business_householder_status_t NOT NULL DEFAULT 'interested',
+  status public.householder_status_t NOT NULL DEFAULT 'interested',
   note text,
+  lat numeric(9,6),
+  lng numeric(10,8),
   created_by uuid REFERENCES public.profiles(id),
   archived_by uuid REFERENCES public.profiles(id),
   deleted_by uuid REFERENCES public.profiles(id),
@@ -316,15 +319,22 @@ CREATE TABLE IF NOT EXISTS public.business_householders (
   archived_at timestamptz,
   deleted_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT householders_establishment_or_publisher_check 
+    CHECK (establishment_id IS NOT NULL OR publisher_id IS NOT NULL)
 );
+
+-- Indexes for householders
+CREATE INDEX IF NOT EXISTS householders_establishment_id_idx ON public.householders(establishment_id) WHERE establishment_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS householders_publisher_id_idx ON public.householders(publisher_id) WHERE publisher_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS householders_coordinates_idx ON public.householders(lat, lng) WHERE lat IS NOT NULL AND lng IS NOT NULL;
 
 -- Business visits
 CREATE TABLE IF NOT EXISTS public.business_visits (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   congregation_id uuid NOT NULL REFERENCES public.congregations(id) ON DELETE CASCADE,
   establishment_id uuid REFERENCES public.business_establishments(id) ON DELETE SET NULL,
-  householder_id uuid REFERENCES public.business_householders(id) ON DELETE SET NULL,
+  householder_id uuid REFERENCES public.householders(id) ON DELETE SET NULL,
   note text,
   publisher_id uuid REFERENCES public.profiles(id),
   partner_id uuid REFERENCES public.profiles(id),
@@ -366,10 +376,10 @@ CREATE TRIGGER trg_business_establishments_updated_at
   BEFORE UPDATE ON public.business_establishments 
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
--- Business householders updated_at trigger
-DROP TRIGGER IF EXISTS trg_business_householders_updated_at ON public.business_householders;
-CREATE TRIGGER trg_business_householders_updated_at 
-  BEFORE UPDATE ON public.business_householders 
+-- Householders updated_at trigger
+DROP TRIGGER IF EXISTS trg_householders_updated_at ON public.householders;
+CREATE TRIGGER trg_householders_updated_at 
+  BEFORE UPDATE ON public.householders 
   FOR EACH ROW EXECUTE FUNCTION public.set_updated_at();
 
 -- Auto-create profile on auth.user creation
@@ -483,7 +493,7 @@ ALTER TABLE public.monthly_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.daily_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.business_participants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.business_establishments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.business_householders ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.householders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.business_visits ENABLE ROW LEVEL SECURITY;
 
 -- ==============================================
@@ -587,41 +597,55 @@ CREATE POLICY "Business: est write" ON public.business_establishments FOR ALL US
   )
 );
 
-DROP POLICY IF EXISTS "Business: hh read" ON public.business_householders;
-CREATE POLICY "Business: hh read" ON public.business_householders FOR SELECT USING (
-  NOT is_deleted AND NOT is_archived AND
-  EXISTS (
-    SELECT 1 FROM public.business_establishments e, public.profiles me
-    WHERE e.id = public.business_householders.establishment_id 
-    AND me.id = auth.uid() 
-    AND me.congregation_id = e.congregation_id
-    AND NOT e.is_deleted
+DROP POLICY IF EXISTS "Householders: read" ON public.householders;
+CREATE POLICY "Householders: read" ON public.householders FOR SELECT USING (
+  NOT is_deleted AND NOT is_archived AND (
+    -- Business householder access (existing logic)
+    (establishment_id IS NOT NULL AND EXISTS (
+      SELECT 1 FROM public.business_establishments e, public.profiles me
+      WHERE e.id = public.householders.establishment_id 
+      AND me.id = auth.uid() 
+      AND me.congregation_id = e.congregation_id
+      AND NOT e.is_deleted
+    ))
+    OR
+    -- Personal householder access (publisher owns it)
+    (publisher_id IS NOT NULL AND publisher_id = auth.uid())
   )
 );
 
-DROP POLICY IF EXISTS "Business: hh write" ON public.business_householders;
-CREATE POLICY "Business: hh write" ON public.business_householders FOR ALL USING (
-  NOT is_deleted AND
-  EXISTS (
-    SELECT 1 FROM public.business_establishments e, public.business_participants bp, public.profiles me
-    WHERE e.id = public.business_householders.establishment_id 
-    AND bp.user_id = auth.uid() 
-    AND me.id = auth.uid()
-    AND bp.congregation_id = e.congregation_id 
-    AND me.congregation_id = e.congregation_id 
-    AND bp.active = true
-    AND NOT e.is_deleted
+DROP POLICY IF EXISTS "Householders: write" ON public.householders;
+CREATE POLICY "Householders: write" ON public.householders FOR ALL USING (
+  NOT is_deleted AND (
+    -- Business householder write (existing logic)
+    (establishment_id IS NOT NULL AND EXISTS (
+      SELECT 1 FROM public.business_establishments e, public.business_participants bp, public.profiles me
+      WHERE e.id = public.householders.establishment_id 
+      AND bp.user_id = auth.uid() 
+      AND me.id = auth.uid()
+      AND bp.congregation_id = e.congregation_id 
+      AND me.congregation_id = e.congregation_id 
+      AND bp.active = true
+      AND NOT e.is_deleted
+    ))
+    OR
+    -- Personal householder write (publisher owns it)
+    (publisher_id IS NOT NULL AND publisher_id = auth.uid())
   )
 ) WITH CHECK (
-  EXISTS (
-    SELECT 1 FROM public.business_establishments e, public.business_participants bp, public.profiles me
-    WHERE e.id = public.business_householders.establishment_id 
-    AND bp.user_id = auth.uid() 
-    AND me.id = auth.uid()
-    AND bp.congregation_id = e.congregation_id 
-    AND me.congregation_id = e.congregation_id 
-    AND bp.active = true
-    AND NOT e.is_deleted
+  NOT is_deleted AND (
+    (establishment_id IS NOT NULL AND EXISTS (
+      SELECT 1 FROM public.business_establishments e, public.business_participants bp, public.profiles me
+      WHERE e.id = public.householders.establishment_id 
+      AND bp.user_id = auth.uid() 
+      AND me.id = auth.uid()
+      AND bp.congregation_id = e.congregation_id 
+      AND me.congregation_id = e.congregation_id 
+      AND bp.active = true
+      AND NOT e.is_deleted
+    ))
+    OR
+    (publisher_id IS NOT NULL AND publisher_id = auth.uid())
   )
 );
 
@@ -942,7 +966,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  UPDATE public.business_householders
+  UPDATE public.householders
   SET 
     is_deleted = true,
     deleted_at = now(),

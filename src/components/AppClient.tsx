@@ -1276,7 +1276,7 @@ export function AppClient() {
             // Load the full householder data
             const supabase = createSupabaseBrowserClient();
             const { data: householder, error } = await supabase
-              .from('business_householders')
+              .from('householders')
               .select('*')
               .eq('id', visit.householder_id)
               .maybeSingle(); // Use maybeSingle() instead of single()
