@@ -79,7 +79,7 @@ export function CongregationView({ data, onEdit, canEdit, initialTab = 'meetings
       )}
       
       {congregationTab === 'ministry' && (
-        <MinistrySection congregationData={data} userId={userId} />
+        <MinistrySection congregationData={data} />
       )}
       
       {congregationTab === 'admin' && isElder && (

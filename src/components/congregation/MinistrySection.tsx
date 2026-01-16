@@ -6,92 +6,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { Congregation } from "@/lib/db/congregations";
 import { listEventSchedules, type EventSchedule } from "@/lib/db/eventSchedules";
+import { formatTimeLabel, isEventOccurringToday } from "@/lib/utils/recurrence";
 
 interface MinistrySectionProps {
   congregationData: Congregation;
-  userId?: string | null;
 }
 
 // Helper to check if an event should appear today
-function isEventToday(event: EventSchedule, today: Date): boolean {
-  // Only show active events
-  if (event.status !== 'active') return false;
-  
-  // Only show ministry events
-  if (event.event_type !== 'ministry') return false;
-  
-  const todayStr = today.toISOString().split('T')[0]; // Format as YYYY-MM-DD
-  const todayDayOfWeek = today.getDay(); // 0 = Sunday, 6 = Saturday
-  const todayDayOfMonth = today.getDate();
-  const todayMonth = today.getMonth() + 1; // 1-12
-  
-  // Check if event has started (today >= start_date)
-  if (todayStr < event.start_date) return false;
-  
-  // Check if recurrence has ended
-  if (event.recurrence_end_date && todayStr > event.recurrence_end_date) return false;
-  
-  // Handle one-time events (no recurrence)
-  if (event.recurrence_pattern === 'none') {
-    // Check if today is within the event date range
-    if (todayStr >= event.start_date) {
-      if (event.end_date) {
-        return todayStr <= event.end_date;
-      }
-      return todayStr === event.start_date;
-    }
-    return false;
-  }
-  
-  // Handle weekly recurrence
-  if (event.recurrence_pattern === 'weekly') {
-    if (event.day_of_week === null) return false;
-    // Check if today matches the day of week
-    if (event.day_of_week !== todayDayOfWeek) return false;
-    // Check if we're past the start date
-    if (todayStr < event.start_date) return false;
-    // Check if the interval matches (e.g., every 2 weeks)
-    const startDate = new Date(event.start_date);
-    const daysDiff = Math.floor((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-    const weeksDiff = Math.floor(daysDiff / 7);
-    // Check if today falls on the correct week interval
-    return weeksDiff % event.recurrence_interval === 0;
-  }
-  
-  // Handle monthly recurrence
-  if (event.recurrence_pattern === 'monthly') {
-    if (event.day_of_month === null) return false;
-    // Check if today matches the day of month
-    if (event.day_of_month !== todayDayOfMonth) return false;
-    // Check if we're past the start date
-    if (todayStr < event.start_date) return false;
-    return true;
-  }
-  
-  // Handle yearly recurrence
-  if (event.recurrence_pattern === 'yearly') {
-    if (event.month_of_year === null || event.day_of_month === null) return false;
-    // Check if today matches the month and day
-    if (event.month_of_year !== todayMonth || event.day_of_month !== todayDayOfMonth) return false;
-    // Check if we're past the start date
-    if (todayStr < event.start_date) return false;
-    return true;
-  }
-  
-  return false;
-}
 
-// Format time for display
-function formatTime(timeStr: string | null | undefined): string {
-  if (!timeStr) return '';
-  const [hours, minutes] = timeStr.split(':');
-  const h = parseInt(hours, 10);
-  const am = h < 12;
-  const h12 = h % 12 || 12;
-  return `${h12}:${minutes.padStart(2, '0')} ${am ? 'AM' : 'PM'}`;
-}
-
-export function MinistrySection({ congregationData, userId }: MinistrySectionProps) {
+export function MinistrySection({ congregationData }: MinistrySectionProps) {
   const [todayEvents, setTodayEvents] = useState<EventSchedule[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -106,7 +29,7 @@ export function MinistrySection({ congregationData, userId }: MinistrySectionPro
         setLoading(true);
         const allEvents = await listEventSchedules(congregationData.id);
         const today = new Date();
-        const filtered = allEvents.filter(event => isEventToday(event, today));
+        const filtered = allEvents.filter(event => isEventOccurringToday(event, today));
         setTodayEvents(filtered);
       } catch (error) {
         console.error('Error loading today events:', error);
@@ -140,7 +63,7 @@ export function MinistrySection({ congregationData, userId }: MinistrySectionPro
             </div>
           ) : (
             <div className="divide-y">
-              {todayEvents.map((event, index) => (
+              {todayEvents.map((event) => (
                 <div key={event.id} className="px-4 py-3 hover:bg-muted/50 transition-colors">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
@@ -163,8 +86,8 @@ export function MinistrySection({ congregationData, userId }: MinistrySectionPro
                           <div className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
                             <span>
-                              {formatTime(event.start_time)}
-                              {event.end_time && ` → ${formatTime(event.end_time)}`}
+                              {formatTimeLabel(event.start_time)}
+                              {event.end_time && ` → ${formatTimeLabel(event.end_time)}`}
                             </span>
                           </div>
                         )}

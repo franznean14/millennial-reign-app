@@ -13,7 +13,6 @@ import { Calendar, Clock, Crosshair } from "lucide-react";
 import { DateRangeSelectModal } from "@/components/ui/date-range-select-modal";
 import { TimeSelectModal } from "@/components/ui/time-select-modal";
 import { format } from "date-fns";
-import { useMobile } from "@/lib/hooks/use-mobile";
 
 interface EventScheduleFormProps {
   congregationId: string;
@@ -46,8 +45,6 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
   const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [recurrenceDatePickerOpen, setRecurrenceDatePickerOpen] = useState(false);
   const [startTimePickerOpen, setStartTimePickerOpen] = useState(false);
-  const [endTimePickerOpen, setEndTimePickerOpen] = useState(false);
-  const isMobile = useMobile();
 
   // Reset ministry_type when event_type changes
   useEffect(() => {

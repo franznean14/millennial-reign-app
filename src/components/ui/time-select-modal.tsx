@@ -481,8 +481,6 @@ export function TimeSelectModal({
   useEffect(() => {
     if (!open) return;
     
-    let confirmTimeout: ReturnType<typeof setTimeout> | null = null;
-    
     // Track when user actually starts scrolling (not programmatic)
     let userScrollStarted = false;
     
@@ -760,9 +758,6 @@ export function TimeSelectModal({
       }
       if (scrollEndTimer) {
         clearTimeout(scrollEndTimer);
-      }
-      if (confirmTimeout) {
-        clearTimeout(confirmTimeout);
       }
       const hoursContainer = hoursRef.current;
       const minutesContainer = minutesRef.current;
