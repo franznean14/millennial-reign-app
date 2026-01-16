@@ -273,6 +273,9 @@ export function AppClient() {
     }
   }, [congregationInitialTab]);
 
+  // Home tab state
+  const [homeTab, setHomeTab] = useState<'summary' | 'events'>('summary');
+
   // Account state
   const [editing, setEditing] = useState(false);
   const [editAccountOpen, setEditAccountOpen] = useState(false);
@@ -1304,6 +1307,8 @@ export function AppClient() {
       }}
       congregationTab={congregationTab}
       onCongregationTabChange={setCongregationTab}
+      homeTab={homeTab}
+      onHomeTabChange={setHomeTab}
     />
   );
 
@@ -1391,6 +1396,7 @@ export function AppClient() {
               setCongregationInitialTab('ministry');
               onSectionChange('congregation');
             }}
+            homeTab={homeTab}
           />
         </>
       );
