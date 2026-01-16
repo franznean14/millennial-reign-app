@@ -1700,6 +1700,7 @@ export function AppClient() {
               initialTab={congregationInitialTab}
               congregationTab={congregationTab}
               onCongregationTabChange={setCongregationTab}
+              userId={userId}
             />
           ) : (
             <section className="rounded-md border p-4 space-y-2">
@@ -1710,7 +1711,11 @@ export function AppClient() {
 
           {cong?.id && (isElder || admin) && (
             <div className="px-4">
-              <CongregationDrawerDialog congregationId={cong.id} />
+              <CongregationDrawerDialog 
+                congregationId={cong.id} 
+                congregationTab={congregationTab}
+                userId={userId}
+              />
             </div>
           )}
 

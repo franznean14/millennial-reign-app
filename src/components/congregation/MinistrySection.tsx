@@ -7,9 +7,10 @@ import type { Congregation } from "@/lib/db/congregations";
 
 interface MinistrySectionProps {
   congregationData: Congregation;
+  userId?: string | null;
 }
 
-export function MinistrySection({ congregationData }: MinistrySectionProps) {
+export function MinistrySection({ congregationData, userId }: MinistrySectionProps) {
   return (
     <div className="space-y-4">
       <Card>

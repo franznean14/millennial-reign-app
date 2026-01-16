@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Crosshair } from "lucide-react";
 import { upsertHouseholder } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { useMobile } from "@/lib/hooks/use-mobile";
@@ -21,29 +22,109 @@ interface HouseholderFormProps {
   isEditing?: boolean;
   initialData?: {
     id: string;
-    establishment_id: string;
+    establishment_id?: string | null;
     name: string;
     status: 'potential'|'interested'|'return_visit'|'bible_study'|'do_not_call';
     note?: string | null;
+    lat?: number | null;
+    lng?: number | null;
+    publisher_id?: string | null;
   } | null;
   onDelete?: () => Promise<void> | void;
   onArchive?: () => Promise<void> | void;
   disableEstablishmentSelect?: boolean;
+  // Context props
+  context?: 'bwi' | 'congregation';
+  publisherId?: string;
 }
 
-export function HouseholderForm({ establishments, selectedEstablishmentId, onSaved, isEditing = false, initialData = null, onDelete, onArchive, disableEstablishmentSelect = false }: HouseholderFormProps) {
+export function HouseholderForm({ establishments, selectedEstablishmentId, onSaved, isEditing = false, initialData = null, onDelete, onArchive, disableEstablishmentSelect = false, context = 'bwi', publisherId }: HouseholderFormProps) {
   const [estId, setEstId] = useState<string>(
     isEditing && initialData?.establishment_id 
-      ? initialData.establishment_id 
+      ? initialData.establishment_id || ""
       : selectedEstablishmentId || establishments[0]?.id || ""
   );
   const [name, setName] = useState(initialData?.name || "");
   const [status, setStatus] = useState<'potential'|'interested'|'return_visit'|'bible_study'|'do_not_call'>(initialData?.status || "potential");
   const [note, setNote] = useState(initialData?.note || "");
+  const [lat, setLat] = useState<number | null>(initialData?.lat || null);
+  const [lng, setLng] = useState<number | null>(initialData?.lng || null);
+  const [gps, setGps] = useState<string>(initialData?.lat && initialData?.lng ? `${initialData.lat}, ${initialData.lng}` : "");
+  const [gpsLoading, setGpsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const isMobile = useMobile();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [archiveConfirmOpen, setArchiveConfirmOpen] = useState(false);
+  
+  // Parse GPS string to lat/lng
+  const parseGps = (gpsStr: string): { lat: number; lng: number } | null => {
+    const parts = gpsStr.split(',').map(s => s.trim());
+    if (parts.length !== 2) return null;
+    const lat = parseFloat(parts[0]);
+    const lng = parseFloat(parts[1]);
+    if (isNaN(lat) || isNaN(lng)) return null;
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+    return { lat, lng };
+  };
+  
+  // Get current location
+  const getCurrentLocation = async () => {
+    if (!navigator.geolocation) {
+      toast.error("Geolocation is not supported by your browser");
+      return;
+    }
+    
+    // Check current permission state
+    try {
+      const permission = await navigator.permissions.query({ name: 'geolocation' });
+      if (permission.state === 'denied') {
+        toast.error("Location access is blocked. Please enable location permissions in your browser settings.");
+        return;
+      }
+    } catch (e) {
+      // Permissions API not supported, continue anyway
+      console.log("Permissions API not supported, proceeding with geolocation request");
+    }
+    
+    setGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const coords = { 
+          lat: position.coords.latitude, 
+          lng: position.coords.longitude 
+        };
+        setLat(coords.lat);
+        setLng(coords.lng);
+        setGps(`${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}`);
+        setGpsLoading(false);
+        toast.success("Location obtained successfully");
+      },
+      (error) => {
+        setGpsLoading(false);
+        let errorMessage = "Failed to get location";
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = "Location access denied. Please check your browser settings and allow location access for this site.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = "Location information unavailable. Please check your device's location settings.";
+            break;
+          case error.TIMEOUT:
+            errorMessage = "Location request timed out. Please try again.";
+            break;
+          default:
+            errorMessage = `Location error: ${error.message}`;
+        }
+        toast.error(errorMessage);
+        console.error("Geolocation error:", error);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 60000 // 1 minute
+      }
+    );
+  };
   
   useEffect(() => {
     // In edit mode, always preserve the original establishment_id and don't change it
@@ -52,15 +133,15 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
       return;
     }
     
-    // Only for new householders (not editing)
-    if (!isEditing) {
+    // Only for new householders (not editing) and only in BWI context
+    if (!isEditing && context === 'bwi') {
       if (selectedEstablishmentId) {
         setEstId(selectedEstablishmentId);
       } else if (establishments.length > 0) {
         setEstId(establishments[0]?.id || "");
       }
     }
-  }, [isEditing, initialData?.establishment_id, selectedEstablishmentId, establishments]);
+  }, [isEditing, initialData?.establishment_id, selectedEstablishmentId, establishments, context]);
 
   // Prefill from active business filters (area doesn't apply here; status can)
   useEffect(() => {
@@ -82,10 +163,13 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
     try {
       const result = await upsertHouseholder({ 
         id: initialData?.id,
-        establishment_id: estId, 
+        establishment_id: context === 'congregation' ? null : (estId || null), 
+        publisher_id: context === 'congregation' ? publisherId : (initialData?.publisher_id || null),
         name, 
         status, 
-        note: note||null 
+        note: note||null,
+        lat: lat || null,
+        lng: lng || null
       });
       
       if (result) {
@@ -103,23 +187,28 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
     }
   };
   
+  const isCongregationContext = context === 'congregation';
+  const showEstablishmentField = !isCongregationContext;
+  
   return (
     <form className="grid gap-3 pb-10" onSubmit={handleSubmit}>
-      <div className="grid gap-1">
-        <Label>Establishment</Label>
-        {disableEstablishmentSelect || isEditing ? (
-          <div className="px-3 py-2 text-sm bg-muted rounded-md">
-            {establishments.find(e => e.id === estId)?.name || 'Selected establishment'}
-          </div>
-        ) : (
-          <Select value={estId} onValueChange={setEstId}>
-            <SelectTrigger><SelectValue placeholder="Select establishment"/></SelectTrigger>
-            <SelectContent>
-              {establishments.map((e)=> <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
-            </SelectContent>
-          </Select>
-        )}
-      </div>
+      {showEstablishmentField && (
+        <div className="grid gap-1">
+          <Label>Establishment</Label>
+          {disableEstablishmentSelect || isEditing ? (
+            <div className="px-3 py-2 text-sm bg-muted rounded-md">
+              {establishments.find(e => e.id === estId)?.name || 'Selected establishment'}
+            </div>
+          ) : (
+            <Select value={estId} onValueChange={setEstId}>
+              <SelectTrigger><SelectValue placeholder="Select establishment"/></SelectTrigger>
+              <SelectContent>
+                {establishments.map((e)=> <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+      )}
       <div className="grid gap-1">
         <Label>Name</Label>
         <Input value={name} onChange={e=>setName(e.target.value)} required />
@@ -136,6 +225,42 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
             <SelectItem value="do_not_call">Do Not Call</SelectItem>
           </SelectContent>
         </Select>
+      </div>
+      <div className="grid gap-1">
+        <Label>GPS</Label>
+        <div className="flex gap-2">
+          <Input 
+            className="flex-1"
+            placeholder="14.5995, 120.9842"
+            value={gps}
+            onChange={(e) => {
+              const v = e.target.value;
+              setGps(v);
+              const parsed = parseGps(v);
+              if (!v.trim()) {
+                setLat(null);
+                setLng(null);
+              } else if (parsed) {
+                setLat(parsed.lat);
+                setLng(parsed.lng);
+              }
+            }}
+          />
+          <Button 
+            type="button" 
+            variant="outline" 
+            size="icon"
+            onClick={getCurrentLocation}
+            disabled={gpsLoading}
+            title={gpsLoading ? "Getting location..." : "Use current location"}
+          >
+            {gpsLoading ? (
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            ) : (
+              <Crosshair className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
       </div>
       <div className="grid gap-1">
         <Label>Note</Label>

@@ -28,9 +28,10 @@ interface CongregationViewProps {
   initialTab?: 'meetings' | 'ministry';
   congregationTab?: 'meetings' | 'ministry';
   onCongregationTabChange?: (tab: 'meetings' | 'ministry') => void;
+  userId?: string | null;
 }
 
-export function CongregationView({ data, onEdit, canEdit, initialTab = 'meetings', congregationTab: externalCongregationTab, onCongregationTabChange: externalOnCongregationTabChange }: CongregationViewProps) {
+export function CongregationView({ data, onEdit, canEdit, initialTab = 'meetings', congregationTab: externalCongregationTab, onCongregationTabChange: externalOnCongregationTabChange, userId }: CongregationViewProps) {
   const [internalCongregationTab, setInternalCongregationTab] = useState<'meetings' | 'ministry'>(initialTab);
   
   // Use external state if provided, otherwise use internal state
@@ -76,7 +77,7 @@ export function CongregationView({ data, onEdit, canEdit, initialTab = 'meetings
       )}
       
       {congregationTab === 'ministry' && (
-        <MinistrySection congregationData={data} />
+        <MinistrySection congregationData={data} userId={userId} />
       )}
       
       {/* Congregation Details Card */}
