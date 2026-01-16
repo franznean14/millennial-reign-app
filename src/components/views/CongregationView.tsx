@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import type { Congregation } from "@/lib/db/congregations";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, MapPinned } from "lucide-react";
+import { Pencil, MapPinned, Settings } from "lucide-react";
 import { PortaledCongregationControls } from "../congregation/PortaledCongregationControls";
 import { MeetingsSection } from "../congregation/MeetingsSection";
 import { MinistrySection } from "../congregation/MinistrySection";
@@ -25,14 +25,15 @@ interface CongregationViewProps {
   data: Congregation;
   onEdit?: () => void;
   canEdit?: boolean;
-  initialTab?: 'meetings' | 'ministry';
-  congregationTab?: 'meetings' | 'ministry';
-  onCongregationTabChange?: (tab: 'meetings' | 'ministry') => void;
+  initialTab?: 'meetings' | 'ministry' | 'admin';
+  congregationTab?: 'meetings' | 'ministry' | 'admin';
+  onCongregationTabChange?: (tab: 'meetings' | 'ministry' | 'admin') => void;
   userId?: string | null;
+  isElder?: boolean;
 }
 
-export function CongregationView({ data, onEdit, canEdit, initialTab = 'meetings', congregationTab: externalCongregationTab, onCongregationTabChange: externalOnCongregationTabChange, userId }: CongregationViewProps) {
-  const [internalCongregationTab, setInternalCongregationTab] = useState<'meetings' | 'ministry'>(initialTab);
+export function CongregationView({ data, onEdit, canEdit, initialTab = 'meetings', congregationTab: externalCongregationTab, onCongregationTabChange: externalOnCongregationTabChange, userId, isElder = false }: CongregationViewProps) {
+  const [internalCongregationTab, setInternalCongregationTab] = useState<'meetings' | 'ministry' | 'admin'>(initialTab);
   
   // Use external state if provided, otherwise use internal state
   const congregationTab = externalCongregationTab ?? internalCongregationTab;
@@ -78,6 +79,16 @@ export function CongregationView({ data, onEdit, canEdit, initialTab = 'meetings
       
       {congregationTab === 'ministry' && (
         <MinistrySection congregationData={data} userId={userId} />
+      )}
+      
+      {congregationTab === 'admin' && isElder && (
+        <div className="space-y-4">
+          <div className="text-center py-8 text-muted-foreground">
+            <Settings className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p>Admin Section</p>
+            <p className="text-sm">Admin features will appear here</p>
+          </div>
+        </div>
       )}
       
       {/* Congregation Details Card */}

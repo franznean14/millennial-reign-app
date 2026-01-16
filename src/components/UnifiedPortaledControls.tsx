@@ -28,8 +28,9 @@ interface UnifiedPortaledControlsProps {
   onBackClick?: () => void;
   onEditClick?: () => void;
   // Congregation props
-  congregationTab?: 'meetings' | 'ministry';
-  onCongregationTabChange?: (tab: 'meetings' | 'ministry') => void;
+  congregationTab?: 'meetings' | 'ministry' | 'admin';
+  onCongregationTabChange?: (tab: 'meetings' | 'ministry' | 'admin') => void;
+  isElder?: boolean;
   // Home props
   homeTab?: 'summary' | 'events';
   onHomeTabChange?: (tab: 'summary' | 'events') => void;
@@ -74,6 +75,7 @@ export function UnifiedPortaledControls(props: UnifiedPortaledControlsProps) {
         congregationTab={props.congregationTab}
         onCongregationTabChange={props.onCongregationTabChange!}
         isVisible={true}
+        isElder={props.isElder}
       />
     );
   }

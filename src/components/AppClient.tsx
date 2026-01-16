@@ -263,8 +263,8 @@ export function AppClient() {
   const [modalOpen, setModalOpen] = useState(false);
   const [mode, setMode] = useState<"create" | "edit">("create");
   const [busy, setBusy] = useState(false);
-  const [congregationInitialTab, setCongregationInitialTab] = useState<'meetings' | 'ministry' | undefined>(undefined);
-  const [congregationTab, setCongregationTab] = useState<'meetings' | 'ministry'>('meetings');
+  const [congregationInitialTab, setCongregationInitialTab] = useState<'meetings' | 'ministry' | 'admin' | undefined>(undefined);
+  const [congregationTab, setCongregationTab] = useState<'meetings' | 'ministry' | 'admin'>('meetings');
   
   // Update congregation tab when initialTab changes
   useEffect(() => {
@@ -1307,6 +1307,7 @@ export function AppClient() {
       }}
       congregationTab={congregationTab}
       onCongregationTabChange={setCongregationTab}
+      isElder={isElder}
       homeTab={homeTab}
       onHomeTabChange={setHomeTab}
     />

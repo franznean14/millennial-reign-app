@@ -5,15 +5,17 @@ import { createPortal } from "react-dom";
 import { CongregationTabToggle } from "./CongregationTabToggle";
 
 interface PortaledCongregationControlsProps {
-  congregationTab: 'meetings' | 'ministry';
-  onCongregationTabChange: (tab: 'meetings' | 'ministry') => void;
+  congregationTab: 'meetings' | 'ministry' | 'admin';
+  onCongregationTabChange: (tab: 'meetings' | 'ministry' | 'admin') => void;
   isVisible: boolean;
+  isElder?: boolean;
 }
 
 export function PortaledCongregationControls({
   congregationTab,
   onCongregationTabChange,
-  isVisible
+  isVisible,
+  isElder = false
 }: PortaledCongregationControlsProps) {
   const [mounted, setMounted] = useState(false);
 
@@ -40,6 +42,7 @@ export function PortaledCongregationControls({
           value={congregationTab}
           onValueChange={onCongregationTabChange}
           className="w-full h-full"
+          isElder={isElder}
         />
       </div>
     </div>,

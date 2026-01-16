@@ -13,7 +13,7 @@ import { HouseholderForm } from "@/components/business/HouseholderForm";
 interface CongregationDrawerDialogProps {
   congregationId: string;
   onUserAdded?: (user: any) => void;
-  congregationTab?: 'meetings' | 'ministry';
+  congregationTab?: 'meetings' | 'ministry' | 'admin';
   userId?: string | null;
 }
 
