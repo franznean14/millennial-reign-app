@@ -18,6 +18,7 @@ import { type HouseholderWithDetails, type VisitWithUser } from "@/lib/db/busine
 import { deleteHouseholder, archiveHouseholder } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { cn } from "@/lib/utils";
+import { formatStatusText } from "@/lib/utils/formatters";
 
 interface HouseholderDetailsProps {
   householder: HouseholderWithDetails;
@@ -159,7 +160,9 @@ export function HouseholderDetails({ householder, visits, establishment, establi
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Status</p>
-                <Badge variant="outline" className={cn("text-xs capitalize", getHouseholderStatusColorClass(householder.status))}>{String(householder.status).replaceAll('_',' ')}</Badge>
+                <Badge variant="outline" className={cn("text-xs capitalize", getHouseholderStatusColorClass(householder.status))}>
+                  {formatStatusText(householder.status)}
+                </Badge>
               </div>
               <div>
                 <p className="text-sm font-medium text-muted-foreground">Establishment</p>

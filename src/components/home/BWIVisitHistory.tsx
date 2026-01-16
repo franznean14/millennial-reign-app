@@ -10,70 +10,38 @@ import Image from "next/image";
 import { getStatusTextColor, getStatusColor } from "@/lib/utils/status-hierarchy";
 import { formatStatusText } from "@/lib/utils/formatters";
 import type { VisitRecord } from "@/lib/utils/visit-history";
-import { getBwiVisitsPage, getRecentBwiVisits } from "@/lib/db/visit-history";
+import { useBwiVisitHistory } from "@/lib/hooks/use-bwi-visit-history";
 import { VisitTimelineRow } from "@/components/visit/VisitTimelineRow";
 import { FilterControls, type FilterBadge } from "@/components/shared/FilterControls";
+import { VisitFiltersForm } from "@/components/visit/VisitFiltersForm";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
 import { useMobile } from "@/lib/hooks/use-mobile";
-import { cn } from "@/lib/utils";
 
 interface BWIVisitHistoryProps {
   userId: string;
   onVisitClick?: (visit: VisitRecord) => void;
 }
 
-interface VisitFilters {
-  search: string;
-  statuses: string[];
-  areas: string[];
-  myUpdatesOnly: boolean;
-}
-
 export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) {
-  const [visits, setVisits] = useState<VisitRecord[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showDrawer, setShowDrawer] = useState(false);
-  const [allVisitsRaw, setAllVisitsRaw] = useState<VisitRecord[]>([]); // Store all visits without filtering
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [filters, setFilters] = useState<VisitFilters>({
-    search: "",
-    statuses: [],
-    areas: [],
-    myUpdatesOnly: false,
-  });
   const [filtersModalOpen, setFiltersModalOpen] = useState(false);
   const [isSearchActive, setIsSearchActive] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const isMobile = useMobile();
 
-  // Get dynamic filter options from available visits
-  const filterOptions = useMemo(() => {
-    const statusSet = new Set<string>();
-    const areaSet = new Set<string>();
-    
-    allVisitsRaw.forEach(visit => {
-      if (visit.establishment_status) {
-        statusSet.add(visit.establishment_status);
-      }
-      if (visit.establishment_area) {
-        areaSet.add(visit.establishment_area);
-      }
-    });
-
-    return {
-      statuses: Array.from(statusSet).map(status => ({
-        value: status,
-        label: formatStatusText(status)
-      })),
-      areas: Array.from(areaSet).map(area => ({
-        value: area,
-        label: area
-      }))
-    };
-  }, [allVisitsRaw]);
+  const {
+    visits,
+    loading,
+    allVisitsRawCount,
+    filteredVisits,
+    filterOptions,
+    filters,
+    setFilters,
+    loadAllVisits,
+    loadingMore,
+    hasMore
+  } = useBwiVisitHistory({ userId });
 
   const filterBadges = useMemo<FilterBadge[]>(() => {
     const badges: Array<{ type: "status" | "area"; value: string; label: string }> = [];
@@ -88,84 +56,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
 
   const hasActiveFilters = filterBadges.length > 0;
 
-  // Apply all filters to visits
-  const allVisits = useMemo(() => {
-    let filtered = [...allVisitsRaw];
-
-    // Filter by my updates
-    if (filters.myUpdatesOnly) {
-      filtered = filtered.filter(visit => visit.publisher_id === userId);
-    }
-
-    // Filter by search
-    if (filters.search.trim()) {
-      const searchLower = filters.search.toLowerCase();
-      filtered = filtered.filter(visit => {
-        const name = (visit.householder_name || visit.establishment_name || "").toLowerCase();
-        const notes = (visit.notes || "").toLowerCase();
-        return name.includes(searchLower) || notes.includes(searchLower);
-      });
-    }
-
-    // Filter by status
-    if (filters.statuses.length > 0) {
-      filtered = filtered.filter(visit => 
-        visit.establishment_status && filters.statuses.includes(visit.establishment_status)
-      );
-    }
-
-    // Filter by area
-    if (filters.areas.length > 0) {
-      filtered = filtered.filter(visit => 
-        visit.establishment_area && filters.areas.includes(visit.establishment_area)
-      );
-    }
-
-    return filtered;
-  }, [allVisitsRaw, filters, userId]);
-
-  // Load initial visits (last 5) - show all visits
-  useEffect(() => {
-    const loadInitialVisits = async () => {
-      if (!userId) return;
-      
-      setLoading(true);
-      
-      try {
-        const sortedVisits = await getRecentBwiVisits(5);
-        setVisits(sortedVisits);
-      } catch (error) {
-        console.error('Error loading visit history:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadInitialVisits();
-  }, [userId]);
-
-  // Load all visits for drawer
-  const loadAllVisits = async (offset = 0) => {
-    if (!userId) return;
-    
-    setLoadingMore(true);
-    
-    try {
-      const sortedVisits = await getBwiVisitsPage({ userId, offset, pageSize: 20 });
-
-      if (offset === 0) {
-        setAllVisitsRaw(sortedVisits);
-      } else {
-        setAllVisitsRaw(prev => [...prev, ...sortedVisits]);
-      }
-
-      setHasMore(sortedVisits.length === 40); // 20 from each query
-    } catch (error) {
-      console.error('Error loading more visits:', error);
-    } finally {
-      setLoadingMore(false);
-    }
-  };
+  // Apply all filters to visits (handled by hook)
 
   const handleSeeMore = () => {
     setShowDrawer(true);
@@ -175,14 +66,14 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
 
   // Load data when drawer opens (only once, not when filter changes)
   useEffect(() => {
-    if (showDrawer && allVisitsRaw.length === 0) {
+    if (showDrawer && allVisitsRawCount === 0) {
       loadAllVisits(0);
     }
-  }, [showDrawer]);
+  }, [showDrawer, allVisitsRawCount, loadAllVisits]);
 
   const handleLoadMore = () => {
     if (!loadingMore && hasMore) {
-      loadAllVisits(allVisits.length);
+      loadAllVisits(allVisitsRawCount);
     }
   };
 
@@ -292,144 +183,6 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
     }
   }, [filters.search]);
 
-  // Helper function to get faded status color
-  function getFadedStatusColor(status: string) {
-    switch (status) {
-      case 'inappropriate':
-        return 'text-red-800/50 border-red-800/30';
-      case 'declined_rack':
-        return 'text-red-500/50 border-red-500/30';
-      case 'for_scouting':
-        return 'text-cyan-500/50 border-cyan-500/30';
-      case 'for_follow_up':
-        return 'text-orange-500/50 border-orange-500/30';
-      case 'accepted_rack':
-        return 'text-blue-500/50 border-blue-500/30';
-      case 'for_replenishment':
-        return 'text-purple-500/50 border-purple-500/30';
-      case 'has_bible_studies':
-        return 'text-emerald-500/50 border-emerald-500/30';
-      case 'closed':
-        return 'text-slate-500/50 border-slate-500/30';
-      default:
-        return 'text-gray-500/50 border-gray-500/30';
-    }
-  }
-
-  // Helper function to get selected status color
-  function getSelectedStatusColor(status: string) {
-    switch (status) {
-      case 'inappropriate':
-        return 'text-red-800 border-red-800 bg-red-800/5';
-      case 'declined_rack':
-        return 'text-red-500 border-red-500 bg-red-500/5';
-      case 'for_scouting':
-        return 'text-cyan-500 border-cyan-500 bg-cyan-500/5';
-      case 'for_follow_up':
-        return 'text-orange-500 border-orange-500 bg-orange-500/5';
-      case 'accepted_rack':
-        return 'text-blue-500 border-blue-500 bg-blue-500/5';
-      case 'for_replenishment':
-        return 'text-purple-500 border-purple-500 bg-purple-500/5';
-      case 'has_bible_studies':
-        return 'text-emerald-500 border-emerald-500 bg-emerald-500/10';
-      case 'closed':
-        return 'text-slate-500 border-slate-500 bg-slate-500/5';
-      default:
-        return 'text-gray-500 border-gray-500 bg-gray-500/5';
-    }
-  }
-
-  // Render filter form
-  function renderFilterForm() {
-    const toggleStatus = (status: string) => {
-      setFilters(prev => ({
-        ...prev,
-        statuses: prev.statuses.includes(status)
-          ? prev.statuses.filter(s => s !== status)
-          : [...prev.statuses, status]
-      }));
-    };
-
-    const toggleArea = (area: string) => {
-      setFilters(prev => ({
-        ...prev,
-        areas: prev.areas.includes(area)
-          ? prev.areas.filter(a => a !== area)
-          : [...prev.areas, area]
-      }));
-    };
-
-    const clearFilters = () => {
-      setFilters(prev => ({
-        ...prev,
-        statuses: [],
-        areas: []
-      }));
-    };
-
-    const hasActiveFilters = filters.statuses.length > 0 || filters.areas.length > 0;
-
-    return (
-      <div className="space-y-6">
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Status</Label>
-            <div className="flex flex-wrap gap-2">
-              {filterOptions.statuses.map((option) => {
-                const isSelected = filters.statuses.includes(option.value);
-                return (
-                  <Button
-                    key={option.value}
-                    variant="outline"
-                    size="sm"
-                    onClick={() => toggleStatus(option.value)}
-                    className={cn(
-                      "h-8 border rounded-full",
-                      isSelected
-                        ? getSelectedStatusColor(option.value)
-                        : getFadedStatusColor(option.value)
-                    )}
-                  >
-                    {option.label}
-                  </Button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Areas</Label>
-            <div className="flex flex-wrap gap-2">
-              {filterOptions.areas.map((option) => (
-                <Button
-                  key={option.value}
-                  variant={filters.areas.includes(option.value) ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => toggleArea(option.value)}
-                  className="h-8"
-                >
-                  {option.value}
-                </Button>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {hasActiveFilters && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={clearFilters}
-            className="w-full"
-          >
-            Clear Filters
-          </Button>
-        )}
-      </div>
-    );
-  }
-
   if (loading) {
     return (
       <div className="rounded-lg border p-4">
@@ -534,7 +287,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
             transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
           >
             <AnimatePresence mode="popLayout">
-              {allVisits.map((visit, index) => (
+              {filteredVisits.map((visit, index) => (
                 <motion.div
                   key={visit.id}
                   layout
@@ -547,7 +300,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
                     layout: { duration: 0.3, ease: [0.4, 0, 0.2, 1] }
                   }}
                 >
-                  {renderVisitRow(visit, index, allVisits.length, true)}
+                  {renderVisitRow(visit, index, filteredVisits.length, true)}
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -570,7 +323,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
             </Button>
           )}
           
-          {!hasMore && allVisits.length > 0 && (
+          {!hasMore && filteredVisits.length > 0 && (
             <div className="text-center py-4">
               <div className="text-sm opacity-70">No more visits to load</div>
             </div>
@@ -587,7 +340,19 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
               <DrawerDescription>Filter by status and area</DrawerDescription>
             </DrawerHeader>
             <div className="px-4 pb-4">
-              {renderFilterForm()}
+              <VisitFiltersForm
+                filters={filters}
+                statusOptions={filterOptions.statuses}
+                areaOptions={filterOptions.areas}
+                onFiltersChange={setFilters}
+                onClearFilters={() =>
+                  setFilters(prev => ({
+                    ...prev,
+                    statuses: [],
+                    areas: []
+                  }))
+                }
+              />
             </div>
           </DrawerContent>
         </Drawer>
@@ -599,7 +364,19 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
               <DialogDescription>Filter by status and area</DialogDescription>
             </DialogHeader>
             <div className="px-4">
-              {renderFilterForm()}
+              <VisitFiltersForm
+                filters={filters}
+                statusOptions={filterOptions.statuses}
+                areaOptions={filterOptions.areas}
+                onFiltersChange={setFilters}
+                onClearFilters={() =>
+                  setFilters(prev => ({
+                    ...prev,
+                    statuses: [],
+                    areas: []
+                  }))
+                }
+              />
             </div>
           </DialogContent>
         </Dialog>
