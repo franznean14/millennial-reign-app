@@ -234,6 +234,42 @@ body {
   display: none; /* Chrome, Safari, Opera */
 }
 
+/* Hide scrollbar utility (alias) */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Time picker scroll optimization (Mobiscroll-style) */
+.time-picker-scroll {
+  scroll-snap-type: y mandatory;
+  -webkit-overflow-scrolling: touch;
+  /* Use smooth for CSS transitions when state changes */
+  scroll-behavior: smooth;
+  /* Optimize for performance */
+  will-change: scroll-position;
+  /* Better touch handling */
+  touch-action: pan-y;
+  /* Prevent overscroll bounce */
+  overscroll-behavior: contain;
+  /* Hardware acceleration */
+  transform: translateZ(0);
+  /* Optimize paint */
+  contain: layout style paint;
+  /* Smooth transition duration */
+  transition: scroll-behavior 0.3s ease-out;
+}
+
+.time-picker-scroll > button {
+  scroll-snap-align: center;
+  /* Smooth transitions for state changes */
+  transition: transform 0.3s ease-out, opacity 0.2s ease-out;
+  contain: layout style;
+}
+
 /* Visual viewport support for mobile keyboards */
 @supports (height: 100dvh) {
   .drawer-content {

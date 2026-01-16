@@ -10,6 +10,7 @@ import { Pencil, MapPinned, Settings } from "lucide-react";
 import { PortaledCongregationControls } from "../congregation/PortaledCongregationControls";
 import { MeetingsSection } from "../congregation/MeetingsSection";
 import { MinistrySection } from "../congregation/MinistrySection";
+import { AdminFloatingButton } from "../congregation/AdminFloatingButton";
 
 // Dynamic import to avoid circular dependencies
 const CongregationMembers = dynamic(() => import("../congregation/CongregationMembers").then(m => m.CongregationMembers), { ssr: false });

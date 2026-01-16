@@ -68,6 +68,7 @@ const BusinessFiltersForm = dynamic(() => import("@/components/business/Business
 const CongregationView = dynamic(() => import("@/components/views/CongregationView").then(m => m.CongregationView), { ssr: false });
 const FieldServiceDrawerDialog = dynamic(() => import("@/components/fieldservice/FieldServiceDrawerDialog").then(m => m.FieldServiceDrawerDialog), { ssr: false });
 const CongregationDrawerDialog = dynamic(() => import("@/components/congregation/CongregationDrawerDialog").then(m => m.CongregationDrawerDialog), { ssr: false });
+const AdminFloatingButton = dynamic(() => import("@/components/congregation/AdminFloatingButton").then(m => m.AdminFloatingButton), { ssr: false });
 
 
 // Status hierarchy from worst to best
@@ -1701,13 +1702,19 @@ export function AppClient() {
             </section>
           )}
 
-          {cong?.id && (isElder || admin) && (
+          {cong?.id && (isElder || admin) && congregationTab !== 'admin' && (
             <div className="px-4">
               <CongregationDrawerDialog 
                 congregationId={cong.id} 
                 congregationTab={congregationTab}
                 userId={userId}
               />
+            </div>
+          )}
+
+          {cong?.id && isElder && congregationTab === 'admin' && (
+            <div className="px-4">
+              <AdminFloatingButton congregationId={cong.id} />
             </div>
           )}
 
