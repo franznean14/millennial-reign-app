@@ -1,17 +1,15 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatDateHuman } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ResponsiveModal } from "@/components/ui/responsive-modal";
 import { Calendar, ChevronRight, User, UserCheck, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import Image from "next/image";
-import { cacheGet, cacheSet } from "@/lib/offline/store";
 import { getStatusTextColor, getStatusColor } from "@/lib/utils/status-hierarchy";
 import type { VisitRecord } from "@/lib/utils/visit-history";
-import { buildVisitRecords, dedupeAndSortVisits, takeTopVisits } from "@/lib/utils/visit-history";
+import { getBwiVisitsPage, getRecentBwiVisits } from "@/lib/db/visit-history";
 
 interface BWIVisitHistoryProps {
   userId: string;
@@ -61,78 +59,9 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
       
       setLoading(true);
       
-      const cacheKey = `bwi-visits-all`;
-      
-      // Try to load from cache first
-      const cachedData = await cacheGet(cacheKey);
-      if (cachedData) {
-        setVisits(cachedData.visits || []);
-        setLoading(false);
-      }
-      
-      // If offline, don't attempt network request
-      if (isOffline) {
-        setLoading(false);
-        return;
-      }
-      
       try {
-        const supabase = createSupabaseBrowserClient();
-        
-        // Get establishment visits (only those without householder_id) - show all visits
-        const { data: establishmentVisits, error: estError } = await supabase
-          .from('business_visits')
-          .select(`
-            id,
-            visit_date,
-            note,
-            created_at,
-            establishment_id,
-            publisher_id,
-            business_establishments(name, statuses),
-            publisher:profiles!business_visits_publisher_id_fkey(first_name, last_name, avatar_url),
-            partner:profiles!business_visits_partner_id_fkey(first_name, last_name, avatar_url)
-          `)
-          .is('householder_id', null)
-          .not('establishment_id', 'is', null)
-          .order('visit_date', { ascending: false })
-          .limit(5);
-
-        if (estError) throw estError;
-
-        // Get householder visits - show all visits
-        const { data: householderVisits, error: hhError } = await supabase
-          .from('business_visits')
-          .select(`
-            id,
-            visit_date,
-            note,
-            created_at,
-            householder_id,
-            publisher_id,
-            householders(name, establishment_id),
-            business_establishments(name, statuses),
-            publisher:profiles!business_visits_publisher_id_fkey(first_name, last_name, avatar_url),
-            partner:profiles!business_visits_partner_id_fkey(first_name, last_name, avatar_url)
-          `)
-          .not('householder_id', 'is', null)
-          .order('visit_date', { ascending: false })
-          .limit(5);
-
-        if (hhError) throw hhError;
-
-        const combinedVisits = buildVisitRecords(establishmentVisits || [], householderVisits || []);
-        const sortedVisits = takeTopVisits(combinedVisits, 5);
-
+        const sortedVisits = await getRecentBwiVisits(5);
         setVisits(sortedVisits);
-        
-        // Cache the data
-        const dataToCache = {
-          visits: sortedVisits,
-          timestamp: new Date().toISOString()
-        };
-        await cacheSet(cacheKey, dataToCache);
-        
       } catch (error) {
         console.error('Error loading visit history:', error);
       } finally {
@@ -149,84 +78,11 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
     
     setLoadingMore(true);
     
-    const cacheKey = `bwi-all-visits-${userId}-${offset}`;
-    
-    // Try to load from cache first (only for initial load)
-    if (offset === 0) {
-      const cachedData = await cacheGet(`bwi-all-visits-${userId}-0`);
-      if (cachedData) {
-        // Clear the cache to force fresh data fetch with correct status information
-        await cacheSet(`bwi-all-visits-${userId}-0`, null);
-      }
-    }
-    
-    // If offline, don't attempt network request
-    if (isOffline) {
-      setLoadingMore(false);
-      return;
-    }
-    
     try {
-      const supabase = createSupabaseBrowserClient();
-      
-      // Build query for establishment visits - always load all, filter client-side
-      let establishmentQuery = supabase
-        .from('business_visits')
-        .select(`
-          id,
-          visit_date,
-          note,
-          created_at,
-          establishment_id,
-          publisher_id,
-          business_establishments(name, statuses),
-          publisher:profiles!business_visits_publisher_id_fkey(first_name, last_name, avatar_url),
-          partner:profiles!business_visits_partner_id_fkey(first_name, last_name, avatar_url)
-        `)
-        .is('householder_id', null)
-        .not('establishment_id', 'is', null);
-      
-      const { data: establishmentVisits, error: estError } = await establishmentQuery
-        .order('visit_date', { ascending: false })
-        .range(offset, offset + 19);
-
-      if (estError) throw estError;
-
-      // Build query for householder visits - always load all, filter client-side
-      let householderQuery = supabase
-        .from('business_visits')
-        .select(`
-          id,
-          visit_date,
-          note,
-          created_at,
-          householder_id,
-          publisher_id,
-          householders(name, establishment_id),
-          business_establishments(name, statuses),
-          publisher:profiles!business_visits_publisher_id_fkey(first_name, last_name, avatar_url),
-          partner:profiles!business_visits_partner_id_fkey(first_name, last_name, avatar_url)
-        `)
-        .not('householder_id', 'is', null);
-      
-      const { data: householderVisits, error: hhError } = await householderQuery
-        .order('visit_date', { ascending: false })
-        .range(offset, offset + 19);
-
-      if (hhError) throw hhError;
-
-      const combinedVisits = buildVisitRecords(establishmentVisits || [], householderVisits || []);
-      const sortedVisits = dedupeAndSortVisits(combinedVisits);
+      const sortedVisits = await getBwiVisitsPage({ userId, offset, pageSize: 20 });
 
       if (offset === 0) {
         setAllVisitsRaw(sortedVisits);
-        
-        // Cache the initial data (always cache without filter)
-        const dataToCache = {
-          visits: sortedVisits,
-          timestamp: new Date().toISOString()
-        };
-        await cacheSet(`bwi-all-visits-${userId}-0`, dataToCache);
       } else {
         setAllVisitsRaw(prev => [...prev, ...sortedVisits]);
       }

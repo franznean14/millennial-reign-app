@@ -120,6 +120,18 @@ export function SPAProvider({ children }: { children: ReactNode }) {
             showBusiness: assigned || isSuperadmin || (admin && isElder),
           });
         }
+
+        // If we just signed in from /login, reset to home and clean URL/state
+        if (typeof window !== 'undefined') {
+          const path = window.location.pathname;
+          if (path === '/login' || currentSection === 'login') {
+            setCurrentSection('home');
+            setNavigationStack(['home']);
+            const url = new URL(window.location.href);
+            url.pathname = '/';
+            window.history.replaceState({}, '', url.toString());
+          }
+        }
       } else {
         setIsAuthenticated(false);
         setUserPermissions({
