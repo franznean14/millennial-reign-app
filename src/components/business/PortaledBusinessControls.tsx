@@ -161,15 +161,15 @@ export function PortaledBusinessControls({
 
   return createPortal(
     <div
-      className={`fixed z-[100] space-y-3 px-4 ${
-        typeof window !== 'undefined' && window.innerWidth >= 1024 
-          ? 'left-64 right-0' // Desktop: start after sidebar (16rem = 256px = 64 in Tailwind)
-          : 'left-0 right-0' // Mobile: full width
-      }`}
-      style={{
+          className={`fixed z-[100] space-y-3 px-4 ${
+            typeof window !== 'undefined' && window.innerWidth >= 1024 
+              ? 'left-64 right-0' // Desktop: start after sidebar (16rem = 256px = 64 in Tailwind)
+              : 'left-0 right-0' // Mobile: full width
+          }`}
+          style={{
         top: businessTab === 'map' ? 10 : (typeof window !== 'undefined' && window.innerWidth >= 1024 ? 100 : 10) // Lower on desktop, normal on mobile
-      }}
-    >
+          }}
+        >
           {/* Tab Navigation - Always show on mobile, even in details view */}
           {typeof window !== 'undefined' && window.innerWidth < 1024 && (
             <div className="w-full h-[52px]">
@@ -177,8 +177,8 @@ export function PortaledBusinessControls({
                 value={businessTab}
                 onValueChange={(value) => {
                   if (!isDetailsView) {
-                    onBusinessTabChange(value);
-                    onFiltersChange({ ...filters, statuses: [] });
+                  onBusinessTabChange(value);
+                  onFiltersChange({ ...filters, statuses: [] });
                   }
                 }}
                 onClearStatusFilters={() => onFiltersChange({ ...filters, statuses: [] })}
@@ -284,18 +284,18 @@ export function PortaledBusinessControls({
                       </div>
                     </motion.div>
                   ) : (
-                    <motion.div
+                <motion.div
                       key="buttons-row"
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.95 }}
                       transition={{ duration: 0.2 }}
-                      className={`flex items-center gap-3 max-w-full px-4 ${
-                        typeof window !== 'undefined' && window.innerWidth >= 1024 
-                          ? 'justify-center' // Desktop: center in main content area
-                          : 'justify-center' // Mobile: center as before
-                      }`}
-                      layout
+                  className={`flex items-center gap-3 max-w-full px-4 ${
+                    typeof window !== 'undefined' && window.innerWidth >= 1024 
+                      ? 'justify-center' // Desktop: center in main content area
+                      : 'justify-center' // Mobile: center as before
+                  }`}
+                  layout
                     >
                       {/* My Establishments Button - Expands when active, hidden when filters are expanded */}
                       {showOtherButtons && (
@@ -333,21 +333,21 @@ export function PortaledBusinessControls({
                             exit={{ width: "auto", opacity: 0 }}
                             transition={{ duration: 0.2 }}
                           >
-                            <Button
-                              type="button"
+            <Button
+              type="button"
                               variant="outline"
-                              size="icon"
+              size="icon"
                               className={cn(
                                 "h-9 w-9 rounded-full flex-shrink-0",
                                 businessTab === 'map' && "!bg-background dark:!bg-background backdrop-blur-sm !border !border-border shadow-lg"
                               )}
-                              onClick={() => onFiltersChange({ ...filters, myEstablishments: !filters.myEstablishments })}
+              onClick={() => onFiltersChange({ ...filters, myEstablishments: !filters.myEstablishments })}
                               aria-pressed={false}
-                              aria-label="My establishments"
-                              title="My establishments"
-                            >
+              aria-label="My establishments"
+              title="My establishments"
+            >
                               <User className="h-4 w-4 text-foreground" />
-                            </Button>
+            </Button>
                           </motion.div>
                           )}
                         </AnimatePresence>
@@ -355,8 +355,8 @@ export function PortaledBusinessControls({
 
                       {/* Near Me Button - Expands when active, only for non-map views, hidden when filters are expanded */}
                       {showOtherButtons && (
-                        <AnimatePresence mode="wait">
-                          {businessTab !== 'map' && (
+            <AnimatePresence mode="wait">
+              {businessTab !== 'map' && (
                             filters.nearMe ? (
                             <motion.div
                               key="near-me-expanded"
@@ -380,33 +380,33 @@ export function PortaledBusinessControls({
                               </Button>
                             </motion.div>
                           ) : (
-                            <motion.div
+                <motion.div
                               key="near-me-icon"
-                              initial={{ opacity: 0, x: 40 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              exit={{ opacity: 0, x: 40, transition: { duration: 0 } }}
-                              transition={{
-                                type: "spring",
-                                stiffness: 300,
-                                damping: 30
-                              }}
-                            >
-                              <Button
-                                type="button"
+                  initial={{ opacity: 0, x: 40 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 40, transition: { duration: 0 } }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 300,
+                    damping: 30
+                  }}
+                >
+                  <Button
+                    type="button"
                                 variant="outline"
-                                size="icon"
-                                className="h-9 w-9 rounded-full flex-shrink-0"
-                                onClick={onToggleNearMe}
+                    size="icon"
+                    className="h-9 w-9 rounded-full flex-shrink-0"
+                    onClick={onToggleNearMe}
                                 aria-pressed={false}
-                                aria-label="Near me"
-                                title="Near me"
-                              >
-                                <Crosshair className="h-4 w-4" />
-                              </Button>
-                            </motion.div>
+                    aria-label="Near me"
+                    title="Near me"
+                  >
+                    <Crosshair className="h-4 w-4" />
+                  </Button>
+                </motion.div>
                             )
-                          )}
-                        </AnimatePresence>
+              )}
+            </AnimatePresence>
                       )}
 
                       {/* Search Button - Hidden when filters are expanded */}
@@ -523,56 +523,56 @@ export function PortaledBusinessControls({
                             exit={{ width: "auto", opacity: 0 }}
                             transition={{ duration: 0.2 }}
                           >
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
                               className={cn(
                                 "h-9 w-9 rounded-full flex-shrink-0",
                                 businessTab === 'map' && "!bg-background dark:!bg-background backdrop-blur-sm !border !border-border shadow-lg"
                               )}
-                              onClick={onOpenFilters}
-                              title="Filters"
-                            >
+              onClick={onOpenFilters}
+              title="Filters"
+            >
                               <FilterIcon className="h-4 w-4 text-foreground" />
-                            </Button>
+            </Button>
                           </motion.div>
                         )}
                       </AnimatePresence>
 
                       {/* View Toggle - Only for non-map views, hidden when filters are expanded */}
                       {showOtherButtons && (
-                        <AnimatePresence mode="wait">
-                          {businessTab !== 'map' && (
-                            <motion.div
-                              key="view-toggle"
-                              initial={{ opacity: 0, x: 40 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              exit={{ opacity: 0, x: 40, transition: { duration: 0 } }}
-                              transition={{
-                                type: "spring",
-                                stiffness: 300,
-                                damping: 30
-                              }}
-                            >
-                              <Button
-                                type="button"
-                                variant="outline"
-                                size="icon"
-                                className="h-9 w-9 rounded-full flex-shrink-0"
-                                onClick={onCycleViewMode}
-                                title={`View: ${viewMode}`}
-                              >
-                                {viewMode === 'detailed' && <LayoutGrid className="h-4 w-4" />}
-                                {viewMode === 'compact' && <List className="h-4 w-4" />}
-                                {viewMode === 'table' && <TableIcon className="h-4 w-4" />}
-                              </Button>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      )}
-                    </motion.div>
-                  )}
+            <AnimatePresence mode="wait">
+              {businessTab !== 'map' && (
+                <motion.div
+                  key="view-toggle"
+                  initial={{ opacity: 0, x: 40 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 40, transition: { duration: 0 } }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 300,
+                    damping: 30
+                  }}
+                >
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9 rounded-full flex-shrink-0"
+                    onClick={onCycleViewMode}
+                    title={`View: ${viewMode}`}
+                  >
+                    {viewMode === 'detailed' && <LayoutGrid className="h-4 w-4" />}
+                    {viewMode === 'compact' && <List className="h-4 w-4" />}
+                    {viewMode === 'table' && <TableIcon className="h-4 w-4" />}
+                  </Button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          )}
+        </motion.div>
+      )}
                 </AnimatePresence>
                 )}
     </div>,

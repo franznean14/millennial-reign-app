@@ -170,20 +170,20 @@ export function BusinessFiltersForm({
             {statusOptions.map((option) => {
               const isSelected = localFilters.statuses.includes(option.value);
               return (
-                <Button
-                  key={option.value}
+              <Button
+                key={option.value}
                   variant="outline"
-                  size="sm"
-                  onClick={() => toggleStatus(option.value)}
+                size="sm"
+                onClick={() => toggleStatus(option.value)}
                   className={cn(
                     "h-8 border rounded-full",
                     isSelected 
                       ? getSelectedStatusColor(option.value)
                       : getFadedStatusColor(option.value)
                   )}
-                >
-                  {option.label}
-                </Button>
+              >
+                {option.label}
+              </Button>
               );
             })}
           </div>

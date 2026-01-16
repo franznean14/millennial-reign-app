@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import dynamic from 'next/dynamic';
@@ -460,7 +460,6 @@ function MapMarker({ establishment, onClick, isSelected, index = 0 }: MapMarkerP
   };
   
   const statusColor = getStatusColorValue(primaryStatus);
-  const textColor = getStatusColorValue(primaryStatus);
   
   // Create custom icon
   const createCustomIcon = () => {
@@ -553,6 +552,8 @@ function MapMarker({ establishment, onClick, isSelected, index = 0 }: MapMarkerP
     <Marker
       position={[establishment.lat!, establishment.lng!]}
       icon={icon}
+      // Store status color on marker options for cluster styling
+      {...({ statusColor } as any)}
       eventHandlers={{
         click: (e) => {
           // Don't call onClick here, let the popup handle it
@@ -681,8 +682,9 @@ export function EstablishmentMap({
   }, []);
 
   // Filter establishments with valid coordinates
-  const establishmentsWithCoords = establishments.filter(
-    (est) => est.lat && est.lng
+  const establishmentsWithCoords = useMemo(
+    () => establishments.filter((est) => est.lat && est.lng),
+    [establishments]
   );
 
   // Force cluster group to clear and re-render when establishments change
@@ -696,16 +698,16 @@ export function EstablishmentMap({
 
 
   // Calculate map center from establishments or use default
-  const getMapCenter = () => {
+  const mapCenter = useMemo<[number, number]>(() => {
     if (establishmentsWithCoords.length === 0) {
       return [14.5995, 120.9842]; // Default to Manila, Philippines
     }
-    
-    const avgLat = establishmentsWithCoords.reduce((sum, est) => sum + est.lat!, 0) / establishmentsWithCoords.length;
-    const avgLng = establishmentsWithCoords.reduce((sum, est) => sum + est.lng!, 0) / establishmentsWithCoords.length;
-    
+    const avgLat =
+      establishmentsWithCoords.reduce((sum, est) => sum + est.lat!, 0) / establishmentsWithCoords.length;
+    const avgLng =
+      establishmentsWithCoords.reduce((sum, est) => sum + est.lng!, 0) / establishmentsWithCoords.length;
     return [avgLat, avgLng];
-  };
+  }, [establishmentsWithCoords]);
 
   if (!isClient) {
     return (
@@ -724,7 +726,7 @@ export function EstablishmentMap({
   return (
     <div className={`w-full h-full ${className || 'h-96'}`} style={{ height: '100%', width: '100%' }}>
       <MapContainer
-        center={getMapCenter() as [number, number]}
+        center={mapCenter}
         zoom={establishmentsWithCoords.length > 0 ? 14 : 13}
         style={{ height: '100%', width: '100%' }}
         zoomControl={true}
@@ -773,7 +775,7 @@ export function EstablishmentMap({
         
         <MarkerClusterGroup
           ref={clusterGroupRef}
-          key={`markers-${establishmentsWithCoords.length}-${establishmentsWithCoords.map(e => e.id).join(',')}`}
+          // Avoid heavy key churn; clearing layers handles refresh
           chunkedLoading
           maxClusterRadius={25}
           disableClusteringAtZoom={18}
@@ -788,16 +790,8 @@ export function EstablishmentMap({
             let clusterColor = '#3b82f6'; // default blue
             const markers = cluster.getAllChildMarkers();
             if (markers.length > 0) {
-              // Try to get status color from first marker
-              const firstMarker = markers[0];
-              const markerElement = firstMarker.getElement();
-              if (markerElement) {
-                const container = markerElement.querySelector('.marker-container');
-                if (container) {
-                  const style = window.getComputedStyle(container);
-                  clusterColor = style.backgroundColor || '#3b82f6';
-                }
-              }
+              const firstMarker = markers[0] as any;
+              clusterColor = firstMarker?.options?.statusColor || '#3b82f6';
             }
             
             const textColor = isDarkMode ? '#ffffff' : '#0f172a';

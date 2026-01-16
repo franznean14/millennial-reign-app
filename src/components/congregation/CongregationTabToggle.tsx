@@ -19,28 +19,28 @@ export function CongregationTabToggle({
 }: CongregationTabToggleProps) {
   return (
     <div className={cn("bg-background/95 backdrop-blur-sm border p-0.1 rounded-lg shadow-lg w-full relative overflow-hidden", className)}>
-      <ToggleGroup
-        type="single"
-        value={value}
-        onValueChange={(newValue) => {
-          if (newValue) {
+    <ToggleGroup
+      type="single"
+      value={value}
+      onValueChange={(newValue) => {
+        if (newValue) {
             onValueChange(newValue as 'meetings' | 'ministry' | 'admin');
-          }
-        }}
+        }
+      }}
         className="w-full h-full"
+    >
+      <ToggleGroupItem 
+        value="meetings" 
+          className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 w-full flex flex-col items-center justify-center gap-1 transition-colors"
       >
-        <ToggleGroupItem 
-          value="meetings" 
-          className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 w-full flex flex-col items-center justify-center gap-1 transition-colors"
-        >
-          <BookOpen className="h-4 w-4 flex-shrink-0" />
+        <BookOpen className="h-4 w-4 flex-shrink-0" />
           <span className="text-[10px] font-medium text-center">Meetings</span>
-        </ToggleGroupItem>
-        <ToggleGroupItem 
-          value="ministry" 
+      </ToggleGroupItem>
+      <ToggleGroupItem 
+        value="ministry" 
           className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 w-full flex flex-col items-center justify-center gap-1 transition-colors"
-        >
-          <Briefcase className="h-4 w-4 flex-shrink-0" />
+      >
+        <Briefcase className="h-4 w-4 flex-shrink-0" />
           <span className="text-[10px] font-medium text-center">Ministry</span>
         </ToggleGroupItem>
         {isElder && (
@@ -50,9 +50,9 @@ export function CongregationTabToggle({
           >
             <Settings className="h-4 w-4 flex-shrink-0" />
             <span className="text-[10px] font-medium text-center">Admin</span>
-          </ToggleGroupItem>
+      </ToggleGroupItem>
         )}
-      </ToggleGroup>
+    </ToggleGroup>
     </div>
   );
 }

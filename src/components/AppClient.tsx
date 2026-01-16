@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, type ComponentType } from "react";
 import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 // Lazy-load Supabase client to keep initial bundle small
@@ -17,20 +17,10 @@ const getSupabaseClient = async () => {
 import { motion, AnimatePresence } from "motion/react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Filter, X } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { EditAccountForm } from "@/components/account/EditAccountForm";
-import { PasswordDialog } from "@/components/account/PasswordDialog";
-import { BiometricToggle } from "@/components/account/BiometricToggle";
-import { NotificationSettings } from "@/components/account/NotificationSettings";
-import { ProfileForm } from "@/components/account/ProfileForm";
-import { LogoutButton } from "@/components/account/LogoutButton";
-import { ThemeToggle } from "@/components/ThemeToggle";
-import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Search, Building2, Users, MapPin, User, UserCheck, Filter as FilterIcon, LayoutGrid, List, Table as TableIcon, ChevronRight } from "lucide-react";
@@ -46,26 +36,21 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 // Import all the data and business logic functions
 import { getDailyRecord, listDailyByMonth, upsertDailyRecord, isDailyEmpty, deleteDailyRecord } from "@/lib/db/dailyRecords";
 import { getEstablishmentsWithDetails, getEstablishmentDetails, getHouseholderDetails, listHouseholders, deleteHouseholder, archiveHouseholder, calculateDistance, type EstablishmentWithDetails, type VisitWithUser, type HouseholderWithDetails, type BusinessFiltersState } from "@/lib/db/business";
+import { useBusinessFilteredLists } from "@/lib/hooks/use-business-filtered-lists";
+import { useBusinessFilterOptions } from "@/lib/hooks/use-business-filter-options";
 import { getMyCongregation, saveCongregation, isAdmin, type Congregation } from "@/lib/db/congregations";
 import { getProfile } from "@/lib/db/profiles";
 import { archiveEstablishment, deleteEstablishment } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 
 // Lazy-load heavy UI components to reduce initial bundle
-import { HomeView } from "@/components/views/HomeView";
+import { HomeSection } from "@/components/sections/HomeSection";
+import { BusinessSection, type BusinessSectionProps } from "@/components/sections/BusinessSection";
+import { CongregationSection, type CongregationSectionProps } from "@/components/sections/CongregationSection";
+import { AccountSection } from "@/components/sections/AccountSection";
 const HomeSummary = dynamic(() => import("@/components/home/HomeSummary").then(m => m.HomeSummary), { ssr: false });
 const BWIVisitHistory = dynamic(() => import("@/components/home/BWIVisitHistory").then(m => m.BWIVisitHistory), { ssr: false });
-const EstablishmentList = dynamic(() => import("@/components/business/EstablishmentList").then(m => m.EstablishmentList), { ssr: false });
-const HouseholderList = dynamic(() => import("@/components/business/HouseholderList").then(m => m.HouseholderList), { ssr: false });
-const EstablishmentDetails = dynamic(() => import("@/components/business/EstablishmentDetails").then(m => m.EstablishmentDetails), { ssr: false });
-const HouseholderDetails = dynamic(() => import("@/components/business/HouseholderDetails").then(m => m.HouseholderDetails), { ssr: false });
-const EstablishmentMap = dynamic(() => import("@/components/business/EstablishmentMap").then(m => m.EstablishmentMap), { ssr: false });
-const BusinessDrawerDialogs = dynamic(() => import("@/components/business/BusinessDrawerDialogs").then(m => m.BusinessDrawerDialogs), { ssr: false });
-const CongregationForm = dynamic(() => import("@/components/congregation/CongregationForm").then(m => m.CongregationForm), { ssr: false });
 const ResponsiveModal = dynamic(() => import("@/components/ui/responsive-modal").then(m => m.ResponsiveModal), { ssr: false });
-const CongregationMembers = dynamic(() => import("@/components/congregation/CongregationMembers").then(m => m.CongregationMembers), { ssr: false });
-const BusinessFiltersForm = dynamic(() => import("@/components/business/BusinessFiltersForm").then(m => m.BusinessFiltersForm), { ssr: false });
-const CongregationView = dynamic(() => import("@/components/views/CongregationView").then(m => m.CongregationView), { ssr: false });
 const FieldServiceDrawerDialog = dynamic(() => import("@/components/fieldservice/FieldServiceDrawerDialog").then(m => m.FieldServiceDrawerDialog), { ssr: false });
 const CongregationDrawerDialog = dynamic(() => import("@/components/congregation/CongregationDrawerDialog").then(m => m.CongregationDrawerDialog), { ssr: false });
 const AdminFloatingButton = dynamic(() => import("@/components/congregation/AdminFloatingButton").then(m => m.AdminFloatingButton), { ssr: false });
@@ -288,6 +273,7 @@ export function AppClient() {
   const [bwiEnabled, setBwiEnabled] = useState(false);
   const [isBwiParticipant, setIsBwiParticipant] = useState(false);
   const [privacyPolicyOpen, setPrivacyPolicyOpen] = useState(false);
+  const [accountTab, setAccountTab] = useState<'profile' | 'account'>('profile');
 
   // Add this state to track user's visited establishments
   const [userVisitedEstablishments, setUserVisitedEstablishments] = useState<Set<string>>(new Set());
@@ -741,200 +727,13 @@ export function AppClient() {
     }
   }, [selectedHouseholder]);
 
-  // Business filtering logic
-  const filteredEstablishments = useMemo(() => {
-    const base = establishments.filter(establishment => {
-      // Search filter - only show establishments that match the search term
-      if (filters.search && filters.search.trim() !== '') {
-        const searchTerm = filters.search.toLowerCase().trim();
-        const establishmentName = establishment.name?.toLowerCase() || '';
-        if (!establishmentName.includes(searchTerm)) {
-          return false;
-        }
-      }
-      
-      // Status filter
-      if (filters.statuses.length > 0 && !establishment.statuses?.some(status => filters.statuses.includes(status))) {
-        return false;
-      }
-      
-      // Area filter
-      if (filters.areas.length > 0 && establishment.area && !filters.areas.includes(establishment.area)) {
-        return false;
-      }
-      
-      // Floor filter - exclude establishments without floor or with floor not in filter list
-      // Normalize comparison by trimming whitespace and comparing case-insensitively
-      if (filters.floors.length > 0) {
-        const establishmentFloor = establishment.floor ? String(establishment.floor).trim() : null;
-        if (!establishmentFloor) {
-          return false; // Exclude establishments without floor when filtering by floor
-        }
-        const normalizedFloors = filters.floors.map(f => String(f).trim().toLowerCase());
-        if (!normalizedFloors.includes(establishmentFloor.toLowerCase())) {
-          return false;
-        }
-      }
-      
-      // My Establishments filter: show only establishments the user has visited
-      if (filters.myEstablishments) {
-        const visitedByUser = establishment.id ? userVisitedEstablishments.has(establishment.id) : false;
-        if (!visitedByUser) return false;
-      }
-      
-      // Near Me filter: show only establishments within 150 meters of user location
-      if (filters.nearMe) {
-        // Exclude items without location when Near Me is active
-        if (!filters.userLocation || establishment.lat == null || establishment.lng == null) {
-          return false;
-        }
-        const distanceKm = calculateDistance(
-          filters.userLocation[0],
-          filters.userLocation[1],
-          establishment.lat,
-          establishment.lng
-        );
-        // 150 meters = 0.15 km
-        if (distanceKm > 0.15) return false;
-      }
-      
-      return true;
-    });
-    
-    // Remove duplicates based on establishment ID
-    const uniqueEstablishments = base.filter((establishment, index, self) => 
-      index === self.findIndex(e => e.id === establishment.id)
-    );
-    
-    // Sorting
-    const sorted = [...uniqueEstablishments];
-    const compareLastVisit = (a?: string | null, b?: string | null, asc: boolean = false) => {
-      const ahas = !!a;
-      const bhas = !!b;
-      if (ahas && !bhas) return -1; // visited first
-      if (!ahas && bhas) return 1;  // never-visited last
-      if (!ahas && !bhas) return 0;
-      // When both have dates, sort by date string (YYYY-MM-DD)
-      if (asc) {
-        return (a! < b! ? -1 : a! > b! ? 1 : 0);
-      } else {
-        return (a! > b! ? -1 : a! < b! ? 1 : 0);
-      }
-    };
-
-    if (filters.nearMe && filters.userLocation) {
-      const [userLat, userLng] = filters.userLocation;
-      const distanceOf = (e: typeof uniqueEstablishments[number]) => {
-        if (e.lat == null || e.lng == null) return Number.POSITIVE_INFINITY;
-        return calculateDistance(userLat, userLng, e.lat, e.lng);
-      };
-      sorted.sort((a, b) => distanceOf(a) - distanceOf(b));
-    } else {
-      switch (filters.sort) {
-        case 'name_asc':
-          sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-          break;
-        case 'name_desc':
-          sorted.sort((a, b) => (b.name || '').localeCompare(a.name || ''));
-          break;
-        case 'area_asc':
-          sorted.sort((a, b) => (a.area || '').localeCompare(b.area || ''));
-          break;
-        case 'area_desc':
-          sorted.sort((a, b) => (b.area || '').localeCompare(a.area || ''));
-          break;
-        case 'last_visit_asc':
-          sorted.sort((a, b) => compareLastVisit(a.last_visit_at, b.last_visit_at, true));
-          break;
-        case 'last_visit_desc':
-        default:
-          sorted.sort((a, b) => compareLastVisit(a.last_visit_at, b.last_visit_at, false));
-          break;
-      }
-    }
-    return sorted;
-  }, [establishments, filters, userId, userVisitedEstablishments]);
-
-  // Business filtering logic for householders
-  const filteredHouseholders = useMemo(() => {
-    // Quick lookup for parent establishments
-    const establishmentsById = new Map(establishments.map(e => [e.id, e] as const));
-
-    const base = householders.filter(householder => {
-      // Search filter
-      if (filters.search && !householder.name.toLowerCase().includes(filters.search.toLowerCase())) {
-        return false;
-      }
-      
-      // Status filter (for householder statuses)
-      if (filters.statuses.length > 0 && !filters.statuses.includes(householder.status)) {
-        return false;
-      }
-      
-      // Area filter (based on establishment area)
-      if (filters.areas.length > 0 && householder.establishment_name) {
-        // We need to check if the establishment area matches
-        // For now, we'll skip area filtering for householders since we don't have establishment area in the householder data
-        // This could be enhanced by joining with establishment data
-      }
-      
-      // My Householders filter: show only householders the user has visited
-      if (filters.myEstablishments) {
-        const visitedByUser = householder.id ? userVisitedHouseholders.has(householder.id) : false;
-        if (!visitedByUser) return false;
-      }
-
-      // Near Me filter (by parent establishment location): within 150 meters
-      if (filters.nearMe) {
-        if (!filters.userLocation) return false;
-        const parent = householder.establishment_id ? establishmentsById.get(householder.establishment_id) : undefined;
-        if (!parent || parent.lat == null || parent.lng == null) return false;
-        const distanceKm = calculateDistance(
-          filters.userLocation[0],
-          filters.userLocation[1],
-          parent.lat,
-          parent.lng
-        );
-        if (distanceKm > 0.15) return false;
-      }
-      
-      return true;
-    });
-    
-    // Sorting
-    const sorted = [...base];
-    if (filters.nearMe && filters.userLocation) {
-      const [userLat, userLng] = filters.userLocation;
-      const distanceOf = (h: typeof base[number]) => {
-        const parent = h.establishment_id ? establishmentsById.get(h.establishment_id) : undefined;
-        if (!parent || parent.lat == null || parent.lng == null) return Number.POSITIVE_INFINITY;
-        return calculateDistance(userLat, userLng, parent.lat, parent.lng);
-      };
-      sorted.sort((a, b) => distanceOf(a) - distanceOf(b));
-    } else {
-      switch (filters.sort) {
-        case 'name_asc':
-          sorted.sort((a, b) => a.name.localeCompare(b.name));
-          break;
-        case 'name_desc':
-          sorted.sort((a, b) => b.name.localeCompare(a.name));
-          break;
-        case 'area_asc':
-          sorted.sort((a, b) => (a.establishment_name || '').localeCompare(b.establishment_name || ''));
-          break;
-        case 'area_desc':
-          sorted.sort((a, b) => (b.establishment_name || '').localeCompare(a.establishment_name || ''));
-          break;
-        case 'last_visit_asc':
-        case 'last_visit_desc':
-        default:
-          // For householders, we don't have last_visit_at, so sort by name
-          sorted.sort((a, b) => a.name.localeCompare(b.name));
-          break;
-      }
-    }
-    return sorted;
-    }, [householders, filters, userId, establishments, userVisitedHouseholders]);
+  const { filteredEstablishments, filteredHouseholders } = useBusinessFilteredLists({
+    establishments,
+    householders,
+    filters,
+    userVisitedEstablishments,
+    userVisitedHouseholders
+  });
 
   // Helpers for displaying active filter badges
   const formatStatusLabel = (status: string) =>
@@ -1047,164 +846,12 @@ export function AppClient() {
     }
   }, [filters.nearMe, locationWatchId]);
 
-  // Helper function to filter establishments excluding a specific filter type
-  const getFilteredEstablishmentsExcluding = useCallback((
-    excludeType: 'statuses' | 'areas' | 'floors' | null
-  ) => {
-    return establishments.filter(establishment => {
-      // Search filter
-      if (filters.search && filters.search.trim() !== '') {
-        const searchTerm = filters.search.toLowerCase().trim();
-        const establishmentName = establishment.name?.toLowerCase() || '';
-        if (!establishmentName.includes(searchTerm)) {
-          return false;
-        }
-      }
-      
-      // Status filter (exclude if computing status options)
-      if (excludeType !== 'statuses' && filters.statuses.length > 0 && !establishment.statuses?.some(status => filters.statuses.includes(status))) {
-        return false;
-      }
-      
-      // Area filter (exclude if computing area options)
-      if (excludeType !== 'areas' && filters.areas.length > 0 && establishment.area && !filters.areas.includes(establishment.area)) {
-        return false;
-      }
-      
-      // Floor filter (exclude if computing floor options) - exclude establishments without floor or with floor not in filter list
-      // Normalize comparison by trimming whitespace and comparing case-insensitively
-      if (excludeType !== 'floors' && filters.floors.length > 0) {
-        const establishmentFloor = establishment.floor ? String(establishment.floor).trim() : null;
-        if (!establishmentFloor) {
-          return false; // Exclude establishments without floor when filtering by floor
-        }
-        const normalizedFloors = filters.floors.map(f => String(f).trim().toLowerCase());
-        if (!normalizedFloors.includes(establishmentFloor.toLowerCase())) {
-          return false;
-        }
-      }
-      
-      // My Establishments filter
-      if (filters.myEstablishments) {
-        const visitedByUser = establishment.id ? userVisitedEstablishments.has(establishment.id) : false;
-        if (!visitedByUser) return false;
-      }
-      
-      // Near Me filter
-      if (filters.nearMe) {
-        if (!filters.userLocation || establishment.lat == null || establishment.lng == null) {
-          return false;
-        }
-        const distanceKm = calculateDistance(
-          filters.userLocation[0],
-          filters.userLocation[1],
-          establishment.lat,
-          establishment.lng
-        );
-        if (distanceKm > 0.15) return false;
-      }
-      
-      return true;
-    });
-  }, [establishments, filters, userVisitedEstablishments]);
-
-  // Dynamic status options based on other filters
-  const dynamicStatusOptions = useMemo(() => {
-    const filtered = getFilteredEstablishmentsExcluding('statuses');
-    const allStatuses = new Set<string>();
-    
-    // Include currently selected statuses so they can be deselected
-    filters.statuses.forEach(status => allStatuses.add(status));
-    
-    // Add statuses from filtered establishments
-    filtered.forEach(establishment => {
-      establishment.statuses?.forEach(status => {
-        allStatuses.add(status);
-      });
-    });
-    
-    const statusList = Array.from(allStatuses).sort();
-    
-    // Map to options format based on business tab
-    if (businessTab === 'establishments' || businessTab === 'map') {
-      const statusMap: Record<string, string> = {
-        'for_scouting': 'For Scouting',
-        'for_follow_up': 'For Follow Up',
-        'for_replenishment': 'For Replenishment',
-        'accepted_rack': 'Accepted Rack',
-        'declined_rack': 'Declined Rack',
-        'has_bible_studies': 'Has Bible Studies',
-        'closed': 'Closed'
-      };
-      return statusList
-        .filter(s => s in statusMap)
-        .map(s => ({ value: s, label: statusMap[s] }));
-    } else {
-      const statusMap: Record<string, string> = {
-        'interested': 'Interested',
-        'return_visit': 'Return Visit',
-        'bible_study': 'Bible Study',
-        'do_not_call': 'Do Not Call'
-      };
-      return statusList
-        .filter(s => s in statusMap)
-        .map(s => ({ value: s, label: statusMap[s] }));
-    }
-  }, [getFilteredEstablishmentsExcluding, businessTab, filters.statuses]);
-
-  // Dynamic area options based on other filters
-  const dynamicAreaOptions = useMemo(() => {
-    const filtered = getFilteredEstablishmentsExcluding('areas');
-    const areaSet = new Set<string>();
-    
-    // Include currently selected areas so they can be deselected
-    filters.areas.forEach(area => {
-      if (area && area.trim() !== '') {
-        areaSet.add(area);
-      }
-    });
-    
-    // Add areas from filtered establishments
-    filtered.forEach(e => {
-      if (e.area && typeof e.area === 'string' && e.area.trim() !== '') {
-        areaSet.add(e.area);
-      }
-    });
-    
-    const areas = Array.from(areaSet).sort();
-    
-    return areas.map(area => ({
-      value: area || '',
-      label: area || ''
-    }));
-  }, [getFilteredEstablishmentsExcluding, filters.areas]);
-
-  // Dynamic floor options based on other filters
-  const dynamicFloorOptions = useMemo(() => {
-    const filtered = getFilteredEstablishmentsExcluding('floors');
-    const floorSet = new Set<string>();
-    
-    // Include currently selected floors so they can be deselected
-    filters.floors.forEach(floor => {
-      if (floor && floor.trim() !== '') {
-        floorSet.add(floor);
-      }
-    });
-    
-    // Add floors from filtered establishments
-    filtered.forEach(e => {
-      if (e.floor && typeof e.floor === 'string' && e.floor.trim() !== '') {
-        floorSet.add(e.floor);
-      }
-    });
-    
-    const floors = Array.from(floorSet).sort();
-    
-    return floors.map(floor => ({
-      value: floor || '',
-      label: floor || ''
-    }));
-  }, [getFilteredEstablishmentsExcluding, filters.floors]);
+  const { dynamicStatusOptions, dynamicAreaOptions, dynamicFloorOptions } = useBusinessFilterOptions({
+    establishments,
+    filters,
+    userVisitedEstablishments,
+    businessTab
+  });
 
   // Congregation functions
   const isElder = Array.isArray((profile as any)?.privileges) && (profile as any).privileges.includes('Elder');
@@ -1228,13 +875,6 @@ export function AppClient() {
     business_witnessing_enabled: false,
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
 
   // Render different sections based on currentSection
   if (isLoading) {
@@ -1311,799 +951,133 @@ export function AppClient() {
       isElder={isElder}
       homeTab={homeTab}
       onHomeTabChange={setHomeTab}
+      accountTab={accountTab}
+      onAccountTabChange={setAccountTab}
     />
   );
+
+  const BusinessSectionView: ComponentType<BusinessSectionProps> = BusinessSection;
+  const CongregationSectionView: ComponentType<CongregationSectionProps> = CongregationSection;
 
   // Render based on current section
   switch (currentSection) {
     case 'home':
-      const handleVisitClick = async (visit: any) => {
-        // Navigate to business section and show details
-        if (visit.visit_type === 'establishment' && visit.establishment_id) {
-          try {
-            // Load the full establishment data
-            const supabase = createSupabaseBrowserClient();
-            const { data: establishment, error } = await supabase
-              .from('business_establishments')
-              .select('*')
-              .eq('id', visit.establishment_id)
-              .maybeSingle(); // Use maybeSingle() instead of single()
-            
-            
-            if (establishment && !error) {
-              setSelectedEstablishment(establishment);
-              setBusinessTab('establishments');
-              // Push current section to navigation stack before showing details
-              pushNavigation(currentSection);
-              // Load full establishment details
-              loadEstablishmentDetails(establishment.id);
-              // Small delay to ensure state is set before navigation
-              setTimeout(() => {
-                onSectionChange('business');
-              }, 100);
-            } else if (error) {
-              console.error('Error loading establishment:', error);
-            } else {
-              // Show a toast or alert to the user that the establishment was not found
-              alert(`Establishment not found. It may have been deleted.`);
-              // Don't navigate if establishment not found
-              return;
-            }
-          } catch (error) {
-            console.error('Error loading establishment:', error);
-          }
-        } else if (visit.visit_type === 'householder' && visit.householder_id) {
-          try {
-            // Load the full householder data
-            const supabase = createSupabaseBrowserClient();
-            const { data: householder, error } = await supabase
-              .from('householders')
-              .select('*')
-              .eq('id', visit.householder_id)
-              .maybeSingle(); // Use maybeSingle() instead of single()
-            
-            
-            if (householder && !error) {
-              setSelectedHouseholder(householder);
-              setBusinessTab('householders');
-              // Push current section to navigation stack before showing details
-              pushNavigation(currentSection);
-              // Load full householder details
-              loadHouseholderDetails(householder.id);
-              // Small delay to ensure state is set before navigation
-              setTimeout(() => {
-                onSectionChange('business');
-              }, 100);
-            } else if (error) {
-              console.error('Error loading householder:', error);
-            } else {
-              // Show a toast or alert to the user that the householder was not found
-              alert(`Householder not found. It may have been deleted.`);
-              // Don't navigate if householder not found
-              return;
-            }
-          } catch (error) {
-            console.error('Error loading householder:', error);
-          }
-        }
-      };
-      
       return (
-        <>
-          {portaledControls}
-          <HomeView 
-            userId={userId} 
-            onVisitClick={handleVisitClick}
-            onNavigateToCongregation={() => {
-              setCongregationInitialTab('ministry');
-              onSectionChange('congregation');
-            }}
-            homeTab={homeTab}
-          />
-        </>
+        <HomeSection
+          portaledControls={portaledControls}
+          userId={userId}
+          homeTab={homeTab}
+          onNavigateToCongregation={() => {
+            setCongregationInitialTab('ministry');
+            onSectionChange('congregation');
+          }}
+          onSectionChange={onSectionChange}
+          currentSection={currentSection}
+          pushNavigation={pushNavigation}
+          setBusinessTab={setBusinessTab}
+          setSelectedEstablishment={setSelectedEstablishment}
+          setSelectedHouseholder={setSelectedHouseholder}
+          loadEstablishmentDetails={loadEstablishmentDetails}
+          loadHouseholderDetails={loadHouseholderDetails}
+        />
       );
 
     case 'business':
-      const hasActiveFilters = filters.search !== "" || filters.statuses.length > 0 || filters.areas.length > 0 || filters.floors.length > 0 || filters.myEstablishments || !!filters.sort;
-      
       return (
-        <>
-          {portaledControls}
-          <motion.div
-            key="business"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            transition={{ duration: 0.3 }}
-            className={businessTab === 'map' ? "fixed inset-0 z-10" : selectedEstablishment || selectedHouseholder ? "space-y-6 pb-20" : "space-y-6 pb-20 pt-20"} // Full screen for map, normal for details, with top padding for lists
-          >
-
-          {/* Sticky Search Bar - Hidden, search now in controls row */}
-          <StickySearchBar
-            filters={filters}
-            onFiltersChange={setFilters}
-            onClearSearch={handleClearSearch}
-            isVisible={false}
-            businessTab={businessTab}
-          />
-
-
-          <motion.div 
-            className={businessTab === 'map' ? "w-full h-full" : "w-full"}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-          >
-            <AnimatePresence>
-              {!selectedEstablishment && !selectedHouseholder ? (
-                businessTab === 'establishments' ? (
-                <motion.div
-                  key="establishment-list"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.2 }}
-                  className="w-full"
-                >
-                  <EstablishmentList
-                    establishments={filteredEstablishments}
-                    onEstablishmentClick={(establishment) => {
-                      setSelectedEstablishment(establishment);
-                      // Push current section to navigation stack before showing details
-                      pushNavigation(currentSection);
-                      if (establishment.id) {
-                        loadEstablishmentDetails(establishment.id);
-                      }
-                    }}
-                    onEstablishmentDelete={handleDeleteEstablishment}
-                    onEstablishmentArchive={handleArchiveEstablishment}
-                    myEstablishmentsOnly={filters.myEstablishments}
-                    onMyEstablishmentsChange={(checked) => setFilters(prev => ({ ...prev, myEstablishments: checked }))}
-                    onOpenFilters={() => setFiltersModalOpen(true)}
-                    filters={filters}
-                    onClearAllFilters={handleClearAllFilters}
-                    onClearSearch={handleClearSearch}
-                    onRemoveStatus={handleRemoveStatus}
-                    onRemoveArea={handleRemoveArea}
-                    onRemoveFloor={handleRemoveFloor}
-                    viewMode={viewMode}
-                    onViewModeChange={setViewMode}
-                  />
-                </motion.div>
-                ) : businessTab === 'householders' ? (
-                  <motion.div
-                    key="householder-list"
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    transition={{ duration: 0.2 }}
-                    className="w-full"
-                  >
-                    <HouseholderList
-                      householders={filteredHouseholders}
-                      onHouseholderClick={(householder) => {
-                        setSelectedHouseholder(householder);
-                        // Push current section to navigation stack before showing details
-                        pushNavigation(currentSection);
-                        if (householder.id) {
-                          loadHouseholderDetails(householder.id);
-                        }
-                      }}
-                      onHouseholderDelete={handleDeleteHouseholder}
-                      onHouseholderArchive={handleArchiveHouseholder}
-                      myHouseholdersOnly={filters.myEstablishments}
-                      onMyHouseholdersChange={(checked) => setFilters(prev => ({ ...prev, myEstablishments: checked }))}
-                      onOpenFilters={() => setFiltersModalOpen(true)}
-                      filters={filters}
-                      onClearAllFilters={handleClearAllFilters}
-                      onClearSearch={handleClearSearch}
-                      onRemoveStatus={handleRemoveStatus}
-                      onRemoveArea={handleRemoveArea}
-                      onRemoveFloor={handleRemoveFloor}
-                      viewMode={viewMode}
-                      onViewModeChange={setViewMode}
-                    />
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="establishment-map"
-                    initial={{ opacity: 0, x: -20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    transition={{ duration: 0.2 }}
-                    className="w-full h-full"
-                    style={{ height: '100%' }}
-                  >
-                    <EstablishmentMap
-                      establishments={filteredEstablishments}
-                      onEstablishmentClick={(establishment) => {
-                        setSelectedEstablishment(establishment);
-                        // Push current section to navigation stack before showing details
-                        pushNavigation(currentSection);
-                        if (establishment.id) {
-                          loadEstablishmentDetails(establishment.id);
-                        }
-                      }}
-                      selectedEstablishmentId={undefined}
-                      className="h-full"
-                    />
-                  </motion.div>
-                )
-              ) : selectedHouseholder ? (
-                <motion.div
-                  key="householder-details"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  transition={{ duration: 0.3 }}
-                  className="w-full"
-                  layout
-                >
-                  <div className={businessTab === 'map' ? "space-y-6 pb-20 px-4 py-6" : "space-y-6 pt-[60px]"}>
-                  <HouseholderDetails
-                    householder={selectedHouseholder}
-                    visits={selectedHouseholderDetails?.visits || []}
-                    establishment={selectedHouseholderDetails?.establishment || null}
-                    establishments={selectedHouseholderDetails?.establishment ? [selectedHouseholderDetails.establishment] : []}
-                    onBackClick={() => {
-                      setSelectedHouseholder(null);
-                      setSelectedHouseholderDetails(null);
-                      // Use SPA navigation stack instead of browser history
-                      const previousSection = popNavigation();
-                      if (previousSection) {
-                        // Ensure we go back to the correct business subsection
-                        const targetSection = previousSection.startsWith('business-') ? previousSection : 'business-householders';
-                        setCurrentSection(targetSection);
-                        // Update URL to match the business section (not the subsection)
-                        const url = new URL(window.location.href);
-                        url.pathname = targetSection === 'home' ? '/' : '/business';
-                        window.history.pushState({}, '', url.toString());
-                      } else {
-                        // Fallback to business householders view
-                        setCurrentSection('business-householders');
-                        const url = new URL(window.location.href);
-                        url.pathname = '/business';
-                        window.history.pushState({}, '', url.toString());
-                      }
-                    }}
-                  />
-                  </div>
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="establishment-details"
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  transition={{ duration: 0.3 }}
-                  className="w-full"
-                  layout // Add layout animation to the details
-                >
-                  {selectedEstablishment && (
-                    <div className={businessTab === 'map' ? "space-y-6 pb-20 px-4 py-6" : "space-y-6 pt-[60px]"}>
-                  <EstablishmentDetails
-                    establishment={selectedEstablishment}
-                    visits={selectedEstablishmentDetails?.visits || []}
-                    householders={selectedEstablishmentDetails?.householders || []}
-                    onBackClick={() => {
-                      setSelectedEstablishment(null);
-                      setSelectedEstablishmentDetails(null);
-                      // Use SPA navigation stack instead of browser history
-                      const previousSection = popNavigation();
-                      if (previousSection) {
-                        // Ensure we go back to the correct business subsection
-                        const targetSection = previousSection.startsWith('business-') ? previousSection : 'business-establishments';
-                        setCurrentSection(targetSection);
-                        // Update URL to match the business section (not the subsection)
-                        const url = new URL(window.location.href);
-                        url.pathname = targetSection === 'home' ? '/' : '/business';
-                        window.history.pushState({}, '', url.toString());
-                      } else {
-                        // Fallback to business establishments view
-                        setCurrentSection('business-establishments');
-                        const url = new URL(window.location.href);
-                        url.pathname = '/business';
-                        window.history.pushState({}, '', url.toString());
-                      }
-                    }}
-                    onEstablishmentUpdated={(est) => est?.id && updateEstablishment({ id: est.id!, ...est })}
-                    onHouseholderClick={(hh) => {
-                      setSelectedHouseholder(hh);
-                      if (hh.id) loadHouseholderDetails(hh.id);
-                    }}
-                  />
-                    </div>
-                  )}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </motion.div>
-
-          {/* Business Filters Modal */}
-          <ResponsiveModal
-            open={filtersModalOpen}
-            onOpenChange={setFiltersModalOpen}
-            title="Sort and Filter"
-          >
-            <BusinessFiltersForm
-              filters={filters}
-              onFiltersChange={setFilters}
-              onClearFilters={() => setFilters({
-                search: "",
-                statuses: [],
-                areas: [],
-                floors: [],
-                myEstablishments: false,
-                nearMe: false,
-                userLocation: null,
-                sort: 'last_visit_desc'
-              })}
-              hasActiveFilters={hasActiveFilters}
-              statusOptions={dynamicStatusOptions}
-              areaOptions={dynamicAreaOptions}
-              floorOptions={dynamicFloorOptions}
-              onClose={() => setFiltersModalOpen(false)}
-              isMapView={businessTab === 'map'}
-            />
-          </ResponsiveModal>
-
-          {/* Expandable Business FAB + Drawers */}
-          <BusinessDrawerDialogs
-            establishments={establishments}
-            selectedEstablishmentId={selectedEstablishment?.id}
-            selectedArea={filters.areas[0]}
-            businessTab={businessTab}
-            selectedEstablishment={selectedEstablishment}
-            selectedHouseholder={selectedHouseholder}
-          />
-          </motion.div>
-        </>
+        <BusinessSectionView
+          portaledControls={portaledControls}
+          currentSection={currentSection}
+          businessTab={businessTab}
+          filters={filters}
+          setFilters={setFilters}
+          filtersModalOpen={filtersModalOpen}
+          setFiltersModalOpen={setFiltersModalOpen}
+          viewMode={viewMode}
+          setViewMode={setViewMode}
+          filteredEstablishments={filteredEstablishments}
+          filteredHouseholders={filteredHouseholders}
+          establishments={establishments}
+          selectedEstablishment={selectedEstablishment}
+          setSelectedEstablishment={setSelectedEstablishment}
+          selectedEstablishmentDetails={selectedEstablishmentDetails}
+          setSelectedEstablishmentDetails={setSelectedEstablishmentDetails}
+          selectedHouseholder={selectedHouseholder}
+          setSelectedHouseholder={setSelectedHouseholder}
+          selectedHouseholderDetails={selectedHouseholderDetails}
+          setSelectedHouseholderDetails={setSelectedHouseholderDetails}
+          loadEstablishmentDetails={loadEstablishmentDetails}
+          loadHouseholderDetails={loadHouseholderDetails}
+          handleDeleteEstablishment={handleDeleteEstablishment}
+          handleArchiveEstablishment={handleArchiveEstablishment}
+          handleDeleteHouseholder={handleDeleteHouseholder}
+          handleArchiveHouseholder={handleArchiveHouseholder}
+          handleClearAllFilters={handleClearAllFilters}
+          handleClearSearch={handleClearSearch}
+          handleRemoveStatus={handleRemoveStatus}
+          handleRemoveArea={handleRemoveArea}
+          handleRemoveFloor={handleRemoveFloor}
+          dynamicStatusOptions={dynamicStatusOptions}
+          dynamicAreaOptions={dynamicAreaOptions}
+          dynamicFloorOptions={dynamicFloorOptions}
+          popNavigation={popNavigation}
+          pushNavigation={pushNavigation}
+          setCurrentSection={setCurrentSection}
+          updateEstablishment={updateEstablishment}
+        />
       );
 
     case 'congregation':
-      if (!(profile as any)?.congregation_id && !cong?.id && !admin) {
-        return (
-          <div className="rounded-md border p-4">
-            <div className="text-base font-medium">No congregation assigned</div>
-            <div className="mt-1 text-sm opacity-70">Ask an Elder in your congregation to add you.</div>
-          </div>
-        );
-      }
-
-
-
       return (
-        <>
-          {portaledControls}
-          <motion.div
-            key="congregation"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
-            transition={{ duration: 0.3 }}
-            className="space-y-6 pb-20"
-          >
-          {cong?.id ? (
-            <CongregationView
-              data={cong}
-              onEdit={() => {
-                if (!canEdit) return toast.error("You don't have permission to edit");
-                setMode("edit");
-                setModalOpen(true);
-              }}
-              canEdit={canEdit}
-              initialTab={congregationInitialTab}
-              congregationTab={congregationTab}
-              onCongregationTabChange={setCongregationTab}
-              userId={userId}
-            />
-          ) : (
-            <section className="rounded-md border p-4 space-y-2">
-              <div className="text-base font-medium">No congregation yet</div>
-              <div className="text-sm opacity-70">{admin ? "The congregation form will open automatically when you visit this page." : "Ask an admin to create your congregation."}</div>
-            </section>
-          )}
-
-          {cong?.id && (isElder || admin) && congregationTab !== 'admin' && (
-            <div className="px-4">
-              <CongregationDrawerDialog 
-                congregationId={cong.id} 
-                congregationTab={congregationTab}
-                userId={userId}
-              />
-            </div>
-          )}
-
-          {cong?.id && isElder && congregationTab === 'admin' && (
-            <div className="px-4">
-              <AdminFloatingButton congregationId={cong.id} />
-            </div>
-          )}
-
-          <ResponsiveModal
-            open={modalOpen}
-            onOpenChange={setModalOpen}
-            title={mode === "edit" ? "Edit Congregation" : "Create Congregation"}
-            description={mode === "edit" ? "Update meeting times and details for your congregation." : "Only admins can create a new congregation."}
-          >
-            <CongregationForm
-              initial={initial}
-              canEdit={canEdit}
-              busy={busy}
-              onSubmit={async (payload) => {
-                if (!canEdit) {
-                  toast.error("You don't have permission to save");
-                  return;
-                }
-                setBusy(true);
-                try {
-                  const saved = await saveCongregation({ ...payload, id: cong?.id });
-                  if (saved) {
-                    setCong(saved);
-                    setModalOpen(false);
-                  }
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            />
-          </ResponsiveModal>
-          </motion.div>
-        </>
+        <CongregationSectionView
+          portaledControls={portaledControls}
+          profileCongregationId={(profile as any)?.congregation_id}
+          cong={cong}
+          admin={admin}
+          isElder={isElder}
+          canEdit={canEdit}
+          congregationInitialTab={congregationInitialTab}
+          congregationTab={congregationTab}
+          setCongregationTab={setCongregationTab}
+          userId={userId}
+          modalOpen={modalOpen}
+          setModalOpen={setModalOpen}
+          mode={mode}
+          setMode={setMode}
+          busy={busy}
+          setBusy={setBusy}
+          initial={initial}
+          setCong={setCong}
+          saveCongregation={saveCongregation}
+        />
       );
 
     case 'account':
-      const fullName = profile ? `${profile.first_name} ${profile.last_name}`.trim() : "User";
-      const initials = profile ? `${profile.first_name?.[0] || ""}${profile.last_name?.[0] || ""}`.toUpperCase() : "U";
-      
       return (
-        <motion.div
-          key="account"
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: 20 }}
-          transition={{ duration: 0.3 }}
-          className="space-y-6 pb-20" // Add bottom padding for navbar
-        >
-          <div className="flex items-center justify-between gap-4">
-            <h1 className="text-xl font-semibold">Account</h1>
-            <div className="flex items-center gap-2">
-              <ThemeToggle />
-              <LogoutButton />
-            </div>
-          </div>
-
-          <div className="space-y-6 p-4">
-            {/* Profile Header */}
-            <section className="space-y-4">
-              <div className="flex items-center gap-4">
-                <Avatar className="h-16 w-16">
-                  <AvatarImage src={profile?.avatar_url || undefined} alt={fullName} />
-                  <AvatarFallback className="text-lg">{initials}</AvatarFallback>
-                </Avatar>
-                <div className="flex-1">
-                  <div className="flex items-center gap-3">
-                    <h1 className="text-xl font-semibold">{fullName}</h1>
-                    {!!userId && (
-                      <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
-                        Edit Profile
-                      </Button>
-                    )}
-                  </div>
-                  {profile?.username && (
-                    <p className="text-sm text-muted-foreground">@{profile.username}</p>
-                  )}
-                  {/* Group name and privileges badges */}
-                  <div className="flex flex-wrap gap-1 mt-2">
-                    {profile?.group_name && (
-                      <Badge variant="outline" className="text-xs">
-                        {profile.group_name}
-                      </Badge>
-                    )}
-                    {profile?.privileges && profile.privileges.length > 0 && (
-                      profile.privileges.map((privilege: string) => (
-                        <Badge key={privilege} variant="secondary" className="text-xs">
-                          {privilege}
-                        </Badge>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Profile Details */}
-              <div className="grid gap-3 text-sm">
-                {profile?.date_of_birth && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Date of Birth:</span>
-                    <span>{formatDate(profile.date_of_birth)}</span>
-                  </div>
-                )}
-                {profile?.date_of_baptism && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Date of Baptism:</span>
-                    <span>{formatDate(profile.date_of_baptism)}</span>
-                  </div>
-                )}
-                {profile?.gender && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Gender:</span>
-                    <span className="capitalize">{profile.gender}</span>
-                  </div>
-                )}
-              </div>
-            </section>
-
-            <Separator />
-
-            {/* Contact Information */}
-            <section className="space-y-4">
-              <h2 className="text-lg font-semibold">Contact Information</h2>
-              
-              <div className="grid gap-3 text-sm">
-                {profile?.phone_number && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Phone:</span>
-                    <span>{profile.phone_number}</span>
-                  </div>
-                )}
-                {profile?.address && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Address:</span>
-                    <div className="text-right text-sm leading-relaxed">
-                      {profile.address.split(',').map((line: string, index: number) => (
-                        <div key={index} className={index > 0 ? "text-muted-foreground" : ""}>
-                          {line.trim()}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {profile?.address_latitude && profile?.address_longitude && (
-                  <div className="flex justify-end">
-                    <a
-                      className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs whitespace-nowrap hover:bg-muted"
-                      href={`https://www.google.com/maps/dir/?api=1&destination=${profile.address_latitude},${profile.address_longitude}`}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <MapPin className="h-3.5 w-3.5" />
-                      Get Directions
-                    </a>
-                  </div>
-                )}
-                {!profile?.phone_number && !profile?.address && (
-                  <div className="text-sm text-muted-foreground">
-                    No contact information available. Edit your profile to add phone number and address.
-                  </div>
-                )}
-              </div>
-            </section>
-
-            <Separator />
-
-            {/* Account Settings */}
-            <section className="space-y-4">
-              <h2 className="text-lg font-semibold">Account Settings</h2>
-              
-              {/* Basic Account Info */}
-              <div className="grid gap-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Email:</span>
-                  <span>{profile?.email || "Not set"}</span>
-                </div>
-                {profile?.username && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Username:</span>
-                    <span>@{profile.username}</span>
-                  </div>
-                )}
-                {profile?.time_zone && (
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Time Zone:</span>
-                    <span>{profile.time_zone}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex flex-wrap gap-2">
-                {!!userId && (
-                  <Button variant="outline" onClick={() => setEditAccountOpen(true)}>
-                    Edit Account
-                  </Button>
-                )}
-                {!!userId && (
-                  <Button variant="outline" onClick={() => setPasswordOpen(true)}>
-                    {hasPassword ? "Change Password" : "Add Password"}
-                  </Button>
-                )}
-              </div>
-            </section>
-
-            <Separator />
-
-            {/* Notifications */}
-            <section className="space-y-4">
-              <h3 className="text-lg font-semibold">Notifications</h3>
-              <NotificationSettings />
-            </section>
-
-            <Separator />
-
-            {/* Biometrics */}
-            <section className="space-y-4">
-              <h3 className="text-lg font-semibold">Security</h3>
-              <BiometricToggle />
-            </section>
-
-            <ResponsiveModal
-              open={editing && !!userId}
-              onOpenChange={setEditing}
-              title="Edit Profile"
-              description="Edit your profile details and preferences"
-            >
-              <ProfileForm
-                userId={userId!}
-                initialEmail={profile?.email}
-                initialProfile={profile}
-                bwiEnabled={bwiEnabled}
-                isBwiParticipant={isBwiParticipant}
-                onBwiToggle={async () => {
-                  const supabase = await getSupabaseClient();
-                  try {
-                    const { data, error } = await supabase.rpc('toggle_user_business_participation', { target_user_id: userId });
-                    if (error) throw error;
-                    setIsBwiParticipant(!!data);
-                    return !!data;
-                  } catch (error) {
-                    throw error;
-                  }
-                }}
-                onSaved={(p) => {
-                  setEditing(false);
-                  // Preserve email when updating profile
-                  setProfile((prev: any) => ({ ...p, email: prev?.email }));
-                  setRefreshKey((k) => k + 1);
-                }}
-              />
-            </ResponsiveModal>
-
-            {!!userId && (
-              <ResponsiveModal
-                open={editAccountOpen}
-                onOpenChange={(o) => {
-                  setEditAccountOpen(o);
-                  if (!o) setRefreshKey((k) => k + 1);
-                }}
-                title="Edit Account"
-                description="Update your email, username, and timezone"
-              >
-                <EditAccountForm
-                  userId={userId}
-                  initialEmail={profile?.email}
-                  initialUsername={(profile as any)?.username}
-                  currentProfile={profile}
-                  onSaved={() => setEditAccountOpen(false)}
-                />
-              </ResponsiveModal>
-            )}
-
-            <PasswordDialog
-              open={passwordOpen}
-              onOpenChange={setPasswordOpen}
-              email={profile?.email}
-              hasPassword={hasPassword}
-              onUpdated={() => {
-                try {
-                  localStorage.setItem("has_password", "1");
-                } catch {}
-                setHasPassword(true);
-              }}
-            />
-
-            {/* Privacy Policy Drawer */}
-            <ResponsiveModal
-              open={privacyPolicyOpen}
-              onOpenChange={setPrivacyPolicyOpen}
-              title="Privacy Policy"
-              description="Learn how we collect, use, and protect your information"
-            >
-              <div className="space-y-6 max-h-[70vh] overflow-y-auto pb-20">
-                <div className="text-sm text-muted-foreground mb-4">
-                  Last updated: January 18, 2025
-                </div>
-
-                <section className="space-y-4">
-                  <h2 className="text-lg font-semibold">1. Introduction</h2>
-                  <p className="text-sm leading-relaxed">
-                    Welcome to Millennial Reign App. We are committed to protecting your privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use our mobile application (the "App").
-                  </p>
-                  <p className="text-sm leading-relaxed">
-                    Please read this Privacy Policy carefully. If you do not agree with the terms of this Privacy Policy, please do not access the App.
-                  </p>
-                </section>
-
-                <section className="space-y-4">
-                  <h2 className="text-lg font-semibold">2. Information We Collect</h2>
-                  <h3 className="text-base font-medium">2.1 Personal Data</h3>
-                  <p className="text-sm leading-relaxed">
-                    We collect personal data that you voluntarily provide to us when you register with the App, express an interest in obtaining information about us or our products and services, when you participate in activities on the App, or otherwise when you contact us.
-                  </p>
-                  <ul className="text-sm leading-relaxed space-y-1 ml-4">
-                    <li>• <strong>Profile Data:</strong> First name, last name, middle name, date of birth, date of baptism, gender, privileges, avatar URL, username, time zone, congregation ID, group name.</li>
-                    <li>• <strong>Contact Information:</strong> Phone number, address, address latitude, address longitude (for emergency contact purposes, visible to congregation elders).</li>
-                    <li>• <strong>Authentication Data:</strong> Email address, password (hashed and never stored in plain text).</li>
-                  </ul>
-                  
-                  <h3 className="text-base font-medium">2.2 Usage Data</h3>
-                  <p className="text-sm leading-relaxed">
-                    We automatically collect certain information when you access the App, such as your IP address, browser type, operating system, access times, and the pages you have viewed directly before and after accessing the App.
-                  </p>
-                  
-                  <h3 className="text-base font-medium">2.3 Geolocation Data</h3>
-                  <p className="text-sm leading-relaxed">
-                    With your explicit permission, we may collect precise location data from your mobile device. This is used for features like the "Nearby" filter for establishments and for saving coordinates for your address.
-                  </p>
-                </section>
-
-                <section className="space-y-4">
-                  <h2 className="text-lg font-semibold">3. How We Use Your Information</h2>
-                  <p className="text-sm leading-relaxed">
-                    We use information collected about you via the App for various purposes, including to:
-                  </p>
-                  <ul className="text-sm leading-relaxed space-y-1 ml-4">
-                    <li>• Create and manage your account</li>
-                    <li>• Provide and maintain the functionality of the App</li>
-                    <li>• Personalize your experience with the App</li>
-                    <li>• Enable location-based features (e.g., "Nearby" establishments)</li>
-                    <li>• Send you push notifications for important updates and assignments</li>
-                    <li>• Facilitate communication among congregation members and elders</li>
-                    <li>• Improve our App and services</li>
-                  </ul>
-                </section>
-
-                <section className="space-y-4">
-                  <h2 className="text-lg font-semibold">4. Security of Your Information</h2>
-                  <p className="text-sm leading-relaxed">
-                    We use administrative, technical, and physical security measures to help protect your personal information. While we have taken reasonable steps to secure the personal information you provide to us, please be aware that despite our efforts, no security measures are perfect or impenetrable.
-                  </p>
-                </section>
-
-                <section className="space-y-4">
-                  <h2 className="text-lg font-semibold">5. Your Rights</h2>
-                  <p className="text-sm leading-relaxed">
-                    You have the right to access, update, or delete your personal information at any time through your account settings or by contacting us directly.
-                  </p>
-                </section>
-
-                <section className="space-y-4">
-                  <h2 className="text-lg font-semibold">6. Contact Us</h2>
-                  <p className="text-sm leading-relaxed">
-                    If you have questions or comments about this Privacy Policy, please contact us through the app or your congregation administrators.
-                  </p>
-                </section>
-              </div>
-            </ResponsiveModal>
-
-            <Separator />
-
-            {/* Privacy Policy */}
-            <section className="space-y-4">
-              <h3 className="text-lg font-semibold">Legal</h3>
-              <div className="text-sm text-muted-foreground">
-                <button 
-                  onClick={() => setPrivacyPolicyOpen(true)}
-                  className="flex items-center gap-2 text-primary hover:underline hover:bg-muted/50 rounded-md px-2 py-1 -mx-2 -my-1 transition-colors"
-                >
-                  <span>Learn more</span>
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-                <p className="mt-1">
-                  Learn how we collect, use, and protect your information.
-                </p>
-              </div>
-            </section>
-          </div>
-        </motion.div>
+        <>
+          {portaledControls}
+          <AccountSection
+            userId={userId}
+            profile={profile}
+            accountTab={accountTab}
+            setAccountTab={setAccountTab}
+            editing={editing}
+            setEditing={setEditing}
+            editAccountOpen={editAccountOpen}
+            setEditAccountOpen={setEditAccountOpen}
+            passwordOpen={passwordOpen}
+            setPasswordOpen={setPasswordOpen}
+            privacyPolicyOpen={privacyPolicyOpen}
+            setPrivacyPolicyOpen={setPrivacyPolicyOpen}
+            hasPassword={hasPassword}
+            setHasPassword={setHasPassword}
+            bwiEnabled={bwiEnabled}
+            isBwiParticipant={isBwiParticipant}
+            setIsBwiParticipant={setIsBwiParticipant}
+            setRefreshKey={setRefreshKey}
+            setProfile={setProfile}
+            getSupabaseClient={getSupabaseClient}
+          />
+        </>
       );
 
     default:

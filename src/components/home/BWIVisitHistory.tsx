@@ -9,31 +9,9 @@ import { Calendar, ChevronRight, User, UserCheck, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import Image from "next/image";
 import { cacheGet, cacheSet } from "@/lib/offline/store";
-import { getStatusTextColor, getBestStatus, getStatusColor } from "@/lib/utils/status-hierarchy";
-
-interface VisitRecord {
-  id: string;
-  visit_date: string;
-  establishment_name?: string;
-  householder_name?: string;
-  visit_type: 'establishment' | 'householder';
-  establishment_id?: string;
-  householder_id?: string;
-  establishment_status?: string;
-  notes?: string;
-  created_at: string;
-  publisher_id?: string;
-  publisher?: {
-    first_name: string;
-    last_name: string;
-    avatar_url?: string;
-  };
-  partner?: {
-    first_name: string;
-    last_name: string;
-    avatar_url?: string;
-  };
-}
+import { getStatusTextColor, getStatusColor } from "@/lib/utils/status-hierarchy";
+import type { VisitRecord } from "@/lib/utils/visit-history";
+import { buildVisitRecords, dedupeAndSortVisits, takeTopVisits } from "@/lib/utils/visit-history";
 
 interface BWIVisitHistoryProps {
   userId: string;
@@ -143,45 +121,8 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
 
         if (hhError) throw hhError;
 
-        // Combine and format visits
-        const combinedVisits: VisitRecord[] = [
-          ...(establishmentVisits || []).map(v => ({
-            id: `est-${v.id}`,
-            visit_date: v.visit_date,
-            establishment_name: (v.business_establishments as any)?.name,
-            establishment_status: getBestStatus((v.business_establishments as any)?.statuses || []),
-            visit_type: 'establishment' as const,
-            establishment_id: v.establishment_id,
-            notes: v.note,
-            created_at: v.created_at,
-            publisher_id: (v as any).publisher_id,
-            publisher: (v.publisher as any) || undefined,
-            partner: (v.partner as any) || undefined
-          })),
-          ...(householderVisits || []).map(v => ({
-            id: `hh-${v.id}`,
-            visit_date: v.visit_date,
-            householder_name: (v.householders as any)?.name,
-            establishment_name: (v.business_establishments as any)?.name,
-            establishment_status: getBestStatus((v.business_establishments as any)?.statuses || []),
-            visit_type: 'householder' as const,
-            householder_id: v.householder_id,
-            notes: v.note,
-            created_at: v.created_at,
-            publisher_id: (v as any).publisher_id,
-            publisher: (v.publisher as any) || undefined,
-            partner: (v.partner as any) || undefined
-          }))
-        ];
-
-        // Remove duplicates and sort by visit date (newest first) and take top 5
-        const uniqueVisits = combinedVisits.filter((visit, index, self) => 
-          index === self.findIndex(v => v.id === visit.id)
-        );
-        
-        const sortedVisits = uniqueVisits
-          .sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime())
-          .slice(0, 5);
+        const combinedVisits = buildVisitRecords(establishmentVisits || [], householderVisits || []);
+        const sortedVisits = takeTopVisits(combinedVisits, 5);
 
         setVisits(sortedVisits);
         
@@ -274,44 +215,8 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
 
       if (hhError) throw hhError;
 
-      // Combine and format visits
-      const combinedVisits: VisitRecord[] = [
-        ...(establishmentVisits || []).map(v => ({
-          id: `est-${v.id}`,
-          visit_date: v.visit_date,
-          establishment_name: (v.business_establishments as any)?.name,
-          establishment_status: getBestStatus((v.business_establishments as any)?.statuses || []),
-          visit_type: 'establishment' as const,
-          establishment_id: v.establishment_id,
-          notes: v.note,
-          created_at: v.created_at,
-          publisher_id: (v as any).publisher_id,
-          publisher: (v.publisher as any) || undefined,
-          partner: (v.partner as any) || undefined
-        })),
-        ...(householderVisits || []).map(v => ({
-          id: `hh-${v.id}`,
-          visit_date: v.visit_date,
-          householder_name: (v.householders as any)?.name,
-          establishment_name: (v.business_establishments as any)?.name,
-          establishment_status: getBestStatus((v.business_establishments as any)?.statuses || []),
-          visit_type: 'householder' as const,
-          householder_id: v.householder_id,
-          notes: v.note,
-          created_at: v.created_at,
-          publisher_id: (v as any).publisher_id,
-          publisher: (v.publisher as any) || undefined,
-          partner: (v.partner as any) || undefined
-        }))
-      ];
-
-      // Remove duplicates and sort by visit date (newest first)
-      const uniqueVisits = combinedVisits.filter((visit, index, self) => 
-        index === self.findIndex(v => v.id === visit.id)
-      );
-      
-      const sortedVisits = uniqueVisits
-        .sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
+      const combinedVisits = buildVisitRecords(establishmentVisits || [], householderVisits || []);
+      const sortedVisits = dedupeAndSortVisits(combinedVisits);
 
       if (offset === 0) {
         setAllVisitsRaw(sortedVisits);

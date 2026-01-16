@@ -12,6 +12,9 @@ import { toast } from "@/components/ui/sonner";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { getStatusColor, getStatusTextColor, getBestStatus } from "@/lib/utils/status-hierarchy";
+import { useListViewMode } from "@/lib/hooks/use-list-view-mode";
+import { useInfiniteList } from "@/lib/hooks/use-infinite-list";
+import { formatEstablishmentStatusCompactText, formatStatusText } from "@/lib/utils/formatters";
 
 interface EstablishmentListProps {
   establishments: EstablishmentWithDetails[];
@@ -118,7 +121,14 @@ export function EstablishmentList({
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
-  const [viewMode, setViewMode] = useState<ViewMode>(externalViewMode || 'detailed');
+  const { viewMode } = useListViewMode<ViewMode>({
+    defaultViewMode: "detailed",
+    externalViewMode,
+    onViewModeChange,
+    storageKey: "establishment-view-mode",
+    allowedModes: ["detailed", "compact", "table"],
+    cycleOrder: ["detailed", "compact", "table"]
+  });
 
   // Prevent page scrolling when in table view
   useEffect(() => {
@@ -131,96 +141,16 @@ export function EstablishmentList({
       document.body.style.overflow = '';
     };
   }, [viewMode]);
-  const [visibleCount, setVisibleCount] = useState<number>(0);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
-
-  // Sync with external view mode
-  useEffect(() => {
-    if (externalViewMode) {
-      setViewMode(externalViewMode);
-    }
-  }, [externalViewMode]);
-
-  // Load view mode preference from localStorage (only if no external view mode)
-  useEffect(() => {
-    if (!externalViewMode) {
-      const savedViewMode = localStorage.getItem('establishment-view-mode') as ViewMode;
-      if (savedViewMode && (savedViewMode === 'detailed' || savedViewMode === 'compact' || savedViewMode === 'table')) {
-        setViewMode(savedViewMode);
-      }
-    }
-  }, [externalViewMode]);
-
-  // Reset initial visible count whenever the view or data changes
-  useEffect(() => {
-    const initial = viewMode === 'detailed' ? 7 : viewMode === 'compact' ? 10 : 20;
-    setVisibleCount(Math.min(initial, establishments.length));
-  }, [viewMode, establishments.length]);
-
-  // Observe sentinel to progressively render more items as the user scrolls
-  useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el) return;
-    const step = viewMode === 'detailed' ? 5 : viewMode === 'compact' ? 10 : 20;
-
-    const observer = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting) {
-          setVisibleCount((prev) => Math.min(prev + step, establishments.length));
-        }
-      }
-    }, { root: null, rootMargin: '200px', threshold: 0 });
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [viewMode, establishments.length]);
-
-  // Save view mode preference to localStorage
-  const handleViewModeChange = (newViewMode: ViewMode) => {
-    setViewMode(newViewMode);
-    if (onViewModeChange) {
-      onViewModeChange(newViewMode);
-    }
-    try { localStorage.setItem('establishment-view-mode', newViewMode); } catch {}
-  };
-
-  const cycleViewMode = () => {
-    const next: ViewMode = viewMode === 'detailed' ? 'compact' : viewMode === 'compact' ? 'table' : 'detailed';
-    handleViewModeChange(next);
-  };
+  const { visibleCount, sentinelRef } = useInfiniteList({
+    itemsLength: establishments.length,
+    viewMode
+  });
 
   const hasActiveFilters = !!filters && (
     !!filters.search || (filters.statuses?.length ?? 0) > 0 || (filters.areas?.length ?? 0) > 0 || !!filters.myEstablishments
   );
 
-  const formatStatusText = (status: string) => {
-    return status
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
-
-  const formatStatusCompactText = (status: string) => {
-    // Make long statuses friendlier and shorter for tight spaces
-    switch (status) {
-      case 'for_follow_up':
-        return 'Follow Up';
-      case 'for_replenishment':
-        return 'Replenish';
-      case 'accepted_rack':
-        return 'Accepted';
-      case 'declined_rack':
-        return 'Declined';
-      case 'for_scouting':
-        return 'Scouting';
-      case 'has_bible_studies':
-        return 'BS';
-      case 'closed':
-        return 'Closed';
-      default:
-        return formatStatusText(status);
-    }
-  };
+  const formatStatusCompactText = formatEstablishmentStatusCompactText;
 
   const truncateEstablishmentName = (name: string, maxLength: number = 20) => {
     return name.length > maxLength ? name.substring(0, maxLength) + '...' : name;

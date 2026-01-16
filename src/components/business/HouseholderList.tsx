@@ -10,6 +10,9 @@ import { type HouseholderWithDetails, type BusinessFiltersState } from "@/lib/db
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
+import { useListViewMode } from "@/lib/hooks/use-list-view-mode";
+import { useInfiniteList } from "@/lib/hooks/use-infinite-list";
+import { formatHouseholderStatusCompactText, formatStatusText } from "@/lib/utils/formatters";
 
 interface HouseholderListProps {
   householders: HouseholderWithDetails[];
@@ -116,7 +119,14 @@ export function HouseholderList({
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
-  const [viewMode, setViewMode] = useState<ViewMode>(externalViewMode || 'detailed');
+  const { viewMode } = useListViewMode<ViewMode>({
+    defaultViewMode: "detailed",
+    externalViewMode,
+    onViewModeChange,
+    storageKey: "householder-view-mode",
+    allowedModes: ["detailed", "compact", "table"],
+    cycleOrder: ["detailed", "compact", "table"]
+  });
 
   // Prevent page scrolling when in table view
   useEffect(() => {
@@ -129,90 +139,16 @@ export function HouseholderList({
       document.body.style.overflow = '';
     };
   }, [viewMode]);
-  const [visibleCount, setVisibleCount] = useState<number>(0);
-  const sentinelRef = useRef<HTMLDivElement | null>(null);
-
-  // Sync with external view mode
-  useEffect(() => {
-    if (externalViewMode) {
-      setViewMode(externalViewMode);
-    }
-  }, [externalViewMode]);
-
-  // Load view mode preference from localStorage (only if no external view mode)
-  useEffect(() => {
-    if (!externalViewMode) {
-      const savedViewMode = localStorage.getItem('householder-view-mode') as ViewMode;
-      if (savedViewMode && (savedViewMode === 'detailed' || savedViewMode === 'compact' || savedViewMode === 'table')) {
-        setViewMode(savedViewMode);
-      }
-    }
-  }, [externalViewMode]);
-
-  // Reset initial visible count whenever the view or data changes
-  useEffect(() => {
-    const initial = viewMode === 'detailed' ? 7 : viewMode === 'compact' ? 10 : 20;
-    setVisibleCount(Math.min(initial, householders.length));
-  }, [viewMode, householders.length]);
-
-  // Observe sentinel to progressively render more items as the user scrolls
-  useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el) return;
-    const step = viewMode === 'detailed' ? 5 : viewMode === 'compact' ? 10 : 20;
-
-    const observer = new IntersectionObserver((entries) => {
-      for (const entry of entries) {
-        if (entry.isIntersecting) {
-          setVisibleCount((prev) => Math.min(prev + step, householders.length));
-        }
-      }
-    }, { root: null, rootMargin: '200px', threshold: 0 });
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [viewMode, householders.length]);
-
-  // Save view mode preference to localStorage
-  const handleViewModeChange = (newViewMode: ViewMode) => {
-    setViewMode(newViewMode);
-    if (onViewModeChange) {
-      onViewModeChange(newViewMode);
-    }
-    try { localStorage.setItem('householder-view-mode', newViewMode); } catch {}
-  };
-
-  const cycleViewMode = () => {
-    const next: ViewMode = viewMode === 'detailed' ? 'compact' : viewMode === 'compact' ? 'table' : 'detailed';
-    handleViewModeChange(next);
-  };
+  const { visibleCount, sentinelRef } = useInfiniteList({
+    itemsLength: householders.length,
+    viewMode
+  });
 
   const hasActiveFilters = !!filters && (
     !!filters.search || (filters.statuses?.length ?? 0) > 0 || (filters.areas?.length ?? 0) > 0 || !!filters.myEstablishments
   );
 
-  const formatStatusText = (status: string) => {
-    return status
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
-
-  const formatStatusCompactText = (status: string) => {
-    // Make long statuses friendlier and shorter for tight spaces
-    switch (status) {
-      case 'return_visit':
-        return 'RV';
-      case 'bible_study':
-        return 'BS';
-      case 'do_not_call':
-        return 'DNC';
-      case 'interested':
-        return 'Int';
-      default:
-        return formatStatusText(status);
-    }
-  };
+  const formatStatusCompactText = formatHouseholderStatusCompactText;
 
   const truncateHouseholderName = (name: string, maxLength: number = 20) => {
     return name.length > maxLength ? name.substring(0, maxLength) + '...' : name;

@@ -3,6 +3,7 @@
 import { PortaledBusinessControls } from "@/components/business/PortaledBusinessControls";
 import { PortaledCongregationControls } from "@/components/congregation/PortaledCongregationControls";
 import { PortaledHomeControls } from "@/components/home/PortaledHomeControls";
+import { PortaledAccountControls } from "@/components/account/PortaledAccountControls";
 import type { BusinessFiltersState, EstablishmentWithDetails, HouseholderWithDetails } from "@/lib/db/business";
 
 interface UnifiedPortaledControlsProps {
@@ -34,6 +35,9 @@ interface UnifiedPortaledControlsProps {
   // Home props
   homeTab?: 'summary' | 'events';
   onHomeTabChange?: (tab: 'summary' | 'events') => void;
+  // Account props
+  accountTab?: 'profile' | 'account';
+  onAccountTabChange?: (tab: 'profile' | 'account') => void;
 }
 
 export function UnifiedPortaledControls(props: UnifiedPortaledControlsProps) {
@@ -41,6 +45,7 @@ export function UnifiedPortaledControls(props: UnifiedPortaledControlsProps) {
   const showBusinessControls = currentSection === 'business' || currentSection.startsWith('business-');
   const showCongregationControls = currentSection === 'congregation';
   const showHomeControls = currentSection === 'home';
+  const showAccountControls = currentSection === 'account';
 
   if (showBusinessControls && props.businessTab !== undefined) {
     return (
@@ -85,6 +90,16 @@ export function UnifiedPortaledControls(props: UnifiedPortaledControlsProps) {
       <PortaledHomeControls
         homeTab={props.homeTab}
         onHomeTabChange={props.onHomeTabChange!}
+        isVisible={true}
+      />
+    );
+  }
+
+  if (showAccountControls && props.accountTab !== undefined) {
+    return (
+      <PortaledAccountControls
+        accountTab={props.accountTab}
+        onAccountTabChange={props.onAccountTabChange!}
         isVisible={true}
       />
     );
