@@ -1666,15 +1666,6 @@ export function AppClient() {
           </div>
         );
       }
-      
-      if (!(isElder || admin)) {
-        return (
-          <div className="rounded-md border p-4">
-            <div className="text-base font-medium">Insufficient privilege</div>
-            <div className="mt-1 text-sm opacity-70">This area is for elders. Admins can also access for setup.</div>
-          </div>
-        );
-      }
 
 
 
