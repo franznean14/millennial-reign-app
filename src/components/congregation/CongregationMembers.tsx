@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, Crown, Shield } from "lucide-react";
 import { UserManagementForm } from "./UserManagementForm";
-import { ResponsiveModal } from "@/components/ui/responsive-modal";
+import { FormModal } from "@/components/shared/FormModal";
 
 interface CongregationMember {
   id: string;
@@ -171,7 +171,7 @@ export function CongregationMembers({ congregationId }: CongregationMembersProps
       </section>
 
       {/* User Management Modal */}
-      <ResponsiveModal
+      <FormModal
         open={userManagementModalOpen}
         onOpenChange={setUserManagementModalOpen}
         title="Manage User"
@@ -188,7 +188,7 @@ export function CongregationMembers({ congregationId }: CongregationMembersProps
             }}
           />
         )}
-      </ResponsiveModal>
+      </FormModal>
     </>
   );
 }

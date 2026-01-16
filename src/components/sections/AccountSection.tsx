@@ -1,7 +1,7 @@
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
-import { motion } from "motion/react";
+import { SectionShell } from "@/components/shared/SectionShell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -11,7 +11,7 @@ import { BiometricToggle } from "@/components/account/BiometricToggle";
 import { ProfileForm } from "@/components/account/ProfileForm";
 import { EditAccountForm } from "@/components/account/EditAccountForm";
 import { PasswordDialog } from "@/components/account/PasswordDialog";
-import { ResponsiveModal } from "@/components/ui/responsive-modal";
+import { FormModal } from "@/components/shared/FormModal";
 import { ChevronRight, MapPin } from "lucide-react";
 
 type AccountTab = "profile" | "account";
@@ -66,14 +66,7 @@ export function AccountSection({
     new Date(dateString).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 
   return (
-    <motion.div
-        key="account"
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: 20 }}
-        transition={{ duration: 0.3 }}
-        className="space-y-6 pb-20 pt-[60px]"
-      >
+    <SectionShell motionKey="account" className="space-y-6 pb-20 pt-[60px]">
         <div className="space-y-6 p-4">
           {accountTab === "profile" ? (
             <>
@@ -245,7 +238,7 @@ export function AccountSection({
           )}
         </div>
 
-        <ResponsiveModal
+        <FormModal
           open={editing && !!userId}
           onOpenChange={setEditing}
           title="Edit Profile"
@@ -269,10 +262,10 @@ export function AccountSection({
               setProfile((prev: any) => ({ ...p, email: prev?.email }));
             }}
           />
-        </ResponsiveModal>
+        </FormModal>
 
         {!!userId && (
-          <ResponsiveModal
+          <FormModal
             open={editAccountOpen}
             onOpenChange={(o) => {
               setEditAccountOpen(o);
@@ -287,7 +280,7 @@ export function AccountSection({
               currentProfile={profile}
               onSaved={() => setEditAccountOpen(false)}
             />
-          </ResponsiveModal>
+          </FormModal>
         )}
 
         <PasswordDialog
@@ -303,7 +296,7 @@ export function AccountSection({
           }}
         />
 
-        <ResponsiveModal
+        <FormModal
           open={privacyPolicyOpen}
           onOpenChange={setPrivacyPolicyOpen}
           title="Privacy Policy"
@@ -403,7 +396,7 @@ export function AccountSection({
               </p>
             </section>
           </div>
-        </ResponsiveModal>
-      </motion.div>
+        </FormModal>
+      </SectionShell>
   );
 }

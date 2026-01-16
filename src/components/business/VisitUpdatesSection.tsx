@@ -1,17 +1,17 @@
 "use client";
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { ChevronRight, Calendar } from 'lucide-react';
-import { ResponsiveModal } from '@/components/ui/responsive-modal';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from '@/components/ui/drawer';
-import Image from 'next/image';
+import { FormModal } from '@/components/shared/FormModal';
 import { type VisitWithUser } from '@/lib/db/business';
-import { getStatusTextColor, getBestStatus } from '@/lib/utils/status-hierarchy';
 import { VisitForm } from './VisitForm';
-import { useMobile } from '@/lib/hooks/use-mobile';
-import { formatVisitDateShort, getPublisherName, getInitials } from '@/lib/utils/visit-history-ui';
+import { formatVisitDateShort, getPublisherName } from '@/lib/utils/visit-history-ui';
+import { getStatusDotColor, getTimelineDotSize, getTimelineLineClassWithPosition } from '@/lib/utils/visit-timeline';
 import { VisitTimelineRow } from '@/components/visit/VisitTimelineRow';
+import { VisitList } from '@/components/visit/VisitList';
+import { VisitAvatars } from '@/components/visit/VisitAvatars';
+import { VisitRowContent } from '@/components/visit/VisitRowContent';
+import { VisitStatusBadge } from '@/components/visit/VisitStatusBadge';
 
 interface VisitUpdatesSectionProps {
   visits: VisitWithUser[];
@@ -36,18 +36,15 @@ export function VisitUpdatesSection({
 }: VisitUpdatesSectionProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editVisit, setEditVisit] = useState<VisitWithUser | null>(null);
-  const drawerRef = useRef<HTMLDivElement>(null);
-  const isMobile = useMobile();
 
   // Show only first 3 visits in main view
   const mainVisits = visits.slice(0, 3);
 
   const renderVisitEntry = (visit: VisitWithUser, index: number, isDrawer: boolean, total: number) => {
     const publisherName = getPublisherName(visit.publisher || null);
-    const avatarUrl = visit.publisher?.avatar_url;
 
-    const lineLengthClass = 'h-[calc(100%+1rem)]';
-    const dotSizeClass = 'w-3 h-3';
+    const lineLengthClass = getTimelineLineClassWithPosition(isDrawer);
+    const dotSizeClass = getTimelineDotSize();
     const avatarSizeClass = 'w-8 h-8'; // 10% smaller than w-9 h-9 (36px -> 32px)
 
     return (
@@ -56,13 +53,13 @@ export function VisitUpdatesSection({
         index={index}
         total={total}
         rootClassName="hover:bg-muted/50 rounded-lg transition-colors"
-        lineClassName={`left-[5px] top-[12px] ${lineLengthClass} z-0`}
+        lineClassName={lineLengthClass}
         dot={
           <div
             className={`relative ${dotSizeClass} rounded-full flex-shrink-0 border-2 ${
               visit.householder_id
-                ? getStatusTextColor(visit.householder?.status || 'potential')
-                : getStatusTextColor(visit.establishment?.status || 'for_scouting')
+                ? getStatusDotColor(visit.householder?.status || "potential")
+                : getStatusDotColor(visit.establishment?.status || "for_scouting")
             }`}
             style={{ zIndex: 1 }}
           />
@@ -70,58 +67,35 @@ export function VisitUpdatesSection({
         contentClassName="ml-4"
         avatarClassName="ml-4"
         avatar={
-          <>
-            {avatarUrl ? (
-              <Image
-                src={avatarUrl}
-                alt={publisherName}
-                width={32}
-                height={32}
-                className={`rounded-full object-cover ring-2 ring-background ${avatarSizeClass}`}
-              />
-            ) : (
-              <div className={`rounded-full bg-gray-600 flex items-center justify-center text-white text-xs ring-2 ring-background ${avatarSizeClass}`}>
-                {getInitials(publisherName)}
-              </div>
-            )}
-            {visit.partner && (
-              <Image
-                src={visit.partner.avatar_url || ''}
-                alt={`${visit.partner.first_name} ${visit.partner.last_name}`}
-                width={32}
-                height={32}
-                className={`rounded-full object-cover ring-2 ring-background -ml-2 ${avatarSizeClass}`}
-              />
-            )}
-          </>
+          <VisitAvatars
+            publisher={visit.publisher ?? null}
+            partner={visit.partner ?? null}
+            sizeClassName={avatarSizeClass}
+            textClassName="text-xs"
+          />
         }
       >
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-sm font-medium text-foreground">
-            {formatVisitDateShort(visit.visit_date)}
-          </span>
-          {visit.householder_id && visit.householder?.name && !isHouseholderContext && (
-            <span className={`text-xs px-2 py-0.5 rounded-full border ${getStatusTextColor(visit.householder.status || 'potential')}`}>
-              {visit.householder.name}
-            </span>
-          )}
-          {visit.establishment_id && visit.establishment?.name && isHouseholderContext && (
-            <span className={`text-xs px-2 py-0.5 rounded-full border ${getStatusTextColor(visit.establishment.status || 'for_scouting')}`}>
-              {visit.establishment.name}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
-          <Calendar className="h-3 w-3" />
-          <span className="text-xs text-muted-foreground">
-            {publisherName}
-          </span>
-        </div>
-        {visit.note && (
-          <div className={`text-xs text-muted-foreground leading-relaxed ${!isDrawer ? 'line-clamp-1' : ''}`}>
-            {visit.note}
-          </div>
-        )}
+        <VisitRowContent
+          title={formatVisitDateShort(visit.visit_date)}
+          titleBadge={
+            visit.householder_id && visit.householder?.name && !isHouseholderContext ? (
+              <VisitStatusBadge
+                status={visit.householder.status || "potential"}
+                label={visit.householder.name}
+              />
+            ) : visit.establishment_id && visit.establishment?.name && isHouseholderContext ? (
+              <VisitStatusBadge
+                status={visit.establishment.status || "for_scouting"}
+                label={visit.establishment.name}
+              />
+            ) : undefined
+          }
+          metaIcon={<Calendar className="h-3 w-3" />}
+          metaText={publisherName}
+          metaClassName="mb-2"
+          notes={visit.note}
+          notesClassName={!isDrawer ? "leading-relaxed line-clamp-1" : "leading-relaxed"}
+        />
       </VisitTimelineRow>
     );
   };
@@ -136,90 +110,54 @@ export function VisitUpdatesSection({
         <ChevronRight className="h-4 w-4" />
       </button>
 
-      {visits.length === 0 ? (
-        <div className="text-muted-foreground">No visit updates found.</div>
-      ) : (
-        <div className="space-y-4">
-          {mainVisits.map((visit, index) => (
-            <React.Fragment key={visit.id}>
-              {renderVisitEntry(visit, index, false, mainVisits.length)}
-            </React.Fragment>
-          ))}
-        </div>
-      )}
+      <VisitList
+        items={mainVisits}
+        getKey={(visit) => visit.id}
+        renderItem={(visit, index, total) => renderVisitEntry(visit, index, false, total)}
+        emptyText="No visit updates found."
+      />
 
-      <ResponsiveModal
+      <FormModal
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
         title="All Visit Updates"
       >
-        <div ref={drawerRef} className="flex-1 overflow-y-auto p-4 pb-20">
-          {visits.length === 0 ? (
-            <div className="text-muted-foreground">No visit updates found.</div>
-          ) : (
-            <div className="space-y-4">
-              {visits.map((visit, index) => (
-                <React.Fragment key={visit.id}>
-                  {renderVisitEntry(visit, index, true, visits.length)}
-                </React.Fragment>
-              ))}
-            </div>
-          )}
+        <div className="flex-1 overflow-y-auto p-4 pb-20">
+          <VisitList
+            items={visits}
+            getKey={(visit) => visit.id}
+            renderItem={(visit, index, total) => renderVisitEntry(visit, index, true, total)}
+            emptyText="No visit updates found."
+          />
         </div>
-      </ResponsiveModal>
+      </FormModal>
 
-      {/* Edit Visit Modal/Drawer */}
-      {isMobile ? (
-        <Drawer open={!!editVisit} onOpenChange={(o) => setEditVisit(o ? editVisit : null)}>
-          <DrawerContent>
-            <DrawerHeader className="text-center">
-              <DrawerTitle>Edit Visit</DrawerTitle>
-              <DrawerDescription>Update visit details</DrawerDescription>
-            </DrawerHeader>
-            <div className="px-4">
-              {editVisit && (
-                <VisitForm
-                  establishments={establishments}
-                  selectedEstablishmentId={selectedEstablishmentId}
-                  initialVisit={editVisit}
-                  householderId={householderId}
-                  householderName={householderName}
-                  householderStatus={householderStatus}
-                  onSaved={() => {
-                    setEditVisit(null);
-                    onVisitUpdated?.();
-                  }}
-                />
-              )}
-            </div>
-          </DrawerContent>
-        </Drawer>
-      ) : (
-        <Dialog open={!!editVisit} onOpenChange={(o) => setEditVisit(o ? editVisit : null)}>
-          <DialogContent>
-            <DialogHeader className="text-center">
-              <DialogTitle>Edit Visit</DialogTitle>
-              <DialogDescription>Update visit details</DialogDescription>
-            </DialogHeader>
-            <div className="px-4">
-              {editVisit && (
-                <VisitForm
-                  establishments={establishments}
-                  selectedEstablishmentId={selectedEstablishmentId}
-                  initialVisit={editVisit}
-                  householderId={householderId}
-                  householderName={householderName}
-                  householderStatus={householderStatus}
-                  onSaved={() => {
-                    setEditVisit(null);
-                    onVisitUpdated?.();
-                  }}
-                />
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+      <FormModal
+        open={!!editVisit}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditVisit(null);
+          }
+        }}
+        title="Edit Visit"
+        description="Update visit details"
+        headerClassName="text-center"
+      >
+        {editVisit && (
+          <VisitForm
+            establishments={establishments}
+            selectedEstablishmentId={selectedEstablishmentId}
+            initialVisit={editVisit}
+            householderId={householderId}
+            householderName={householderName}
+            householderStatus={householderStatus}
+            onSaved={() => {
+              setEditVisit(null);
+              onVisitUpdated?.();
+            }}
+          />
+        )}
+      </FormModal>
     </div>
   );
 }

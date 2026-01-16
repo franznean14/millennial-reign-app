@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import { FabMenu } from "@/components/shared/FabMenu";
 import { Plus } from "lucide-react";
-import { ResponsiveModal } from "@/components/ui/responsive-modal";
+import { FormModal } from "@/components/shared/FormModal";
 import { AddUserToCongregationForm } from "./AddUserToCongregationForm";
 
 interface CongregationUserSearchButtonProps {
@@ -23,16 +23,22 @@ export function CongregationUserSearchButton({ congregationId, canEdit, onRefres
   return (
     <>
       {/* Floating Action Button - aligned with Business FAB; larger and adjusted on lg (tablet landscape) */}
-      <Button
-        onClick={() => setSearchDrawerOpen(true)}
-        className="fixed right-4 z-40 h-14 w-14 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-110 active:scale-95 touch-manipulation md:right-6 bottom-[calc(max(env(safe-area-inset-bottom),0px)+80px)] md:bottom-[104px] lg:h-16 lg:w-16 lg:right-8 lg:bottom-8"
-        size="lg"
-      >
-        <Plus className="h-6 w-6" />
-      </Button>
+      <FabMenu
+        label="Add user to congregation"
+        mainIcon={<Plus className="h-6 w-6" />}
+        mainIconOpen={<Plus className="h-6 w-6" />}
+        mainClassName="lg:h-16 lg:w-16 lg:right-8 lg:bottom-8"
+        actions={[
+          {
+            label: "Add User",
+            icon: <Plus className="h-4 w-4" />,
+            onClick: () => setSearchDrawerOpen(true)
+          }
+        ]}
+      />
 
       {/* User Search Modal */}
-      <ResponsiveModal
+      <FormModal
         open={searchDrawerOpen}
         onOpenChange={setSearchDrawerOpen}
         title="Add User to Congregation"
@@ -46,7 +52,7 @@ export function CongregationUserSearchButton({ congregationId, canEdit, onRefres
           }}
           onClose={() => setSearchDrawerOpen(false)}
         />
-      </ResponsiveModal>
+      </FormModal>
     </>
   );
 }

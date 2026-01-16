@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { ResponsiveModal } from "@/components/ui/responsive-modal";
+import { FormModal } from "@/components/shared/FormModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/sonner";
@@ -80,7 +80,7 @@ export function PasswordDialog({ open, onOpenChange, email, hasPassword, onUpdat
   };
 
   return (
-    <ResponsiveModal
+    <FormModal
       open={open}
       onOpenChange={onOpenChange}
       title={hasPassword ? "Change Password" : "Add Password"}
@@ -133,6 +133,6 @@ export function PasswordDialog({ open, onOpenChange, email, hasPassword, onUpdat
           {saving ? "Saving…" : hasPassword ? "Change Password" : "Add Password"}
         </Button>
       </div>
-    </ResponsiveModal>
+    </FormModal>
   );
 }

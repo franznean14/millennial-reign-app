@@ -1,22 +1,21 @@
 "use client";
 
-import { useEffect, useState, useMemo, useRef } from "react";
-import { formatVisitDateLong, getInitials, getPublisherName } from "@/lib/utils/visit-history-ui";
+import { useEffect, useState, useRef } from "react";
+import { formatVisitDateLong, getVisitDisplayName } from "@/lib/utils/visit-history-ui";
 import { Button } from "@/components/ui/button";
-import { ResponsiveModal } from "@/components/ui/responsive-modal";
+import { FormModal } from "@/components/shared/FormModal";
 import { Calendar, ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import Image from "next/image";
-import { getStatusTextColor, getStatusColor } from "@/lib/utils/status-hierarchy";
-import { formatStatusText } from "@/lib/utils/formatters";
+import { getTimelineDotSize, getTimelineLineStyle, getVisitTypeDotColor } from "@/lib/utils/visit-timeline";
 import type { VisitRecord } from "@/lib/utils/visit-history";
 import { useBwiVisitHistory } from "@/lib/hooks/use-bwi-visit-history";
 import { VisitTimelineRow } from "@/components/visit/VisitTimelineRow";
-import { FilterControls, type FilterBadge } from "@/components/shared/FilterControls";
+import { FilterControls } from "@/components/shared/FilterControls";
 import { VisitFiltersForm } from "@/components/visit/VisitFiltersForm";
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerDescription } from "@/components/ui/drawer";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { useMobile } from "@/lib/hooks/use-mobile";
+import { VisitAvatars } from "@/components/visit/VisitAvatars";
+import { VisitList } from "@/components/visit/VisitList";
+import { VisitRowContent } from "@/components/visit/VisitRowContent";
+import { VisitStatusBadge } from "@/components/visit/VisitStatusBadge";
 
 interface BWIVisitHistoryProps {
   userId: string;
@@ -28,7 +27,6 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
   const [filtersModalOpen, setFiltersModalOpen] = useState(false);
   const [isSearchActive, setIsSearchActive] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const isMobile = useMobile();
 
   const {
     visits,
@@ -36,25 +34,16 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
     allVisitsRawCount,
     filteredVisits,
     filterOptions,
+    filterBadges,
     filters,
     setFilters,
+    clearFilters,
+    clearSearch,
     loadAllVisits,
+    loadMore,
     loadingMore,
     hasMore
   } = useBwiVisitHistory({ userId });
-
-  const filterBadges = useMemo<FilterBadge[]>(() => {
-    const badges: Array<{ type: "status" | "area"; value: string; label: string }> = [];
-    filters.statuses.forEach(status => {
-      badges.push({ type: "status", value: status, label: formatStatusText(status) });
-    });
-    filters.areas.forEach(area => {
-      badges.push({ type: "area", value: area, label: area });
-    });
-    return badges;
-  }, [filters.statuses, filters.areas]);
-
-  const hasActiveFilters = filterBadges.length > 0;
 
   // Apply all filters to visits (handled by hook)
 
@@ -71,89 +60,58 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
     }
   }, [showDrawer, allVisitsRawCount, loadAllVisits]);
 
-  const handleLoadMore = () => {
-    if (!loadingMore && hasMore) {
-      loadAllVisits(allVisitsRawCount);
-    }
-  };
+  const formatVisitDate = formatVisitDateLong;
 
-  const formatVisitDate = (dateString: string) => formatVisitDateLong(dateString);
-
-  const getVisitTypeColor = (type: 'establishment' | 'householder') => {
-    return type === 'establishment' ? 'bg-blue-500' : 'bg-green-500';
-  };
+  const filterForm = (
+    <VisitFiltersForm
+      filters={filters}
+      statusOptions={filterOptions.statuses}
+      areaOptions={filterOptions.areas}
+      onFiltersChange={setFilters}
+      onClearFilters={clearFilters}
+    />
+  );
 
   const renderVisitRow = (visit: VisitRecord, index: number, total: number, isDrawer: boolean) => {
-    const publisherName = getPublisherName(visit.publisher || null);
-    const lineHeight = "calc(100% + 1rem)";
-
     return (
       <VisitTimelineRow
         onClick={() => handleVisitClick(visit)}
         index={index}
         total={total}
         rootClassName="hover:opacity-80 transition-opacity"
-        lineStyle={{ left: 6, top: 12, height: lineHeight, zIndex: 0 }}
+        lineStyle={getTimelineLineStyle(isDrawer)}
         dot={
           <div
-            className={`w-3 h-3 rounded-full ${getVisitTypeColor(visit.visit_type)} relative z-10 flex-shrink-0`}
+            className={`${getTimelineDotSize()} rounded-full ${getVisitTypeDotColor(visit.visit_type)} relative z-10 flex-shrink-0`}
           />
         }
         contentClassName="ml-3"
         avatarClassName="ml-4"
         avatar={
-          visit.publisher && (
-            <>
-              {visit.publisher.avatar_url ? (
-                <Image
-                  src={visit.publisher.avatar_url}
-                  alt={publisherName}
-                  width={24}
-                  height={24}
-                  className="rounded-full object-cover ring-2 ring-background w-6 h-6"
-                />
-              ) : (
-                <div className="rounded-full bg-gray-600 flex items-center justify-center text-white text-[10px] ring-2 ring-background w-6 h-6">
-                  {getInitials(publisherName)}
-                </div>
-              )}
-              {visit.partner && (
-                <Image
-                  src={visit.partner.avatar_url || ""}
-                  alt={`${visit.partner.first_name} ${visit.partner.last_name}`}
-                  width={24}
-                  height={24}
-                  className="rounded-full object-cover ring-2 ring-background -ml-2 w-6 h-6"
-                />
-              )}
-            </>
-          )
+          <VisitAvatars
+            publisher={visit.publisher ?? null}
+            partner={visit.partner ?? null}
+            sizeClassName="w-6 h-6"
+            textClassName="text-[10px]"
+          />
         }
       >
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-sm font-medium text-foreground">
-            {visit.householder_name || visit.establishment_name}
-          </span>
-          {visit.visit_type === "householder" && visit.establishment_name && (
-            <span
-              className={`text-xs px-2 py-0.5 rounded-full border ${getStatusTextColor(
-                visit.establishment_status || "for_scouting"
-              )}`}
-              title={`Status: ${visit.establishment_status || "for_scouting"}`}
-            >
-              {visit.establishment_name}
-            </span>
-          )}
-        </div>
-        <div className={`flex items-center gap-1 text-xs text-muted-foreground ${isDrawer ? "mb-2" : ""}`}>
-          <Calendar className="h-3 w-3" />
-          {formatVisitDate(visit.visit_date)}
-        </div>
-        {visit.notes && (
-          <div className={`text-xs text-muted-foreground ${isDrawer ? "leading-relaxed" : "mt-1 line-clamp-1"}`}>
-            {visit.notes}
-          </div>
-        )}
+        <VisitRowContent
+          title={getVisitDisplayName(visit)}
+          titleBadge={
+            visit.visit_type === "householder" && visit.establishment_name ? (
+              <VisitStatusBadge
+                status={visit.establishment_status || "for_scouting"}
+                label={visit.establishment_name}
+              />
+            ) : undefined
+          }
+          metaIcon={<Calendar className="h-3 w-3" />}
+          metaText={formatVisitDate(visit.visit_date)}
+          metaClassName={isDrawer ? "mb-2" : ""}
+          notes={visit.notes}
+          notesClassName={isDrawer ? "leading-relaxed" : "mt-1 line-clamp-1"}
+        />
       </VisitTimelineRow>
     );
   };
@@ -192,15 +150,6 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
     );
   }
 
-  if (visits.length === 0) {
-    return (
-      <div className="rounded-lg border p-4">
-        <div className="text-sm font-medium mb-2 text-foreground">BWI Visit History</div>
-        <div className="text-sm text-muted-foreground">No visits recorded yet.</div>
-      </div>
-    );
-  }
-
   return (
     <>
       <div className="rounded-lg border p-4">
@@ -226,18 +175,19 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
         </div>
         
         <div className="relative">
-          <div className="space-y-6">
-            {visits.map((visit, index) => (
-              <div key={visit.id} className="contents">
-                {renderVisitRow(visit, index, visits.length, false)}
-              </div>
-            ))}
-          </div>
+          <VisitList
+            items={visits}
+            getKey={(visit) => visit.id}
+            renderItem={(visit, index, total) => renderVisitRow(visit, index, total, false)}
+            className="space-y-6"
+            isEmpty={visits.length === 0}
+            emptyText="No visits recorded yet."
+          />
         </div>
       </div>
 
       {/* Drawer for all visits */}
-      <ResponsiveModal
+      <FormModal
         open={showDrawer}
         onOpenChange={setShowDrawer}
         title="BWI Visit History"
@@ -252,7 +202,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
             onSearchActivate={() => setIsSearchActive(true)}
             onSearchChange={(value) => setFilters(prev => ({ ...prev, search: value }))}
             onSearchClear={() => {
-              setFilters(prev => ({ ...prev, search: "" }));
+              clearSearch();
               setIsSearchActive(false);
             }}
             onSearchBlur={() => {
@@ -266,7 +216,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
             onMyClear={() => setFilters(prev => ({ ...prev, myUpdatesOnly: false }))}
             filterBadges={filterBadges}
             onOpenFilters={() => setFiltersModalOpen(true)}
-            onClearFilters={() => setFilters(prev => ({ ...prev, statuses: [], areas: [] }))}
+            onClearFilters={clearFilters}
             onRemoveBadge={(badge) => {
               if (badge.type === "status") {
                 setFilters(prev => ({ ...prev, statuses: prev.statuses.filter(s => s !== badge.value) }));
@@ -317,7 +267,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
               variant="outline" 
               size="sm" 
               className="w-full"
-              onClick={handleLoadMore}
+              onClick={loadMore}
             >
               Load More
             </Button>
@@ -329,58 +279,16 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
             </div>
           )}
         </div>
-      </ResponsiveModal>
+      </FormModal>
 
-      {/* Filter Form Drawer/Modal */}
-      {isMobile ? (
-        <Drawer open={filtersModalOpen} onOpenChange={setFiltersModalOpen}>
-          <DrawerContent>
-            <DrawerHeader>
-              <DrawerTitle>Filter Visits</DrawerTitle>
-              <DrawerDescription>Filter by status and area</DrawerDescription>
-            </DrawerHeader>
-            <div className="px-4 pb-4">
-              <VisitFiltersForm
-                filters={filters}
-                statusOptions={filterOptions.statuses}
-                areaOptions={filterOptions.areas}
-                onFiltersChange={setFilters}
-                onClearFilters={() =>
-                  setFilters(prev => ({
-                    ...prev,
-                    statuses: [],
-                    areas: []
-                  }))
-                }
-              />
-            </div>
-          </DrawerContent>
-        </Drawer>
-      ) : (
-        <Dialog open={filtersModalOpen} onOpenChange={setFiltersModalOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Filter Visits</DialogTitle>
-              <DialogDescription>Filter by status and area</DialogDescription>
-            </DialogHeader>
-            <div className="px-4">
-              <VisitFiltersForm
-                filters={filters}
-                statusOptions={filterOptions.statuses}
-                areaOptions={filterOptions.areas}
-                onFiltersChange={setFilters}
-                onClearFilters={() =>
-                  setFilters(prev => ({
-                    ...prev,
-                    statuses: [],
-                    areas: []
-                  }))
-                }
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+      <FormModal
+        open={filtersModalOpen}
+        onOpenChange={setFiltersModalOpen}
+        title="Filter Visits"
+        description="Filter by status and area"
+      >
+        {filterForm}
+      </FormModal>
     </>
   );
 }

@@ -4,6 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { VisitRecord } from "@/lib/utils/visit-history";
 import { getBwiVisitsPage, getRecentBwiVisits } from "@/lib/db/visit-history";
 import { formatStatusText } from "@/lib/utils/formatters";
+import { getVisitSearchText } from "@/lib/utils/visit-history-ui";
+import { buildFilterBadges, type FilterBadge } from "@/lib/utils/filter-badges";
 import type { VisitFilters } from "@/components/visit/VisitFiltersForm";
 
 interface UseBwiVisitHistoryOptions {
@@ -94,13 +96,9 @@ export function useBwiVisitHistory({
     if (filters.myUpdatesOnly) {
       filtered = filtered.filter((visit) => visit.publisher_id === userId);
     }
-    if (filters.search.trim()) {
-      const searchLower = filters.search.toLowerCase();
-      filtered = filtered.filter((visit) => {
-        const name = (visit.householder_name || visit.establishment_name || "").toLowerCase();
-        const notes = (visit.notes || "").toLowerCase();
-        return name.includes(searchLower) || notes.includes(searchLower);
-      });
+    const searchLower = filters.search.trim().toLowerCase();
+    if (searchLower) {
+      filtered = filtered.filter((visit) => getVisitSearchText(visit).includes(searchLower));
     }
     if (filters.statuses.length > 0) {
       filtered = filtered.filter(
@@ -115,15 +113,43 @@ export function useBwiVisitHistory({
     return filtered;
   }, [allVisitsRaw, filters, userId]);
 
+  const filterBadges: FilterBadge[] = useMemo(
+    () =>
+      buildFilterBadges({
+        statuses: filters.statuses,
+        areas: filters.areas,
+        formatStatusLabel: formatStatusText
+      }),
+    [filters.statuses, filters.areas]
+  );
+
+  const clearFilters = useCallback(() => {
+    setFilters((prev) => ({ ...prev, statuses: [], areas: [] }));
+  }, []);
+
+  const clearSearch = useCallback(() => {
+    setFilters((prev) => ({ ...prev, search: "" }));
+  }, []);
+
+  const loadMore = useCallback(() => {
+    if (!loadingMore && hasMore) {
+      loadAllVisits(allVisitsRaw.length);
+    }
+  }, [loadingMore, hasMore, loadAllVisits, allVisitsRaw.length]);
+
   return {
     visits,
     loading,
     allVisitsRawCount: allVisitsRaw.length,
     filteredVisits,
     filterOptions,
+    filterBadges,
     filters,
     setFilters,
+    clearFilters,
+    clearSearch,
     loadAllVisits,
+    loadMore,
     loadingMore,
     hasMore
   };

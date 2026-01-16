@@ -7,10 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Building2, MapPinned, Calendar, Users } from "lucide-react";
-import { ResponsiveModal } from "@/components/ui/responsive-modal";
-import { useMobile } from "@/lib/hooks/use-mobile";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { FormModal } from "@/components/shared/FormModal";
 import { toast } from "@/components/ui/sonner";
 import { deleteEstablishment, archiveEstablishment } from "@/lib/db/business";
 import { type EstablishmentWithDetails, type VisitWithUser, type HouseholderWithDetails } from "@/lib/db/business";
@@ -72,7 +69,6 @@ export function EstablishmentDetails({
   const [deleting, setDeleting] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [editVisit, setEditVisit] = useState<{ id: string; establishment_id?: string | null; householder_id?: string | null; note?: string | null; publisher_id?: string | null; partner_id?: string | null; visit_date?: string } | null>(null);
-  const isMobile = useMobile();
 
   // Listen for edit trigger from header
   useEffect(() => {
@@ -306,87 +302,43 @@ export function EstablishmentDetails({
         </Card>
       </motion.div>
 
-      {/* Edit Establishment Modal (consistent with BusinessDrawerDialogs) */}
-      {isMobile ? (
-        <Drawer open={isEditing} onOpenChange={setIsEditing}>
-          <DrawerContent>
-            <DrawerHeader className="text-center">
-              <DrawerTitle>Edit Establishment</DrawerTitle>
-              <DrawerDescription>Update establishment details</DrawerDescription>
-            </DrawerHeader>
-            <div className="px-4">
-              <EstablishmentForm 
-                onSaved={handleEditSaved}
-                onDelete={handleDelete}
-                onArchive={handleArchive}
-                selectedArea={establishment.area || undefined}
-                initialData={establishment}
-                isEditing={true}
-              />
-            </div>
-          </DrawerContent>
-        </Drawer>
-      ) : (
-        <Dialog open={isEditing} onOpenChange={setIsEditing}>
-          <DialogContent>
-            <DialogHeader className="text-center">
-              <DialogTitle>Edit Establishment</DialogTitle>
-              <DialogDescription>Update establishment details</DialogDescription>
-            </DialogHeader>
-            <div className="px-4">
-              <EstablishmentForm 
-                onSaved={handleEditSaved}
-                onDelete={handleDelete}
-                onArchive={handleArchive}
-                selectedArea={establishment.area || undefined}
-                initialData={establishment}
-                isEditing={true}
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+      <FormModal
+        open={isEditing}
+        onOpenChange={setIsEditing}
+        title="Edit Establishment"
+        description="Update establishment details"
+        headerClassName="text-center"
+      >
+        <EstablishmentForm 
+          onSaved={handleEditSaved}
+          onDelete={handleDelete}
+          onArchive={handleArchive}
+          selectedArea={establishment.area || undefined}
+          initialData={establishment}
+          isEditing={true}
+        />
+      </FormModal>
 
-      {/* Edit Visit Modal (consistent with BusinessDrawerDialogs) */}
-      {isMobile ? (
-        <Drawer open={!!editVisit} onOpenChange={(o) => setEditVisit(o ? editVisit : null)}>
-          <DrawerContent>
-            <DrawerHeader className="text-center">
-              <DrawerTitle>Edit Visit</DrawerTitle>
-              <DrawerDescription>Update visit details</DrawerDescription>
-            </DrawerHeader>
-            <div className="px-4">
-              {editVisit && (
-                <VisitForm
-                  establishments={[{ id: establishment.id, name: establishment.name }]}
-                  selectedEstablishmentId={establishment.id}
-                  initialVisit={editVisit}
-                  onSaved={() => setEditVisit(null)}
-                />
-              )}
-            </div>
-          </DrawerContent>
-        </Drawer>
-      ) : (
-        <Dialog open={!!editVisit} onOpenChange={(o) => setEditVisit(o ? editVisit : null)}>
-          <DialogContent>
-            <DialogHeader className="text-center">
-              <DialogTitle>Edit Visit</DialogTitle>
-              <DialogDescription>Update visit details</DialogDescription>
-            </DialogHeader>
-            <div className="px-4">
-              {editVisit && (
-                <VisitForm
-                  establishments={[{ id: establishment.id, name: establishment.name }]}
-                  selectedEstablishmentId={establishment.id}
-                  initialVisit={editVisit}
-                  onSaved={() => setEditVisit(null)}
-                />
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+      <FormModal
+        open={!!editVisit}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditVisit(null);
+          }
+        }}
+        title="Edit Visit"
+        description="Update visit details"
+        headerClassName="text-center"
+      >
+        {editVisit && (
+          <VisitForm
+            establishments={[{ id: establishment.id, name: establishment.name }]}
+            selectedEstablishmentId={establishment.id}
+            initialVisit={editVisit}
+            onSaved={() => setEditVisit(null)}
+          />
+        )}
+      </FormModal>
     </div>
   );
 }

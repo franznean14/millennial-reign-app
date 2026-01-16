@@ -7,12 +7,10 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Calendar, User2, Archive } from "lucide-react";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { FormModal } from "@/components/shared/FormModal";
 import { toast } from "@/components/ui/sonner";
 import { HouseholderForm } from "@/components/business/HouseholderForm";
 import { VisitForm } from "@/components/business/VisitForm";
-import { useMobile } from "@/lib/hooks/use-mobile";
 import { VisitUpdatesSection } from "@/components/business/VisitUpdatesSection";
 import { type HouseholderWithDetails, type VisitWithUser } from "@/lib/db/business";
 import { deleteHouseholder, archiveHouseholder } from "@/lib/db/business";
@@ -76,7 +74,6 @@ export function HouseholderDetails({ householder, visits, establishment, establi
       document.body.scrollTop = 0;
     });
   }, []);
-  const isMobile = useMobile();
   const [isEditing, setIsEditing] = useState(false);
   const [editVisit, setEditVisit] = useState<{ id: string; establishment_id?: string | null; householder_id?: string | null; note?: string | null; publisher_id?: string | null; partner_id?: string | null; visit_date?: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -193,91 +190,53 @@ export function HouseholderDetails({ householder, visits, establishment, establi
         
       </motion.div>
 
-      {/* Edit Householder */}
-      {isMobile ? (
-        <Drawer open={isEditing} onOpenChange={setIsEditing}>
-          <DrawerContent>
-            <DrawerHeader className="text-center">
-              <DrawerTitle>Edit Householder</DrawerTitle>
-              <DrawerDescription>Update householder details</DrawerDescription>
-            </DrawerHeader>
-            <div className="px-4">
-              <HouseholderForm
-                establishments={establishments}
-                selectedEstablishmentId={householder.establishment_id}
-                isEditing
-                initialData={{ id: householder.id, establishment_id: householder.establishment_id || "", name: householder.name, status: householder.status as any, note: householder.note || null }}
-                onSaved={onEditSaved}
-                onDelete={handleDelete}
-                onArchive={handleArchive}
-              />
-            </div>
-          </DrawerContent>
-        </Drawer>
-      ) : (
-        <Dialog open={isEditing} onOpenChange={setIsEditing}>
-          <DialogContent>
-            <DialogHeader className="text-center">
-              <DialogTitle>Edit Householder</DialogTitle>
-              <DialogDescription>Update householder details</DialogDescription>
-            </DialogHeader>
-            <div className="px-4">
-              <HouseholderForm
-                establishments={establishments}
-                selectedEstablishmentId={householder.establishment_id}
-                isEditing
-                initialData={{ id: householder.id, establishment_id: householder.establishment_id || "", name: householder.name, status: householder.status as any, note: householder.note || null }}
-                onSaved={onEditSaved}
-                onDelete={handleDelete}
-                onArchive={handleArchive}
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+      <FormModal
+        open={isEditing}
+        onOpenChange={setIsEditing}
+        title="Edit Householder"
+        description="Update householder details"
+        headerClassName="text-center"
+      >
+        <HouseholderForm
+          establishments={establishments}
+          selectedEstablishmentId={householder.establishment_id}
+          isEditing
+          initialData={{
+            id: householder.id,
+            establishment_id: householder.establishment_id || "",
+            name: householder.name,
+            status: householder.status as any,
+            note: householder.note || null
+          }}
+          onSaved={onEditSaved}
+          onDelete={handleDelete}
+          onArchive={handleArchive}
+        />
+      </FormModal>
 
-      {/* Edit Visit */}
-      {isMobile ? (
-        <Drawer open={!!editVisit} onOpenChange={(o) => { if (!o) { setEditVisit(null); }}}>
-          <DrawerContent>
-            <DrawerHeader className="text-center">
-              <DrawerTitle>Edit Visit</DrawerTitle>
-              <DrawerDescription>Update visit details</DrawerDescription>
-            </DrawerHeader>
-            <div className="px-4">
-              <VisitForm
-                establishments={establishments}
-                selectedEstablishmentId={establishment?.id}
-                initialVisit={editVisit || undefined}
-                householderId={householder.id}
-                householderName={householder.name}
-                householderStatus={householder.status}
-                onSaved={() => { setEditVisit(null); }}
-              />
-            </div>
-          </DrawerContent>
-        </Drawer>
-      ) : (
-        <Dialog open={!!editVisit} onOpenChange={(o) => { if (!o) { setEditVisit(null); }}}>
-          <DialogContent>
-            <DialogHeader className="text-center">
-              <DialogTitle>Edit Visit</DialogTitle>
-              <DialogDescription>Update visit details</DialogDescription>
-            </DialogHeader>
-            <div className="px-4">
-              <VisitForm
-                establishments={establishments}
-                selectedEstablishmentId={establishment?.id}
-                initialVisit={editVisit || undefined}
-                householderId={householder.id}
-                householderName={householder.name}
-                householderStatus={householder.status}
-                onSaved={() => { setEditVisit(null); }}
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+      <FormModal
+        open={!!editVisit}
+        onOpenChange={(open) => {
+          if (!open) {
+            setEditVisit(null);
+          }
+        }}
+        title="Edit Visit"
+        description="Update visit details"
+        headerClassName="text-center"
+      >
+        <VisitForm
+          establishments={establishments}
+          selectedEstablishmentId={establishment?.id}
+          initialVisit={editVisit || undefined}
+          householderId={householder.id}
+          householderName={householder.name}
+          householderStatus={householder.status}
+          onSaved={() => {
+            setEditVisit(null);
+          }}
+        />
+      </FormModal>
     </div>
   );
 }

@@ -1,7 +1,8 @@
 "use client";
 
-import type { Dispatch, ReactNode, SetStateAction } from "react";
+import { useCallback, useMemo, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { SectionShell } from "@/components/shared/SectionShell";
 import dynamic from "next/dynamic";
 import { StickySearchBar } from "@/components/business/StickySearchBar";
 import type {
@@ -41,7 +42,7 @@ const BusinessFiltersForm = dynamic(
   () => import("@/components/business/BusinessFiltersForm").then((m) => m.BusinessFiltersForm),
   { ssr: false }
 );
-const ResponsiveModal = dynamic(() => import("@/components/ui/responsive-modal").then((m) => m.ResponsiveModal), {
+const FormModal = dynamic(() => import("@/components/shared/FormModal").then((m) => m.FormModal), {
   ssr: false
 });
 
@@ -154,21 +155,90 @@ export function BusinessSection({
     filters.myEstablishments ||
     !!filters.sort;
 
+  const defaultFilters = useMemo<BusinessFiltersState>(
+    () => ({
+      search: "",
+      statuses: [],
+      areas: [],
+      floors: [],
+      myEstablishments: false,
+      nearMe: false,
+      userLocation: null,
+      sort: "last_visit_desc"
+    }),
+    []
+  );
+
+  const clearFilters = useCallback(() => {
+    setFilters(defaultFilters);
+  }, [setFilters]);
+
+  const listMotion = {
+    initial: { opacity: 0, x: -20 },
+    animate: { opacity: 1, x: 0 },
+    exit: { opacity: 0, x: -20 },
+    transition: { duration: 0.2 }
+  };
+
+  const detailsMotion = {
+    initial: { opacity: 0, x: 20 },
+    animate: { opacity: 1, x: 0 },
+    exit: { opacity: 0, x: 20 },
+    transition: { duration: 0.3 }
+  };
+
+  const getDetailsWrapperClass = (isMap: boolean) =>
+    isMap ? "space-y-6 pb-20 px-4 py-6" : "space-y-6 pt-[60px]";
+
+  const handleSelectEstablishment = useCallback(
+    (establishment: EstablishmentWithDetails) => {
+      setSelectedEstablishment(establishment);
+      pushNavigation(currentSection);
+      if (establishment.id) {
+        loadEstablishmentDetails(establishment.id);
+      }
+    },
+    [currentSection, loadEstablishmentDetails, pushNavigation, setSelectedEstablishment]
+  );
+
+  const handleSelectHouseholder = useCallback(
+    (householder: HouseholderWithDetails) => {
+      setSelectedHouseholder(householder);
+      pushNavigation(currentSection);
+      if (householder.id) {
+        loadHouseholderDetails(householder.id);
+      }
+    },
+    [currentSection, loadHouseholderDetails, pushNavigation, setSelectedHouseholder]
+  );
+
+  const navigateBack = useCallback(
+    (fallbackSection: string) => {
+      const previousSection = popNavigation();
+      const targetSection = previousSection
+        ? previousSection.startsWith("business-")
+          ? previousSection
+          : fallbackSection
+        : fallbackSection;
+      setCurrentSection(targetSection);
+      const url = new URL(window.location.href);
+      url.pathname = targetSection === "home" ? "/" : "/business";
+      window.history.pushState({}, "", url.toString());
+    },
+    [popNavigation, setCurrentSection]
+  );
+
   return (
     <>
       {portaledControls}
-      <motion.div
-        key="business"
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: 20 }}
-        transition={{ duration: 0.3 }}
+      <SectionShell
+        motionKey="business"
         className={
           businessTab === "map"
             ? "fixed inset-0 z-10"
             : selectedEstablishment || selectedHouseholder
-              ? "space-y-6 pb-20"
-              : "space-y-6 pb-20 pt-20"
+              ? "space-y-6 pb-20 pt-[60px]"
+              : "space-y-6 pb-20 pt-[60px]"
         }
       >
         <StickySearchBar
@@ -186,23 +256,10 @@ export function BusinessSection({
           <AnimatePresence>
             {!selectedEstablishment && !selectedHouseholder ? (
               businessTab === "establishments" ? (
-                <motion.div
-                  key="establishment-list"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.2 }}
-                  className="w-full"
-                >
+                <motion.div key="establishment-list" {...listMotion} className="w-full">
                   <EstablishmentList
                     establishments={filteredEstablishments}
-                    onEstablishmentClick={(establishment) => {
-                      setSelectedEstablishment(establishment);
-                      pushNavigation(currentSection);
-                      if (establishment.id) {
-                        loadEstablishmentDetails(establishment.id);
-                      }
-                    }}
+                    onEstablishmentClick={handleSelectEstablishment}
                     onEstablishmentDelete={handleDeleteEstablishment}
                     onEstablishmentArchive={handleArchiveEstablishment}
                     myEstablishmentsOnly={filters.myEstablishments}
@@ -221,23 +278,10 @@ export function BusinessSection({
                   />
                 </motion.div>
               ) : businessTab === "householders" ? (
-                <motion.div
-                  key="householder-list"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.2 }}
-                  className="w-full"
-                >
+                <motion.div key="householder-list" {...listMotion} className="w-full">
                   <HouseholderList
                     householders={filteredHouseholders}
-                    onHouseholderClick={(householder) => {
-                      setSelectedHouseholder(householder);
-                      pushNavigation(currentSection);
-                      if (householder.id) {
-                        loadHouseholderDetails(householder.id);
-                      }
-                    }}
+                    onHouseholderClick={handleSelectHouseholder}
                     onHouseholderDelete={handleDeleteHouseholder}
                     onHouseholderArchive={handleArchiveHouseholder}
                     myHouseholdersOnly={filters.myEstablishments}
@@ -256,40 +300,18 @@ export function BusinessSection({
                   />
                 </motion.div>
               ) : (
-                <motion.div
-                  key="establishment-map"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.2 }}
-                  className="w-full h-full"
-                  style={{ height: "100%" }}
-                >
+                <motion.div key="establishment-map" {...listMotion} className="w-full h-full" style={{ height: "100%" }}>
                   <EstablishmentMap
                     establishments={filteredEstablishments}
-                    onEstablishmentClick={(establishment) => {
-                      setSelectedEstablishment(establishment);
-                      pushNavigation(currentSection);
-                      if (establishment.id) {
-                        loadEstablishmentDetails(establishment.id);
-                      }
-                    }}
+                    onEstablishmentClick={handleSelectEstablishment}
                     selectedEstablishmentId={undefined}
                     className="h-full"
                   />
                 </motion.div>
               )
             ) : selectedHouseholder ? (
-              <motion.div
-                key="householder-details"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                transition={{ duration: 0.3 }}
-                className="w-full"
-                layout
-              >
-                <div className={businessTab === "map" ? "space-y-6 pb-20 px-4 py-6" : "space-y-6 pt-[60px]"}>
+              <motion.div key="householder-details" {...detailsMotion} className="w-full" layout>
+                <div className={getDetailsWrapperClass(businessTab === "map")}>
                   <HouseholderDetails
                     householder={selectedHouseholder}
                     visits={selectedHouseholderDetails?.visits || []}
@@ -300,37 +322,15 @@ export function BusinessSection({
                     onBackClick={() => {
                       setSelectedHouseholder(null);
                       setSelectedHouseholderDetails(null);
-                      const previousSection = popNavigation();
-                      if (previousSection) {
-                        const targetSection = previousSection.startsWith("business-")
-                          ? previousSection
-                          : "business-householders";
-                        setCurrentSection(targetSection);
-                        const url = new URL(window.location.href);
-                        url.pathname = targetSection === "home" ? "/" : "/business";
-                        window.history.pushState({}, "", url.toString());
-                      } else {
-                        setCurrentSection("business-householders");
-                        const url = new URL(window.location.href);
-                        url.pathname = "/business";
-                        window.history.pushState({}, "", url.toString());
-                      }
+                      navigateBack("business-householders");
                     }}
                   />
                 </div>
               </motion.div>
             ) : (
-              <motion.div
-                key="establishment-details"
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                transition={{ duration: 0.3 }}
-                className="w-full"
-                layout
-              >
+              <motion.div key="establishment-details" {...detailsMotion} className="w-full" layout>
                 {selectedEstablishment && (
-                  <div className={businessTab === "map" ? "space-y-6 pb-20 px-4 py-6" : "space-y-6 pt-[60px]"}>
+                  <div className={getDetailsWrapperClass(businessTab === "map")}>
                     <EstablishmentDetails
                       establishment={selectedEstablishment}
                       visits={selectedEstablishmentDetails?.visits || []}
@@ -338,21 +338,7 @@ export function BusinessSection({
                       onBackClick={() => {
                         setSelectedEstablishment(null);
                         setSelectedEstablishmentDetails(null);
-                        const previousSection = popNavigation();
-                        if (previousSection) {
-                          const targetSection = previousSection.startsWith("business-")
-                            ? previousSection
-                            : "business-establishments";
-                          setCurrentSection(targetSection);
-                          const url = new URL(window.location.href);
-                          url.pathname = targetSection === "home" ? "/" : "/business";
-                          window.history.pushState({}, "", url.toString());
-                        } else {
-                          setCurrentSection("business-establishments");
-                          const url = new URL(window.location.href);
-                          url.pathname = "/business";
-                          window.history.pushState({}, "", url.toString());
-                        }
+                        navigateBack("business-establishments");
                       }}
                       onEstablishmentUpdated={(est) => est?.id && updateEstablishment({ id: est.id!, ...est })}
                       onHouseholderClick={(hh) => {
@@ -367,7 +353,7 @@ export function BusinessSection({
           </AnimatePresence>
         </motion.div>
 
-        <ResponsiveModal
+        <FormModal
           open={filtersModalOpen}
           onOpenChange={setFiltersModalOpen}
           title="Sort and Filter"
@@ -375,18 +361,7 @@ export function BusinessSection({
           <BusinessFiltersForm
             filters={filters}
             onFiltersChange={setFilters}
-            onClearFilters={() =>
-              setFilters({
-                search: "",
-                statuses: [],
-                areas: [],
-                floors: [],
-                myEstablishments: false,
-                nearMe: false,
-                userLocation: null,
-                sort: "last_visit_desc"
-              })
-            }
+            onClearFilters={clearFilters}
             hasActiveFilters={hasActiveFilters}
             statusOptions={dynamicStatusOptions}
             areaOptions={dynamicAreaOptions}
@@ -394,7 +369,7 @@ export function BusinessSection({
             onClose={() => setFiltersModalOpen(false)}
             isMapView={businessTab === "map"}
           />
-        </ResponsiveModal>
+        </FormModal>
 
         <BusinessDrawerDialogs
           establishments={establishments}
@@ -404,7 +379,7 @@ export function BusinessSection({
           selectedEstablishment={selectedEstablishment}
           selectedHouseholder={selectedHouseholder}
         />
-      </motion.div>
+      </SectionShell>
     </>
   );
 }

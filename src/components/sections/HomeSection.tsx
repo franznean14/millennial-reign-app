@@ -5,6 +5,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { EstablishmentWithDetails, HouseholderWithDetails } from "@/lib/db/business";
 import type { VisitRecord } from "@/lib/utils/visit-history";
 import { HomeView } from "@/components/views/HomeView";
+import { SectionShell } from "@/components/shared/SectionShell";
 
 type BusinessTab = "establishments" | "householders" | "map";
 type HomeTab = "summary" | "events";
@@ -109,12 +110,17 @@ export function HomeSection({
   return (
     <>
       {portaledControls}
-      <HomeView
-        userId={userId}
-        onVisitClick={handleVisitClick}
-        onNavigateToCongregation={onNavigateToCongregation}
-        homeTab={homeTab}
-      />
+      <SectionShell
+        motionKey="home"
+        className="space-y-6 pb-20 pt-[60px] w-full max-w-full overflow-x-hidden"
+      >
+        <HomeView
+          userId={userId}
+          onVisitClick={handleVisitClick}
+          onNavigateToCongregation={onNavigateToCongregation}
+          homeTab={homeTab}
+        />
+      </SectionShell>
     </>
   );
 }

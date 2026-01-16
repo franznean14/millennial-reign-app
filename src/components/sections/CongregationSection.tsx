@@ -1,7 +1,7 @@
 "use client";
 
 import type { Dispatch, ReactNode, SetStateAction } from "react";
-import { motion } from "motion/react";
+import { SectionShell } from "@/components/shared/SectionShell";
 import dynamic from "next/dynamic";
 import { toast } from "@/components/ui/sonner";
 import type { Congregation } from "@/lib/db/congregations";
@@ -9,7 +9,7 @@ import type { Congregation } from "@/lib/db/congregations";
 const CongregationForm = dynamic(() => import("@/components/congregation/CongregationForm").then((m) => m.CongregationForm), {
   ssr: false
 });
-const ResponsiveModal = dynamic(() => import("@/components/ui/responsive-modal").then((m) => m.ResponsiveModal), {
+const FormModal = dynamic(() => import("@/components/shared/FormModal").then((m) => m.FormModal), {
   ssr: false
 });
 const CongregationView = dynamic(() => import("@/components/views/CongregationView").then((m) => m.CongregationView), {
@@ -79,14 +79,7 @@ export function CongregationSection({
   return (
     <>
       {portaledControls}
-      <motion.div
-        key="congregation"
-        initial={{ opacity: 0, x: -20 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: 20 }}
-        transition={{ duration: 0.3 }}
-        className="space-y-6 pb-20"
-      >
+      <SectionShell motionKey="congregation" className="space-y-6 pb-20 pt-[60px]">
         {cong?.id ? (
           <CongregationView
             data={cong}
@@ -122,7 +115,7 @@ export function CongregationSection({
           </div>
         )}
 
-        <ResponsiveModal
+        <FormModal
           open={modalOpen}
           onOpenChange={setModalOpen}
           title={mode === "edit" ? "Edit Congregation" : "Create Congregation"}
@@ -151,8 +144,8 @@ export function CongregationSection({
               }
             }}
           />
-        </ResponsiveModal>
-      </motion.div>
+        </FormModal>
+      </SectionShell>
     </>
   );
 }

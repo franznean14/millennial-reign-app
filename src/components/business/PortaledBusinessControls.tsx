@@ -8,6 +8,7 @@ import { BusinessTabToggle } from "./BusinessTabToggle";
 import { LayoutGrid, List, Table as TableIcon, X, Crosshair, ChevronLeft, Edit } from "lucide-react";
 import type { BusinessFiltersState, EstablishmentWithDetails, HouseholderWithDetails } from "@/lib/db/business";
 import { FilterControls, type FilterBadge } from "@/components/shared/FilterControls";
+import { buildFilterBadges } from "@/lib/utils/filter-badges";
 
 interface PortaledBusinessControlsProps {
   businessTab: 'establishments' | 'householders' | 'map';
@@ -116,41 +117,12 @@ export function PortaledBusinessControls({
   // Determine which buttons to show when filter is expanded
   const showOtherButtons = !hasFilterOptions && !filters.myEstablishments && !isSearchActive;
 
-  // Get all applied filter badges
-  const getAppliedFilterBadges = () => {
-    const badges: FilterBadge[] = [];
-    
-    // Add status badges
-    filters.statuses.forEach(status => {
-      badges.push({
-        type: 'status',
-        value: status,
-        label: formatStatusLabel(status)
-      });
-    });
-    
-    // Add area badges
-    filters.areas.forEach(area => {
-      badges.push({
-        type: 'area',
-        value: area,
-        label: area
-      });
-    });
-    
-    // Add floor badges
-    filters.floors.forEach(floor => {
-      badges.push({
-        type: 'floor',
-        value: floor,
-        label: floor
-      });
-    });
-    
-    return badges;
-  };
-
-  const badges = getAppliedFilterBadges();
+  const badges: FilterBadge[] = buildFilterBadges({
+    statuses: filters.statuses,
+    areas: filters.areas,
+    floors: filters.floors,
+    formatStatusLabel
+  });
   const isDetailsView = !!selectedEstablishment || !!selectedHouseholder;
   const detailsName = selectedEstablishment?.name || selectedHouseholder?.name || '';
 

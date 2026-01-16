@@ -41,7 +41,6 @@ import { CongregationSection, type CongregationSectionProps } from "@/components
 import { AccountSection } from "@/components/sections/AccountSection";
 const HomeSummary = dynamic(() => import("@/components/home/HomeSummary").then(m => m.HomeSummary), { ssr: false });
 const BWIVisitHistory = dynamic(() => import("@/components/home/BWIVisitHistory").then(m => m.BWIVisitHistory), { ssr: false });
-const ResponsiveModal = dynamic(() => import("@/components/ui/responsive-modal").then(m => m.ResponsiveModal), { ssr: false });
 const FieldServiceDrawerDialog = dynamic(() => import("@/components/fieldservice/FieldServiceDrawerDialog").then(m => m.FieldServiceDrawerDialog), { ssr: false });
 const CongregationDrawerDialog = dynamic(() => import("@/components/congregation/CongregationDrawerDialog").then(m => m.CongregationDrawerDialog), { ssr: false });
 const AdminFloatingButton = dynamic(() => import("@/components/congregation/AdminFloatingButton").then(m => m.AdminFloatingButton), { ssr: false });

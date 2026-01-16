@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { ResponsiveModal } from "@/components/ui/responsive-modal";
+import { FormModal } from "@/components/shared/FormModal";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 function startOfGrid(view: Date) {
@@ -55,7 +55,7 @@ export function DateSelectModal({
   const yearLabel = useMemo(() => String(view.getFullYear()), [view]);
 
   return (
-    <ResponsiveModal open={open} onOpenChange={onOpenChange} title={title} description={description} className="sm:max-w-[640px]">
+    <FormModal open={open} onOpenChange={onOpenChange} title={title} description={description} className="sm:max-w-[640px]">
       <div className="p-4 pt-0">
         <div className="flex items-center border-b pb-2">
           <Button
@@ -167,6 +167,6 @@ export function DateSelectModal({
           </div>
         )}
       </div>
-    </ResponsiveModal>
+    </FormModal>
   );
 }

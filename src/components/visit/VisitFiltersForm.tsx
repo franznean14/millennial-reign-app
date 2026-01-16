@@ -2,8 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
-import { getFadedStatusColor, getSelectedStatusColor } from "@/lib/utils/status-filter-styles";
+import { StatusFilterButtons } from "@/components/filters/StatusFilterButtons";
 
 export interface VisitFilters {
   search: string;
@@ -57,27 +56,11 @@ export function VisitFiltersForm({
       <div className="space-y-4">
         <div className="space-y-2">
           <Label>Status</Label>
-          <div className="flex flex-wrap gap-2">
-            {statusOptions.map((option) => {
-              const isSelected = filters.statuses.includes(option.value);
-              return (
-                <Button
-                  key={option.value}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => toggleStatus(option.value)}
-                  className={cn(
-                    "h-8 border rounded-full",
-                    isSelected
-                      ? getSelectedStatusColor(option.value)
-                      : getFadedStatusColor(option.value)
-                  )}
-                >
-                  {option.label}
-                </Button>
-              );
-            })}
-          </div>
+          <StatusFilterButtons
+            options={statusOptions}
+            selected={filters.statuses}
+            onToggle={toggleStatus}
+          />
         </div>
 
         <div className="space-y-2">

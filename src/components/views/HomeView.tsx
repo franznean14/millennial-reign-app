@@ -5,7 +5,6 @@ import { DesktopHomeSummary } from "@/components/home/DesktopHomeSummary";
 import { BWIVisitHistory } from "@/components/home/BWIVisitHistory";
 import { UpcomingEvents } from "@/components/home/UpcomingEvents";
 import { FieldServiceDrawerDialog } from "@/components/fieldservice/FieldServiceDrawerDialog";
-import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 
 interface HomeViewProps {
@@ -49,14 +48,7 @@ export function HomeView({ userId, onVisitClick, onNavigateToCongregation, homeT
   }, []);
 
   return (
-    <motion.div
-      key="home"
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 20 }}
-      transition={{ duration: 0.3 }}
-      className="space-y-6 pb-20 pt-[60px] w-full max-w-full overflow-x-hidden"
-    >
+    <div className="space-y-6 w-full max-w-full overflow-x-hidden">
       {homeTab === 'summary' ? (
         <>
           {/* Mobile: Simple Home Summary */}
@@ -78,10 +70,6 @@ export function HomeView({ userId, onVisitClick, onNavigateToCongregation, homeT
               onVisitClick={onVisitClick}
             />
             
-            {/* Field Service drawer trigger - Mobile only */}
-            <div className="px-4">
-              <FieldServiceDrawerDialog userId={userId} triggerLabel="Field Service" />
-            </div>
           </div>
 
           {/* Desktop: Desktop Home Summary with Calendar and Form */}
@@ -101,6 +89,7 @@ export function HomeView({ userId, onVisitClick, onNavigateToCongregation, homeT
           <UpcomingEvents />
         </div>
       )}
-    </motion.div>
+      <FieldServiceDrawerDialog userId={userId} triggerLabel="Field Service" />
+    </div>
   );
 }

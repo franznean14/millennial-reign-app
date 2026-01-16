@@ -8,12 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Filter as FilterIcon, Search, User, UserCheck, X } from "lucide-react";
 import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
 import { cn } from "@/lib/utils";
+import type { FilterBadge } from "@/lib/utils/filter-badges";
 
-export type FilterBadge = {
-  type: "status" | "area" | "floor";
-  value: string;
-  label: string;
-};
+export type { FilterBadge } from "@/lib/utils/filter-badges";
 
 interface FilterControlsProps {
   isSearchActive: boolean;
