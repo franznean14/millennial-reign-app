@@ -261,7 +261,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
           created_at,
           householder_id,
           publisher_id,
-          business_householders(name, establishment_id),
+          householders(name, establishment_id),
           business_establishments(name, statuses),
           publisher:profiles!business_visits_publisher_id_fkey(first_name, last_name, avatar_url),
           partner:profiles!business_visits_partner_id_fkey(first_name, last_name, avatar_url)
