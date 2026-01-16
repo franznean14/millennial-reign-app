@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo, type ComponentType } from "react";
-import { createPortal } from "react-dom";
 import dynamic from "next/dynamic";
 // Lazy-load Supabase client to keep initial bundle small
 let getSupabaseClientOnce: (() => Promise<import("@supabase/supabase-js").SupabaseClient>) | null = null;
@@ -14,22 +13,12 @@ const getSupabaseClient = async () => {
   }
   return getSupabaseClientOnce();
 };
-import { motion, AnimatePresence } from "motion/react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { Filter, X } from "lucide-react";
+import { motion } from "motion/react";
 import { toast } from "@/components/ui/sonner";
-import { cn } from "@/lib/utils";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { Search, Building2, Users, MapPin, User, UserCheck, Filter as FilterIcon, LayoutGrid, List, Table as TableIcon, ChevronRight } from "lucide-react";
 import { cacheSet } from "@/lib/offline/store";
 import { LoginView } from "@/components/views/LoginView";
 import { LoadingView } from "@/components/views/LoadingView";
-import { BusinessTabToggle } from "@/components/business/BusinessTabToggle";
 import { UnifiedPortaledControls } from "@/components/UnifiedPortaledControls";
-import { StickySearchBar } from "@/components/business/StickySearchBar";
 import { useSPA } from "@/components/SPAProvider";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
@@ -38,10 +27,12 @@ import { getDailyRecord, listDailyByMonth, upsertDailyRecord, isDailyEmpty, dele
 import { getEstablishmentsWithDetails, getEstablishmentDetails, getHouseholderDetails, listHouseholders, deleteHouseholder, archiveHouseholder, calculateDistance, type EstablishmentWithDetails, type VisitWithUser, type HouseholderWithDetails, type BusinessFiltersState } from "@/lib/db/business";
 import { useBusinessFilteredLists } from "@/lib/hooks/use-business-filtered-lists";
 import { useBusinessFilterOptions } from "@/lib/hooks/use-business-filter-options";
+import { useAccountState } from "@/lib/hooks/use-account-state";
 import { getMyCongregation, saveCongregation, isAdmin, type Congregation } from "@/lib/db/congregations";
 import { getProfile } from "@/lib/db/profiles";
 import { archiveEstablishment, deleteEstablishment } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
+import { formatStatusText } from "@/lib/utils/formatters";
 
 // Lazy-load heavy UI components to reduce initial bundle
 import { HomeSection } from "@/components/sections/HomeSection";
@@ -55,77 +46,6 @@ const FieldServiceDrawerDialog = dynamic(() => import("@/components/fieldservice
 const CongregationDrawerDialog = dynamic(() => import("@/components/congregation/CongregationDrawerDialog").then(m => m.CongregationDrawerDialog), { ssr: false });
 const AdminFloatingButton = dynamic(() => import("@/components/congregation/AdminFloatingButton").then(m => m.AdminFloatingButton), { ssr: false });
 
-
-// Status hierarchy from worst to best
-const STATUS_HIERARCHY = [
-  'declined_rack',      // Worst
-  'for_scouting',       // Bad
-  'for_follow_up',      // Better
-  'accepted_rack',      // Good
-  'for_replenishment',  // Better
-  'has_bible_studies'   // Best
-] as const;
-
-// Helper function to get the best status from an array
-const getBestStatus = (statuses: string[]): string => {
-  if (!statuses || statuses.length === 0) return 'for_scouting';
-  
-  let bestStatus = statuses[0];
-  let bestIndex = STATUS_HIERARCHY.indexOf(bestStatus as any);
-  
-  for (const status of statuses) {
-    const index = STATUS_HIERARCHY.indexOf(status as any);
-    if (index > bestIndex) {
-      bestIndex = index;
-      bestStatus = status;
-    }
-  }
-  
-  return bestStatus;
-};
-
-// Helper function to get status color based on hierarchy
-const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'declined_rack':
-      return 'border-red-500/50 bg-red-500/5';
-    case 'for_scouting':
-      return 'border-cyan-500/50 bg-cyan-500/5';
-    case 'for_follow_up':
-      return 'border-orange-500/50 bg-orange-500/5';
-    case 'accepted_rack':
-      return 'border-blue-500/50 bg-blue-500/5';
-    case 'for_replenishment':
-      return 'border-purple-500/50 bg-purple-500/5';
-    case 'has_bible_studies':
-      return 'border-emerald-500/50 bg-emerald-500/10';
-    case 'closed':
-      return 'border-slate-500/50 bg-slate-500/5';
-    default:
-      return 'border-gray-500/50 bg-gray-500/5';
-  }
-};
-
-const getStatusTextColor = (status: string) => {
-  switch (status) {
-    case 'declined_rack':
-      return 'text-red-500 border-red-500/50';
-    case 'for_scouting':
-      return 'text-cyan-500 border-cyan-500/50';
-    case 'for_follow_up':
-      return 'text-orange-500 border-orange-500/50';
-    case 'accepted_rack':
-      return 'text-blue-500 border-blue-500/50';
-    case 'for_replenishment':
-      return 'text-purple-500 border-purple-500/50';
-    case 'has_bible_studies':
-      return 'text-emerald-500 border-emerald-500/50';
-    case 'closed':
-      return 'text-slate-500 border-slate-500/50';
-    default:
-      return 'text-gray-500 border-gray-500/50';
-  }
-};
 
 export function AppClient() {
   // Global app state
@@ -221,7 +141,6 @@ export function AppClient() {
     visits: VisitWithUser[];
     establishment?: { id: string; name: string } | null;
   } | null>(null);
-  const [showFilters, setShowFilters] = useState(false);
   const [filters, setFilters] = useState<BusinessFiltersState>({
     search: "",
     statuses: [],
@@ -263,17 +182,24 @@ export function AppClient() {
   const [homeTab, setHomeTab] = useState<'summary' | 'events'>('summary');
 
   // Account state
-  const [editing, setEditing] = useState(false);
-  const [editAccountOpen, setEditAccountOpen] = useState(false);
-  const [passwordOpen, setPasswordOpen] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [hasPassword, setHasPassword] = useState<boolean>(false);
+  const {
+    editing,
+    setEditing,
+    editAccountOpen,
+    setEditAccountOpen,
+    passwordOpen,
+    setPasswordOpen,
+    hasPassword,
+    setHasPassword,
+    privacyPolicyOpen,
+    setPrivacyPolicyOpen,
+    accountTab,
+    setAccountTab
+  } = useAccountState({ userId, getSupabaseClient });
 
   // BWI state (global to prevent layout shifts)
   const [bwiEnabled, setBwiEnabled] = useState(false);
   const [isBwiParticipant, setIsBwiParticipant] = useState(false);
-  const [privacyPolicyOpen, setPrivacyPolicyOpen] = useState(false);
-  const [accountTab, setAccountTab] = useState<'profile' | 'account'>('profile');
 
   // Add this state to track user's visited establishments
   const [userVisitedEstablishments, setUserVisitedEstablishments] = useState<Set<string>>(new Set());
@@ -378,23 +304,6 @@ export function AppClient() {
     }
   }, [currentSection, locationWatchId]);
 
-  // Load account data
-  useEffect(() => {
-    if (userId) {
-      const loadAccountData = async () => {
-        const supabase = await getSupabaseClient();
-        supabase.auth.getUser().then(({ data: { user } }) => {
-        if (user) {
-          try {
-            localStorage.setItem("has_password", user.app_metadata?.provider === "email" ? "1" : "0");
-            setHasPassword(user.app_metadata?.provider === "email");
-          } catch {}
-        }
-      });
-      };
-      loadAccountData();
-    }
-  }, [userId]);
 
   // Add this effect to load user's visited establishments
   useEffect(() => {
@@ -735,13 +644,6 @@ export function AppClient() {
     userVisitedHouseholders
   });
 
-  // Helpers for displaying active filter badges
-  const formatStatusLabel = (status: string) =>
-    status
-      .split('_')
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(' ');
-
   const handleRemoveStatus = (status: string) => {
     setFilters((prev) => ({ ...prev, statuses: prev.statuses.filter((s) => s !== status) }));
   };
@@ -903,7 +805,7 @@ export function AppClient() {
       onClearMyEstablishments={handleClearMyEstablishments}
       onClearAllFilters={handleClearAllFilters}
       onToggleNearMe={handleToggleNearMe}
-      formatStatusLabel={formatStatusLabel}
+      formatStatusLabel={formatStatusText}
       selectedEstablishment={selectedEstablishment}
       selectedHouseholder={selectedHouseholder}
       onBackClick={() => {
@@ -1073,7 +975,6 @@ export function AppClient() {
             bwiEnabled={bwiEnabled}
             isBwiParticipant={isBwiParticipant}
             setIsBwiParticipant={setIsBwiParticipant}
-            setRefreshKey={setRefreshKey}
             setProfile={setProfile}
             getSupabaseClient={getSupabaseClient}
           />

@@ -34,7 +34,6 @@ interface AccountSectionProps {
   bwiEnabled: boolean;
   isBwiParticipant: boolean;
   setIsBwiParticipant: Dispatch<SetStateAction<boolean>>;
-  setRefreshKey: Dispatch<SetStateAction<number>>;
   setProfile: Dispatch<SetStateAction<any>>;
   getSupabaseClient: () => Promise<any>;
 }
@@ -57,7 +56,6 @@ export function AccountSection({
   bwiEnabled,
   isBwiParticipant,
   setIsBwiParticipant,
-  setRefreshKey,
   setProfile,
   getSupabaseClient
 }: AccountSectionProps) {
@@ -269,7 +267,6 @@ export function AccountSection({
             onSaved={(p) => {
               setEditing(false);
               setProfile((prev: any) => ({ ...p, email: prev?.email }));
-              setRefreshKey((k) => k + 1);
             }}
           />
         </ResponsiveModal>
@@ -279,7 +276,6 @@ export function AccountSection({
             open={editAccountOpen}
             onOpenChange={(o) => {
               setEditAccountOpen(o);
-              if (!o) setRefreshKey((k) => k + 1);
             }}
             title="Edit Account"
             description="Update your email, username, and timezone"

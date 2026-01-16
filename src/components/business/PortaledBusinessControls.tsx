@@ -4,13 +4,10 @@ import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { BusinessTabToggle } from "./BusinessTabToggle";
-import { Search, Filter as FilterIcon, User, UserCheck, LayoutGrid, List, Table as TableIcon, X, Crosshair, ChevronLeft, Edit } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
-import { cn } from "@/lib/utils";
+import { LayoutGrid, List, Table as TableIcon, X, Crosshair, ChevronLeft, Edit } from "lucide-react";
 import type { BusinessFiltersState, EstablishmentWithDetails, HouseholderWithDetails } from "@/lib/db/business";
+import { FilterControls, type FilterBadge } from "@/components/shared/FilterControls";
 
 interface PortaledBusinessControlsProps {
   businessTab: 'establishments' | 'householders' | 'map';
@@ -59,7 +56,6 @@ export function PortaledBusinessControls({
 }: PortaledBusinessControlsProps) {
   const [mounted, setMounted] = useState(false);
   const [isSearchActive, setIsSearchActive] = useState(false);
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -110,7 +106,6 @@ export function PortaledBusinessControls({
   const handleClearSearchAndRestore = () => {
     onClearSearch();
     setIsSearchActive(false);
-    setIsSearchFocused(false);
   };
 
   if (!mounted) return null;
@@ -119,11 +114,11 @@ export function PortaledBusinessControls({
   const hasFilterOptions = filters.statuses.length > 0 || filters.areas.length > 0 || filters.floors.length > 0;
   
   // Determine which buttons to show when filter is expanded
-  const showOtherButtons = !hasFilterOptions;
+  const showOtherButtons = !hasFilterOptions && !filters.myEstablishments && !isSearchActive;
 
   // Get all applied filter badges
   const getAppliedFilterBadges = () => {
-    const badges: Array<{ type: 'status' | 'area' | 'floor'; value: string; label: string }> = [];
+    const badges: FilterBadge[] = [];
     
     // Add status badges
     filters.statuses.forEach(status => {
@@ -234,130 +229,63 @@ export function PortaledBusinessControls({
 
                 {/* Controls Row - Toggle between buttons and search - Only show when not in details view */}
                 {!isDetailsView && (
-                  <AnimatePresence mode="wait">
-                    {isSearchActive ? (
-                    <motion.div
-                      key="search-field"
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      transition={{ duration: 0.2 }}
-                      onAnimationComplete={handleSearchFieldReady}
-                      className="flex items-center gap-2 max-w-full px-4 w-full"
-                    >
-                      <div className="relative flex-1">
-                        <Input
-                          ref={searchInputRef}
-                          placeholder="Search ..."
-                          value={filters.search}
-                          onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
-                          onFocus={() => setIsSearchFocused(true)}
-                          onBlur={() => {
-                            setIsSearchFocused(false);
-                            // If search is empty when blurring, restore buttons
-                            if (!filters.search || filters.search.trim() === '') {
-                              setIsSearchActive(false);
-                            }
-                          }}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.currentTarget.blur();
-                            }
-                            if (e.key === 'Escape') {
-                              handleClearSearchAndRestore();
-                            }
-                          }}
-                          className="bg-background/95 backdrop-blur-sm border shadow-lg h-9 rounded-full w-full pr-10"
-                        />
-                        {(filters.search && filters.search.trim() !== '') && (
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="icon"
-                            className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 hover:bg-muted/50 rounded-full"
-                            onClick={handleClearSearchAndRestore}
-                            aria-label="Clear search"
-                          >
-                            <X className="h-4 w-4 text-foreground" />
-                          </Button>
-                        )}
-                      </div>
-                    </motion.div>
-                  ) : (
-                <motion.div
-                      key="buttons-row"
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.95 }}
-                      transition={{ duration: 0.2 }}
-                  className={`flex items-center gap-3 max-w-full px-4 ${
-                    typeof window !== 'undefined' && window.innerWidth >= 1024 
-                      ? 'justify-center' // Desktop: center in main content area
-                      : 'justify-center' // Mobile: center as before
-                  }`}
-                  layout
-                    >
-                      {/* My Establishments Button - Expands when active, hidden when filters are expanded */}
-                      {showOtherButtons && (
-                        <AnimatePresence mode="wait">
-                          {filters.myEstablishments ? (
-                          <motion.div
-                            key="my-establishments-expanded"
-                            initial={{ width: 36, opacity: 0 }}
-                            animate={{ width: "auto", opacity: 1 }}
-                            exit={{ width: 36, opacity: 0 }}
-                            transition={{ duration: 0.2 }}
-                            className="flex items-center gap-1"
-                          >
-                            <Button
-                              type="button"
-                              variant="default"
-                              size="sm"
-                              className={cn(
-                                "h-9 rounded-full px-3 flex items-center gap-2",
-                                businessTab === 'map' && "!bg-background dark:!bg-background backdrop-blur-sm !border !border-border shadow-lg"
-                              )}
-                              onClick={onClearMyEstablishments}
-                              aria-label="My establishments"
-                            >
-                              <UserCheck className="h-4 w-4 flex-shrink-0 text-foreground" />
-                              <span className="text-sm whitespace-nowrap text-foreground">My Establishments</span>
-                              <X className="h-4 w-4 flex-shrink-0 text-foreground" />
-                            </Button>
-                          </motion.div>
-                        ) : (
-                          <motion.div
-                            key="my-establishments-icon"
-                            initial={{ width: "auto", opacity: 0 }}
-                            animate={{ width: 36, opacity: 1 }}
-                            exit={{ width: "auto", opacity: 0 }}
-                            transition={{ duration: 0.2 }}
-                          >
-            <Button
-              type="button"
-                              variant="outline"
-              size="icon"
-                              className={cn(
-                                "h-9 w-9 rounded-full flex-shrink-0",
-                                businessTab === 'map' && "!bg-background dark:!bg-background backdrop-blur-sm !border !border-border shadow-lg"
-                              )}
-              onClick={() => onFiltersChange({ ...filters, myEstablishments: !filters.myEstablishments })}
-                              aria-pressed={false}
-              aria-label="My establishments"
-              title="My establishments"
-            >
-                              <User className="h-4 w-4 text-foreground" />
-            </Button>
-                          </motion.div>
-                          )}
-                        </AnimatePresence>
-                      )}
+                  <motion.div
+                    key="buttons-row"
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.2 }}
+                    className={`flex items-center gap-3 max-w-full px-4 ${
+                      typeof window !== 'undefined' && window.innerWidth >= 1024 
+                        ? 'justify-center'
+                        : 'justify-center'
+                    }`}
+                    layout
+                  >
+                    <FilterControls
+                      isSearchActive={isSearchActive}
+                      searchValue={filters.search}
+                      searchInputRef={searchInputRef}
+                      onSearchActivate={() => setIsSearchActive(true)}
+                      onSearchChange={(value) => onFiltersChange({ ...filters, search: value })}
+                      onSearchClear={handleClearSearchAndRestore}
+                      onSearchBlur={() => {
+                        if (!filters.search || filters.search.trim() === '') {
+                          setIsSearchActive(false);
+                        }
+                      }}
+                      myActive={filters.myEstablishments}
+                      myLabel="My Establishments"
+                      onMyActivate={() => onFiltersChange({ ...filters, myEstablishments: true })}
+                      onMyClear={onClearMyEstablishments}
+                      filterBadges={badges}
+                      onOpenFilters={onOpenFilters}
+                      onClearFilters={() =>
+                        onFiltersChange({
+                          ...filters,
+                          statuses: [],
+                          areas: [],
+                          floors: []
+                        })
+                      }
+                      onRemoveBadge={(badge) => {
+                        if (badge.type === 'status') {
+                          onRemoveStatus(badge.value);
+                        } else if (badge.type === 'area') {
+                          onRemoveArea(badge.value);
+                        } else if (badge.type === 'floor') {
+                          onRemoveFloor(badge.value);
+                        }
+                      }}
+                      containerClassName="justify-center"
+                      maxWidthClassName="mx-4"
+                    />
 
-                      {/* Near Me Button - Expands when active, only for non-map views, hidden when filters are expanded */}
-                      {showOtherButtons && (
-            <AnimatePresence mode="wait">
-              {businessTab !== 'map' && (
-                            filters.nearMe ? (
+                    {/* Near Me Button - Only for non-map views, hidden when filters/search are active */}
+                    {showOtherButtons && (
+                      <AnimatePresence mode="wait">
+                        {businessTab !== 'map' && (
+                          filters.nearMe ? (
                             <motion.div
                               key="near-me-expanded"
                               initial={{ width: 36, opacity: 0 }}
@@ -380,200 +308,67 @@ export function PortaledBusinessControls({
                               </Button>
                             </motion.div>
                           ) : (
-                <motion.div
+                            <motion.div
                               key="near-me-icon"
-                  initial={{ opacity: 0, x: 40 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 40, transition: { duration: 0 } }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 300,
-                    damping: 30
-                  }}
-                >
-                  <Button
-                    type="button"
+                              initial={{ opacity: 0, x: 40 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              exit={{ opacity: 0, x: 40, transition: { duration: 0 } }}
+                              transition={{
+                                type: "spring",
+                                stiffness: 300,
+                                damping: 30
+                              }}
+                            >
+                              <Button
+                                type="button"
                                 variant="outline"
-                    size="icon"
-                    className="h-9 w-9 rounded-full flex-shrink-0"
-                    onClick={onToggleNearMe}
+                                size="icon"
+                                className="h-9 w-9 rounded-full flex-shrink-0"
+                                onClick={onToggleNearMe}
                                 aria-pressed={false}
-                    aria-label="Near me"
-                    title="Near me"
-                  >
-                    <Crosshair className="h-4 w-4" />
-                  </Button>
-                </motion.div>
-                            )
-              )}
-            </AnimatePresence>
-                      )}
+                                aria-label="Near me"
+                                title="Near me"
+                              >
+                                <Crosshair className="h-4 w-4" />
+                              </Button>
+                            </motion.div>
+                          )
+                        )}
+                      </AnimatePresence>
+                    )}
 
-                      {/* Search Button - Hidden when filters are expanded */}
-                      {showOtherButtons && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          className={cn(
-                            "h-9 w-9 rounded-full flex-shrink-0",
-                            businessTab === 'map' && "!bg-background dark:!bg-background backdrop-blur-sm !border !border-border shadow-lg"
-                          )}
-                          onClick={() => {
-                            setIsSearchActive(true);
-                          }}
-                          aria-label="Search"
-                          title="Search"
-                        >
-                          <Search className="h-4 w-4 text-foreground" />
-                        </Button>
-                      )}
-
-                      {/* Filter Button - Expands when filters are active */}
+                    {/* View Toggle - Only for non-map views, hidden when filters/search are active */}
+                    {showOtherButtons && (
                       <AnimatePresence mode="wait">
-                        {hasFilterOptions ? (
+                        {businessTab !== 'map' && (
                           <motion.div
-                            key="filter-expanded"
-                            initial={{ width: 36, opacity: 0 }}
-                            animate={{ width: "auto", opacity: 1 }}
-                            exit={{ width: 36, opacity: 0 }}
-                            transition={{ duration: 0.2 }}
-                            className="flex items-center gap-1 max-w-[calc(100vw-3rem)] mx-4"
+                            key="view-toggle"
+                            initial={{ opacity: 0, x: 40 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 40, transition: { duration: 0 } }}
+                            transition={{
+                              type: "spring",
+                              stiffness: 300,
+                              damping: 30
+                            }}
                           >
                             <Button
                               type="button"
-                              variant="default"
-                              size="sm"
-                              className={cn(
-                                "h-auto min-h-9 rounded-full px-3 py-1.5 flex items-center gap-1.5 max-w-full",
-                                businessTab === 'map' && "!bg-background dark:!bg-background backdrop-blur-sm !border !border-border shadow-lg"
-                              )}
-                              onClick={(e) => {
-                                // If clicking a badge, don't open filter modal
-                                const target = e.target as HTMLElement;
-                                if (!target.closest('.filter-badge') && !target.closest('.filter-x-button')) {
-                                  onOpenFilters();
-                                }
-                              }}
-                              aria-label="Filters"
+                              variant="outline"
+                              size="icon"
+                              className="h-9 w-9 rounded-full flex-shrink-0"
+                              onClick={onCycleViewMode}
+                              title={`View: ${viewMode}`}
                             >
-                              <FilterIcon className="h-4 w-4 flex-shrink-0 text-foreground" />
-                              <span className="text-sm whitespace-nowrap flex-shrink-0 text-foreground">Filters</span>
-                              <div className="flex items-center gap-1 min-w-0 flex-1 overflow-hidden">
-                                {badges.map((badge, index) => {
-                                  // Contract the rightmost badges (last 2) if there are many badges
-                                  const isRightmost = index >= badges.length - 2 && badges.length > 3;
-                                  // Apply status color scheme for status badges, neutral for areas/floors
-                                  const badgeClassName = badge.type === 'status' 
-                                    ? cn(
-                                        "filter-badge h-5 text-xs px-1.5 py-0 cursor-pointer hover:opacity-70 border rounded-full",
-                                        getStatusTextColor(badge.value),
-                                        isRightmost ? 'max-w-[60px] truncate' : 'flex-shrink-0'
-                                      )
-                                    : cn(
-                                        "filter-badge h-5 text-xs px-1.5 py-0 cursor-pointer hover:opacity-70 border rounded-full",
-                                        "text-muted-foreground border-muted-foreground/50 bg-muted",
-                                        isRightmost ? 'max-w-[60px] truncate' : 'flex-shrink-0'
-                                      );
-                                  return (
-                                    <Badge
-                                      key={`${badge.type}-${badge.value}-${index}`}
-                                      variant="secondary"
-                                      className={badgeClassName}
-                                      title={isRightmost ? badge.label : undefined}
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        if (badge.type === 'status') {
-                                          onRemoveStatus(badge.value);
-                                        } else if (badge.type === 'area') {
-                                          onRemoveArea(badge.value);
-                                        } else if (badge.type === 'floor') {
-                                          onRemoveFloor(badge.value);
-                                        }
-                                      }}
-                                    >
-                                      {badge.label}
-                                    </Badge>
-                                  );
-                                })}
-                              </div>
-                              <div
-                                className="filter-x-button h-4 w-4 flex-shrink-0 flex items-center justify-center cursor-pointer hover:opacity-70"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  e.preventDefault();
-                                  onFiltersChange({
-                                    ...filters,
-                                    statuses: [],
-                                    areas: [],
-                                    floors: []
-                                  });
-                                }}
-                                aria-label="Clear filters"
-                              >
-                                <X className="h-4 w-4 text-foreground" />
-                              </div>
+                              {viewMode === 'detailed' && <LayoutGrid className="h-4 w-4" />}
+                              {viewMode === 'compact' && <List className="h-4 w-4" />}
+                              {viewMode === 'table' && <TableIcon className="h-4 w-4" />}
                             </Button>
-                          </motion.div>
-                        ) : (
-                          <motion.div
-                            key="filter-icon"
-                            initial={{ width: "auto", opacity: 0 }}
-                            animate={{ width: 36, opacity: 1 }}
-                            exit={{ width: "auto", opacity: 0 }}
-                            transition={{ duration: 0.2 }}
-                          >
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-                              className={cn(
-                                "h-9 w-9 rounded-full flex-shrink-0",
-                                businessTab === 'map' && "!bg-background dark:!bg-background backdrop-blur-sm !border !border-border shadow-lg"
-                              )}
-              onClick={onOpenFilters}
-              title="Filters"
-            >
-                              <FilterIcon className="h-4 w-4 text-foreground" />
-            </Button>
                           </motion.div>
                         )}
                       </AnimatePresence>
-
-                      {/* View Toggle - Only for non-map views, hidden when filters are expanded */}
-                      {showOtherButtons && (
-            <AnimatePresence mode="wait">
-              {businessTab !== 'map' && (
-                <motion.div
-                  key="view-toggle"
-                  initial={{ opacity: 0, x: 40 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 40, transition: { duration: 0 } }}
-                  transition={{
-                    type: "spring",
-                    stiffness: 300,
-                    damping: 30
-                  }}
-                >
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="h-9 w-9 rounded-full flex-shrink-0"
-                    onClick={onCycleViewMode}
-                    title={`View: ${viewMode}`}
-                  >
-                    {viewMode === 'detailed' && <LayoutGrid className="h-4 w-4" />}
-                    {viewMode === 'compact' && <List className="h-4 w-4" />}
-                    {viewMode === 'table' && <TableIcon className="h-4 w-4" />}
-                  </Button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          )}
-        </motion.div>
-      )}
-                </AnimatePresence>
+                    )}
+                  </motion.div>
                 )}
     </div>,
     document.body

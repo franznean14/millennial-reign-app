@@ -15,6 +15,7 @@ import { toast } from "@/components/ui/sonner";
 import { deleteEstablishment, archiveEstablishment } from "@/lib/db/business";
 import { type EstablishmentWithDetails, type VisitWithUser, type HouseholderWithDetails } from "@/lib/db/business";
 import { cn } from "@/lib/utils";
+import { formatStatusText } from "@/lib/utils/formatters";
 import { getBestStatus, getStatusColor, getStatusTextColor } from "@/lib/utils/status-hierarchy";
 import { EstablishmentForm } from "@/components/business/EstablishmentForm";
 import { VisitForm } from "@/components/business/VisitForm";
@@ -83,21 +84,6 @@ export function EstablishmentDetails({
       window.removeEventListener('trigger-edit-details', handleEditTrigger);
     };
   }, []);
-
-  const formatStatusText = (status: string) => {
-    return status
-      .split('_')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
-  };
 
   // Primary status by hierarchy for consistent coloring
   const primaryStatus = getBestStatus(establishment.statuses || []);
@@ -290,7 +276,7 @@ export function EstablishmentDetails({
                         <div className="flex items-center gap-2 mb-1">
                           <span className="text-sm font-medium">{householder.name}</span>
                           <Badge variant="outline" className={cn("text-xs", getHouseholderStatusColorClass(householder.status))}>
-                            {householder.status.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
+                            {formatStatusText(householder.status)}
                           </Badge>
                           {householder.assigned_user && (
                             <div className="flex items-center gap-1">
