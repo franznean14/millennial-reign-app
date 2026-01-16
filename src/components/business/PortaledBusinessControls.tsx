@@ -6,11 +6,11 @@ import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { BusinessTabToggle } from "./BusinessTabToggle";
-import { Search, Filter as FilterIcon, User, UserCheck, LayoutGrid, List, Table as TableIcon, X, Crosshair } from "lucide-react";
+import { Search, Filter as FilterIcon, User, UserCheck, LayoutGrid, List, Table as TableIcon, X, Crosshair, ChevronLeft, Edit } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
 import { cn } from "@/lib/utils";
-import type { BusinessFiltersState } from "@/lib/db/business";
+import type { BusinessFiltersState, EstablishmentWithDetails, HouseholderWithDetails } from "@/lib/db/business";
 
 interface PortaledBusinessControlsProps {
   businessTab: 'establishments' | 'householders' | 'map';
@@ -29,6 +29,10 @@ interface PortaledBusinessControlsProps {
   onClearAllFilters: () => void;
   onToggleNearMe: () => void;
   formatStatusLabel: (status: string) => string;
+  selectedEstablishment?: EstablishmentWithDetails | null;
+  selectedHouseholder?: HouseholderWithDetails | null;
+  onBackClick: () => void;
+  onEditClick: () => void;
 }
 
 export function PortaledBusinessControls({
@@ -47,7 +51,11 @@ export function PortaledBusinessControls({
   onClearMyEstablishments,
   onClearAllFilters,
   onToggleNearMe,
-  formatStatusLabel
+  formatStatusLabel,
+  selectedEstablishment,
+  selectedHouseholder,
+  onBackClick,
+  onEditClick
 }: PortaledBusinessControlsProps) {
   const [mounted, setMounted] = useState(false);
   const [isSearchActive, setIsSearchActive] = useState(false);
@@ -148,50 +156,86 @@ export function PortaledBusinessControls({
   };
 
   const badges = getAppliedFilterBadges();
+  const isDetailsView = !!selectedEstablishment || !!selectedHouseholder;
+  const detailsName = selectedEstablishment?.name || selectedHouseholder?.name || '';
 
   return createPortal(
-    <AnimatePresence>
-      {isVisible && (
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          transition={{ duration: 0.3 }}
-          className={`fixed z-[100] space-y-3 px-4 ${
-            typeof window !== 'undefined' && window.innerWidth >= 1024 
-              ? 'left-64 right-0' // Desktop: start after sidebar (16rem = 256px = 64 in Tailwind)
-              : 'left-0 right-0' // Mobile: full width
-          }`}
-          style={{
-            top: businessTab === 'map' ? 10 : (typeof window !== 'undefined' && window.innerWidth >= 1024 ? 100 : 10) // Lower on desktop, normal on mobile
-          }}
-        >
-          {/* Tab Navigation - Only on mobile */}
+    <div
+      className={`fixed z-[100] space-y-3 px-4 ${
+        typeof window !== 'undefined' && window.innerWidth >= 1024 
+          ? 'left-64 right-0' // Desktop: start after sidebar (16rem = 256px = 64 in Tailwind)
+          : 'left-0 right-0' // Mobile: full width
+      }`}
+      style={{
+        top: businessTab === 'map' ? 10 : (typeof window !== 'undefined' && window.innerWidth >= 1024 ? 100 : 10) // Lower on desktop, normal on mobile
+      }}
+    >
+          {/* Tab Navigation - Always show on mobile, even in details view */}
           {typeof window !== 'undefined' && window.innerWidth < 1024 && (
-            <motion.div 
-              className="w-full h-[52px]"
-              layout
-              transition={{
-                type: "spring",
-                stiffness: 300,
-                damping: 30
-              }}
-            >
+            <div className="w-full h-[52px]">
               <BusinessTabToggle
                 value={businessTab}
                 onValueChange={(value) => {
-                  onBusinessTabChange(value);
-                  onFiltersChange({ ...filters, statuses: [] });
+                  if (!isDetailsView) {
+                    onBusinessTabChange(value);
+                    onFiltersChange({ ...filters, statuses: [] });
+                  }
                 }}
                 onClearStatusFilters={() => onFiltersChange({ ...filters, statuses: [] })}
                 className="w-full h-full"
+                isDetailsView={isDetailsView}
+                detailsName={detailsName}
+                onBackClick={onBackClick}
+                onEditClick={onEditClick}
               />
-            </motion.div>
+            </div>
           )}
 
-                {/* Controls Row - Toggle between buttons and search */}
-                <AnimatePresence mode="wait">
-                  {isSearchActive ? (
+          {/* Desktop Details Header - Show on desktop when in details view */}
+          {typeof window !== 'undefined' && window.innerWidth >= 1024 && isDetailsView && (
+            <AnimatePresence mode="wait">
+              <motion.div
+                key="desktop-details-header"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="flex items-center gap-2 w-full bg-background/95 backdrop-blur-sm border rounded-lg p-1 shadow-lg"
+              >
+              {/* Back Button */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onBackClick}
+                className="flex-shrink-0 px-3 py-2 h-9"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              
+              {/* Name - Wider, plain text */}
+              <div className="flex-[2] min-w-0 px-3 flex items-center justify-center">
+                <span className="text-base font-semibold text-foreground truncate w-full text-center">
+                  {detailsName}
+                </span>
+              </div>
+              
+              {/* Edit Button */}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onEditClick}
+                className="flex-shrink-0 px-3 py-2 h-9"
+              >
+                <Edit className="h-4 w-4" />
+              </Button>
+            </motion.div>
+            </AnimatePresence>
+          )}
+
+                {/* Controls Row - Toggle between buttons and search - Only show when not in details view */}
+                {!isDetailsView && (
+                  <AnimatePresence mode="wait">
+                    {isSearchActive ? (
                     <motion.div
                       key="search-field"
                       initial={{ opacity: 0, scale: 0.95 }}
@@ -530,9 +574,8 @@ export function PortaledBusinessControls({
                     </motion.div>
                   )}
                 </AnimatePresence>
-        </motion.div>
-      )}
-    </AnimatePresence>,
+                )}
+    </div>,
     document.body
   );
 }

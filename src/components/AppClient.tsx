@@ -38,7 +38,7 @@ import { cacheSet } from "@/lib/offline/store";
 import { LoginView } from "@/components/views/LoginView";
 import { LoadingView } from "@/components/views/LoadingView";
 import { BusinessTabToggle } from "@/components/business/BusinessTabToggle";
-import { PortaledBusinessControls } from "@/components/business/PortaledBusinessControls";
+import { UnifiedPortaledControls } from "@/components/UnifiedPortaledControls";
 import { StickySearchBar } from "@/components/business/StickySearchBar";
 import { useSPA } from "@/components/SPAProvider";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -264,6 +264,14 @@ export function AppClient() {
   const [mode, setMode] = useState<"create" | "edit">("create");
   const [busy, setBusy] = useState(false);
   const [congregationInitialTab, setCongregationInitialTab] = useState<'meetings' | 'ministry' | undefined>(undefined);
+  const [congregationTab, setCongregationTab] = useState<'meetings' | 'ministry'>('meetings');
+  
+  // Update congregation tab when initialTab changes
+  useEffect(() => {
+    if (congregationInitialTab) {
+      setCongregationTab(congregationInitialTab);
+    }
+  }, [congregationInitialTab]);
 
   // Account state
   const [editing, setEditing] = useState(false);
@@ -1233,6 +1241,72 @@ export function AppClient() {
     return <LoginView />;
   }
 
+  // Unified Portaled Controls - Same element for all sections
+  const portaledControls = (
+    <UnifiedPortaledControls
+      currentSection={currentSection}
+      businessTab={businessTab}
+      onBusinessTabChange={setBusinessTab}
+      filters={filters}
+      onFiltersChange={setFilters}
+      onOpenFilters={() => setFiltersModalOpen(true)}
+      viewMode={viewMode}
+      onCycleViewMode={cycleViewMode}
+      onClearSearch={handleClearSearch}
+      onRemoveStatus={handleRemoveStatus}
+      onRemoveArea={handleRemoveArea}
+      onRemoveFloor={handleRemoveFloor}
+      onClearMyEstablishments={handleClearMyEstablishments}
+      onClearAllFilters={handleClearAllFilters}
+      onToggleNearMe={handleToggleNearMe}
+      formatStatusLabel={formatStatusLabel}
+      selectedEstablishment={selectedEstablishment}
+      selectedHouseholder={selectedHouseholder}
+      onBackClick={() => {
+        if (selectedEstablishment) {
+          setSelectedEstablishment(null);
+          setSelectedEstablishmentDetails(null);
+          const previousSection = popNavigation();
+          if (previousSection) {
+            const targetSection = previousSection.startsWith('business-') ? previousSection : 'business-establishments';
+            setCurrentSection(targetSection);
+            const url = new URL(window.location.href);
+            url.pathname = targetSection === 'home' ? '/' : '/business';
+            window.history.pushState({}, '', url.toString());
+          } else {
+            setCurrentSection('business-establishments');
+            const url = new URL(window.location.href);
+            url.pathname = '/business';
+            window.history.pushState({}, '', url.toString());
+          }
+        } else if (selectedHouseholder) {
+          setSelectedHouseholder(null);
+          setSelectedHouseholderDetails(null);
+          const previousSection = popNavigation();
+          if (previousSection) {
+            const targetSection = previousSection.startsWith('business-') ? previousSection : 'business-householders';
+            setCurrentSection(targetSection);
+            const url = new URL(window.location.href);
+            url.pathname = targetSection === 'home' ? '/' : '/business';
+            window.history.pushState({}, '', url.toString());
+          } else {
+            setCurrentSection('business-householders');
+            const url = new URL(window.location.href);
+            url.pathname = '/business';
+            window.history.pushState({}, '', url.toString());
+          }
+        }
+      }}
+      onEditClick={() => {
+        if (selectedEstablishment || selectedHouseholder) {
+          window.dispatchEvent(new CustomEvent('trigger-edit-details'));
+        }
+      }}
+      congregationTab={congregationTab}
+      onCongregationTabChange={setCongregationTab}
+    />
+  );
+
   // Render based on current section
   switch (currentSection) {
     case 'home':
@@ -1308,47 +1382,33 @@ export function AppClient() {
       };
       
       return (
-        <HomeView 
-          userId={userId} 
-          onVisitClick={handleVisitClick}
-          onNavigateToCongregation={() => {
-            setCongregationInitialTab('ministry');
-            onSectionChange('congregation');
-          }}
-        />
+        <>
+          {portaledControls}
+          <HomeView 
+            userId={userId} 
+            onVisitClick={handleVisitClick}
+            onNavigateToCongregation={() => {
+              setCongregationInitialTab('ministry');
+              onSectionChange('congregation');
+            }}
+          />
+        </>
       );
 
     case 'business':
       const hasActiveFilters = filters.search !== "" || filters.statuses.length > 0 || filters.areas.length > 0 || filters.floors.length > 0 || filters.myEstablishments || !!filters.sort;
       
       return (
-        <motion.div
-          key="business"
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: 20 }}
-          transition={{ duration: 0.3 }}
-          className={businessTab === 'map' ? "fixed inset-0 z-10" : selectedEstablishment || selectedHouseholder ? "space-y-6 pb-20" : "space-y-6 pb-20 pt-20"} // Full screen for map, normal for details, with top padding for lists
-        >
-          {/* Portaled Business Controls - Tab toggle hidden on desktop, filters always visible */}
-          <PortaledBusinessControls
-            businessTab={businessTab}
-            onBusinessTabChange={setBusinessTab}
-            filters={filters}
-            onFiltersChange={setFilters}
-            onOpenFilters={() => setFiltersModalOpen(true)}
-            viewMode={viewMode}
-            onCycleViewMode={cycleViewMode}
-            isVisible={!selectedEstablishment && !selectedHouseholder}
-            onClearSearch={handleClearSearch}
-            onRemoveStatus={handleRemoveStatus}
-            onRemoveArea={handleRemoveArea}
-            onRemoveFloor={handleRemoveFloor}
-            onClearMyEstablishments={handleClearMyEstablishments}
-            onClearAllFilters={handleClearAllFilters}
-            onToggleNearMe={handleToggleNearMe}
-            formatStatusLabel={formatStatusLabel}
-          />
+        <>
+          {portaledControls}
+          <motion.div
+            key="business"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.3 }}
+            className={businessTab === 'map' ? "fixed inset-0 z-10" : selectedEstablishment || selectedHouseholder ? "space-y-6 pb-20" : "space-y-6 pb-20 pt-20"} // Full screen for map, normal for details, with top padding for lists
+          >
 
           {/* Sticky Search Bar - Hidden, search now in controls row */}
           <StickySearchBar
@@ -1469,7 +1529,7 @@ export function AppClient() {
                   className="w-full"
                   layout
                 >
-                  <div className={businessTab === 'map' ? "space-y-6 pb-20 px-4 py-6" : ""}>
+                  <div className={businessTab === 'map' ? "space-y-6 pb-20 px-4 py-6" : "space-y-6 pt-[60px]"}>
                   <HouseholderDetails
                     householder={selectedHouseholder}
                     visits={selectedHouseholderDetails?.visits || []}
@@ -1510,7 +1570,7 @@ export function AppClient() {
                   layout // Add layout animation to the details
                 >
                   {selectedEstablishment && (
-                    <div className={businessTab === 'map' ? "space-y-6 pb-20 px-4 py-6" : ""}>
+                    <div className={businessTab === 'map' ? "space-y-6 pb-20 px-4 py-6" : "space-y-6 pt-[60px]"}>
                   <EstablishmentDetails
                     establishment={selectedEstablishment}
                     visits={selectedEstablishmentDetails?.visits || []}
@@ -1586,7 +1646,8 @@ export function AppClient() {
             selectedEstablishment={selectedEstablishment}
             selectedHouseholder={selectedHouseholder}
           />
-        </motion.div>
+          </motion.div>
+        </>
       );
 
     case 'congregation':
@@ -1611,14 +1672,16 @@ export function AppClient() {
 
 
       return (
-        <motion.div
-          key="congregation"
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: 20 }}
-          transition={{ duration: 0.3 }}
-          className="space-y-6 pb-20"
-        >
+        <>
+          {portaledControls}
+          <motion.div
+            key="congregation"
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 20 }}
+            transition={{ duration: 0.3 }}
+            className="space-y-6 pb-20"
+          >
           {cong?.id ? (
             <CongregationView
               data={cong}
@@ -1629,6 +1692,8 @@ export function AppClient() {
               }}
               canEdit={canEdit}
               initialTab={congregationInitialTab}
+              congregationTab={congregationTab}
+              onCongregationTabChange={setCongregationTab}
             />
           ) : (
             <section className="rounded-md border p-4 space-y-2">
@@ -1671,7 +1736,8 @@ export function AppClient() {
               }}
             />
           </ResponsiveModal>
-        </motion.div>
+          </motion.div>
+        </>
       );
 
     case 'account':

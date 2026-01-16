@@ -26,17 +26,27 @@ interface CongregationViewProps {
   onEdit?: () => void;
   canEdit?: boolean;
   initialTab?: 'meetings' | 'ministry';
+  congregationTab?: 'meetings' | 'ministry';
+  onCongregationTabChange?: (tab: 'meetings' | 'ministry') => void;
 }
 
-export function CongregationView({ data, onEdit, canEdit, initialTab = 'meetings' }: CongregationViewProps) {
-  const [congregationTab, setCongregationTab] = useState<'meetings' | 'ministry'>(initialTab);
+export function CongregationView({ data, onEdit, canEdit, initialTab = 'meetings', congregationTab: externalCongregationTab, onCongregationTabChange: externalOnCongregationTabChange }: CongregationViewProps) {
+  const [internalCongregationTab, setInternalCongregationTab] = useState<'meetings' | 'ministry'>(initialTab);
+  
+  // Use external state if provided, otherwise use internal state
+  const congregationTab = externalCongregationTab ?? internalCongregationTab;
+  const setCongregationTab = externalOnCongregationTabChange ?? setInternalCongregationTab;
   
   // Update tab when initialTab prop changes
   useEffect(() => {
     if (initialTab) {
-      setCongregationTab(initialTab);
+      if (externalOnCongregationTabChange) {
+        externalOnCongregationTabChange(initialTab);
+      } else {
+        setInternalCongregationTab(initialTab);
+      }
     }
-  }, [initialTab]);
+  }, [initialTab, externalOnCongregationTabChange]);
   const googleMapsHref = (() => {
     if (data.lat != null && data.lng != null) {
       return `https://www.google.com/maps/dir/?api=1&destination=${data.lat},${data.lng}`;
@@ -58,14 +68,7 @@ export function CongregationView({ data, onEdit, canEdit, initialTab = 'meetings
 
   return (
     <>
-      {/* Sticky Navigation Controls */}
-      <PortaledCongregationControls
-        congregationTab={congregationTab}
-        onCongregationTabChange={setCongregationTab}
-        isVisible={true}
-      />
-      
-      <div className="space-y-6 pt-15"> {/* Add top padding to account for fixed controls */}
+      <div className="space-y-6 pt-[60px]"> {/* Add top padding to account for fixed controls */}
       
       {/* Tab Content */}
       {congregationTab === 'meetings' && (

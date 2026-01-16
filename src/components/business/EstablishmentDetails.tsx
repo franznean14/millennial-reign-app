@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChevronLeft, Building2, MapPinned, Calendar, Users, Edit } from "lucide-react";
+import { Building2, MapPinned, Calendar, Users } from "lucide-react";
 import { ResponsiveModal } from "@/components/ui/responsive-modal";
 import { useMobile } from "@/lib/hooks/use-mobile";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -71,29 +71,18 @@ export function EstablishmentDetails({
   const [deleting, setDeleting] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [editVisit, setEditVisit] = useState<{ id: string; establishment_id?: string | null; householder_id?: string | null; note?: string | null; publisher_id?: string | null; partner_id?: string | null; visit_date?: string } | null>(null);
-  const titleContainerRef = useRef<HTMLDivElement>(null);
-  const titleContentRef = useRef<HTMLDivElement>(null);
-  const [scrollDistance, setScrollDistance] = useState(0);
-  const [shouldScroll, setShouldScroll] = useState(false);
   const isMobile = useMobile();
 
+  // Listen for edit trigger from header
   useEffect(() => {
-    const measure = () => {
-      const container = titleContainerRef.current;
-      const content = titleContentRef.current;
-      if (!container || !content) return;
-      const fadeWidthPx = 48; // matches w-12 gradient
-      const overshootPx = 8; // small overshoot so text clears the fade completely
-      const overflow = content.scrollWidth - container.clientWidth;
-      const willScroll = overflow > 4; // only scroll when content truly overflows
-      setShouldScroll(willScroll);
-      setScrollDistance(willScroll ? overflow + fadeWidthPx + overshootPx : 0);
+    const handleEditTrigger = () => {
+      setIsEditing(true);
     };
-    measure();
-    const onResize = () => measure();
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
-  }, [establishment.name]);
+    window.addEventListener('trigger-edit-details', handleEditTrigger);
+    return () => {
+      window.removeEventListener('trigger-edit-details', handleEditTrigger);
+    };
+  }, []);
 
   const formatStatusText = (status: string) => {
     return status
@@ -160,67 +149,6 @@ export function EstablishmentDetails({
 
   return (
     <div className="space-y-6 w-full max-w-full">
-      {/* Header with back button and edit button */}
-      <motion.div 
-        layout
-        className="flex items-center justify-between gap-4 w-full"
-        transition={{ 
-          layout: { 
-            type: "spring", 
-            stiffness: 300, 
-            damping: 30 
-          }
-        }}
-      >
-        <div className="flex items-center gap-4 flex-1 min-w-0">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onBackClick}
-            className="p-2 flex-shrink-0"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <motion.div layout className="min-w-0 flex-1 relative z-0 max-w-[calc(100%-60px)]">
-            <div ref={titleContainerRef} className="relative w-full overflow-hidden">
-              <motion.div
-                ref={titleContentRef}
-                className="whitespace-nowrap pr-12 text-2xl font-bold"
-                animate={shouldScroll ? { x: [0, -scrollDistance, 0] } : undefined}
-                transition={shouldScroll ? { duration: Math.max(scrollDistance / 40, 10), times: [0, 0.6, 1], repeat: Infinity, ease: "linear", repeatDelay: 0.8 } : undefined}
-              >
-                {establishment.name}
-              </motion.div>
-              <div className="pointer-events-none absolute right-0 top-0 h-full w-12 bg-gradient-to-l from-background to-transparent" />
-            </div>
-            <motion.p 
-              layout 
-              className="text-muted-foreground truncate"
-              transition={{ 
-                layout: { 
-                  type: "spring", 
-                  stiffness: 300, 
-                  damping: 30 
-                }
-              }}
-            >
-              {establishment.area || 'No area specified'}
-            </motion.p>
-          </motion.div>
-        </div>
-        
-        {/* Edit Button */}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => setIsEditing(true)}
-          className="flex-shrink-0 relative z-10 ml-2"
-        >
-          <Edit className="h-4 w-4 mr-2" />
-          Edit
-        </Button>
-      </motion.div>
-
       {/* Basic Establishment Info with Direction Button */}
       <motion.div layout className="w-full">
         <Card className={cn("w-full", getStatusColor(primaryStatus))}>
