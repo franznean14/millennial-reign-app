@@ -24,7 +24,7 @@ interface BWIVisitHistoryProps {
 
 export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) {
   const [showDrawer, setShowDrawer] = useState(false);
-  const [filtersModalOpen, setFiltersModalOpen] = useState(false);
+  const [activePanel, setActivePanel] = useState<"list" | "filters">("list");
   const [isSearchActive, setIsSearchActive] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
@@ -185,105 +185,111 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
       {/* Drawer for all visits */}
       <FormModal
         open={showDrawer}
-        onOpenChange={setShowDrawer}
-        title="BWI Visit History"
-        description="Complete visit history with infinite scroll"
+        onOpenChange={(open) => {
+          setShowDrawer(open);
+          if (!open) setActivePanel("list");
+        }}
+        title={activePanel === "filters" ? "Filter Visits" : "BWI Visit History"}
+        description={activePanel === "filters" ? "Filter by status and area" : "Complete visit history with infinite scroll"}
       >
-        {/* Filter Controls - Centered */}
-        <div className="mb-4 flex justify-center">
-          <FilterControls
-            isSearchActive={isSearchActive}
-            searchValue={filters.search}
-            searchInputRef={searchInputRef}
-            onSearchActivate={() => setIsSearchActive(true)}
-            onSearchChange={(value) => setFilters(prev => ({ ...prev, search: value }))}
-            onSearchClear={() => {
-              clearSearch();
-              setIsSearchActive(false);
-            }}
-            onSearchBlur={() => {
-              if (!filters.search || filters.search.trim() === "") {
-                setIsSearchActive(false);
-              }
-            }}
-            myActive={filters.myUpdatesOnly}
-            myLabel="My Updates"
-            onMyActivate={() => setFilters(prev => ({ ...prev, myUpdatesOnly: true }))}
-            onMyClear={() => setFilters(prev => ({ ...prev, myUpdatesOnly: false }))}
-            filterBadges={filterBadges}
-            onOpenFilters={() => setFiltersModalOpen(true)}
-            onClearFilters={clearFilters}
-            onRemoveBadge={(badge) => {
-              if (badge.type === "status") {
-                setFilters(prev => ({ ...prev, statuses: prev.statuses.filter(s => s !== badge.value) }));
-              } else if (badge.type === "area") {
-                setFilters(prev => ({ ...prev, areas: prev.areas.filter(a => a !== badge.value) }));
-              }
-            }}
-            containerClassName="justify-center"
-            maxWidthClassName="mx-4"
-          />
-        </div>
+        {activePanel === "filters" ? (
+          <div className="pb-6">
+            {filterForm}
+            <div className="flex justify-end pt-4">
+              <Button type="button" variant="outline" onClick={() => setActivePanel("list")}>
+                Done
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Filter Controls - Centered */}
+            <div className="mb-4 flex justify-center">
+              <FilterControls
+                isSearchActive={isSearchActive}
+                searchValue={filters.search}
+                searchInputRef={searchInputRef}
+                onSearchActivate={() => setIsSearchActive(true)}
+                onSearchChange={(value) => setFilters(prev => ({ ...prev, search: value }))}
+                onSearchClear={() => {
+                  clearSearch();
+                  setIsSearchActive(false);
+                }}
+                onSearchBlur={() => {
+                  if (!filters.search || filters.search.trim() === "") {
+                    setIsSearchActive(false);
+                  }
+                }}
+                myActive={filters.myUpdatesOnly}
+                myLabel="My Updates"
+                onMyActivate={() => setFilters(prev => ({ ...prev, myUpdatesOnly: true }))}
+                onMyClear={() => setFilters(prev => ({ ...prev, myUpdatesOnly: false }))}
+                filterBadges={filterBadges}
+                onOpenFilters={() => setActivePanel("filters")}
+                onClearFilters={clearFilters}
+                onRemoveBadge={(badge) => {
+                  if (badge.type === "status") {
+                    setFilters(prev => ({ ...prev, statuses: prev.statuses.filter(s => s !== badge.value) }));
+                  } else if (badge.type === "area") {
+                    setFilters(prev => ({ ...prev, areas: prev.areas.filter(a => a !== badge.value) }));
+                  }
+                }}
+                containerClassName="justify-center"
+                maxWidthClassName="mx-4"
+              />
+            </div>
 
-        
-        <div className="relative max-h-[70vh] overflow-y-auto">
-          <motion.div 
-            className="space-y-4"
-            layout
-            transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-          >
-            <AnimatePresence mode="popLayout">
-              {filteredVisits.map((visit, index) => (
-                <motion.div
-                  key={visit.id}
-                  layout
-                  initial={{ opacity: 0, height: 0, y: -10 }}
-                  animate={{ opacity: 1, height: "auto", y: 0 }}
-                  exit={{ opacity: 0, height: 0, y: -10 }}
-                  transition={{ 
-                    duration: 0.3,
-                    ease: [0.4, 0, 0.2, 1],
-                    layout: { duration: 0.3, ease: [0.4, 0, 0.2, 1] }
-                  }}
+            <div className="relative max-h-[70vh] overflow-y-auto">
+              <motion.div 
+                className="space-y-4"
+                layout
+                transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+              >
+                <AnimatePresence mode="popLayout">
+                  {filteredVisits.map((visit, index) => (
+                    <motion.div
+                      key={visit.id}
+                      layout
+                      initial={{ opacity: 0, height: 0, y: -10 }}
+                      animate={{ opacity: 1, height: "auto", y: 0 }}
+                      exit={{ opacity: 0, height: 0, y: -10 }}
+                      transition={{ 
+                        duration: 0.3,
+                        ease: [0.4, 0, 0.2, 1],
+                        layout: { duration: 0.3, ease: [0.4, 0, 0.2, 1] }
+                      }}
+                    >
+                      {renderVisitRow(visit, index, filteredVisits.length, true)}
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
+              </motion.div>
+              
+              {loadingMore && (
+                <div className="text-center py-4">
+                  <div className="text-sm opacity-70">Loading more visits...</div>
+                </div>
+              )}
+              
+              {hasMore && !loadingMore && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full"
+                  onClick={loadMore}
                 >
-                  {renderVisitRow(visit, index, filteredVisits.length, true)}
-                </motion.div>
-              ))}
-            </AnimatePresence>
-          </motion.div>
-          
-          {loadingMore && (
-            <div className="text-center py-4">
-              <div className="text-sm opacity-70">Loading more visits...</div>
+                  Load More
+                </Button>
+              )}
+              
+              {!hasMore && filteredVisits.length > 0 && (
+                <div className="text-center py-4">
+                  <div className="text-sm opacity-70">No more visits to load</div>
+                </div>
+              )}
             </div>
-          )}
-          
-          {hasMore && !loadingMore && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="w-full"
-              onClick={loadMore}
-            >
-              Load More
-            </Button>
-          )}
-          
-          {!hasMore && filteredVisits.length > 0 && (
-            <div className="text-center py-4">
-              <div className="text-sm opacity-70">No more visits to load</div>
-            </div>
-          )}
-        </div>
-      </FormModal>
-
-      <FormModal
-        open={filtersModalOpen}
-        onOpenChange={setFiltersModalOpen}
-        title="Filter Visits"
-        description="Filter by status and area"
-      >
-              {filterForm}
+          </>
+        )}
       </FormModal>
     </>
   );
