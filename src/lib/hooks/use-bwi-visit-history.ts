@@ -34,16 +34,16 @@ export function useBwiVisitHistory({
   });
 
   const loadInitialVisits = useCallback(async (forceRefresh = false) => {
-    if (!userId) return;
-    setLoading(true);
-    try {
+      if (!userId) return;
+      setLoading(true);
+      try {
       const sortedVisits = await getRecentBwiVisits(recentLimit, forceRefresh);
-      setVisits(sortedVisits);
-    } catch (error) {
-      console.error("Error loading visit history:", error);
-    } finally {
-      setLoading(false);
-    }
+        setVisits(sortedVisits);
+      } catch (error) {
+        console.error("Error loading visit history:", error);
+      } finally {
+        setLoading(false);
+      }
   }, [userId, recentLimit]);
 
   const loadAllVisits = useCallback(

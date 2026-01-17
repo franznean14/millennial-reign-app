@@ -283,7 +283,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
         title="Filter Visits"
         description="Filter by status and area"
       >
-        {filterForm}
+              {filterForm}
       </FormModal>
     </>
   );

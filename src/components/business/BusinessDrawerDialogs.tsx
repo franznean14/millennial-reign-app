@@ -42,7 +42,7 @@ export function BusinessDrawerDialogs({
   const showExpandableButtons = selectedEstablishment && !selectedHouseholder; // Only for establishment details
   const showHouseholderDialog = showHouseholderForm;
 
-  if (showExpandableButtons) {
+    if (showExpandableButtons) {
     actions.push(
       {
         label: "New Householder",
@@ -93,10 +93,10 @@ export function BusinessDrawerDialogs({
           description="Add a business establishment."
           headerClassName="text-center"
         >
-          <EstablishmentForm
-            onSaved={() => setOpenEst(false)}
-            selectedArea={selectedArea}
-          />
+              <EstablishmentForm
+                onSaved={() => setOpenEst(false)}
+                selectedArea={selectedArea}
+              />
         </FormModal>
       )}
       {(showHouseholderDialog || openHh) && (
@@ -107,12 +107,12 @@ export function BusinessDrawerDialogs({
           description="Add a householder for an establishment."
           headerClassName="text-center"
         >
-          <HouseholderForm
-            establishments={establishments}
-            selectedEstablishmentId={establishmentId}
-            onSaved={() => setOpenHh(false)}
-            disableEstablishmentSelect={!!showExpandableButtons}
-          />
+              <HouseholderForm
+                establishments={establishments}
+                selectedEstablishmentId={establishmentId}
+                onSaved={() => setOpenHh(false)}
+                disableEstablishmentSelect={!!showExpandableButtons}
+              />
         </FormModal>
       )}
       {(showVisitForm || openVisit) && (
@@ -123,15 +123,15 @@ export function BusinessDrawerDialogs({
           description="Record a visit note."
           headerClassName="text-center"
         >
-          <VisitForm
-            establishments={establishments}
-            selectedEstablishmentId={establishmentId}
-            householderId={selectedHouseholder?.id}
-            householderName={selectedHouseholder?.name}
-            householderStatus={selectedHouseholder?.status}
-            onSaved={() => setOpenVisit(false)}
-            disableEstablishmentSelect={!!showExpandableButtons}
-          />
+              <VisitForm
+                establishments={establishments}
+                selectedEstablishmentId={establishmentId}
+                householderId={selectedHouseholder?.id}
+                householderName={selectedHouseholder?.name}
+                householderStatus={selectedHouseholder?.status}
+                onSaved={() => setOpenVisit(false)}
+                disableEstablishmentSelect={!!showExpandableButtons}
+              />
         </FormModal>
       )}
     </>

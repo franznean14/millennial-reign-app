@@ -13,6 +13,7 @@ interface ResponsiveModalProps {
   description?: string;
   children: ReactNode;
   className?: string;
+  drawerContentClassName?: string;
   headerClassName?: string;
   bodyClassName?: string;
 }
@@ -24,6 +25,7 @@ export function ResponsiveModal({
   description,
   children,
   className,
+  drawerContentClassName,
   headerClassName,
   bodyClassName
 }: ResponsiveModalProps) {
@@ -33,7 +35,10 @@ export function ResponsiveModal({
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
         <DrawerContent
-          className={cn(className)}
+          className={cn(
+            className,
+            drawerContentClassName
+          )}
         >
           <DrawerHeader className={cn(headerClassName)}>
             <DrawerTitle>{title}</DrawerTitle>

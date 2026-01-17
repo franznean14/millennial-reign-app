@@ -45,10 +45,10 @@ export function AdminFloatingButton({ congregationId }: AdminFloatingButtonProps
           description="Create a new event schedule"
           headerClassName="text-center"
         >
-          <EventScheduleForm 
-            congregationId={congregationId}
-            onSaved={handleScheduleSaved}
-          />
+                <EventScheduleForm 
+                  congregationId={congregationId}
+                  onSaved={handleScheduleSaved}
+                />
         </FormModal>
       </>
     );
@@ -76,10 +76,10 @@ export function AdminFloatingButton({ congregationId }: AdminFloatingButtonProps
         description="Create a new event schedule"
         headerClassName="text-center"
       >
-        <EventScheduleForm 
-          congregationId={congregationId}
-          onSaved={handleScheduleSaved}
-        />
+              <EventScheduleForm 
+                congregationId={congregationId}
+                onSaved={handleScheduleSaved}
+              />
       </FormModal>
     </>
   );

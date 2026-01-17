@@ -114,12 +114,12 @@ export function HomeSection({
         motionKey="home"
         className="space-y-6 pb-20 pt-[60px] w-full max-w-full overflow-x-hidden"
       >
-        <HomeView
-          userId={userId}
-          onVisitClick={handleVisitClick}
-          onNavigateToCongregation={onNavigateToCongregation}
-          homeTab={homeTab}
-        />
+      <HomeView
+        userId={userId}
+        onVisitClick={handleVisitClick}
+        onNavigateToCongregation={onNavigateToCongregation}
+        homeTab={homeTab}
+      />
       </SectionShell>
     </>
   );

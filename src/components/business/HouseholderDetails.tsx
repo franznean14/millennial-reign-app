@@ -197,10 +197,10 @@ export function HouseholderDetails({ householder, visits, establishment, establi
         description="Update householder details"
         headerClassName="text-center"
       >
-        <HouseholderForm
-          establishments={establishments}
-          selectedEstablishmentId={householder.establishment_id}
-          isEditing
+              <HouseholderForm
+                establishments={establishments}
+                selectedEstablishmentId={householder.establishment_id}
+                isEditing
           initialData={{
             id: householder.id,
             establishment_id: householder.establishment_id || "",
@@ -208,10 +208,10 @@ export function HouseholderDetails({ householder, visits, establishment, establi
             status: householder.status as any,
             note: householder.note || null
           }}
-          onSaved={onEditSaved}
-          onDelete={handleDelete}
-          onArchive={handleArchive}
-        />
+                onSaved={onEditSaved}
+                onDelete={handleDelete}
+                onArchive={handleArchive}
+              />
       </FormModal>
 
       <FormModal
@@ -225,13 +225,13 @@ export function HouseholderDetails({ householder, visits, establishment, establi
         description="Update visit details"
         headerClassName="text-center"
       >
-        <VisitForm
-          establishments={establishments}
-          selectedEstablishmentId={establishment?.id}
-          initialVisit={editVisit || undefined}
-          householderId={householder.id}
-          householderName={householder.name}
-          householderStatus={householder.status}
+              <VisitForm
+                establishments={establishments}
+                selectedEstablishmentId={establishment?.id}
+                initialVisit={editVisit || undefined}
+                householderId={householder.id}
+                householderName={householder.name}
+                householderStatus={householder.status}
           onSaved={() => {
             setEditVisit(null);
           }}

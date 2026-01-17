@@ -99,11 +99,11 @@ export async function getRecentBwiVisits(limit = 5, forceRefresh = false): Promi
   
   // Only use cache if not forcing refresh and we're offline
   if (!forceRefresh) {
-    const cached = await cacheGet<{ visits?: VisitRecord[] }>(cacheKey);
-    if (cached?.visits?.length) {
+  const cached = await cacheGet<{ visits?: VisitRecord[] }>(cacheKey);
+  if (cached?.visits?.length) {
       // If offline, return cached data
       if (isOffline()) {
-        return cached.visits;
+    return cached.visits;
       }
       // If online, still return cached for speed, but fetch fresh in background
       // (For now, we'll force refresh when events fire)
@@ -150,14 +150,14 @@ export async function getBwiVisitsPage({
   
   // Only use cache if not forcing refresh
   if (!forceRefresh && offset === 0) {
-    const cached = await cacheGet<{ visits?: VisitRecord[] }>(cacheKey);
+  const cached = await cacheGet<{ visits?: VisitRecord[] }>(cacheKey);
     if (cached?.visits?.length) {
       // If offline, return cached data
       if (isOffline()) {
         return cached.visits;
       }
       // If online and not forcing refresh, return cached for speed
-      return cached.visits;
+    return cached.visits;
     }
   }
 

@@ -12,24 +12,28 @@ function startOfGrid(view: Date) {
   return s;
 }
 
-export function DateRangeSelectModal({
-  open,
-  onOpenChange,
+export function DateRangeSelectContent({
   startDate,
   endDate,
   onSelect,
-  title = "Select Date",
-  description = "Choose a date or range",
   allowRange = true,
+  onRequestClose,
+  showActions = false,
+  onConfirm,
+  onCancel,
+  confirmLabel = "Confirm",
+  cancelLabel = "Cancel",
 }: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
   startDate?: Date;
   endDate?: Date;
   onSelect: (start: Date, end?: Date) => void;
-  title?: string;
-  description?: string;
   allowRange?: boolean;
+  onRequestClose?: () => void;
+  showActions?: boolean;
+  onConfirm?: (start: Date, end?: Date) => void;
+  onCancel?: () => void;
+  confirmLabel?: string;
+  cancelLabel?: string;
 }) {
   const [view, setView] = useState<Date>(startDate ?? new Date());
   const [mode, setMode] = useState<"days"|"months"|"years">("days");
@@ -76,8 +80,12 @@ export function DateRangeSelectModal({
 
   const handleDateClick = (d: Date) => {
     if (!allowRange) {
-      onSelect(d, undefined);
-      onOpenChange(false);
+      setSelectionStart(d);
+      setSelectionEnd(null);
+      if (!showActions) {
+        onSelect(d, undefined);
+        onRequestClose?.();
+      }
       return;
     }
 
@@ -93,8 +101,10 @@ export function DateRangeSelectModal({
       setSelectionStart(start);
       setSelectionEnd(end);
       setIsSelectingRange(false);
-      onSelect(start, end);
-      onOpenChange(false);
+      if (!showActions) {
+        onSelect(start, end);
+        onRequestClose?.();
+      }
     }
   };
 
@@ -104,8 +114,16 @@ export function DateRangeSelectModal({
     setIsSelectingRange(false);
   };
 
+  const handleConfirm = () => {
+    if (!selectionStart) return;
+    if (!allowRange) {
+      onConfirm?.(selectionStart, undefined);
+      return;
+    }
+    onConfirm?.(selectionStart, selectionEnd ?? undefined);
+  };
+
   return (
-    <FormModal open={open} onOpenChange={onOpenChange} title={title} description={description} className="sm:max-w-[640px]">
       <div>
         <div className="flex items-center border-b pb-2">
           <Button
@@ -231,7 +249,49 @@ export function DateRangeSelectModal({
             ))}
           </div>
         )}
+
+        {showActions && (
+          <div className="flex justify-end gap-2 pt-4 border-t">
+            <Button type="button" variant="outline" onClick={() => onCancel?.()}>
+              {cancelLabel}
+            </Button>
+            <Button type="button" disabled={!selectionStart} onClick={handleConfirm}>
+              {confirmLabel}
+            </Button>
+          </div>
+        )}
       </div>
+  );
+}
+
+export function DateRangeSelectModal({
+  open,
+  onOpenChange,
+  startDate,
+  endDate,
+  onSelect,
+  title = "Select Date",
+  description = "Choose a date or range",
+  allowRange = true,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  startDate?: Date;
+  endDate?: Date;
+  onSelect: (start: Date, end?: Date) => void;
+  title?: string;
+  description?: string;
+  allowRange?: boolean;
+}) {
+  return (
+    <FormModal open={open} onOpenChange={onOpenChange} title={title} description={description} className="sm:max-w-[640px]">
+      <DateRangeSelectContent
+        startDate={startDate}
+        endDate={endDate}
+        onSelect={onSelect}
+        allowRange={allowRange}
+        onRequestClose={() => onOpenChange(false)}
+      />
     </FormModal>
   );
 }

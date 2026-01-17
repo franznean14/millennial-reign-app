@@ -136,27 +136,27 @@ export function VisitUpdatesSection({
         open={!!editVisit}
         onOpenChange={(open) => {
           if (!open) {
-            setEditVisit(null);
+                    setEditVisit(null);
           }
         }}
         title="Edit Visit"
         description="Update visit details"
         headerClassName="text-center"
       >
-        {editVisit && (
-          <VisitForm
-            establishments={establishments}
-            selectedEstablishmentId={selectedEstablishmentId}
-            initialVisit={editVisit}
-            householderId={householderId}
-            householderName={householderName}
-            householderStatus={householderStatus}
-            onSaved={() => {
-              setEditVisit(null);
-              onVisitUpdated?.();
-            }}
-          />
-        )}
+              {editVisit && (
+                <VisitForm
+                  establishments={establishments}
+                  selectedEstablishmentId={selectedEstablishmentId}
+                  initialVisit={editVisit}
+                  householderId={householderId}
+                  householderName={householderName}
+                  householderStatus={householderStatus}
+                  onSaved={() => {
+                    setEditVisit(null);
+                    onVisitUpdated?.();
+                  }}
+                />
+              )}
       </FormModal>
     </div>
   );

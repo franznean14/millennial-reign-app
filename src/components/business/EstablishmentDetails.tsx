@@ -309,14 +309,14 @@ export function EstablishmentDetails({
         description="Update establishment details"
         headerClassName="text-center"
       >
-        <EstablishmentForm 
-          onSaved={handleEditSaved}
-          onDelete={handleDelete}
-          onArchive={handleArchive}
-          selectedArea={establishment.area || undefined}
-          initialData={establishment}
-          isEditing={true}
-        />
+              <EstablishmentForm 
+                onSaved={handleEditSaved}
+                onDelete={handleDelete}
+                onArchive={handleArchive}
+                selectedArea={establishment.area || undefined}
+                initialData={establishment}
+                isEditing={true}
+              />
       </FormModal>
 
       <FormModal
@@ -330,14 +330,14 @@ export function EstablishmentDetails({
         description="Update visit details"
         headerClassName="text-center"
       >
-        {editVisit && (
-          <VisitForm
-            establishments={[{ id: establishment.id, name: establishment.name }]}
-            selectedEstablishmentId={establishment.id}
-            initialVisit={editVisit}
-            onSaved={() => setEditVisit(null)}
-          />
-        )}
+              {editVisit && (
+                <VisitForm
+                  establishments={[{ id: establishment.id, name: establishment.name }]}
+                  selectedEstablishmentId={establishment.id}
+                  initialVisit={editVisit}
+                  onSaved={() => setEditVisit(null)}
+                />
+              )}
       </FormModal>
     </div>
   );

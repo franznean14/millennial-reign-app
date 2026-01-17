@@ -10,8 +10,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/sonner";
 import { upsertEventSchedule, type EventSchedule, type EventType, type MinistryType, type RecurrencePattern } from "@/lib/db/eventSchedules";
 import { formatTimeLabel } from "@/lib/utils/recurrence";
-import { Calendar, Clock, Crosshair } from "lucide-react";
-import { DateRangeSelectModal } from "@/components/ui/date-range-select-modal";
+import { Calendar, Clock, Crosshair, ChevronLeft } from "lucide-react";
+import { DateRangeSelectContent } from "@/components/ui/date-range-select-modal";
 import { TimeSelectModal } from "@/components/ui/time-select-modal";
 import { format } from "date-fns";
 
@@ -43,9 +43,21 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
   const [locationLng, setLocationLng] = useState<number | null>(initialData?.location_lng ?? null);
   const [showLocationCoords, setShowLocationCoords] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const [recurrenceDatePickerOpen, setRecurrenceDatePickerOpen] = useState(false);
-  const [startTimePickerOpen, setStartTimePickerOpen] = useState(false);
+  const [activePanel, setActivePanel] = useState<"form" | "date" | "time" | "recurrence">("form");
+
+  // Ensure drawer scroll resets when switching panels to keep header visible
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const reset = () => {
+      const scrollContainer = document.querySelector(".drawer-content-inner") as HTMLElement | null;
+      if (scrollContainer) {
+        scrollContainer.scrollTo({ top: 0, behavior: "auto" });
+      }
+    };
+    reset();
+    const timer = setTimeout(reset, 0);
+    return () => clearTimeout(timer);
+  }, [activePanel]);
 
   // Reset ministry_type when event_type changes
   useEffect(() => {
@@ -141,6 +153,90 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
     { value: '12', label: 'December' },
   ];
 
+  if (activePanel !== "form") {
+    const panelDescription =
+      activePanel === "date"
+        ? "Choose a single date or select a range"
+        : activePanel === "time"
+          ? "Choose start and end time"
+          : "Choose when recurrence ends";
+
+    return (
+      <div className="space-y-4 pb-10">
+        <div className="text-sm text-muted-foreground">{panelDescription}</div>
+
+        {activePanel === "date" && (
+          <>
+            <DateRangeSelectContent
+              startDate={startDate || undefined}
+              endDate={endDate || undefined}
+              allowRange={true}
+              showActions
+              onSelect={(start, end) => {
+                setStartDate(start);
+                if (end) {
+                  setEndDate(end);
+                } else {
+                  setEndDate(null);
+                }
+              }}
+              onConfirm={(start, end) => {
+                setStartDate(start);
+                setEndDate(end ?? null);
+                setActivePanel("form");
+              }}
+              onCancel={() => setActivePanel("form")}
+            />
+          </>
+        )}
+
+        {activePanel === "time" && (
+          <TimeSelectModal
+            inline
+            open={true}
+            onOpenChange={() => {}}
+            startValue={startTime}
+            endValue={endTime}
+            onSelect={(start, end) => {
+              setStartTime(start);
+              setEndTime(end);
+              setActivePanel("form");
+            }}
+            onRequestClose={() => setActivePanel("form")}
+            title="Select Time"
+            description="Choose start and end time"
+          />
+        )}
+
+        {activePanel === "recurrence" && (
+          <>
+            <DateRangeSelectContent
+              startDate={recurrenceEndDate || undefined}
+              allowRange={false}
+              showActions
+              onSelect={(date) => {
+                if (startDate && date >= startDate) {
+                  setRecurrenceEndDate(date);
+                } else {
+                  toast.error("Recurrence end date must be after start date");
+                }
+              }}
+              onConfirm={(date) => {
+                if (startDate && date >= startDate) {
+                  setRecurrenceEndDate(date);
+                  setActivePanel("form");
+                } else {
+                  toast.error("Recurrence end date must be after start date");
+                }
+              }}
+              onCancel={() => setActivePanel("form")}
+            />
+          </>
+        )}
+      </div>
+    );
+  }
+
   return (
     <form className="grid gap-3 pb-10" onSubmit={handleSubmit}>
       <div className="grid gap-1">
@@ -191,7 +287,7 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
           type="button"
           variant="outline"
           className="w-full justify-start text-left font-normal"
-          onClick={() => setDatePickerOpen(true)}
+          onClick={() => setActivePanel("date")}
         >
           <Calendar className="mr-2 h-4 w-4" />
           {startDate && endDate ? (
@@ -202,23 +298,6 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
             <span className="text-muted-foreground">Select date or range</span>
           )}
         </Button>
-        <DateRangeSelectModal
-          open={datePickerOpen}
-          onOpenChange={setDatePickerOpen}
-          startDate={startDate || undefined}
-          endDate={endDate || undefined}
-          onSelect={(start, end) => {
-            setStartDate(start);
-            if (end) {
-              setEndDate(end);
-            } else {
-              setEndDate(null);
-            }
-          }}
-          title="Select Date"
-          description="Choose a single date or select a range"
-          allowRange={true}
-        />
       </div>
 
       <div className="flex items-center space-x-2">
@@ -237,7 +316,7 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
             type="button"
             variant="outline"
             className="w-full justify-start text-left font-normal"
-            onClick={() => setStartTimePickerOpen(true)}
+            onClick={() => setActivePanel("time")}
           >
             <Clock className="mr-2 h-4 w-4" />
             {startTime && endTime ? (
@@ -248,19 +327,6 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
               <span className="text-muted-foreground">09:00AM → 05:00PM</span>
             )}
           </Button>
-          <TimeSelectModal
-            open={startTimePickerOpen}
-            onOpenChange={setStartTimePickerOpen}
-            startValue={startTime}
-            endValue={endTime}
-            onSelect={(start, end) => {
-              setStartTime(start);
-              setEndTime(end);
-              setStartTimePickerOpen(false);
-            }}
-            title="Select Time"
-            description="Choose start and end time"
-          />
         </div>
       )}
 
@@ -351,7 +417,7 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
               type="button"
               variant="outline"
               className="w-full justify-start text-left font-normal"
-              onClick={() => setRecurrenceDatePickerOpen(true)}
+              onClick={() => setActivePanel("recurrence")}
             >
               <Calendar className="mr-2 h-4 w-4" />
               {recurrenceEndDate ? (
@@ -360,21 +426,6 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
                 <span className="text-muted-foreground">Select recurrence end date</span>
               )}
             </Button>
-            <DateRangeSelectModal
-              open={recurrenceDatePickerOpen}
-              onOpenChange={setRecurrenceDatePickerOpen}
-              startDate={recurrenceEndDate || undefined}
-              onSelect={(date) => {
-                if (startDate && date >= startDate) {
-                  setRecurrenceEndDate(date);
-                } else {
-                  toast.error("Recurrence end date must be after start date");
-                }
-              }}
-              title="Select Recurrence End Date"
-              description="Choose when recurrence ends"
-              allowRange={false}
-            />
           </div>
         </>
       )}

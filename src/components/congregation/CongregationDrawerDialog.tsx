@@ -48,8 +48,8 @@ export function CongregationDrawerDialog({ congregationId, onUserAdded, congrega
           aria-label={triggerLabel}
           onClick={() => setOpen(true)}
         >
-          {isMinistryTab ? <Plus className="h-4 w-4 mr-2" /> : <UserPlus className="h-4 w-4 mr-2" />} Add
-        </Button>
+            {isMinistryTab ? <Plus className="h-4 w-4 mr-2" /> : <UserPlus className="h-4 w-4 mr-2" />} Add
+          </Button>
         <FormModal
           open={open}
           onOpenChange={setOpen}
@@ -57,16 +57,16 @@ export function CongregationDrawerDialog({ congregationId, onUserAdded, congrega
           description={isMinistryTab ? "Add a personal householder with location" : "Add a user to this congregation."}
           headerClassName="text-center"
         >
-          {isMinistryTab ? (
-            <HouseholderForm 
-              establishments={[]}
-              onSaved={handleHouseholderSaved}
-              context="congregation"
-              publisherId={userId || undefined}
-            />
-          ) : (
-            <AddUserToCongregationForm congregationId={congregationId} onUserAdded={handleAdded} onClose={() => setOpen(false)} />
-          )}
+            {isMinistryTab ? (
+              <HouseholderForm 
+                establishments={[]}
+                onSaved={handleHouseholderSaved}
+                context="congregation"
+                publisherId={userId || undefined}
+              />
+            ) : (
+              <AddUserToCongregationForm congregationId={congregationId} onUserAdded={handleAdded} onClose={() => setOpen(false)} />
+            )}
         </FormModal>
       </>
     );
@@ -94,16 +94,16 @@ export function CongregationDrawerDialog({ congregationId, onUserAdded, congrega
         description={isMinistryTab ? "Add a personal householder with location" : "Add a user to this congregation."}
         headerClassName="text-center"
       >
-        {isMinistryTab ? (
-          <HouseholderForm 
-            establishments={[]}
-            onSaved={handleHouseholderSaved}
-            context="congregation"
-            publisherId={userId || undefined}
-          />
-        ) : (
-          <AddUserToCongregationForm congregationId={congregationId} onUserAdded={handleAdded} onClose={() => setOpen(false)} />
-        )}
+          {isMinistryTab ? (
+            <HouseholderForm 
+              establishments={[]}
+              onSaved={handleHouseholderSaved}
+              context="congregation"
+              publisherId={userId || undefined}
+            />
+          ) : (
+            <AddUserToCongregationForm congregationId={congregationId} onUserAdded={handleAdded} onClose={() => setOpen(false)} />
+          )}
       </FormModal>
     </>
   );

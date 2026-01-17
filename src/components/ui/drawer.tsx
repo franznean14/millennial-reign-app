@@ -57,9 +57,21 @@ export const DrawerContent = React.forwardRef<
 >(({ className, children, ...props }, ref) => {
   const visualViewport = useVisualViewport();
   
+  // Check if this is a nested drawer (time picker) that needs to be taller
+  const isNestedDrawer = className?.includes('!z-[60]') || className?.includes('nested-drawer');
+  
   // Calculate dynamic styles based on visual viewport - only adjust height constraints
   const dynamicStyles = React.useMemo(() => {
-    if (!visualViewport || typeof window === 'undefined') return {};
+    if (!visualViewport || typeof window === 'undefined') {
+      // For nested drawers, allow taller height even without viewport
+      if (isNestedDrawer) {
+        return {
+          marginTop: '32px',
+          maxHeight: 'calc(100vh - 32px)',
+        };
+      }
+      return {};
+    }
     
     // When keyboard is open, only adjust height constraint - no positioning changes
     const isKeyboardOpen = visualViewport.height < window.innerHeight * 0.8;
@@ -71,12 +83,21 @@ export const DrawerContent = React.forwardRef<
       };
     }
     
-    // When keyboard closes, reset height constraint only
+    // When keyboard closes, reset height constraint
+    // For nested drawers, use a taller max height
+    if (isNestedDrawer) {
+      return {
+        marginTop: '32px',
+        maxHeight: 'calc(100vh - 32px)',
+        transition: 'max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+      };
+    }
+    
     return {
       maxHeight: '100svh', // Reset to default max height
       transition: 'max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
     };
-  }, [visualViewport]);
+  }, [visualViewport, isNestedDrawer]);
 
   return (
     <DrawerPortal>
