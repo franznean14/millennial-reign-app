@@ -33,9 +33,9 @@ export function BusinessTabToggle({
         {isDetailsView ? (
           <motion.div
             key="details-view"
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 20 }}
+            initial={{ opacity: 0, filter: "blur(6px)" }}
+            animate={{ opacity: 1, filter: "blur(0px)" }}
+            exit={{ opacity: 0, filter: "blur(6px)" }}
             transition={{ duration: 0.2 }}
             className="flex items-center gap-1 w-full h-full"
           >
@@ -69,9 +69,9 @@ export function BusinessTabToggle({
         ) : (
           <motion.div
             key="normal-view"
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
+            initial={{ opacity: 0, filter: "blur(6px)" }}
+            animate={{ opacity: 1, filter: "blur(0px)" }}
+            exit={{ opacity: 0, filter: "blur(6px)" }}
             transition={{ duration: 0.2 }}
             className="w-full h-full"
           >

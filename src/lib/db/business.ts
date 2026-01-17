@@ -269,6 +269,7 @@ export async function listHouseholders(): Promise<HouseholderWithDetails[]> {
         note: hh.note,
         establishment_id: hh.establishment_id,
         establishment_name: establishment?.name,
+        publisher_id: hh.publisher_id ?? null,
         top_visitors: Array.from(visitors.values()).sort((a, b) => b.visit_count - a.visit_count)
       };
     });

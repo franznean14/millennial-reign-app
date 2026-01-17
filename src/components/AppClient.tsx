@@ -169,6 +169,12 @@ export function AppClient() {
   const [busy, setBusy] = useState(false);
   const [congregationInitialTab, setCongregationInitialTab] = useState<'meetings' | 'ministry' | 'admin' | undefined>(undefined);
   const [congregationTab, setCongregationTab] = useState<'meetings' | 'ministry' | 'admin'>('meetings');
+  const [congregationSelectedHouseholder, setCongregationSelectedHouseholder] = useState<HouseholderWithDetails | null>(null);
+  const [congregationSelectedHouseholderDetails, setCongregationSelectedHouseholderDetails] = useState<{
+    householder: HouseholderWithDetails;
+    visits: VisitWithUser[];
+    establishment?: { id: string; name: string } | null;
+  } | null>(null);
   
   // Update congregation tab when initialTab changes
   useEffect(() => {
@@ -361,7 +367,7 @@ export function AppClient() {
         listHouseholders()
       ]);
       setEstablishments(establishmentsData);
-      setHouseholders(householdersData);
+      setHouseholders(householdersData.filter((householder) => !!householder.establishment_id));
 
       // Set up business event listeners
       businessEventBus.subscribe('establishment-added', addNewEstablishment);
@@ -505,6 +511,17 @@ export function AppClient() {
       console.error('Failed to load householder details:', error);
     }
   }, []);
+
+  const loadCongregationHouseholderDetails = useCallback(async (householderId: string) => {
+    try {
+      const details = await getHouseholderDetails(householderId);
+      setCongregationSelectedHouseholderDetails(details);
+    } catch (error) {
+      console.error("Failed to load congregation householder details:", error);
+      setCongregationSelectedHouseholderDetails(null);
+    }
+  }, []);
+
 
   const addNewEstablishment = useCallback((establishment: EstablishmentWithDetails) => {
     setEstablishments(prev => {
@@ -849,6 +866,16 @@ export function AppClient() {
       }}
       congregationTab={congregationTab}
       onCongregationTabChange={setCongregationTab}
+      congregationSelectedHouseholder={congregationSelectedHouseholder}
+      onCongregationBackClick={() => {
+        setCongregationSelectedHouseholder(null);
+        setCongregationSelectedHouseholderDetails(null);
+      }}
+      onCongregationEditClick={() => {
+        if (congregationSelectedHouseholder) {
+          window.dispatchEvent(new CustomEvent("trigger-edit-details"));
+        }
+      }}
       isElder={isElder}
       homeTab={homeTab}
       onHomeTabChange={setHomeTab}
@@ -940,6 +967,14 @@ export function AppClient() {
           congregationTab={congregationTab}
           setCongregationTab={setCongregationTab}
           userId={userId}
+          selectedHouseholder={congregationSelectedHouseholder}
+          selectedHouseholderDetails={congregationSelectedHouseholderDetails}
+          onSelectHouseholder={setCongregationSelectedHouseholder}
+          onClearSelectedHouseholder={() => {
+            setCongregationSelectedHouseholder(null);
+            setCongregationSelectedHouseholderDetails(null);
+          }}
+          loadHouseholderDetails={loadCongregationHouseholderDetails}
           modalOpen={modalOpen}
           setModalOpen={setModalOpen}
           mode={mode}
@@ -984,9 +1019,9 @@ export function AppClient() {
       return (
         <motion.div
           key="home"
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: 20 }}
+          initial={{ opacity: 0, filter: "blur(6px)" }}
+          animate={{ opacity: 1, filter: "blur(0px)" }}
+          exit={{ opacity: 0, filter: "blur(6px)" }}
           transition={{ duration: 0.3 }}
           className="space-y-6 pb-20" // Add bottom padding for navbar
         >

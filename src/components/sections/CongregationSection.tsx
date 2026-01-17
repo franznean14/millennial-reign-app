@@ -5,6 +5,7 @@ import { SectionShell } from "@/components/shared/SectionShell";
 import dynamic from "next/dynamic";
 import { toast } from "@/components/ui/sonner";
 import type { Congregation } from "@/lib/db/congregations";
+import type { HouseholderWithDetails, VisitWithUser } from "@/lib/db/business";
 
 const CongregationForm = dynamic(() => import("@/components/congregation/CongregationForm").then((m) => m.CongregationForm), {
   ssr: false
@@ -35,6 +36,15 @@ export interface CongregationSectionProps {
   congregationTab: "meetings" | "ministry" | "admin";
   setCongregationTab: Dispatch<SetStateAction<"meetings" | "ministry" | "admin">>;
   userId: string;
+  selectedHouseholder: HouseholderWithDetails | null;
+  selectedHouseholderDetails: {
+    householder: HouseholderWithDetails;
+    visits: VisitWithUser[];
+    establishment?: { id: string; name: string } | null;
+  } | null;
+  onSelectHouseholder: (householder: HouseholderWithDetails | null) => void;
+  onClearSelectedHouseholder: () => void;
+  loadHouseholderDetails: (householderId: string) => Promise<void>;
   modalOpen: boolean;
   setModalOpen: Dispatch<SetStateAction<boolean>>;
   mode: "edit" | "create";
@@ -57,6 +67,11 @@ export function CongregationSection({
   congregationTab,
   setCongregationTab,
   userId,
+  selectedHouseholder,
+  selectedHouseholderDetails,
+  onSelectHouseholder,
+  onClearSelectedHouseholder,
+  loadHouseholderDetails,
   modalOpen,
   setModalOpen,
   mode,
@@ -93,6 +108,11 @@ export function CongregationSection({
             congregationTab={congregationTab}
             onCongregationTabChange={setCongregationTab}
             userId={userId}
+            selectedHouseholder={selectedHouseholder}
+            selectedHouseholderDetails={selectedHouseholderDetails}
+            onSelectHouseholder={onSelectHouseholder}
+            onClearSelectedHouseholder={onClearSelectedHouseholder}
+            loadHouseholderDetails={loadHouseholderDetails}
           />
         ) : (
           <section className="rounded-md border p-4 space-y-2">

@@ -77,6 +77,10 @@ export function HomeSection({
             .maybeSingle();
 
           if (householder && !error) {
+            if (!householder.establishment_id) {
+              alert("This householder isn't linked to an establishment yet.");
+              return;
+            }
             setSelectedHouseholder(householder);
             setBusinessTab("householders");
             pushNavigation(currentSection);

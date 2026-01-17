@@ -14,9 +14,9 @@ export function SectionShell({ children, className, motionKey }: SectionShellPro
   return (
     <motion.div
       key={motionKey}
-      initial={{ opacity: 0, x: -20 }}
-      animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 20 }}
+      initial={{ opacity: 0, filter: "blur(6px)" }}
+      animate={{ opacity: 1, filter: "blur(0px)" }}
+      exit={{ opacity: 0, filter: "blur(6px)" }}
       transition={{ duration: 0.3 }}
       className={cn(className)}
     >

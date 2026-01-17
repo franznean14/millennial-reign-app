@@ -1,19 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { Label } from "@/components/ui/label";
 import type { Congregation } from "@/lib/db/congregations";
+import type { HouseholderWithDetails, VisitWithUser } from "@/lib/db/business";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Pencil, MapPinned, Settings } from "lucide-react";
-import { PortaledCongregationControls } from "../congregation/PortaledCongregationControls";
 import { MeetingsSection } from "../congregation/MeetingsSection";
 import { MinistrySection } from "../congregation/MinistrySection";
 import { AdminFloatingButton } from "../congregation/AdminFloatingButton";
 
 // Dynamic import to avoid circular dependencies
 const CongregationMembers = dynamic(() => import("../congregation/CongregationMembers").then(m => m.CongregationMembers), { ssr: false });
+const HouseholderDetails = dynamic(() => import("../business/HouseholderDetails").then(m => m.HouseholderDetails), { ssr: false });
 
 function formatDay(d: number | undefined) {
   const names = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -31,9 +32,18 @@ interface CongregationViewProps {
   onCongregationTabChange?: (tab: 'meetings' | 'ministry' | 'admin') => void;
   userId?: string | null;
   isElder?: boolean;
+  selectedHouseholder: HouseholderWithDetails | null;
+  selectedHouseholderDetails: {
+    householder: HouseholderWithDetails;
+    visits: VisitWithUser[];
+    establishment?: { id: string; name: string } | null;
+  } | null;
+  onSelectHouseholder: (householder: HouseholderWithDetails | null) => void;
+  onClearSelectedHouseholder: () => void;
+  loadHouseholderDetails: (householderId: string) => Promise<void>;
 }
 
-export function CongregationView({ data, onEdit, canEdit, initialTab = 'meetings', congregationTab: externalCongregationTab, onCongregationTabChange: externalOnCongregationTabChange, userId, isElder = false }: CongregationViewProps) {
+export function CongregationView({ data, onEdit, canEdit, initialTab = 'meetings', congregationTab: externalCongregationTab, onCongregationTabChange: externalOnCongregationTabChange, userId, isElder = false, selectedHouseholder, selectedHouseholderDetails, onSelectHouseholder, onClearSelectedHouseholder, loadHouseholderDetails }: CongregationViewProps) {
   const [internalCongregationTab, setInternalCongregationTab] = useState<'meetings' | 'ministry' | 'admin'>(initialTab);
   
   // Use external state if provided, otherwise use internal state
@@ -50,6 +60,22 @@ export function CongregationView({ data, onEdit, canEdit, initialTab = 'meetings
       }
     }
   }, [initialTab, externalOnCongregationTabChange]);
+
+  useEffect(() => {
+    if (congregationTab !== "ministry") {
+      onClearSelectedHouseholder();
+    }
+  }, [congregationTab, onClearSelectedHouseholder]);
+
+  const handleContactOpen = useCallback(async (householder: HouseholderWithDetails) => {
+    if (!householder?.id) return;
+    onSelectHouseholder(householder);
+    try {
+      await loadHouseholderDetails(householder.id);
+    } catch (error) {
+      console.error("Failed to load householder details:", error);
+    }
+  }, [loadHouseholderDetails, onSelectHouseholder]);
   const googleMapsHref = (() => {
     if (data.lat != null && data.lng != null) {
       return `https://www.google.com/maps/dir/?api=1&destination=${data.lat},${data.lng}`;
@@ -79,7 +105,19 @@ export function CongregationView({ data, onEdit, canEdit, initialTab = 'meetings
       )}
       
       {congregationTab === 'ministry' && (
-        <MinistrySection congregationData={data} />
+        selectedHouseholder ? (
+          <HouseholderDetails
+            householder={selectedHouseholder}
+            visits={selectedHouseholderDetails?.visits || []}
+            establishment={selectedHouseholderDetails?.establishment || null}
+            establishments={selectedHouseholderDetails?.establishment ? [selectedHouseholderDetails.establishment] : []}
+            onBackClick={() => {
+              onClearSelectedHouseholder();
+            }}
+          />
+        ) : (
+          <MinistrySection congregationData={data} userId={userId} onContactClick={handleContactOpen} />
+        )
       )}
       
       {congregationTab === 'admin' && isElder && (

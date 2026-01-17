@@ -4,19 +4,26 @@ import { useState, useEffect } from "react";
 import { Calendar, BookOpen, Users, Clock, MapPin } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { Congregation } from "@/lib/db/congregations";
 import { listEventSchedules, type EventSchedule } from "@/lib/db/eventSchedules";
+import { listHouseholders, type HouseholderWithDetails } from "@/lib/db/business";
 import { formatTimeLabel, isEventOccurringToday } from "@/lib/utils/recurrence";
+import { formatStatusText } from "@/lib/utils/formatters";
 
 interface MinistrySectionProps {
   congregationData: Congregation;
+  userId?: string | null;
+  onContactClick?: (householder: HouseholderWithDetails) => void;
 }
 
 // Helper to check if an event should appear today
 
-export function MinistrySection({ congregationData }: MinistrySectionProps) {
+export function MinistrySection({ congregationData, userId, onContactClick }: MinistrySectionProps) {
   const [todayEvents, setTodayEvents] = useState<EventSchedule[]>([]);
   const [loading, setLoading] = useState(true);
+  const [bibleStudents, setBibleStudents] = useState<HouseholderWithDetails[]>([]);
+  const [bibleStudentsLoading, setBibleStudentsLoading] = useState(false);
   
   useEffect(() => {
     async function loadTodayEvents() {
@@ -41,6 +48,43 @@ export function MinistrySection({ congregationData }: MinistrySectionProps) {
     
     loadTodayEvents();
   }, [congregationData.id]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadBibleStudents() {
+      if (!userId) {
+        setBibleStudents([]);
+        return;
+      }
+
+      try {
+        setBibleStudentsLoading(true);
+        const householders = await listHouseholders();
+        if (!active) return;
+        const owned = householders.filter(
+          (householder) => householder.publisher_id && householder.publisher_id === userId
+        );
+        setBibleStudents(owned);
+      } catch (error) {
+        console.error("Error loading bible students:", error);
+        if (active) setBibleStudents([]);
+      } finally {
+        if (active) setBibleStudentsLoading(false);
+      }
+    }
+
+    loadBibleStudents();
+    return () => {
+      active = false;
+    };
+  }, [userId]);
+
+  const formatBibleStudentStatus = (status?: string | null) => {
+    if (!status) return "";
+    if (status === "bible_study") return "Bible Student";
+    return formatStatusText(status);
+  };
   
   return (
     <div className="space-y-4">
@@ -115,15 +159,72 @@ export function MinistrySection({ congregationData }: MinistrySectionProps) {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <BookOpen className="h-5 w-5" />
-            Bible Studies
+            Contacts
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>No active Bible studies</p>
-            <p className="text-sm">Bible studies will appear here when added</p>
-          </div>
+          {bibleStudentsLoading ? (
+            <div className="text-center py-6 text-muted-foreground">
+              <p className="text-sm">Loading...</p>
+            </div>
+          ) : bibleStudents.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No Bible students yet</p>
+              <p className="text-sm">Bible students will appear here when assigned</p>
+            </div>
+          ) : (
+            <div className="divide-y">
+              {bibleStudents.map((householder) => {
+                const initials = householder.name
+                  .split(" ")
+                  .filter(Boolean)
+                  .slice(0, 2)
+                  .map((part) => part[0]?.toUpperCase())
+                  .join("");
+
+                return (
+                  <div
+                    key={householder.id}
+                    className="px-4 py-3 hover:bg-muted/50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => onContactClick?.(householder)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" || event.key === " ") {
+                        event.preventDefault();
+                        onContactClick?.(householder);
+                      }
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-9 w-9">
+                        <AvatarFallback className="text-[11px] font-semibold">
+                          {initials || "BS"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-sm font-medium truncate">{householder.name}</p>
+                          {householder.status && (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 leading-none">
+                              {formatBibleStudentStatus(householder.status)}
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                          <MapPin className="h-3 w-3" />
+                          <span className="truncate">
+                            {householder.establishment_name || "Householder"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
 
