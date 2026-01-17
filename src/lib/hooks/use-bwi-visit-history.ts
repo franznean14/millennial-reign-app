@@ -7,6 +7,8 @@ import { formatStatusText } from "@/lib/utils/formatters";
 import { getVisitSearchText } from "@/lib/utils/visit-history-ui";
 import { buildFilterBadges, type FilterBadge } from "@/lib/utils/filter-badges";
 import type { VisitFilters } from "@/components/visit/VisitFiltersForm";
+import { businessEventBus } from "@/lib/events/business-events";
+import { cacheDelete } from "@/lib/offline/store";
 
 interface UseBwiVisitHistoryOptions {
   userId: string;
@@ -31,20 +33,17 @@ export function useBwiVisitHistory({
     myUpdatesOnly: false
   });
 
-  useEffect(() => {
-    const loadInitialVisits = async () => {
-      if (!userId) return;
-      setLoading(true);
-      try {
-        const sortedVisits = await getRecentBwiVisits(recentLimit);
-        setVisits(sortedVisits);
-      } catch (error) {
-        console.error("Error loading visit history:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadInitialVisits();
+  const loadInitialVisits = useCallback(async () => {
+    if (!userId) return;
+    setLoading(true);
+    try {
+      const sortedVisits = await getRecentBwiVisits(recentLimit);
+      setVisits(sortedVisits);
+    } catch (error) {
+      console.error("Error loading visit history:", error);
+    } finally {
+      setLoading(false);
+    }
   }, [userId, recentLimit]);
 
   const loadAllVisits = useCallback(
@@ -67,6 +66,51 @@ export function useBwiVisitHistory({
     },
     [userId, pageSize]
   );
+
+  useEffect(() => {
+    loadInitialVisits();
+  }, [loadInitialVisits]);
+
+  // Listen for visit updates to refresh the list
+  useEffect(() => {
+    const handleVisitAdded = async () => {
+      // Clear cache to force fresh fetch
+      await cacheDelete("bwi-visits-all-v2");
+      // Clear all paginated cache entries
+      for (let i = 0; i < 10; i++) {
+        await cacheDelete(`bwi-all-visits-v2-${userId ?? "all"}-${i * 20}`);
+      }
+      // Refresh recent visits preview
+      loadInitialVisits();
+      // If full list is already loaded, refresh it too
+      if (allVisitsRaw.length > 0) {
+        loadAllVisits(0);
+      }
+    };
+
+    const handleVisitUpdated = async () => {
+      // Clear cache to force fresh fetch
+      await cacheDelete("bwi-visits-all-v2");
+      // Clear all paginated cache entries
+      for (let i = 0; i < 10; i++) {
+        await cacheDelete(`bwi-all-visits-v2-${userId ?? "all"}-${i * 20}`);
+      }
+      // Refresh recent visits preview
+      loadInitialVisits();
+      // If full list is already loaded, refresh it too
+      if (allVisitsRaw.length > 0) {
+        loadAllVisits(0);
+      }
+    };
+
+    businessEventBus.subscribe('visit-added', handleVisitAdded);
+    businessEventBus.subscribe('visit-updated', handleVisitUpdated);
+
+    return () => {
+      businessEventBus.unsubscribe('visit-added', handleVisitAdded);
+      businessEventBus.unsubscribe('visit-updated', handleVisitUpdated);
+    };
+  }, [loadInitialVisits, loadAllVisits, allVisitsRaw.length, userId]);
 
   const filterOptions = useMemo(() => {
     const statusSet = new Set<string>();

@@ -49,6 +49,17 @@ export async function cacheSet(key: string, value: any): Promise<void> {
   });
 }
 
+export async function cacheDelete(key: string): Promise<void> {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(CACHE_STORE, "readwrite");
+    const store = tx.objectStore(CACHE_STORE);
+    const req = store.delete(key);
+    req.onsuccess = () => resolve();
+    req.onerror = () => reject(req.error);
+  });
+}
+
 export async function outboxEnqueue(item: Omit<OutboxItem, "id" | "createdAt">) {
   const db = await openDB();
   const entry: OutboxItem = { ...item, createdAt: Date.now() };
