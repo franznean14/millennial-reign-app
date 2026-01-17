@@ -142,6 +142,12 @@ export async function getBwiVisitsPage({
 }): Promise<VisitRecord[]> {
   const cacheKey = `bwi-all-visits-v2-${userId ?? "all"}-${offset}`;
   
+  // If forcing refresh and online, skip cache to avoid snap/re-render
+  if (forceRefresh && !isOffline()) {
+    // Clear cache first to ensure fresh fetch
+    await cacheDelete(cacheKey);
+  }
+  
   // Only use cache if not forcing refresh
   if (!forceRefresh && offset === 0) {
     const cached = await cacheGet<{ visits?: VisitRecord[] }>(cacheKey);
@@ -150,13 +156,13 @@ export async function getBwiVisitsPage({
       if (isOffline()) {
         return cached.visits;
       }
-      // If online, still return cached for speed, but fetch fresh in background
-      // (For now, we'll force refresh when events fire)
+      // If online and not forcing refresh, return cached for speed
+      return cached.visits;
     }
   }
 
-  // If offline and no cache, return empty
-  if (isOffline() && forceRefresh) {
+  // If offline and forcing refresh, return cached data if available
+  if (isOffline()) {
     const cached = await cacheGet<{ visits?: VisitRecord[] }>(cacheKey);
     return cached?.visits ?? [];
   }

@@ -53,7 +53,15 @@ export function useBwiVisitHistory({
       try {
         const sortedVisits = await getBwiVisitsPage({ userId, offset, pageSize, forceRefresh });
         if (offset === 0) {
-          setAllVisitsRaw(sortedVisits);
+          // Only update if data actually changed to avoid unnecessary re-renders
+          setAllVisitsRaw((prev) => {
+            // Check if data is the same (same IDs in same order)
+            if (prev.length === sortedVisits.length && 
+                prev.every((v, i) => v.id === sortedVisits[i]?.id)) {
+              return prev; // No change, return previous to avoid re-render
+            }
+            return sortedVisits;
+          });
         } else {
           setAllVisitsRaw((prev) => [...prev, ...sortedVisits]);
         }

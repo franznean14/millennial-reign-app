@@ -71,7 +71,7 @@ export function CongregationView({ data, onEdit, canEdit, initialTab = 'meetings
 
   return (
     <>
-      <div className="space-y-6 pt-[60px]"> {/* Add top padding to account for fixed controls */}
+      <div className="space-y-6">
       
       {/* Tab Content */}
       {congregationTab === 'meetings' && (

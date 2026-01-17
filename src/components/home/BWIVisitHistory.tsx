@@ -49,16 +49,12 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
 
   const handleSeeMore = () => {
     setShowDrawer(true);
-    // Always load data when drawer opens
-    loadAllVisits(0);
-  };
-
-  // Load data when drawer opens (only once, not when filter changes)
-  useEffect(() => {
-    if (showDrawer && allVisitsRawCount === 0) {
-      loadAllVisits(0);
+    // Only load if we don't have data yet
+    // If data already exists, don't reload to avoid the snap/re-render
+    if (allVisitsRawCount === 0) {
+      loadAllVisits(0, false); // Don't force refresh on initial load to use cache smoothly
     }
-  }, [showDrawer, allVisitsRawCount, loadAllVisits]);
+  };
 
   const formatVisitDate = formatVisitDateLong;
 
