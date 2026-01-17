@@ -13,7 +13,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { useMobile } from "@/lib/hooks/use-mobile";
-import { DateSelectModal } from "@/components/ui/date-select-modal";
+import { FormModal } from "@/components/shared/FormModal";
+import { DateRangeSelectContent } from "@/components/ui/date-range-select-modal";
 
 interface DatePickerProps {
   date?: Date;
@@ -42,14 +43,23 @@ export function DatePicker({ date, onSelect, placeholder = "Select date", classN
           <CalendarIcon className="mr-2 h-4 w-4" />
           {date ? format(date, "PPP") : <span>{placeholder}</span>}
         </Button>
-        <DateSelectModal
+        <FormModal
           open={open}
           onOpenChange={setOpen}
-          value={date}
-          onSelect={(d) => onSelect?.(d)}
           title="Select Date"
           description="Choose a date"
-        />
+          className="sm:max-w-[640px]"
+        >
+          <DateRangeSelectContent
+            startDate={date}
+            allowRange={false}
+            onSelect={(selected) => {
+              onSelect?.(selected);
+              setOpen(false);
+            }}
+            onRequestClose={() => setOpen(false)}
+          />
+        </FormModal>
       </>
     );
   }

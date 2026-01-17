@@ -10,7 +10,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/sonner";
 import { upsertEventSchedule, type EventSchedule, type EventType, type MinistryType, type RecurrencePattern } from "@/lib/db/eventSchedules";
 import { formatTimeLabel } from "@/lib/utils/recurrence";
-import { Calendar, Clock, Crosshair, ChevronLeft } from "lucide-react";
+import { Calendar, Clock, Crosshair } from "lucide-react";
 import { DateRangeSelectContent } from "@/components/ui/date-range-select-modal";
 import { TimeSelectModal } from "@/components/ui/time-select-modal";
 import { format } from "date-fns";

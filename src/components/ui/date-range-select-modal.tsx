@@ -264,34 +264,3 @@ export function DateRangeSelectContent({
   );
 }
 
-export function DateRangeSelectModal({
-  open,
-  onOpenChange,
-  startDate,
-  endDate,
-  onSelect,
-  title = "Select Date",
-  description = "Choose a date or range",
-  allowRange = true,
-}: {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  startDate?: Date;
-  endDate?: Date;
-  onSelect: (start: Date, end?: Date) => void;
-  title?: string;
-  description?: string;
-  allowRange?: boolean;
-}) {
-  return (
-    <FormModal open={open} onOpenChange={onOpenChange} title={title} description={description} className="sm:max-w-[640px]">
-      <DateRangeSelectContent
-        startDate={startDate}
-        endDate={endDate}
-        onSelect={onSelect}
-        allowRange={allowRange}
-        onRequestClose={() => onOpenChange(false)}
-      />
-    </FormModal>
-  );
-}
