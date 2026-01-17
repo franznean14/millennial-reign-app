@@ -4,7 +4,6 @@ import { HomeSummary } from "@/components/home/HomeSummary";
 import { DesktopHomeSummary } from "@/components/home/DesktopHomeSummary";
 import { BWIVisitHistory } from "@/components/home/BWIVisitHistory";
 import { UpcomingEvents } from "@/components/home/UpcomingEvents";
-import { FieldServiceDrawerDialog } from "@/components/fieldservice/FieldServiceDrawerDialog";
 import { useEffect, useState } from "react";
 
 interface HomeViewProps {
@@ -89,7 +88,7 @@ export function HomeView({ userId, onVisitClick, onNavigateToCongregation, homeT
           <UpcomingEvents />
         </div>
       )}
-      <FieldServiceDrawerDialog userId={userId} triggerLabel="Field Service" />
+      {/* FAB handled by UnifiedFab */}
     </div>
   );
 }

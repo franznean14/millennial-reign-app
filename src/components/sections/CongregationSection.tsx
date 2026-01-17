@@ -16,14 +16,7 @@ const FormModal = dynamic(() => import("@/components/shared/FormModal").then((m)
 const CongregationView = dynamic(() => import("@/components/views/CongregationView").then((m) => m.CongregationView), {
   ssr: false
 });
-const CongregationDrawerDialog = dynamic(
-  () => import("@/components/congregation/CongregationDrawerDialog").then((m) => m.CongregationDrawerDialog),
-  { ssr: false }
-);
-const AdminFloatingButton = dynamic(
-  () => import("@/components/congregation/AdminFloatingButton").then((m) => m.AdminFloatingButton),
-  { ssr: false }
-);
+// FAB handled by UnifiedFab
 
 export interface CongregationSectionProps {
   portaledControls: ReactNode;
@@ -130,22 +123,7 @@ export function CongregationSection({
           </section>
         )}
 
-        {cong?.id && (isElder || admin) && congregationTab !== "admin" && (
-          <div className="px-4">
-            <CongregationDrawerDialog
-              congregationId={cong.id}
-              congregationTab={congregationTab}
-              userId={userId}
-              selectedHouseholder={selectedHouseholder}
-            />
-          </div>
-        )}
-
-        {cong?.id && isElder && congregationTab === "admin" && (
-          <div className="px-4">
-            <AdminFloatingButton congregationId={cong.id} />
-          </div>
-        )}
+        {/* FAB handled by UnifiedFab */}
 
         <FormModal
           open={modalOpen}

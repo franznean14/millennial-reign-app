@@ -34,10 +34,6 @@ const EstablishmentMap = dynamic(
   () => import("@/components/business/EstablishmentMap").then((m) => m.EstablishmentMap),
   { ssr: false }
 );
-const BusinessDrawerDialogs = dynamic(
-  () => import("@/components/business/BusinessDrawerDialogs").then((m) => m.BusinessDrawerDialogs),
-  { ssr: false }
-);
 const BusinessFiltersForm = dynamic(
   () => import("@/components/business/BusinessFiltersForm").then((m) => m.BusinessFiltersForm),
   { ssr: false }
@@ -371,14 +367,7 @@ export function BusinessSection({
           />
         </FormModal>
 
-        <BusinessDrawerDialogs
-          establishments={establishments}
-          selectedEstablishmentId={selectedEstablishment?.id}
-          selectedArea={filters.areas[0]}
-          businessTab={businessTab}
-          selectedEstablishment={selectedEstablishment}
-          selectedHouseholder={selectedHouseholder}
-        />
+        {/* FAB handled by UnifiedFab */}
       </SectionShell>
     </>
   );

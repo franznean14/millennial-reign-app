@@ -39,11 +39,10 @@ import { HomeSection } from "@/components/sections/HomeSection";
 import { BusinessSection, type BusinessSectionProps } from "@/components/sections/BusinessSection";
 import { CongregationSection, type CongregationSectionProps } from "@/components/sections/CongregationSection";
 import { AccountSection } from "@/components/sections/AccountSection";
+import { UnifiedFab } from "@/components/shared/UnifiedFab";
 const HomeSummary = dynamic(() => import("@/components/home/HomeSummary").then(m => m.HomeSummary), { ssr: false });
 const BWIVisitHistory = dynamic(() => import("@/components/home/BWIVisitHistory").then(m => m.BWIVisitHistory), { ssr: false });
-const FieldServiceDrawerDialog = dynamic(() => import("@/components/fieldservice/FieldServiceDrawerDialog").then(m => m.FieldServiceDrawerDialog), { ssr: false });
-const CongregationDrawerDialog = dynamic(() => import("@/components/congregation/CongregationDrawerDialog").then(m => m.CongregationDrawerDialog), { ssr: false });
-const AdminFloatingButton = dynamic(() => import("@/components/congregation/AdminFloatingButton").then(m => m.AdminFloatingButton), { ssr: false });
+// FAB handled by UnifiedFab
 
 
 export function AppClient() {
@@ -884,6 +883,23 @@ export function AppClient() {
     />
   );
 
+  const unifiedFab = (
+    <UnifiedFab
+      currentSection={currentSection}
+      userId={userId}
+      establishments={establishments}
+      selectedEstablishment={selectedEstablishment}
+      selectedHouseholder={selectedHouseholder}
+      selectedArea={filters.areas[0]}
+      businessTab={businessTab}
+      congregationId={cong?.id ?? null}
+      congregationTab={congregationTab}
+      isElder={isElder}
+      isAdmin={admin}
+      congregationSelectedHouseholder={congregationSelectedHouseholder}
+    />
+  );
+
   const BusinessSectionView: ComponentType<BusinessSectionProps> = BusinessSection;
   const CongregationSectionView: ComponentType<CongregationSectionProps> = CongregationSection;
 
@@ -891,107 +907,117 @@ export function AppClient() {
   switch (currentSection) {
     case 'home':
       return (
-        <HomeSection
-          portaledControls={portaledControls}
-          userId={userId}
-          homeTab={homeTab}
-          onNavigateToCongregation={() => {
-            setCongregationInitialTab('ministry');
-            onSectionChange('congregation');
-          }}
-          onSectionChange={onSectionChange}
-          currentSection={currentSection}
-          pushNavigation={pushNavigation}
-          setBusinessTab={setBusinessTab}
-          setSelectedEstablishment={setSelectedEstablishment}
-          setSelectedHouseholder={setSelectedHouseholder}
-          loadEstablishmentDetails={loadEstablishmentDetails}
-          loadHouseholderDetails={loadHouseholderDetails}
-        />
+        <>
+          <HomeSection
+            portaledControls={portaledControls}
+            userId={userId}
+            homeTab={homeTab}
+            onNavigateToCongregation={() => {
+              setCongregationInitialTab('ministry');
+              onSectionChange('congregation');
+            }}
+            onSectionChange={onSectionChange}
+            currentSection={currentSection}
+            pushNavigation={pushNavigation}
+            setBusinessTab={setBusinessTab}
+            setSelectedEstablishment={setSelectedEstablishment}
+            setSelectedHouseholder={setSelectedHouseholder}
+            loadEstablishmentDetails={loadEstablishmentDetails}
+            loadHouseholderDetails={loadHouseholderDetails}
+          />
+          {unifiedFab}
+        </>
       );
 
     case 'business':
       return (
-        <BusinessSectionView
-          portaledControls={portaledControls}
-          currentSection={currentSection}
-          businessTab={businessTab}
-          filters={filters}
-          setFilters={setFilters}
-          filtersModalOpen={filtersModalOpen}
-          setFiltersModalOpen={setFiltersModalOpen}
-          viewMode={viewMode}
-          setViewMode={setViewMode}
-          filteredEstablishments={filteredEstablishments}
-          filteredHouseholders={filteredHouseholders}
-          establishments={establishments}
-          selectedEstablishment={selectedEstablishment}
-          setSelectedEstablishment={setSelectedEstablishment}
-          selectedEstablishmentDetails={selectedEstablishmentDetails}
-          setSelectedEstablishmentDetails={setSelectedEstablishmentDetails}
-          selectedHouseholder={selectedHouseholder}
-          setSelectedHouseholder={setSelectedHouseholder}
-          selectedHouseholderDetails={selectedHouseholderDetails}
-          setSelectedHouseholderDetails={setSelectedHouseholderDetails}
-          loadEstablishmentDetails={loadEstablishmentDetails}
-          loadHouseholderDetails={loadHouseholderDetails}
-          handleDeleteEstablishment={handleDeleteEstablishment}
-          handleArchiveEstablishment={handleArchiveEstablishment}
-          handleDeleteHouseholder={handleDeleteHouseholder}
-          handleArchiveHouseholder={handleArchiveHouseholder}
-          handleClearAllFilters={handleClearAllFilters}
-          handleClearSearch={handleClearSearch}
-          handleRemoveStatus={handleRemoveStatus}
-          handleRemoveArea={handleRemoveArea}
-          handleRemoveFloor={handleRemoveFloor}
-          dynamicStatusOptions={dynamicStatusOptions}
-          dynamicAreaOptions={dynamicAreaOptions}
-          dynamicFloorOptions={dynamicFloorOptions}
-          popNavigation={popNavigation}
-          pushNavigation={pushNavigation}
-          setCurrentSection={setCurrentSection}
-          updateEstablishment={updateEstablishment}
-        />
+        <>
+          <BusinessSectionView
+            portaledControls={portaledControls}
+            currentSection={currentSection}
+            businessTab={businessTab}
+            filters={filters}
+            setFilters={setFilters}
+            filtersModalOpen={filtersModalOpen}
+            setFiltersModalOpen={setFiltersModalOpen}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            filteredEstablishments={filteredEstablishments}
+            filteredHouseholders={filteredHouseholders}
+            establishments={establishments}
+            selectedEstablishment={selectedEstablishment}
+            setSelectedEstablishment={setSelectedEstablishment}
+            selectedEstablishmentDetails={selectedEstablishmentDetails}
+            setSelectedEstablishmentDetails={setSelectedEstablishmentDetails}
+            selectedHouseholder={selectedHouseholder}
+            setSelectedHouseholder={setSelectedHouseholder}
+            selectedHouseholderDetails={selectedHouseholderDetails}
+            setSelectedHouseholderDetails={setSelectedHouseholderDetails}
+            loadEstablishmentDetails={loadEstablishmentDetails}
+            loadHouseholderDetails={loadHouseholderDetails}
+            handleDeleteEstablishment={handleDeleteEstablishment}
+            handleArchiveEstablishment={handleArchiveEstablishment}
+            handleDeleteHouseholder={handleDeleteHouseholder}
+            handleArchiveHouseholder={handleArchiveHouseholder}
+            handleClearAllFilters={handleClearAllFilters}
+            handleClearSearch={handleClearSearch}
+            handleRemoveStatus={handleRemoveStatus}
+            handleRemoveArea={handleRemoveArea}
+            handleRemoveFloor={handleRemoveFloor}
+            dynamicStatusOptions={dynamicStatusOptions}
+            dynamicAreaOptions={dynamicAreaOptions}
+            dynamicFloorOptions={dynamicFloorOptions}
+            popNavigation={popNavigation}
+            pushNavigation={pushNavigation}
+            setCurrentSection={setCurrentSection}
+            updateEstablishment={updateEstablishment}
+          />
+          {unifiedFab}
+        </>
       );
 
     case 'congregation':
       return (
-        <CongregationSectionView
-          portaledControls={portaledControls}
-          profileCongregationId={(profile as any)?.congregation_id}
-          cong={cong}
-          admin={admin}
-          isElder={isElder}
-          canEdit={canEdit}
-          congregationInitialTab={congregationInitialTab}
-          congregationTab={congregationTab}
-          setCongregationTab={setCongregationTab}
-          userId={userId}
-          selectedHouseholder={congregationSelectedHouseholder}
-          selectedHouseholderDetails={congregationSelectedHouseholderDetails}
-          onSelectHouseholder={setCongregationSelectedHouseholder}
-          onSelectHouseholderDetails={setCongregationSelectedHouseholderDetails}
-          onClearSelectedHouseholder={() => {
-            setCongregationSelectedHouseholder(null);
-            setCongregationSelectedHouseholderDetails(null);
-          }}
-          loadHouseholderDetails={loadCongregationHouseholderDetails}
-          modalOpen={modalOpen}
-          setModalOpen={setModalOpen}
-          mode={mode}
-          setMode={setMode}
-          busy={busy}
-          setBusy={setBusy}
-          initial={initial}
-          setCong={setCong}
-          saveCongregation={saveCongregation}
-        />
+        <>
+          <CongregationSectionView
+            portaledControls={portaledControls}
+            profileCongregationId={(profile as any)?.congregation_id}
+            cong={cong}
+            admin={admin}
+            isElder={isElder}
+            canEdit={canEdit}
+            congregationInitialTab={congregationInitialTab}
+            congregationTab={congregationTab}
+            setCongregationTab={setCongregationTab}
+            userId={userId}
+            selectedHouseholder={congregationSelectedHouseholder}
+            selectedHouseholderDetails={congregationSelectedHouseholderDetails}
+            onSelectHouseholder={setCongregationSelectedHouseholder}
+            onSelectHouseholderDetails={setCongregationSelectedHouseholderDetails}
+            onClearSelectedHouseholder={() => {
+              setCongregationSelectedHouseholder(null);
+              setCongregationSelectedHouseholderDetails(null);
+            }}
+            loadHouseholderDetails={loadCongregationHouseholderDetails}
+            modalOpen={modalOpen}
+            setModalOpen={setModalOpen}
+            mode={mode}
+            setMode={setMode}
+            busy={busy}
+            setBusy={setBusy}
+            initial={initial}
+            setCong={setCong}
+            saveCongregation={saveCongregation}
+          />
+          {unifiedFab}
+        </>
       );
 
     case 'account':
       return (
         <>
           {portaledControls}
+          {unifiedFab}
           <AccountSection
             userId={userId}
             profile={profile}
@@ -1033,6 +1059,7 @@ export function AppClient() {
             serviceYearStart={dateRanges.serviceYearStart}
             serviceYearEnd={dateRanges.serviceYearEnd}
           />
+          {unifiedFab}
         </motion.div>
       );
   }

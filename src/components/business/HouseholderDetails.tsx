@@ -17,7 +17,6 @@ import { deleteHouseholder, archiveHouseholder } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { cn } from "@/lib/utils";
 import { formatStatusText } from "@/lib/utils/formatters";
-import { FloatingActionButton } from "@/components/shared/FloatingActionButton";
 
 interface HouseholderDetailsProps {
   householder: HouseholderWithDetails;
@@ -215,11 +214,6 @@ export function HouseholderDetails({
         
       </motion.div>
 
-      {context === "congregation" && (
-        <FloatingActionButton label="New Visit" onClick={() => setNewVisitOpen(true)}>
-          <FilePlus2 className="h-6 w-6" />
-        </FloatingActionButton>
-      )}
 
       <FormModal
         open={newVisitOpen}

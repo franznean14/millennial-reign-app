@@ -11,7 +11,6 @@ import { Pencil, MapPinned, Settings } from "lucide-react";
 import { businessEventBus } from "@/lib/events/business-events";
 import { MeetingsSection } from "../congregation/MeetingsSection";
 import { MinistrySection } from "../congregation/MinistrySection";
-import { AdminFloatingButton } from "../congregation/AdminFloatingButton";
 
 // Dynamic import to avoid circular dependencies
 const CongregationMembers = dynamic(() => import("../congregation/CongregationMembers").then(m => m.CongregationMembers), { ssr: false });
