@@ -94,15 +94,25 @@ async function fetchHouseholderVisits(limit: number, offset: number) {
   return (data || []) as VisitQueryResult[];
 }
 
-export async function getRecentBwiVisits(limit = 5): Promise<VisitRecord[]> {
+export async function getRecentBwiVisits(limit = 5, forceRefresh = false): Promise<VisitRecord[]> {
   const cacheKey = "bwi-visits-all-v2";
-  const cached = await cacheGet<{ visits?: VisitRecord[] }>(cacheKey);
-
-  if (cached?.visits?.length) {
-    return cached.visits;
+  
+  // Only use cache if not forcing refresh and we're offline
+  if (!forceRefresh) {
+    const cached = await cacheGet<{ visits?: VisitRecord[] }>(cacheKey);
+    if (cached?.visits?.length) {
+      // If offline, return cached data
+      if (isOffline()) {
+        return cached.visits;
+      }
+      // If online, still return cached for speed, but fetch fresh in background
+      // (For now, we'll force refresh when events fire)
+    }
   }
 
-  if (isOffline()) {
+  // If offline and no cache, return empty
+  if (isOffline() && forceRefresh) {
+    const cached = await cacheGet<{ visits?: VisitRecord[] }>(cacheKey);
     return cached?.visits ?? [];
   }
 
@@ -122,20 +132,32 @@ export async function getRecentBwiVisits(limit = 5): Promise<VisitRecord[]> {
 export async function getBwiVisitsPage({
   userId,
   offset = 0,
-  pageSize = 20
+  pageSize = 20,
+  forceRefresh = false
 }: {
   userId?: string;
   offset?: number;
   pageSize?: number;
+  forceRefresh?: boolean;
 }): Promise<VisitRecord[]> {
   const cacheKey = `bwi-all-visits-v2-${userId ?? "all"}-${offset}`;
-  const cached = await cacheGet<{ visits?: VisitRecord[] }>(cacheKey);
-
-  if (offset === 0 && cached?.visits?.length) {
-    return cached.visits;
+  
+  // Only use cache if not forcing refresh
+  if (!forceRefresh && offset === 0) {
+    const cached = await cacheGet<{ visits?: VisitRecord[] }>(cacheKey);
+    if (cached?.visits?.length) {
+      // If offline, return cached data
+      if (isOffline()) {
+        return cached.visits;
+      }
+      // If online, still return cached for speed, but fetch fresh in background
+      // (For now, we'll force refresh when events fire)
+    }
   }
 
-  if (isOffline()) {
+  // If offline and no cache, return empty
+  if (isOffline() && forceRefresh) {
+    const cached = await cacheGet<{ visits?: VisitRecord[] }>(cacheKey);
     return cached?.visits ?? [];
   }
 

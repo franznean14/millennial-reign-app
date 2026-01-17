@@ -33,11 +33,11 @@ export function useBwiVisitHistory({
     myUpdatesOnly: false
   });
 
-  const loadInitialVisits = useCallback(async () => {
+  const loadInitialVisits = useCallback(async (forceRefresh = false) => {
     if (!userId) return;
     setLoading(true);
     try {
-      const sortedVisits = await getRecentBwiVisits(recentLimit);
+      const sortedVisits = await getRecentBwiVisits(recentLimit, forceRefresh);
       setVisits(sortedVisits);
     } catch (error) {
       console.error("Error loading visit history:", error);
@@ -47,11 +47,11 @@ export function useBwiVisitHistory({
   }, [userId, recentLimit]);
 
   const loadAllVisits = useCallback(
-    async (offset = 0) => {
+    async (offset = 0, forceRefresh = false) => {
       if (!userId) return;
       setLoadingMore(true);
       try {
-        const sortedVisits = await getBwiVisitsPage({ userId, offset, pageSize });
+        const sortedVisits = await getBwiVisitsPage({ userId, offset, pageSize, forceRefresh });
         if (offset === 0) {
           setAllVisitsRaw(sortedVisits);
         } else {
@@ -73,18 +73,62 @@ export function useBwiVisitHistory({
 
   // Listen for visit updates to refresh the list
   useEffect(() => {
-    const handleVisitAdded = async () => {
-      // Clear cache to force fresh fetch
+    const handleVisitAdded = async (visitData: any) => {
+      // Clear cache first to ensure fresh data
       await cacheDelete("bwi-visits-all-v2");
       // Clear all paginated cache entries
       for (let i = 0; i < 10; i++) {
         await cacheDelete(`bwi-all-visits-v2-${userId ?? "all"}-${i * 20}`);
       }
-      // Refresh recent visits preview
-      loadInitialVisits();
+      
+      // Optimistically add the new visit if we have the data
+      if (visitData && visitData.visit_date) {
+        const newVisitRecord: VisitRecord = {
+          id: visitData.householder_id ? `hh-${visitData.id}` : `est-${visitData.id}`,
+          visit_date: visitData.visit_date,
+          establishment_name: visitData.establishment?.name,
+          householder_name: visitData.householder?.name,
+          visit_type: visitData.householder_id ? "householder" : "establishment",
+          establishment_id: visitData.establishment_id,
+          householder_id: visitData.householder_id,
+          establishment_status: visitData.establishment?.status,
+          notes: visitData.note,
+          created_at: new Date().toISOString(),
+          publisher_id: visitData.publisher_id,
+          publisher: visitData.publisher ? {
+            first_name: visitData.publisher.first_name,
+            last_name: visitData.publisher.last_name,
+            avatar_url: visitData.publisher.avatar_url
+          } : undefined,
+          partner: visitData.partner ? {
+            first_name: visitData.partner.first_name,
+            last_name: visitData.partner.last_name,
+            avatar_url: visitData.partner.avatar_url
+          } : undefined
+        };
+        
+        // Optimistically update the lists
+        setVisits((prev) => {
+          const combined = [newVisitRecord, ...prev];
+          return combined
+            .filter((v, i, arr) => arr.findIndex(x => x.id === v.id) === i)
+            .sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime())
+            .slice(0, recentLimit);
+        });
+        
+        setAllVisitsRaw((prev) => {
+          const combined = [newVisitRecord, ...prev];
+          return combined
+            .filter((v, i, arr) => arr.findIndex(x => x.id === v.id) === i)
+            .sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
+        });
+      }
+      
+      // Then refresh from server to ensure consistency
+      loadInitialVisits(true);
       // If full list is already loaded, refresh it too
       if (allVisitsRaw.length > 0) {
-        loadAllVisits(0);
+        loadAllVisits(0, true);
       }
     };
 
@@ -96,10 +140,10 @@ export function useBwiVisitHistory({
         await cacheDelete(`bwi-all-visits-v2-${userId ?? "all"}-${i * 20}`);
       }
       // Refresh recent visits preview
-      loadInitialVisits();
+      loadInitialVisits(true);
       // If full list is already loaded, refresh it too
       if (allVisitsRaw.length > 0) {
-        loadAllVisits(0);
+        loadAllVisits(0, true);
       }
     };
 
@@ -110,7 +154,7 @@ export function useBwiVisitHistory({
       businessEventBus.unsubscribe('visit-added', handleVisitAdded);
       businessEventBus.unsubscribe('visit-updated', handleVisitUpdated);
     };
-  }, [loadInitialVisits, loadAllVisits, allVisitsRaw.length, userId]);
+  }, [loadInitialVisits, loadAllVisits, allVisitsRaw.length, userId, recentLimit]);
 
   const filterOptions = useMemo(() => {
     const statusSet = new Set<string>();
