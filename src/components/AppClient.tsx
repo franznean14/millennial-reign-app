@@ -970,6 +970,7 @@ export function AppClient() {
           selectedHouseholder={congregationSelectedHouseholder}
           selectedHouseholderDetails={congregationSelectedHouseholderDetails}
           onSelectHouseholder={setCongregationSelectedHouseholder}
+          onSelectHouseholderDetails={setCongregationSelectedHouseholderDetails}
           onClearSelectedHouseholder={() => {
             setCongregationSelectedHouseholder(null);
             setCongregationSelectedHouseholderDetails(null);

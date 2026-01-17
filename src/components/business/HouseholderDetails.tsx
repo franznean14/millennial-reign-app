@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, User2, Archive } from "lucide-react";
+import { Calendar, User2, Archive, FilePlus2 } from "lucide-react";
 import { FormModal } from "@/components/shared/FormModal";
 import { toast } from "@/components/ui/sonner";
 import { HouseholderForm } from "@/components/business/HouseholderForm";
@@ -17,6 +17,7 @@ import { deleteHouseholder, archiveHouseholder } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { cn } from "@/lib/utils";
 import { formatStatusText } from "@/lib/utils/formatters";
+import { FloatingActionButton } from "@/components/shared/FloatingActionButton";
 
 interface HouseholderDetailsProps {
   householder: HouseholderWithDetails;
@@ -24,6 +25,9 @@ interface HouseholderDetailsProps {
   establishment?: { id: string; name: string } | null;
   establishments: Array<{ id: string; name: string; area?: string | null }>;
   onBackClick: () => void;
+  context?: "bwi" | "congregation";
+  showEstablishment?: boolean;
+  publisherId?: string | null;
 }
 
 // Helper function for householder status color coding
@@ -62,7 +66,16 @@ const getHouseholderCardColor = (status: string) => {
   }
 };
 
-export function HouseholderDetails({ householder, visits, establishment, establishments, onBackClick }: HouseholderDetailsProps) {
+export function HouseholderDetails({
+  householder,
+  visits,
+  establishment,
+  establishments,
+  onBackClick,
+  context = "bwi",
+  showEstablishment = true,
+  publisherId
+}: HouseholderDetailsProps) {
   
   // Reset scroll position to top when component mounts
   useEffect(() => {
@@ -76,6 +89,7 @@ export function HouseholderDetails({ householder, visits, establishment, establi
   }, []);
   const [isEditing, setIsEditing] = useState(false);
   const [editVisit, setEditVisit] = useState<{ id: string; establishment_id?: string | null; householder_id?: string | null; note?: string | null; publisher_id?: string | null; partner_id?: string | null; visit_date?: string } | null>(null);
+  const [newVisitOpen, setNewVisitOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [archiving, setArchiving] = useState(false);
 
@@ -161,10 +175,12 @@ export function HouseholderDetails({ householder, visits, establishment, establi
                   {formatStatusText(householder.status)}
                 </Badge>
               </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Establishment</p>
-                <p className="truncate">{establishment?.name || 'Not specified'}</p>
-              </div>
+              {showEstablishment && (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Establishment</p>
+                  <p className="truncate">{establishment?.name || 'Not specified'}</p>
+                </div>
+              )}
             </div>
             <div>
               <p className="text-sm font-medium text-muted-foreground">Note</p>
@@ -174,7 +190,16 @@ export function HouseholderDetails({ householder, visits, establishment, establi
         </Card>
       </motion.div>
 
-      <motion.div layout className="w-full">
+      <motion.div layout className="w-full space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-semibold text-foreground">Visit Updates</h3>
+          {context !== "congregation" && (
+            <Button variant="outline" size="sm" onClick={() => setNewVisitOpen(true)}>
+              <FilePlus2 className="h-4 w-4 mr-2" />
+              New Visit
+            </Button>
+          )}
+        </div>
         <VisitUpdatesSection 
           visits={visits} 
           isHouseholderContext={true}
@@ -190,6 +215,32 @@ export function HouseholderDetails({ householder, visits, establishment, establi
         
       </motion.div>
 
+      {context === "congregation" && (
+        <FloatingActionButton label="New Visit" onClick={() => setNewVisitOpen(true)}>
+          <FilePlus2 className="h-6 w-6" />
+        </FloatingActionButton>
+      )}
+
+      <FormModal
+        open={newVisitOpen}
+        onOpenChange={setNewVisitOpen}
+        title="New Visit"
+        description="Record a visit update"
+        headerClassName="text-center"
+      >
+        <VisitForm
+          establishments={establishments}
+          selectedEstablishmentId={context === "congregation" ? "none" : (establishment?.id || "none")}
+          disableEstablishmentSelect={context === "congregation"}
+          householderId={householder.id}
+          householderName={householder.name}
+          householderStatus={householder.status}
+          onSaved={() => {
+            setNewVisitOpen(false);
+          }}
+        />
+      </FormModal>
+
       <FormModal
         open={isEditing}
         onOpenChange={setIsEditing}
@@ -201,6 +252,8 @@ export function HouseholderDetails({ householder, visits, establishment, establi
                 establishments={establishments}
                 selectedEstablishmentId={householder.establishment_id}
                 isEditing
+                context={context}
+                publisherId={publisherId ?? householder.publisher_id ?? null}
           initialData={{
             id: householder.id,
             establishment_id: householder.establishment_id || "",

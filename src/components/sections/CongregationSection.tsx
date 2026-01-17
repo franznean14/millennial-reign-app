@@ -43,6 +43,11 @@ export interface CongregationSectionProps {
     establishment?: { id: string; name: string } | null;
   } | null;
   onSelectHouseholder: (householder: HouseholderWithDetails | null) => void;
+  onSelectHouseholderDetails: (details: {
+    householder: HouseholderWithDetails;
+    visits: VisitWithUser[];
+    establishment?: { id: string; name: string } | null;
+  } | null) => void;
   onClearSelectedHouseholder: () => void;
   loadHouseholderDetails: (householderId: string) => Promise<void>;
   modalOpen: boolean;
@@ -70,6 +75,7 @@ export function CongregationSection({
   selectedHouseholder,
   selectedHouseholderDetails,
   onSelectHouseholder,
+  onSelectHouseholderDetails,
   onClearSelectedHouseholder,
   loadHouseholderDetails,
   modalOpen,
@@ -111,6 +117,7 @@ export function CongregationSection({
             selectedHouseholder={selectedHouseholder}
             selectedHouseholderDetails={selectedHouseholderDetails}
             onSelectHouseholder={onSelectHouseholder}
+            onSelectHouseholderDetails={onSelectHouseholderDetails}
             onClearSelectedHouseholder={onClearSelectedHouseholder}
             loadHouseholderDetails={loadHouseholderDetails}
           />
@@ -125,7 +132,12 @@ export function CongregationSection({
 
         {cong?.id && (isElder || admin) && congregationTab !== "admin" && (
           <div className="px-4">
-            <CongregationDrawerDialog congregationId={cong.id} congregationTab={congregationTab} userId={userId} />
+            <CongregationDrawerDialog
+              congregationId={cong.id}
+              congregationTab={congregationTab}
+              userId={userId}
+              selectedHouseholder={selectedHouseholder}
+            />
           </div>
         )}
 

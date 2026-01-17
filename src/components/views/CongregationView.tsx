@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import { Label } from "@/components/ui/label";
 import type { Congregation } from "@/lib/db/congregations";
@@ -8,6 +8,7 @@ import type { HouseholderWithDetails, VisitWithUser } from "@/lib/db/business";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Pencil, MapPinned, Settings } from "lucide-react";
+import { businessEventBus } from "@/lib/events/business-events";
 import { MeetingsSection } from "../congregation/MeetingsSection";
 import { MinistrySection } from "../congregation/MinistrySection";
 import { AdminFloatingButton } from "../congregation/AdminFloatingButton";
@@ -39,11 +40,16 @@ interface CongregationViewProps {
     establishment?: { id: string; name: string } | null;
   } | null;
   onSelectHouseholder: (householder: HouseholderWithDetails | null) => void;
+  onSelectHouseholderDetails: (details: {
+    householder: HouseholderWithDetails;
+    visits: VisitWithUser[];
+    establishment?: { id: string; name: string } | null;
+  } | null) => void;
   onClearSelectedHouseholder: () => void;
   loadHouseholderDetails: (householderId: string) => Promise<void>;
 }
 
-export function CongregationView({ data, onEdit, canEdit, initialTab = 'meetings', congregationTab: externalCongregationTab, onCongregationTabChange: externalOnCongregationTabChange, userId, isElder = false, selectedHouseholder, selectedHouseholderDetails, onSelectHouseholder, onClearSelectedHouseholder, loadHouseholderDetails }: CongregationViewProps) {
+export function CongregationView({ data, onEdit, canEdit, initialTab = 'meetings', congregationTab: externalCongregationTab, onCongregationTabChange: externalOnCongregationTabChange, userId, isElder = false, selectedHouseholder, selectedHouseholderDetails, onSelectHouseholder, onSelectHouseholderDetails, onClearSelectedHouseholder, loadHouseholderDetails }: CongregationViewProps) {
   const [internalCongregationTab, setInternalCongregationTab] = useState<'meetings' | 'ministry' | 'admin'>(initialTab);
   
   // Use external state if provided, otherwise use internal state
@@ -66,6 +72,77 @@ export function CongregationView({ data, onEdit, canEdit, initialTab = 'meetings
       onClearSelectedHouseholder();
     }
   }, [congregationTab, onClearSelectedHouseholder]);
+
+  const selectedHouseholderRef = useRef<HouseholderWithDetails | null>(null);
+  const selectedHouseholderDetailsRef = useRef<{
+    householder: HouseholderWithDetails;
+    visits: VisitWithUser[];
+    establishment?: { id: string; name: string } | null;
+  } | null>(null);
+  const onSelectHouseholderRef = useRef(onSelectHouseholder);
+  const onSelectHouseholderDetailsRef = useRef(onSelectHouseholderDetails);
+
+  useEffect(() => {
+    selectedHouseholderRef.current = selectedHouseholder;
+  }, [selectedHouseholder]);
+
+  useEffect(() => {
+    selectedHouseholderDetailsRef.current = selectedHouseholderDetails;
+  }, [selectedHouseholderDetails]);
+
+  useEffect(() => {
+    onSelectHouseholderRef.current = onSelectHouseholder;
+  }, [onSelectHouseholder]);
+
+  useEffect(() => {
+    onSelectHouseholderDetailsRef.current = onSelectHouseholderDetails;
+  }, [onSelectHouseholderDetails]);
+
+  useEffect(() => {
+    const handleHouseholderUpdated = (updated: Partial<HouseholderWithDetails> & { id?: string }) => {
+      if (!updated?.id) return;
+      const currentHouseholder = selectedHouseholderRef.current;
+      if (currentHouseholder?.id === updated.id) {
+        onSelectHouseholderRef.current({ ...currentHouseholder, ...updated });
+      }
+      const currentDetails = selectedHouseholderDetailsRef.current;
+      if (currentDetails?.householder?.id === updated.id) {
+        onSelectHouseholderDetailsRef.current({
+          ...currentDetails,
+          householder: { ...currentDetails.householder, ...updated }
+        });
+      }
+    };
+
+    const handleVisitAdded = (visit: any) => {
+      const currentDetails = selectedHouseholderDetailsRef.current;
+      if (!currentDetails?.householder?.id || currentDetails.householder.id !== visit.householder_id) return;
+      const existing = currentDetails.visits.find((v) => v.id === visit.id);
+      if (existing) return;
+      onSelectHouseholderDetailsRef.current({
+        ...currentDetails,
+        visits: [visit, ...currentDetails.visits]
+      });
+    };
+
+    const handleVisitUpdated = (visit: any) => {
+      const currentDetails = selectedHouseholderDetailsRef.current;
+      if (!currentDetails?.householder?.id || currentDetails.householder.id !== visit.householder_id) return;
+      onSelectHouseholderDetailsRef.current({
+        ...currentDetails,
+        visits: currentDetails.visits.map((v) => (v.id === visit.id ? { ...v, ...visit } : v))
+      });
+    };
+
+    businessEventBus.subscribe("householder-updated", handleHouseholderUpdated);
+    businessEventBus.subscribe("visit-added", handleVisitAdded);
+    businessEventBus.subscribe("visit-updated", handleVisitUpdated);
+    return () => {
+      businessEventBus.unsubscribe("householder-updated", handleHouseholderUpdated);
+      businessEventBus.unsubscribe("visit-added", handleVisitAdded);
+      businessEventBus.unsubscribe("visit-updated", handleVisitUpdated);
+    };
+  }, []);
 
   const handleContactOpen = useCallback(async (householder: HouseholderWithDetails) => {
     if (!householder?.id) return;
@@ -111,6 +188,9 @@ export function CongregationView({ data, onEdit, canEdit, initialTab = 'meetings
             visits={selectedHouseholderDetails?.visits || []}
             establishment={selectedHouseholderDetails?.establishment || null}
             establishments={selectedHouseholderDetails?.establishment ? [selectedHouseholderDetails.establishment] : []}
+            context="congregation"
+            showEstablishment={false}
+            publisherId={selectedHouseholder.publisher_id ?? null}
             onBackClick={() => {
               onClearSelectedHouseholder();
             }}

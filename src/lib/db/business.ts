@@ -903,7 +903,7 @@ export async function getHouseholderDetails(householderId: string): Promise<{
   // Householder with establishment
   const { data: hh } = await supabase
     .from('householders')
-    .select('id,name,status,note,establishment_id, establishment:business_establishments(id,name,statuses)')
+    .select('id,name,status,note,establishment_id,publisher_id,lat,lng, establishment:business_establishments(id,name,statuses)')
     .eq('id', householderId)
     .single();
 
