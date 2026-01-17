@@ -233,7 +233,7 @@ export function BusinessSection({
           businessTab === "map"
             ? "fixed inset-0 z-10"
             : selectedEstablishment || selectedHouseholder
-              ? "space-y-6 pb-20 pt-[60px]"
+              ? "space-y-6 pb-20"
               : "space-y-6 pb-20 pt-[80px]"
         }
       >

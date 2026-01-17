@@ -189,16 +189,7 @@ export function HouseholderDetails({
         </Card>
       </motion.div>
 
-      <motion.div layout className="w-full space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-base font-semibold text-foreground">Visit Updates</h3>
-          {context !== "congregation" && (
-            <Button variant="outline" size="sm" onClick={() => setNewVisitOpen(true)}>
-              <FilePlus2 className="h-4 w-4 mr-2" />
-              New Visit
-            </Button>
-          )}
-        </div>
+      <motion.div layout className="w-full">
         <VisitUpdatesSection 
           visits={visits} 
           isHouseholderContext={true}
