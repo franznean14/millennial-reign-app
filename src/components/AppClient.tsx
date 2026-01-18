@@ -33,6 +33,7 @@ import { getProfile } from "@/lib/db/profiles";
 import { archiveEstablishment, deleteEstablishment } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { formatStatusText } from "@/lib/utils/formatters";
+import { applyDeviceSafeAreaTop } from "@/lib/utils/device-safe-area";
 
 // Lazy-load heavy UI components to reduce initial bundle
 import { HomeSection } from "@/components/sections/HomeSection";
@@ -215,6 +216,17 @@ export function AppClient() {
   useEffect(() => {
     setContentLoading(false);
   }, [setContentLoading]);
+
+  useEffect(() => {
+    const handleSafeArea = () => applyDeviceSafeAreaTop();
+    handleSafeArea();
+    window.addEventListener("resize", handleSafeArea);
+    window.addEventListener("orientationchange", handleSafeArea);
+    return () => {
+      window.removeEventListener("resize", handleSafeArea);
+      window.removeEventListener("orientationchange", handleSafeArea);
+    };
+  }, []);
 
   // Load initial app data
   useEffect(() => {

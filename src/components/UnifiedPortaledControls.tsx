@@ -145,7 +145,11 @@ function BusinessControlsContent({
         typeof window !== "undefined" && window.innerWidth >= 1024 ? "left-64 right-0" : "left-0 right-0"
       }`}
       style={{
-        top: businessTab === "map" ? 10 : typeof window !== "undefined" && window.innerWidth >= 1024 ? 100 : 10
+        top: businessTab === "map"
+          ? "calc(var(--device-safe-top, 0px) + 10px)"
+          : typeof window !== "undefined" && window.innerWidth >= 1024
+            ? "calc(var(--device-safe-top, 0px) + 100px)"
+            : "calc(var(--device-safe-top, 0px) + 10px)"
       }}
     >
       {typeof window !== "undefined" && window.innerWidth < 1024 && (
@@ -347,7 +351,9 @@ function CongregationControlsContent({
         typeof window !== "undefined" && window.innerWidth >= 1024 ? "left-64 right-0" : "left-0 right-0"
       }`}
       style={{
-        top: typeof window !== "undefined" && window.innerWidth >= 1024 ? 100 : 10
+        top: typeof window !== "undefined" && window.innerWidth >= 1024
+          ? "calc(var(--device-safe-top, 0px) + 100px)"
+          : "calc(var(--device-safe-top, 0px) + 10px)"
       }}
     >
       {typeof window !== "undefined" && window.innerWidth < 1024 && (
@@ -415,7 +421,9 @@ function HomeControlsContent({
         typeof window !== "undefined" && window.innerWidth >= 1024 ? "left-64 right-0" : "left-0 right-0"
       }`}
       style={{
-        top: typeof window !== "undefined" && window.innerWidth >= 1024 ? 100 : 10
+        top: typeof window !== "undefined" && window.innerWidth >= 1024
+          ? "calc(var(--device-safe-top, 0px) + 100px)"
+          : "calc(var(--device-safe-top, 0px) + 10px)"
       }}
     >
       <div className="w-full h-[52px]">
@@ -438,7 +446,9 @@ function AccountControlsContent({
         typeof window !== "undefined" && window.innerWidth >= 1024 ? "left-64 right-0" : "left-0 right-0"
       }`}
       style={{
-        top: typeof window !== "undefined" && window.innerWidth >= 1024 ? 100 : 10
+        top: typeof window !== "undefined" && window.innerWidth >= 1024
+          ? "calc(var(--device-safe-top, 0px) + 100px)"
+          : "calc(var(--device-safe-top, 0px) + 10px)"
       }}
     >
       <div className="w-full h-[52px]">

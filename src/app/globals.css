@@ -49,6 +49,14 @@ body {
   min-height: -webkit-fill-available;
 }
 
+:root {
+  --device-safe-top: 0px;
+}
+
+body.has-device-safe-top {
+  padding-top: var(--device-safe-top);
+}
+
 /* Fix for iOS PWA viewport issues */
 @supports (-webkit-touch-callout: none) {
   body {
