@@ -49,6 +49,18 @@ body {
   min-height: -webkit-fill-available;
 }
 
+html[data-display-mode="standalone"],
+html[data-display-mode="standalone"] body {
+  height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+html[data-display-mode="standalone"] body.has-device-safe-top {
+  padding-top: 0;
+}
+
 :root {
   --device-safe-top: 0px;
 }

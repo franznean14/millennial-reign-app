@@ -6,6 +6,12 @@ type SafeAreaInsets = {
 
 const IOS_NOTCH_THRESHOLD = 44;
 
+function isStandaloneMode(): boolean {
+  if (typeof window === "undefined") return false;
+  if (window.matchMedia?.("(display-mode: standalone)").matches) return true;
+  return "standalone" in navigator && (navigator as { standalone?: boolean }).standalone === true;
+}
+
 function isIOSDevice(): boolean {
   if (typeof navigator === "undefined") return false;
   const ua = navigator.userAgent || "";
@@ -37,8 +43,10 @@ export function applyDeviceSafeAreaTop(): void {
   const isIOS = isIOSDevice();
   const hasNotchOrIsland = isIOS && top >= IOS_NOTCH_THRESHOLD;
   const safeTop = hasNotchOrIsland ? top : 0;
+  const isStandalone = isStandaloneMode();
 
   document.documentElement.style.setProperty("--device-safe-top", `${safeTop}px`);
-  document.body.classList.toggle("has-device-safe-top", safeTop > 0);
+  document.body.classList.toggle("has-device-safe-top", safeTop > 0 && !isStandalone);
   document.documentElement.setAttribute("data-has-iphone-notch", hasNotchOrIsland ? "true" : "false");
+  document.documentElement.setAttribute("data-display-mode", isStandalone ? "standalone" : "browser");
 }
