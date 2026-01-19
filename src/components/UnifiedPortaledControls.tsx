@@ -146,7 +146,9 @@ function BusinessControlsContent({
       }`}
       style={{
         top: businessTab === "map"
-          ? "calc(var(--device-safe-top, 0px) + 10px)"
+          ? typeof window !== "undefined" && window.innerWidth >= 1024 && !isDetailsView
+            ? "calc(var(--device-safe-top, 0px) + 10px)"
+            : "calc(var(--device-safe-top, 0px) + 10px)"
           : typeof window !== "undefined" && window.innerWidth >= 1024
             ? "calc(var(--device-safe-top, 0px) + 100px)"
             : "calc(var(--device-safe-top, 0px) + 10px)"
@@ -168,6 +170,22 @@ function BusinessControlsContent({
             detailsName={detailsName}
             onBackClick={onBackClick}
             onEditClick={onEditClick}
+          />
+        </div>
+      )}
+
+      {typeof window !== "undefined" && window.innerWidth >= 1024 && !isDetailsView && (
+        <div className="w-full h-[52px] mb-2">
+          <BusinessTabToggle
+            value={businessTab}
+            onValueChange={(value) => {
+              onBusinessTabChange(value);
+              onFiltersChange({ ...filters, statuses: [] });
+            }}
+            onClearStatusFilters={() => onFiltersChange({ ...filters, statuses: [] })}
+            className="w-full h-full"
+            isDetailsView={false}
+            detailsName=""
           />
         </div>
       )}
@@ -198,62 +216,62 @@ function BusinessControlsContent({
       {!isDetailsView && (
         <motion.div
           key="buttons-row"
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          transition={{ duration: 0.2 }}
           className="flex items-center gap-3 max-w-full px-4 justify-center"
           layout
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
         >
-          <FilterControls
-            isSearchActive={isSearchActive}
-            searchValue={filters.search}
-            searchInputRef={searchInputRef}
-            onSearchActivate={() => setIsSearchActive(true)}
-            onSearchChange={(value) => onFiltersChange({ ...filters, search: value })}
-            onSearchClear={handleClearSearchAndRestore}
-            onSearchBlur={() => {
-              if (!filters.search || filters.search.trim() === "") {
-                setIsSearchActive(false);
+          <motion.div layout transition={{ type: "spring", stiffness: 300, damping: 30 }}>
+            <FilterControls
+              isSearchActive={isSearchActive}
+              searchValue={filters.search}
+              searchInputRef={searchInputRef}
+              onSearchActivate={() => setIsSearchActive(true)}
+              onSearchChange={(value) => onFiltersChange({ ...filters, search: value })}
+              onSearchClear={handleClearSearchAndRestore}
+              onSearchBlur={() => {
+                if (!filters.search || filters.search.trim() === "") {
+                  setIsSearchActive(false);
+                }
+              }}
+              myActive={filters.myEstablishments}
+              myLabel="My Establishments"
+              onMyActivate={() => onFiltersChange({ ...filters, myEstablishments: true })}
+              onMyClear={onClearMyEstablishments}
+              filterBadges={badges}
+              onOpenFilters={onOpenFilters}
+              onClearFilters={() =>
+                onFiltersChange({
+                  ...filters,
+                  statuses: [],
+                  areas: [],
+                  floors: []
+                })
               }
-            }}
-            myActive={filters.myEstablishments}
-            myLabel="My Establishments"
-            onMyActivate={() => onFiltersChange({ ...filters, myEstablishments: true })}
-            onMyClear={onClearMyEstablishments}
-            filterBadges={badges}
-            onOpenFilters={onOpenFilters}
-            onClearFilters={() =>
-              onFiltersChange({
-                ...filters,
-                statuses: [],
-                areas: [],
-                floors: []
-              })
-            }
-            onRemoveBadge={(badge) => {
-              if (badge.type === "status") {
-                onRemoveStatus(badge.value);
-              } else if (badge.type === "area") {
-                onRemoveArea(badge.value);
-              } else if (badge.type === "floor") {
-                onRemoveFloor(badge.value);
-              }
-            }}
-            containerClassName="justify-center"
-            maxWidthClassName="mx-4"
-          />
+              onRemoveBadge={(badge) => {
+                if (badge.type === "status") {
+                  onRemoveStatus(badge.value);
+                } else if (badge.type === "area") {
+                  onRemoveArea(badge.value);
+                } else if (badge.type === "floor") {
+                  onRemoveFloor(badge.value);
+                }
+              }}
+              containerClassName="justify-center"
+              maxWidthClassName="mx-4"
+            />
+          </motion.div>
 
           {showOtherButtons && (
-            <AnimatePresence mode="wait">
+            <AnimatePresence>
               {businessTab !== "map" && (
                 filters.nearMe ? (
                   <motion.div
                     key="near-me-expanded"
-                    initial={{ width: 36, opacity: 0 }}
-                    animate={{ width: "auto", opacity: 1 }}
-                    exit={{ width: 36, opacity: 0 }}
-                    transition={{ duration: 0.2 }}
+                    layout
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
+                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
                     className="flex items-center gap-1"
                   >
                     <Button
@@ -272,9 +290,10 @@ function BusinessControlsContent({
                 ) : (
                   <motion.div
                     key="near-me-icon"
-                    initial={{ opacity: 0, x: 40 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: 40, transition: { duration: 0 } }}
+                    layout
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.8 }}
                     transition={{ type: "spring", stiffness: 300, damping: 30 }}
                   >
                     <Button
@@ -296,13 +315,14 @@ function BusinessControlsContent({
           )}
 
           {showOtherButtons && (
-            <AnimatePresence mode="wait">
+            <AnimatePresence>
               {businessTab !== "map" && (
                 <motion.div
                   key="view-toggle"
-                  initial={{ opacity: 0, x: 40 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 40, transition: { duration: 0 } }}
+                  layout
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
                   transition={{ type: "spring", stiffness: 300, damping: 30 }}
                 >
                   <Button
