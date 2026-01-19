@@ -183,13 +183,13 @@ export function CongregationView({ data, onEdit, canEdit, initialTab = 'meetings
       {congregationTab === 'ministry' && (
         selectedHouseholder ? (
           <HouseholderDetails
-            householder={selectedHouseholder}
+            householder={selectedHouseholderDetails?.householder || selectedHouseholder}
             visits={selectedHouseholderDetails?.visits || []}
             establishment={selectedHouseholderDetails?.establishment || null}
             establishments={selectedHouseholderDetails?.establishment ? [selectedHouseholderDetails.establishment] : []}
             context="congregation"
             showEstablishment={false}
-            publisherId={selectedHouseholder.publisher_id ?? null}
+            publisherId={(selectedHouseholderDetails?.householder || selectedHouseholder).publisher_id ?? null}
             onBackClick={() => {
               onClearSelectedHouseholder();
             }}

@@ -47,9 +47,40 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
   const [name, setName] = useState(initialData?.name || "");
   const [status, setStatus] = useState<'potential'|'interested'|'return_visit'|'bible_study'|'do_not_call'>(initialData?.status || "potential");
   const [note, setNote] = useState(initialData?.note || "");
-  const [lat, setLat] = useState<number | null>(initialData?.lat || null);
-  const [lng, setLng] = useState<number | null>(initialData?.lng || null);
-  const [gps, setGps] = useState<string>(initialData?.lat && initialData?.lng ? `${initialData.lat}, ${initialData.lng}` : "");
+  
+  // Convert lat/lng to numbers if they're strings (PostgreSQL numeric types can be returned as strings)
+  // Use a function to compute initial values to handle all edge cases
+  const getInitialCoords = () => {
+    if (!initialData) return { lat: null, lng: null, gps: "" };
+    
+    const latVal = initialData.lat;
+    const lngVal = initialData.lng;
+    
+    // Handle null/undefined
+    if (latVal == null || lngVal == null) {
+      return { lat: null, lng: null, gps: "" };
+    }
+    
+    // Convert strings to numbers
+    const latNum = typeof latVal === 'string' ? parseFloat(latVal) : latVal;
+    const lngNum = typeof lngVal === 'string' ? parseFloat(lngVal) : lngVal;
+    
+    // Validate numbers (including 0 which is valid for coordinates)
+    if (isNaN(latNum) || isNaN(lngNum)) {
+      return { lat: null, lng: null, gps: "" };
+    }
+    
+    return {
+      lat: latNum,
+      lng: lngNum,
+      gps: `${latNum}, ${lngNum}`
+    };
+  };
+  
+  const initialCoords = getInitialCoords();
+  const [lat, setLat] = useState<number | null>(initialCoords.lat);
+  const [lng, setLng] = useState<number | null>(initialCoords.lng);
+  const [gps, setGps] = useState<string>(initialCoords.gps);
   const [gpsLoading, setGpsLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const isMobile = useMobile();
@@ -155,6 +186,36 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
       } catch {}
     })();
   }, []);
+
+  // Update form fields when initialData changes (e.g., when editing a different householder or modal opens)
+  useEffect(() => {
+    if (initialData) {
+      setName(initialData.name || "");
+      setStatus(initialData.status || "potential");
+      setNote(initialData.note || "");
+      
+      // Convert lat/lng to numbers if they're strings
+      const newLat = initialData.lat != null 
+        ? (typeof initialData.lat === 'string' ? parseFloat(initialData.lat) : initialData.lat)
+        : null;
+      const newLng = initialData.lng != null 
+        ? (typeof initialData.lng === 'string' ? parseFloat(initialData.lng) : initialData.lng)
+        : null;
+      
+      const validLat = newLat != null && !isNaN(newLat) ? newLat : null;
+      const validLng = newLng != null && !isNaN(newLng) ? newLng : null;
+      
+      setLat(validLat);
+      setLng(validLng);
+      
+      // Update GPS string
+      if (validLat != null && validLng != null) {
+        setGps(`${validLat}, ${validLng}`);
+      } else {
+        setGps("");
+      }
+    }
+  }, [initialData]);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

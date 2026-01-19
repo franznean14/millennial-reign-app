@@ -244,7 +244,10 @@ export function HouseholderDetails({
             establishment_id: householder.establishment_id || "",
             name: householder.name,
             status: householder.status as any,
-            note: householder.note || null
+            note: householder.note || null,
+            lat: householder.lat ?? null,
+            lng: householder.lng ?? null,
+            publisher_id: householder.publisher_id ?? null
           }}
                 onSaved={onEditSaved}
                 onDelete={handleDelete}

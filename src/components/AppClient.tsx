@@ -526,7 +526,13 @@ export function AppClient() {
   const loadCongregationHouseholderDetails = useCallback(async (householderId: string) => {
     try {
       const details = await getHouseholderDetails(householderId);
-      setCongregationSelectedHouseholderDetails(details);
+      if (details) {
+        setCongregationSelectedHouseholderDetails(details);
+        // Also update selectedHouseholder with the full details (including lat/lng)
+        setCongregationSelectedHouseholder(details.householder);
+      } else {
+        setCongregationSelectedHouseholderDetails(null);
+      }
     } catch (error) {
       console.error("Failed to load congregation householder details:", error);
       setCongregationSelectedHouseholderDetails(null);
