@@ -296,15 +296,17 @@ body.has-device-safe-top {
   
   /* Prevent viewport height changes from affecting layout */
   html {
-    height: 100vh !important;
-    height: 100dvh !important;
+    height: 100%;
+    min-height: 100vh;
+    min-height: 100dvh;
     overflow-x: hidden !important;
   }
   
   body {
-    height: 100vh !important;
-    height: 100dvh !important;
+    min-height: 100vh;
+    min-height: 100dvh;
     overflow-x: hidden !important;
+    overflow-y: auto !important; /* Allow vertical scrolling */
     /* Prevent body from becoming scrollable when keyboard opens */
     position: relative !important;
   }
