@@ -189,16 +189,11 @@ export function HouseholderList({
   const renderDetailedView = (householder: HouseholderWithDetails, index: number) => (
     <motion.div
       key={householder.id}
-      layout
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0, scale: 0.88 }}
+      animate={{ opacity: 1, scale: 1 }}
       transition={{ 
-        delay: index * 0.05,
-        layout: { 
-          type: "spring", 
-          stiffness: 300, 
-          damping: 30 
-        }
+        opacity: { duration: 0.4, ease: [0.4, 0, 0.2, 1] },
+        scale: { duration: 0.5, ease: [0.4, 0, 0.2, 1] }
       }}
       className="w-full"
     >
@@ -209,7 +204,7 @@ export function HouseholderList({
         <CardHeader>
           <div className="flex items-start justify-between w-full gap-2">
             <div className="flex-1 min-w-0">
-              <motion.div layout className="w-full">
+              <div className="w-full">
                 <CardTitle className="text-2xl sm:text-3xl font-black flex flex-col sm:flex-row sm:items-center gap-2 w-full">
                   <div className="relative min-w-0 flex-1 max-w-[280px] overflow-hidden">
                     <span 
@@ -246,7 +241,7 @@ export function HouseholderList({
                     {householder.establishment_name}
                   </div>
                 )}
-              </motion.div>
+              </div>
             </div>
             <div className="flex flex-col items-end gap-1 flex-shrink-0">
               <div className="text-center">
@@ -305,16 +300,11 @@ export function HouseholderList({
   const renderCompactView = (householder: HouseholderWithDetails, index: number) => (
     <motion.div
       key={householder.id}
-      layout
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
+      initial={{ opacity: 0, scale: 0.88 }}
+      animate={{ opacity: 1, scale: 1 }}
       transition={{ 
-        delay: index * 0.05,
-        layout: { 
-          type: "spring", 
-          stiffness: 300, 
-          damping: 30 
-        }
+        opacity: { duration: 0.4, ease: [0.4, 0, 0.2, 1] },
+        scale: { duration: 0.5, ease: [0.4, 0, 0.2, 1] }
       }}
       className="w-full"
     >
