@@ -537,7 +537,7 @@ export function EstablishmentList({
             )}
           </div>
           {visibleCount < establishments.length && (
-            <div ref={sentinelRef} className="h-10" />
+            <div ref={sentinelRef} className="h-20 w-full" aria-label="Load more trigger" />
           )}
         </>
       )}

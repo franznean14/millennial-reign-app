@@ -444,7 +444,7 @@ export function HouseholderList({
             )}
           </div>
           {visibleCount < householders.length && (
-            <div ref={sentinelRef} className="h-10" />
+            <div ref={sentinelRef} className="h-20 w-full" aria-label="Load more trigger" />
           )}
         </>
       )}
