@@ -417,21 +417,34 @@ export async function findEstablishmentDuplicates(name: string, area?: string | 
 export async function upsertHouseholder(h: Householder): Promise<Householder | null> {
   const supabase = createSupabaseBrowserClient();
   await supabase.auth.getSession().catch(() => {});
+  
+  // Ensure lat/lng are proper numbers or null (database expects numeric(9,6) and numeric(11,8))
+  const latValue = typeof h.lat === 'number' && !isNaN(h.lat) ? Number(h.lat.toFixed(6)) : null;
+  const lngValue = typeof h.lng === 'number' && !isNaN(h.lng) ? Number(h.lng.toFixed(8)) : null;
+  
   const payload: any = { 
     name: h.name, 
     status: h.status, 
     note: h.note ?? null,
     establishment_id: h.establishment_id ?? null,
     publisher_id: h.publisher_id ?? null,
-    lat: h.lat ?? null,
-    lng: h.lng ?? null
+    lat: latValue,
+    lng: lngValue
   };
   if (h.id) {
     const { data, error } = await supabase.from('householders').update(payload).eq('id', h.id).select().single();
-    if (error) return null; return data as any;
+    if (error) {
+      console.error('Error updating householder:', error);
+      return null;
+    }
+    return data as any;
   }
   const { data, error } = await supabase.from('householders').insert(payload).select().single();
-  if (error) return null; return data as any;
+  if (error) {
+    console.error('Error inserting householder:', error);
+    return null;
+  }
+  return data as any;
 }
 
 export async function deleteHouseholder(householderId: string): Promise<boolean> {

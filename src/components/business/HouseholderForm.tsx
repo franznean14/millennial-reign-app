@@ -161,6 +161,22 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
     setSaving(true);
     
     try {
+      // Parse GPS coordinates if provided but not yet parsed
+      let finalLat = lat;
+      let finalLng = lng;
+      
+      if (gps.trim() && (!finalLat || !finalLng)) {
+        const parsed = parseGps(gps);
+        if (parsed) {
+          finalLat = parsed.lat;
+          finalLng = parsed.lng;
+        }
+      }
+      
+      // Ensure lat/lng are numbers or null (not undefined)
+      const latValue = typeof finalLat === 'number' && !isNaN(finalLat) ? finalLat : null;
+      const lngValue = typeof finalLng === 'number' && !isNaN(finalLng) ? finalLng : null;
+      
       const result = await upsertHouseholder({ 
         id: initialData?.id,
         establishment_id: context === 'congregation' ? null : (estId || null), 
@@ -168,8 +184,8 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
         name, 
         status, 
         note: note||null,
-        lat: lat || null,
-        lng: lng || null
+        lat: latValue,
+        lng: lngValue
       });
       
       if (result) {

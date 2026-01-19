@@ -359,7 +359,7 @@ CREATE TABLE IF NOT EXISTS public.householders (
   status public.householder_status_t NOT NULL DEFAULT 'interested',
   note text,
   lat numeric(9,6),
-  lng numeric(10,8),
+  lng numeric(11,8),
   created_by uuid REFERENCES public.profiles(id),
   archived_by uuid REFERENCES public.profiles(id),
   deleted_by uuid REFERENCES public.profiles(id),
@@ -422,7 +422,7 @@ CREATE TABLE IF NOT EXISTS public.event_schedules (
   -- Location
   location text,
   location_lat numeric(9,6),
-  location_lng numeric(10,8),
+  location_lng numeric(11,8),
   
   -- Status & Metadata
   status public.event_status_t NOT NULL DEFAULT 'active',
