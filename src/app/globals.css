@@ -45,16 +45,14 @@ html {
 }
 
 body {
-  min-height: 100vh;
   min-height: -webkit-fill-available;
+  min-height: var(--app-height, 100vh);
 }
 
 html[data-display-mode="standalone"],
 html[data-display-mode="standalone"] body {
-  height: 100vh;
-  height: 100dvh;
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: var(--app-height, 100vh);
+  min-height: var(--app-height, 100vh);
 }
 
 html[data-display-mode="standalone"] body.has-device-safe-top {
@@ -63,6 +61,8 @@ html[data-display-mode="standalone"] body.has-device-safe-top {
 
 :root {
   --device-safe-top: 0px;
+  --app-height: 100vh;
+  --app-width: 100vw;
 }
 
 body.has-device-safe-top {
@@ -72,7 +72,7 @@ body.has-device-safe-top {
 /* Fix for iOS PWA viewport issues */
 @supports (-webkit-touch-callout: none) {
   body {
-    min-height: -webkit-fill-available;
+    min-height: var(--app-height, -webkit-fill-available);
   }
 }
 
@@ -308,14 +308,14 @@ body.has-device-safe-top {
   
   /* Prevent viewport height changes from affecting layout */
   html {
-    height: 100vh !important;
-    height: 100dvh !important;
+    height: var(--app-height, 100dvh) !important;
+    min-height: var(--app-height, 100dvh) !important;
     overflow-x: hidden !important;
   }
   
   body {
-    height: 100vh !important;
-    height: 100dvh !important;
+    height: var(--app-height, 100dvh) !important;
+    min-height: var(--app-height, 100dvh) !important;
     overflow-x: hidden !important;
     /* Prevent body from becoming scrollable when keyboard opens */
     position: relative !important;

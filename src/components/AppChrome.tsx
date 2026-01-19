@@ -44,6 +44,56 @@ export function AppChrome({ children }: AppChromeProps) {
   const { currentSection, userPermissions, onSectionChange, isAuthenticated, isAppReady } = useSPA();
   const hideChrome = pathname === "/login" || pathname.startsWith("/auth/") || !isAuthenticated;
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const updateAppViewport = () => {
+      const height = window.visualViewport?.height ?? window.innerHeight;
+      const width = window.visualViewport?.width ?? window.innerWidth;
+      document.documentElement.style.setProperty("--app-height", `${Math.round(height)}px`);
+      document.documentElement.style.setProperty("--app-width", `${Math.round(width)}px`);
+    };
+
+    updateAppViewport();
+    const rafOne = requestAnimationFrame(updateAppViewport);
+    const rafTwo = requestAnimationFrame(updateAppViewport);
+    const timeoutId = window.setTimeout(updateAppViewport, 300);
+
+    const handleOrientationChange = () => {
+      window.setTimeout(updateAppViewport, 100);
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        updateAppViewport();
+      }
+    };
+
+    window.addEventListener("resize", updateAppViewport);
+    window.addEventListener("orientationchange", handleOrientationChange);
+    window.addEventListener("pageshow", updateAppViewport);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    if (window.visualViewport) {
+      window.visualViewport.addEventListener("resize", updateAppViewport);
+      window.visualViewport.addEventListener("scroll", updateAppViewport);
+    }
+
+    return () => {
+      cancelAnimationFrame(rafOne);
+      cancelAnimationFrame(rafTwo);
+      window.clearTimeout(timeoutId);
+      window.removeEventListener("resize", updateAppViewport);
+      window.removeEventListener("orientationchange", handleOrientationChange);
+      window.removeEventListener("pageshow", updateAppViewport);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      if (window.visualViewport) {
+        window.visualViewport.removeEventListener("resize", updateAppViewport);
+        window.visualViewport.removeEventListener("scroll", updateAppViewport);
+      }
+    };
+  }, []);
+
 
   // If not authenticated, just show the children (login view)
   if (!isAuthenticated) {
