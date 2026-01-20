@@ -48,7 +48,7 @@ export function useInfiniteList({
     // Only initialize if viewMode or itemsLength actually changed
     if (key !== lastKey) {
       const initial = initialCountsRef.current[viewMode] ?? 7;
-      setVisibleCount(Math.min(initial, itemsLength));
+    setVisibleCount(Math.min(initial, itemsLength));
       initializedRef.current = { viewMode, itemsLength };
     }
   }, [viewMode, itemsLength]);
@@ -113,7 +113,7 @@ export function useInfiniteList({
         const retryEl = sentinelRef.current;
         if (retryEl) {
           setupObserver(retryEl);
-        }
+      }
       }, 100);
       return () => clearTimeout(timeout);
     }

@@ -175,10 +175,10 @@ export function HouseholderDetails({
                 </Badge>
               </div>
               {showEstablishment && (
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Establishment</p>
-                  <p className="truncate">{establishment?.name || 'Not specified'}</p>
-                </div>
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Establishment</p>
+                <p className="truncate">{establishment?.name || 'Not specified'}</p>
+              </div>
               )}
             </div>
             <div>
@@ -214,7 +214,7 @@ export function HouseholderDetails({
         headerClassName="text-center"
       >
         <VisitForm
-          establishments={establishments}
+                establishments={establishments}
           selectedEstablishmentId={context === "congregation" ? "none" : (establishment?.id || "none")}
           disableEstablishmentSelect={context === "congregation"}
           householderId={householder.id}
@@ -223,7 +223,7 @@ export function HouseholderDetails({
           onSaved={() => {
             setNewVisitOpen(false);
           }}
-        />
+              />
       </FormModal>
 
       <FormModal

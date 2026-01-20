@@ -49,6 +49,13 @@ body {
   min-height: -webkit-fill-available;
 }
 
+/* App-wide: disable page scrolling (sections provide their own scroll containers) */
+html,
+body {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
 :root {
   --device-safe-top: 0px;
 }
@@ -312,6 +319,13 @@ body.has-device-safe-top {
   }
 }
 
+/* App-wide scroll lock must override mobile body overflow rules */
+html.app-scroll-locked,
+body.app-scroll-locked {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+}
+
 /* Ensure drawers work properly with visual viewport */
 @media (max-width: 768px) {
   .drawer-content {
@@ -558,6 +572,13 @@ body.has-device-safe-top {
   }
 }
 
+/* Global app-level scroll lock (used when sections manage their own scroll) */
+html.app-scroll-locked,
+body.app-scroll-locked {
+  overflow-y: hidden !important;
+  overscroll-behavior: contain;
+}
+
 
 /* Ensure drawers and modals are above everything */
 [data-vaul-drawer] {
@@ -688,4 +709,11 @@ body.has-device-safe-top {
 
 .animate-marquee {
   animation: marquee 8s ease-in-out infinite;
+}
+
+/* Final app-wide scroll lock (overrides mobile body overflow rules) */
+html,
+body {
+  overflow: hidden !important;
+  overscroll-behavior: none;
 }

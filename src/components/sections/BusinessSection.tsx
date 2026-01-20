@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { useCallback, useMemo, useEffect, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { SectionShell } from "@/components/shared/SectionShell";
 import dynamic from "next/dynamic";
@@ -224,6 +224,18 @@ export function BusinessSection({
     [popNavigation, setCurrentSection]
   );
 
+  // Lock global scroll while on the BWI (business) section; section itself provides scrolling
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const html = document.documentElement;
+    html.classList.add("app-scroll-locked");
+    document.body.classList.add("app-scroll-locked");
+    return () => {
+      html.classList.remove("app-scroll-locked");
+      document.body.classList.remove("app-scroll-locked");
+    };
+  }, []);
+
   return (
     <>
       {portaledControls}
@@ -232,9 +244,7 @@ export function BusinessSection({
         className={
           businessTab === "map"
             ? "fixed inset-0 z-10"
-            : selectedEstablishment || selectedHouseholder
-              ? "space-y-6 pb-20"
-              : "space-y-6 pb-20 pt-[80px]"
+            : "relative h-[calc(100vh-80px)] overflow-y-auto space-y-4 px-0 pb-20 pt-[80px]"
         }
       >
         <StickySearchBar

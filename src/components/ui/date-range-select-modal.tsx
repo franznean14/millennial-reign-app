@@ -83,7 +83,7 @@ export function DateRangeSelectContent({
       setSelectionStart(d);
       setSelectionEnd(null);
       if (!showActions) {
-        onSelect(d, undefined);
+      onSelect(d, undefined);
         onRequestClose?.();
       }
       return;
@@ -102,7 +102,7 @@ export function DateRangeSelectContent({
       setSelectionEnd(end);
       setIsSelectingRange(false);
       if (!showActions) {
-        onSelect(start, end);
+      onSelect(start, end);
         onRequestClose?.();
       }
     }

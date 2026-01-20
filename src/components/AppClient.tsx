@@ -55,7 +55,18 @@ export function AppClient() {
   
   // Get SPA context for loading state
   const { setContentLoading, onSectionChange, popNavigation, setCurrentSection, pushNavigation, currentSection } = useSPA();
-  
+
+  // App-wide scroll lock: body/html should never scroll; sections provide their own scroll containers
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const html = document.documentElement;
+    html.classList.add("app-scroll-locked");
+    document.body.classList.add("app-scroll-locked");
+    return () => {
+      html.classList.remove("app-scroll-locked");
+      document.body.classList.remove("app-scroll-locked");
+    };
+  }, []);
 
   // Home/Field Service state
   const [dateRanges, setDateRanges] = useState({

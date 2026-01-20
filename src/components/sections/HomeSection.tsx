@@ -116,7 +116,7 @@ export function HomeSection({
       {portaledControls}
       <SectionShell
         motionKey="home"
-        className="space-y-6 pb-20 pt-[60px] w-full max-w-full overflow-x-hidden"
+        className="relative h-[calc(100vh-80px)] overflow-y-auto overscroll-none pb-4 pt-[80px] w-full max-w-full overflow-x-hidden"
       >
       <HomeView
         userId={userId}
