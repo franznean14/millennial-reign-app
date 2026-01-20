@@ -52,7 +52,9 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
     // Only load if we don't have data yet
     // If data already exists, don't reload to avoid the snap/re-render
     if (allVisitsRawCount === 0) {
-      loadAllVisits(0, false); // Don't force refresh on initial load to use cache smoothly
+      // Always force a fresh fetch for the drawer's initial load so it's fully up to date
+      // (card preview uses recent data; this keeps the drawer in sync with it)
+      loadAllVisits(0, true);
     }
   };
 
