@@ -130,8 +130,8 @@ export function TimeSelectModal({
       if (dist < closestDist) {
         closestDist = dist;
         closest = btn;
+        }
       }
-    }
     if (!closest) return;
     const value = closest.textContent?.trim() ?? "";
     if (type === "hours") {
@@ -200,35 +200,35 @@ export function TimeSelectModal({
     onSelect(`${String(s24).padStart(2, "0")}:${String(sM).padStart(2, "0")}`, `${String(e24).padStart(2, "0")}:${String(eM).padStart(2, "0")}`);
     if (inline) {
       onRequestClose?.();
-    } else {
+          } else {
       onOpenChange(false);
     }
   };
 
   const content = (
     <div className="px-4 pt-4 pb-2">
-      <div className="flex gap-2 mb-4 py-3">
+        <div className="flex gap-2 mb-4 py-3">
         <ToggleGroup type="single" value={mode} onValueChange={(v) => v && setMode(v as "start" | "end")} className="w-full">
-          <ToggleGroupItem value="start" className="flex-1 py-6 px-4">
-            <div className="flex flex-col items-center gap-1">
-              <span className="text-xs text-muted-foreground">Start</span>
-              <span className="text-sm font-medium">
+            <ToggleGroupItem value="start" className="flex-1 py-6 px-4">
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-xs text-muted-foreground">Start</span>
+                <span className="text-sm font-medium">
                 {sH}:{String(sM).padStart(2, "0")} {sAP}
-              </span>
-            </div>
-          </ToggleGroupItem>
-          <ToggleGroupItem value="end" className="flex-1 py-6 px-4">
-            <div className="flex flex-col items-center gap-1">
-              <span className="text-xs text-muted-foreground">End</span>
-              <span className="text-sm font-medium">
+                </span>
+              </div>
+            </ToggleGroupItem>
+            <ToggleGroupItem value="end" className="flex-1 py-6 px-4">
+              <div className="flex flex-col items-center gap-1">
+                <span className="text-xs text-muted-foreground">End</span>
+                <span className="text-sm font-medium">
                 {eH}:{String(eM).padStart(2, "0")} {eAP}
-              </span>
-            </div>
-          </ToggleGroupItem>
-        </ToggleGroup>
-      </div>
+                </span>
+              </div>
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
 
-      <div className="relative flex items-center justify-center gap-4 py-4">
+        <div className="relative flex items-center justify-center gap-4 py-4">
       <div className="absolute left-4 right-4 h-[44px] top-1/2 -translate-y-1/2 bg-primary/5 pointer-events-none z-10 rounded-md" />
 
         <TimeColumn ref={hoursRef} values={hours} current={currentH} onChange={setH} />
@@ -240,7 +240,7 @@ export function TimeSelectModal({
           format={(v) => String(v).padStart(2, "0")}
         />
         <TimeColumn ref={amPmRef} values={["AM", "PM"]} current={currentAP} onChange={setAP} />
-      </div>
+          </div>
 
       <div className="flex justify-end gap-2 pt-4 border-t">
         <Button type="button" variant="outline" onClick={() => (inline ? onRequestClose?.() : onOpenChange(false))}>
@@ -248,9 +248,9 @@ export function TimeSelectModal({
         </Button>
         <Button type="button" onClick={handleConfirm}>
           Confirm
-        </Button>
-      </div>
-    </div>
+                </Button>
+            </div>
+          </div>
   );
 
   if (inline) return content;
@@ -276,25 +276,25 @@ const TimeColumn = forwardRef<HTMLDivElement, {
   format?: (val: any) => string;
 }>(({ values, current, onChange, format }, ref) => {
   return (
-    <div className="flex flex-col items-center gap-2 relative">
-      <div className="absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-background to-transparent pointer-events-none z-10" />
-      <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-background to-transparent pointer-events-none z-10" />
-      <div
+          <div className="flex flex-col items-center gap-2 relative">
+            <div className="absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-background to-transparent pointer-events-none z-10" />
+            <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-background to-transparent pointer-events-none z-10" />
+            <div 
         ref={ref}
-        className="time-picker-scroll flex flex-col gap-1 max-h-[200px] overflow-y-auto scrollbar-hide relative"
+              className="time-picker-scroll flex flex-col gap-1 max-h-[200px] overflow-y-auto scrollbar-hide relative"
         style={{ scrollSnapType: "y mandatory" }}
-      >
-        <div className="h-[88px] flex-shrink-0" />
+            >
+              <div className="h-[88px] flex-shrink-0" />
         {values.map((val) => (
-          <Button
+              <Button
             key={val}
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="w-16 text-base flex-shrink-0"
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="w-16 text-base flex-shrink-0"
             style={{ scrollSnapAlign: "center" }}
             onClick={() => onChange(val)}
-          >
+              >
             {format ? format(val) : val}
           </Button>
         ))}

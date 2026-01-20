@@ -58,7 +58,7 @@ export function DatePicker({ date, onSelect, placeholder = "Select date", classN
               setOpen(false);
             }}
             onRequestClose={() => setOpen(false)}
-          />
+        />
         </FormModal>
       </>
     );

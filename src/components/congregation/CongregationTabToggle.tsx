@@ -70,40 +70,40 @@ export function CongregationTabToggle({
             transition={{ duration: 0.2 }}
             className="w-full h-full"
           >
-            <ToggleGroup
-              type="single"
-              value={value}
-              onValueChange={(newValue) => {
-                if (newValue) {
-                  onValueChange(newValue as 'meetings' | 'ministry' | 'admin');
-                }
-              }}
-              className="w-full h-full"
-            >
-              <ToggleGroupItem 
-                value="meetings" 
-                className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 w-full flex flex-col items-center justify-center gap-1 transition-colors"
-              >
-                <BookOpen className="h-4 w-4 flex-shrink-0" />
-                <span className="text-[10px] font-medium text-center">Meetings</span>
-              </ToggleGroupItem>
-              <ToggleGroupItem 
-                value="ministry" 
-                className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 w-full flex flex-col items-center justify-center gap-1 transition-colors"
-              >
-                <Briefcase className="h-4 w-4 flex-shrink-0" />
-                <span className="text-[10px] font-medium text-center">Ministry</span>
-              </ToggleGroupItem>
-              {isElder && (
-                <ToggleGroupItem 
-                  value="admin" 
-                  className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 w-full flex flex-col items-center justify-center gap-1 transition-colors"
-                >
-                  <Settings className="h-4 w-4 flex-shrink-0" />
-                  <span className="text-[10px] font-medium text-center">Admin</span>
-                </ToggleGroupItem>
-              )}
-            </ToggleGroup>
+    <ToggleGroup
+      type="single"
+      value={value}
+      onValueChange={(newValue) => {
+        if (newValue) {
+            onValueChange(newValue as 'meetings' | 'ministry' | 'admin');
+        }
+      }}
+        className="w-full h-full"
+    >
+      <ToggleGroupItem 
+        value="meetings" 
+          className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 w-full flex flex-col items-center justify-center gap-1 transition-colors"
+      >
+        <BookOpen className="h-4 w-4 flex-shrink-0" />
+          <span className="text-[10px] font-medium text-center">Meetings</span>
+      </ToggleGroupItem>
+      <ToggleGroupItem 
+        value="ministry" 
+          className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 w-full flex flex-col items-center justify-center gap-1 transition-colors"
+      >
+        <Briefcase className="h-4 w-4 flex-shrink-0" />
+          <span className="text-[10px] font-medium text-center">Ministry</span>
+        </ToggleGroupItem>
+        {isElder && (
+          <ToggleGroupItem 
+            value="admin" 
+            className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 w-full flex flex-col items-center justify-center gap-1 transition-colors"
+          >
+            <Settings className="h-4 w-4 flex-shrink-0" />
+            <span className="text-[10px] font-medium text-center">Admin</span>
+      </ToggleGroupItem>
+        )}
+    </ToggleGroup>
           </motion.div>
         )}
       </AnimatePresence>

@@ -494,31 +494,31 @@ export function UnifiedPortaledControls(props: UnifiedPortaledControlsProps) {
 
   const content = showBusinessControls && props.businessTab !== undefined ? (
     <BusinessControlsContent
-      businessTab={props.businessTab}
-      onBusinessTabChange={props.onBusinessTabChange!}
-      filters={props.filters!}
-      onFiltersChange={props.onFiltersChange!}
-      onOpenFilters={props.onOpenFilters!}
-      viewMode={props.viewMode!}
-      onCycleViewMode={props.onCycleViewMode!}
-      onClearSearch={props.onClearSearch!}
-      onRemoveStatus={props.onRemoveStatus!}
-      onRemoveArea={props.onRemoveArea!}
-      onRemoveFloor={props.onRemoveFloor!}
-      onClearMyEstablishments={props.onClearMyEstablishments!}
-      onClearAllFilters={props.onClearAllFilters!}
-      onToggleNearMe={props.onToggleNearMe!}
-      formatStatusLabel={props.formatStatusLabel!}
-      selectedEstablishment={props.selectedEstablishment}
-      selectedHouseholder={props.selectedHouseholder}
-      onBackClick={props.onBackClick!}
-      onEditClick={props.onEditClick!}
-    />
+        businessTab={props.businessTab}
+        onBusinessTabChange={props.onBusinessTabChange!}
+        filters={props.filters!}
+        onFiltersChange={props.onFiltersChange!}
+        onOpenFilters={props.onOpenFilters!}
+        viewMode={props.viewMode!}
+        onCycleViewMode={props.onCycleViewMode!}
+        onClearSearch={props.onClearSearch!}
+        onRemoveStatus={props.onRemoveStatus!}
+        onRemoveArea={props.onRemoveArea!}
+        onRemoveFloor={props.onRemoveFloor!}
+        onClearMyEstablishments={props.onClearMyEstablishments!}
+        onClearAllFilters={props.onClearAllFilters!}
+        onToggleNearMe={props.onToggleNearMe!}
+        formatStatusLabel={props.formatStatusLabel!}
+        selectedEstablishment={props.selectedEstablishment}
+        selectedHouseholder={props.selectedHouseholder}
+        onBackClick={props.onBackClick!}
+        onEditClick={props.onEditClick!}
+      />
   ) : showCongregationControls && props.congregationTab !== undefined ? (
     <CongregationControlsContent
-      congregationTab={props.congregationTab}
-      onCongregationTabChange={props.onCongregationTabChange!}
-      isElder={props.isElder}
+        congregationTab={props.congregationTab}
+        onCongregationTabChange={props.onCongregationTabChange!}
+        isElder={props.isElder}
       selectedHouseholder={props.congregationSelectedHouseholder}
       onBackClick={props.onCongregationBackClick}
       onEditClick={props.onCongregationEditClick}
@@ -540,7 +540,7 @@ export function UnifiedPortaledControls(props: UnifiedPortaledControlsProps) {
           animate={{ opacity: 1, filter: "blur(0px)" }}
           exit={{ opacity: 0, filter: "blur(6px)" }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 pointer-events-none"
+          className="fixed inset-0 pointer-events-none z-[200]"
         >
           {content}
         </motion.div>

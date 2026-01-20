@@ -168,8 +168,8 @@ export function MinistrySection({ congregationData, userId, onContactClick }: Mi
               <p className="text-sm">Loading...</p>
             </div>
           ) : bibleStudents.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
+          <div className="text-center py-8 text-muted-foreground">
+            <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>No Bible students yet</p>
               <p className="text-sm">Bible students will appear here when assigned</p>
             </div>
@@ -223,7 +223,7 @@ export function MinistrySection({ congregationData, userId, onContactClick }: Mi
                   </div>
                 );
               })}
-            </div>
+          </div>
           )}
         </CardContent>
       </Card>
