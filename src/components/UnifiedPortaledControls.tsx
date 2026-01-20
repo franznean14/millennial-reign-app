@@ -262,7 +262,7 @@ function BusinessControlsContent({
           </motion.div>
 
           {showOtherButtons && (
-            <AnimatePresence>
+            <AnimatePresence mode="popLayout" initial={false}>
               {businessTab !== "map" && (
                 filters.nearMe ? (
                   <motion.div
@@ -315,7 +315,7 @@ function BusinessControlsContent({
           )}
 
           {showOtherButtons && (
-            <AnimatePresence>
+            <AnimatePresence mode="popLayout" initial={false}>
               {businessTab !== "map" && (
                 <motion.div
                   key="view-toggle"
