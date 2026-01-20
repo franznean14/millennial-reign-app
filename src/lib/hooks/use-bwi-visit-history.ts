@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { VisitRecord } from "@/lib/utils/visit-history";
+import { dedupeAndSortVisits } from "@/lib/utils/visit-history";
 import { getBwiVisitsPage, getRecentBwiVisits } from "@/lib/db/visit-history";
 import { formatStatusText } from "@/lib/utils/formatters";
 import { getVisitSearchText } from "@/lib/utils/visit-history-ui";
@@ -117,18 +118,13 @@ export function useBwiVisitHistory({
         
         // Optimistically update the lists
         setVisits((prev) => {
-          const combined = [newVisitRecord, ...prev];
-          return combined
-            .filter((v, i, arr) => arr.findIndex(x => x.id === v.id) === i)
-            .sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime())
-            .slice(0, recentLimit);
+          const combined = dedupeAndSortVisits([newVisitRecord, ...prev]);
+          return combined.slice(0, recentLimit);
         });
         
         setAllVisitsRaw((prev) => {
-          const combined = [newVisitRecord, ...prev];
-          return combined
-            .filter((v, i, arr) => arr.findIndex(x => x.id === v.id) === i)
-            .sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
+          const combined = dedupeAndSortVisits([newVisitRecord, ...prev]);
+          return combined;
         });
       }
       

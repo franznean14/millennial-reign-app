@@ -14,6 +14,7 @@ export interface VisitRecord {
   establishment_area?: string;
   notes?: string;
   created_at: string;
+  updated_at?: string | null;
   publisher_id?: string;
   publisher?: {
     first_name: string;
@@ -38,6 +39,7 @@ export function buildVisitRecords(establishmentVisits: any[] = [], householderVi
     establishment_id: v.establishment_id,
     notes: v.note,
     created_at: v.created_at,
+    updated_at: (v as any).updated_at ?? v.created_at,
     publisher_id: (v as any).publisher_id,
     publisher: (v.publisher as any) || undefined,
     partner: (v.partner as any) || undefined
@@ -60,6 +62,7 @@ export function buildVisitRecords(establishmentVisits: any[] = [], householderVi
     householder_id: v.householder_id,
     notes: v.note,
     created_at: v.created_at,
+    updated_at: (v as any).updated_at ?? v.created_at,
     publisher_id: (v as any).publisher_id,
     publisher: (v.publisher as any) || undefined,
     partner: (v.partner as any) || undefined
@@ -71,7 +74,28 @@ export function buildVisitRecords(establishmentVisits: any[] = [], householderVi
 
 export function dedupeAndSortVisits(visits: VisitRecord[]): VisitRecord[] {
   const uniqueVisits = visits.filter((visit, index, self) => index === self.findIndex((v) => v.id === visit.id));
-  return uniqueVisits.sort((a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime());
+  const getTime = (value?: string | null) => {
+    if (!value) return 0;
+    const t = new Date(value).getTime();
+    return Number.isNaN(t) ? 0 : t;
+  };
+
+  return uniqueVisits.sort((a, b) => {
+    // 1) Primary: visit_date (newest first)
+    const dateDiff = getTime(b.visit_date) - getTime(a.visit_date);
+    if (dateDiff !== 0) return dateDiff;
+
+    // 2) Secondary: updated_at (newest first)
+    const updatedDiff = getTime(b.updated_at ?? undefined) - getTime(a.updated_at ?? undefined);
+    if (updatedDiff !== 0) return updatedDiff;
+
+    // 3) Tertiary: created_at (newest first)
+    const createdDiff = getTime(b.created_at) - getTime(a.created_at);
+    if (createdDiff !== 0) return createdDiff;
+
+    // 4) Stable fallback: id
+    return b.id.localeCompare(a.id);
+  });
 }
 
 export function takeTopVisits(visits: VisitRecord[], limit: number): VisitRecord[] {

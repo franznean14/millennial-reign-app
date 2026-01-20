@@ -1,7 +1,7 @@
 "use client";
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { cacheGet, cacheSet } from "@/lib/offline/store";
+import { cacheGet, cacheSet, cacheDelete } from "@/lib/offline/store";
 import { buildVisitRecords, dedupeAndSortVisits, takeTopVisits, type VisitRecord } from "@/lib/utils/visit-history";
 import type { VisitWithUser } from "@/lib/db/business";
 import { getBestStatus } from "@/lib/utils/status-hierarchy";
@@ -11,6 +11,7 @@ type VisitQueryResult = {
   visit_date: string;
   note?: string | null;
   created_at: string;
+  updated_at?: string | null;
   establishment_id?: string | null;
   householder_id?: string | null;
   publisher_id?: string | null;
