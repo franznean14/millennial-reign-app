@@ -69,7 +69,7 @@ function NameWithAvatarsCell({
         <div ref={containerRef} className="relative w-full overflow-hidden">
           <motion.div
             ref={contentRef}
-            className="whitespace-nowrap pr-10"
+            className="inline-block w-max whitespace-nowrap pr-10"
             animate={shouldScroll ? { x: [0, -scrollDistance, 0] } : undefined}
             transition={shouldScroll ? { duration: Math.max(scrollDistance / 40, 10), times: [0, 0.6, 1], repeat: Infinity, ease: "linear", repeatDelay: 0.8 } : undefined}
             title={name}
@@ -94,6 +94,69 @@ function NameWithAvatarsCell({
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+function EstablishmentNameCell({ name }: { name: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [scrollDistance, setScrollDistance] = useState(0);
+  const [shouldScroll, setShouldScroll] = useState(false);
+
+  useEffect(() => {
+    const measure = () => {
+      const container = containerRef.current;
+      const content = contentRef.current;
+      if (!container || !content) return;
+      const fadeWidthPx = 40;
+      const overshootPx = 6;
+      const overflow = content.scrollWidth - container.clientWidth;
+      const willScroll = overflow > 2;
+      setShouldScroll(willScroll);
+      setScrollDistance(willScroll ? overflow + fadeWidthPx + overshootPx : 0);
+    };
+    // Measure after layout settles (tables + fonts can delay widths)
+    const raf = requestAnimationFrame(measure);
+    const t = window.setTimeout(measure, 120);
+    window.addEventListener("resize", measure);
+    const ro = new ResizeObserver(measure);
+    if (containerRef.current) ro.observe(containerRef.current);
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(t);
+      window.removeEventListener("resize", measure);
+      ro.disconnect();
+    };
+  }, [name]);
+
+  return (
+    <div className="flex items-center gap-1 min-w-0 w-full">
+      <Building2 className="h-3 w-3 flex-shrink-0" />
+      <div className="relative flex-1 min-w-0">
+        <div ref={containerRef} className="relative w-full overflow-hidden">
+          <motion.div
+            ref={contentRef}
+            className="inline-block w-max whitespace-nowrap pr-10"
+            animate={shouldScroll ? { x: [0, -scrollDistance, 0] } : undefined}
+            transition={
+              shouldScroll
+                ? {
+                    duration: Math.max(scrollDistance / 40, 10),
+                    times: [0, 0.6, 1],
+                    repeat: Infinity,
+                    ease: "linear",
+                    repeatDelay: 0.8,
+                  }
+                : undefined
+            }
+            title={name}
+          >
+            {name}
+          </motion.div>
+          <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-background to-transparent" />
+        </div>
+      </div>
     </div>
   );
 }
@@ -398,13 +461,10 @@ export function HouseholderList({
                     </Badge>
                   </div>
                 </td>
-                <td className="p-3 truncate flex items-center gap-1 w-[40%]">
+                <td className="p-3 min-w-0 w-[40%]">
                   {householder.establishment_name ? (
-                    <>
-                      <Building2 className="h-3 w-3 flex-shrink-0" />
-                      {householder.establishment_name}
-                    </>
-                  ) : '-'}
+                    <EstablishmentNameCell name={householder.establishment_name} />
+                  ) : null}
                 </td>
               </tr>
             ))}

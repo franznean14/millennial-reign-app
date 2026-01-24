@@ -71,7 +71,7 @@ function NameWithAvatarsCell({
         <div ref={containerRef} className="relative w-full overflow-hidden">
           <motion.div
             ref={contentRef}
-            className="whitespace-nowrap pr-10"
+            className="inline-block w-max whitespace-nowrap pr-10"
             animate={shouldScroll ? { x: [0, -scrollDistance, 0] } : undefined}
             transition={shouldScroll ? { duration: Math.max(scrollDistance / 40, 10), times: [0, 0.6, 1], repeat: Infinity, ease: "linear", repeatDelay: 0.8 } : undefined}
             title={name}
