@@ -424,12 +424,6 @@ body.app-scroll-locked {
     z-index: 50 !important;
     transform: none !important;
   }
-  
-  /* Ensure main content area accounts for fixed headers */
-  main {
-    margin-top: 10px !important; /* Account for topbar height */
-    margin-bottom: 80px !important; /* Account for bottom navbar height */
-  }
 }
 
 /* Leaflet Map Styling */

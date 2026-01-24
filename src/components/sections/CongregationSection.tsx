@@ -93,7 +93,7 @@ export function CongregationSection({
   return (
     <>
       {portaledControls}
-      <SectionShell motionKey="congregation" className="space-y-6 pb-20 pt-[60px]">
+      <SectionShell motionKey="congregation" className="space-y-6 pb-20 pt-[80px]">
         {cong?.id ? (
           <CongregationView
             data={cong}

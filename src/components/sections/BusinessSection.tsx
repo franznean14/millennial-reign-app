@@ -184,7 +184,7 @@ export function BusinessSection({
   };
 
   const getDetailsWrapperClass = (isMap: boolean) =>
-    isMap ? "space-y-6 pb-20 px-4 py-6" : "space-y-6 pt-[60px]";
+    isMap ? "space-y-6 pb-20 px-4 py-6" : "space-y-6 pt-[80px]";
 
   const handleSelectEstablishment = useCallback(
     (establishment: EstablishmentWithDetails) => {
@@ -244,7 +244,7 @@ export function BusinessSection({
         className={
           businessTab === "map"
             ? "fixed inset-0 z-10"
-            : "relative h-[calc(100vh-80px)] overflow-y-auto space-y-4 px-0 pb-20 pt-[80px]"
+            : "relative h-[calc(100vh-80px)] overflow-y-auto space-y-4 px-0 pb-20 pt-[90px]"
         }
       >
         <StickySearchBar
