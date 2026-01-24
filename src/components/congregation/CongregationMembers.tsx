@@ -5,34 +5,29 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Crown, Shield } from "lucide-react";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Crown, Shield, Users, ChevronRight } from "lucide-react";
 import { UserManagementForm } from "./UserManagementForm";
 import { FormModal } from "@/components/shared/FormModal";
+import type { Profile } from "@/lib/db/types";
 
-interface CongregationMember {
-  id: string;
-  first_name: string;
-  last_name: string;
-  avatar_url: string | null;
-  privileges: string[];
-  group_name: string | null;
-  congregation_id: string | null; // Add this
-}
-
-interface GroupedMembers {
-  [groupName: string]: CongregationMember[];
-}
+type CongregationMember = Pick<
+  Profile,
+  "id" | "first_name" | "last_name" | "avatar_url" | "privileges" | "group_name" | "congregation_id" | "role"
+>;
 
 interface CongregationMembersProps {
   congregationId: string;
+  currentUserId: string | null;
 }
 
-export function CongregationMembers({ congregationId }: CongregationMembersProps) {
-  const [members, setMembers] = useState<GroupedMembers>({});
+export function CongregationMembers({ congregationId, currentUserId }: CongregationMembersProps) {
+  const [members, setMembers] = useState<CongregationMember[]>([]);
   const [loading, setLoading] = useState(true);
-  const [refreshKey, setRefreshKey] = useState(0);
   const [selectedUser, setSelectedUser] = useState<CongregationMember | null>(null);
   const [userManagementModalOpen, setUserManagementModalOpen] = useState(false);
+  const [membersDrawerOpen, setMembersDrawerOpen] = useState(false);
+  const [activeGroup, setActiveGroup] = useState<string>("All");
 
   // Load congregation members
   const loadMembers = async () => {
@@ -40,22 +35,13 @@ export function CongregationMembers({ congregationId }: CongregationMembersProps
     try {
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name, avatar_url, privileges, group_name, congregation_id') // Add congregation_id and email
+        .select('id, first_name, last_name, avatar_url, privileges, group_name, congregation_id, role')
         .eq('congregation_id', congregationId)
         .order('last_name')
         .order('first_name');
 
       if (profiles) {
-        // Group members by group name
-        const grouped: GroupedMembers = {};
-        profiles.forEach((member: CongregationMember) => {
-          const groupName = member.group_name || 'No Group';
-          if (!grouped[groupName]) {
-            grouped[groupName] = [];
-          }
-          grouped[groupName].push(member);
-        });
-        setMembers(grouped);
+        setMembers(profiles as CongregationMember[]);
       }
     } catch (error) {
       console.error('Error loading congregation members:', error);
@@ -67,6 +53,14 @@ export function CongregationMembers({ congregationId }: CongregationMembersProps
   useEffect(() => {
     loadMembers();
   }, [congregationId]);
+
+  // Default group to the current user's group when possible
+  useEffect(() => {
+    if (!currentUserId || members.length === 0) return;
+    const me = members.find((m) => m.id === currentUserId);
+    if (!me) return;
+    setActiveGroup(me.group_name || "No Group");
+  }, [currentUserId, members]);
 
   // Listen for refresh events
   useEffect(() => {
@@ -81,8 +75,7 @@ export function CongregationMembers({ congregationId }: CongregationMembersProps
   }, []);
 
   const handleUserUpdated = (updatedUser: any) => {
-    // Refresh the members list
-    setRefreshKey(prev => prev + 1);
+    loadMembers();
     setUserManagementModalOpen(false);
     setSelectedUser(null);
   };
@@ -93,6 +86,14 @@ export function CongregationMembers({ congregationId }: CongregationMembersProps
     return null;
   };
 
+  const getPrimaryPrivilege = (privileges: string[]) => {
+    if (privileges.includes("Elder")) return "Elder";
+    if (privileges.includes("Ministerial Servant")) return "MS";
+    if (privileges.includes("Regular Pioneer")) return "RP";
+    if (privileges.includes("Auxiliary Pioneer")) return "AP";
+    return "";
+  };
+
   const getPrivilegeBadge = (privileges: string[]) => {
     if (privileges.includes('Elder')) return <Badge variant="default" className="text-xs">Elder</Badge>;
     if (privileges.includes('Ministerial Servant')) return <Badge variant="secondary" className="text-xs">MS</Badge>;
@@ -101,74 +102,199 @@ export function CongregationMembers({ congregationId }: CongregationMembersProps
     return null;
   };
 
-  if (loading) {
-    return <div className="text-sm opacity-70">Loading members...</div>;
-  }
+  const groupNames = (() => {
+    const set = new Set<string>();
+    for (const m of members) set.add(m.group_name || "No Group");
+    return ["All", ...Array.from(set).sort((a, b) => a.localeCompare(b))];
+  })();
+
+  const filteredMembers =
+    activeGroup === "All" ? members : members.filter((m) => (m.group_name || "No Group") === activeGroup);
+
+  const previewMembers = (() => {
+    if (members.length === 0) return [];
+    const me = currentUserId ? members.find((m) => m.id === currentUserId) : undefined;
+    const myGroup = me?.group_name || "No Group";
+    const myGroupOthers = members
+      .filter((m) => m.id !== me?.id && (m.group_name || "No Group") === myGroup)
+      .slice(0, 2);
+    if (me) return [me, ...myGroupOthers];
+    return members.slice(0, 3);
+  })();
+
+  const MembersRow = ({ member, compact }: { member: CongregationMember; compact?: boolean }) => {
+    const initials = `${member.first_name?.[0] || ""}${member.last_name?.[0] || ""}`.toUpperCase() || "U";
+    const primary = getPrimaryPrivilege(member.privileges);
+    return (
+      <div className={compact ? "px-4 py-3" : "px-3 py-2"} role="row">
+        <div className="flex items-center gap-3">
+          <Avatar className={compact ? "h-9 w-9" : "h-8 w-8"}>
+            <AvatarImage src={member.avatar_url || undefined} />
+            <AvatarFallback className={compact ? "text-[11px] font-semibold" : "text-[10px] font-semibold"}>
+              {initials}
+            </AvatarFallback>
+          </Avatar>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0 flex items-center gap-2">
+                <p className={compact ? "text-sm font-medium truncate" : "text-sm font-medium truncate"}>
+                  {member.first_name} {member.last_name}
+                </p>
+                {getPrivilegeIcon(member.privileges)}
+              </div>
+              {primary ? (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 leading-none flex-shrink-0">
+                  {primary}
+                </Badge>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <>
-      <section className="space-y-4">
-        <div className="flex items-center gap-2">
-          <Users className="h-5 w-5" />
-          <h2 className="text-lg font-semibold">Congregation Members</h2>
-        </div>
-        
-        <div className="space-y-4">
-          {Object.entries(members).map(([groupName, groupMembers]) => (
-            <Card key={groupName}>
-              <CardHeader className="pb-3">
-                <CardTitle className="text-base flex items-center gap-2">
-                  {groupName}
-                  <Badge variant="outline" className="text-xs">
-                    {groupMembers.length} {groupMembers.length === 1 ? 'member' : 'members'}
-                  </Badge>
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="space-y-3">
-                  {groupMembers.map((member) => (
-                    <div 
-                      key={member.id} 
-                      className="flex items-center gap-3 p-3 border rounded-lg hover:bg-muted cursor-pointer"
-                      onClick={() => {
-                        setSelectedUser(member);
-                        setUserManagementModalOpen(true);
-                      }}
-                    >
-                      <Avatar className="h-10 w-10">
-                        <AvatarImage src={member.avatar_url || undefined} />
-                        <AvatarFallback className="text-sm">
-                          {`${member.first_name?.[0] || ''}${member.last_name?.[0] || ''}`.toUpperCase() || 'U'}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm font-medium">
-                            {member.first_name} {member.last_name}
-                          </span>
-                          {getPrivilegeIcon(member.privileges)}
-                          {getPrivilegeBadge(member.privileges)}
-                        </div>
-                        {member.privileges.length > 0 && (
-                          <div className="flex flex-wrap gap-1">
-                            {member.privileges
-                              .filter(p => !['Elder', 'Ministerial Servant', 'Regular Pioneer', 'Auxiliary Pioneer', 'Group Overseer', 'Group Assistant'].includes(p))
-                              .map((privilege) => (
-                                <Badge key={privilege} variant="secondary" className="text-xs">
-                                  {privilege}
-                                </Badge>
-                              ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+      <Card className="gap-2">
+        <CardHeader>
+          <button
+            type="button"
+            className="w-full flex items-center justify-between gap-3 text-left rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            onClick={() => setMembersDrawerOpen(true)}
+          >
+            <CardTitle className="text-base flex items-center gap-2">
+              <Users className="h-5 w-5" />
+              Congregation Members
+            </CardTitle>
+            <ChevronRight className="h-4 w-4 opacity-70" />
+          </button>
+        </CardHeader>
+        <CardContent className="p-0">
+          {loading ? (
+            <div className="px-4 pb-4 text-sm text-muted-foreground">Loading...</div>
+          ) : previewMembers.length === 0 ? (
+            <div className="px-4 pb-6 text-sm text-muted-foreground">No members found.</div>
+          ) : (
+            <div className="divide-y">
+              {previewMembers.map((member) => (
+                <div
+                  key={member.id}
+                  className="hover:bg-muted/50 transition-colors cursor-pointer"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setMembersDrawerOpen(true)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      setMembersDrawerOpen(true);
+                    }
+                  }}
+                >
+                  <MembersRow member={member} compact />
                 </div>
-              </CardContent>
-            </Card>
-          ))}
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <FormModal
+        open={membersDrawerOpen}
+        onOpenChange={setMembersDrawerOpen}
+        title="Congregation Members"
+      >
+        <div className="space-y-4">
+          <div className="flex justify-center">
+            <div className="bg-background/95 backdrop-blur-sm border p-0.1 rounded-lg shadow-lg w-full max-w-screen-sm relative overflow-hidden">
+              <div className="w-full overflow-x-auto no-scrollbar">
+                <ToggleGroup
+                  type="single"
+                  value={activeGroup}
+                  onValueChange={(v) => {
+                    if (v) setActiveGroup(v);
+                  }}
+                  className="w-max min-w-full h-full justify-center"
+                >
+                  {groupNames.map((g) => (
+                    <ToggleGroupItem
+                      key={g}
+                      value={g}
+                      className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm min-w-0 px-3 h-12 flex items-center justify-center transition-colors"
+                      title={g}
+                    >
+                      <span className="text-[11px] font-medium text-center truncate w-full">{g}</span>
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </div>
+            </div>
+          </div>
+
+          <div className="w-full h-[calc(70vh)] overflow-hidden flex flex-col overscroll-none">
+            {/* Fixed Table Header */}
+            <div className="flex-shrink-0 border-b bg-background">
+              <table className="w-full text-sm table-fixed">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-3 px-3 w-[70%]">Name</th>
+                    <th className="text-left py-3 px-3 w-[30%]">Role</th>
+                  </tr>
+                </thead>
+              </table>
+            </div>
+
+            {/* Scrollable Table Body */}
+            <div
+              className="flex-1 overflow-y-auto no-scrollbar overscroll-none"
+              style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
+            >
+              <table className="w-full text-sm table-fixed">
+                <tbody>
+                  {filteredMembers.map((member) => {
+                    const initials = `${member.first_name?.[0] || ""}${member.last_name?.[0] || ""}`.toUpperCase() || "U";
+                    const primary = getPrimaryPrivilege(member.privileges);
+                    return (
+                      <tr
+                        key={member.id}
+                        className="border-b hover:bg-muted/30 cursor-pointer"
+                        onClick={() => {
+                          setSelectedUser(member);
+                          setUserManagementModalOpen(true);
+                        }}
+                      >
+                        <td className="p-3 min-w-0 w-[70%]">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <Avatar className="h-7 w-7">
+                              <AvatarImage src={member.avatar_url || undefined} />
+                              <AvatarFallback className="text-[10px] font-semibold">{initials}</AvatarFallback>
+                            </Avatar>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <span className="truncate">
+                                  {member.first_name} {member.last_name}
+                                </span>
+                                {getPrivilegeIcon(member.privileges)}
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-3 w-[30%]">
+                          {primary ? (
+                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 leading-none">
+                              {primary}
+                            </Badge>
+                          ) : null}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
-      </section>
+      </FormModal>
 
       {/* User Management Modal */}
       <FormModal

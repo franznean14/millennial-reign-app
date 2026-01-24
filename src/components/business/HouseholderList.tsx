@@ -422,7 +422,7 @@ export function HouseholderList({
     <div
       className={
         viewMode === 'table'
-          ? "w-full h-[calc(100vh-280px)] overflow-hidden flex flex-col overscroll-none mt-4"
+          ? "w-full h-[calc(100vh-280px)] overflow-hidden flex flex-col overscroll-none mt-6"
           : "w-full"
       }
       style={viewMode === 'table' ? { overscrollBehavior: 'none' } : undefined}
@@ -433,7 +433,7 @@ export function HouseholderList({
         <div className="w-full h-full flex-1 min-h-0">{renderTableView()}</div>
       ) : (
         <>
-          <div className="grid gap-4 mt-6 w-full">
+          <div className="grid gap-4 mt-10 w-full">
             {householders.slice(0, visibleCount).map((householder, index) => 
               viewMode === 'detailed' 
                 ? renderDetailedView(householder, index)

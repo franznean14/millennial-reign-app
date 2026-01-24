@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Calendar, BookOpen, Users, Clock, MapPin } from "lucide-react";
+import { Calendar, BookOpen, Users, Clock, MapPin, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -10,6 +10,7 @@ import { listEventSchedules, type EventSchedule } from "@/lib/db/eventSchedules"
 import { listHouseholders, type HouseholderWithDetails } from "@/lib/db/business";
 import { formatTimeLabel, isEventOccurringToday } from "@/lib/utils/recurrence";
 import { formatStatusText } from "@/lib/utils/formatters";
+import { FormModal } from "@/components/shared/FormModal";
 
 interface MinistrySectionProps {
   congregationData: Congregation;
@@ -24,6 +25,7 @@ export function MinistrySection({ congregationData, userId, onContactClick }: Mi
   const [loading, setLoading] = useState(true);
   const [bibleStudents, setBibleStudents] = useState<HouseholderWithDetails[]>([]);
   const [bibleStudentsLoading, setBibleStudentsLoading] = useState(false);
+  const [contactsDrawerOpen, setContactsDrawerOpen] = useState(false);
   
   useEffect(() => {
     async function loadTodayEvents() {
@@ -157,25 +159,32 @@ export function MinistrySection({ congregationData, userId, onContactClick }: Mi
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <BookOpen className="h-5 w-5" />
-            Contacts
-          </CardTitle>
+          <button
+            type="button"
+            className="w-full flex items-center justify-between gap-3 text-left rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            onClick={() => setContactsDrawerOpen(true)}
+          >
+            <CardTitle className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5" />
+              Contacts
+            </CardTitle>
+            <ChevronRight className="h-4 w-4 opacity-70" />
+          </button>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           {bibleStudentsLoading ? (
-            <div className="text-center py-6 text-muted-foreground">
+            <div className="text-center py-6 text-muted-foreground px-4">
               <p className="text-sm">Loading...</p>
             </div>
           ) : bibleStudents.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">
+          <div className="text-center py-8 text-muted-foreground px-4">
             <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
               <p>No Bible students yet</p>
               <p className="text-sm">Bible students will appear here when assigned</p>
             </div>
           ) : (
             <div className="divide-y">
-              {bibleStudents.map((householder) => {
+              {bibleStudents.slice(0, 3).map((householder) => {
                 const initials = householder.name
                   .split(" ")
                   .filter(Boolean)
@@ -189,11 +198,11 @@ export function MinistrySection({ congregationData, userId, onContactClick }: Mi
                     className="px-4 py-3 hover:bg-muted/50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     role="button"
                     tabIndex={0}
-                    onClick={() => onContactClick?.(householder)}
+                    onClick={() => setContactsDrawerOpen(true)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") {
                         event.preventDefault();
-                        onContactClick?.(householder);
+                        setContactsDrawerOpen(true);
                       }
                     }}
                   >
@@ -227,6 +236,69 @@ export function MinistrySection({ congregationData, userId, onContactClick }: Mi
           )}
         </CardContent>
       </Card>
+
+      <FormModal
+        open={contactsDrawerOpen}
+        onOpenChange={setContactsDrawerOpen}
+        title="Contacts"
+      >
+        <div className="w-full h-[calc(70vh)] overflow-hidden flex flex-col overscroll-none">
+          {/* Fixed Table Header */}
+          <div className="flex-shrink-0 border-b bg-background">
+            <table className="w-full text-sm table-fixed">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left py-3 px-3 w-[65%]">Name</th>
+                  <th className="text-left py-3 px-3 w-[35%]">Status</th>
+                </tr>
+              </thead>
+            </table>
+          </div>
+
+          {/* Scrollable Table Body */}
+          <div className="flex-1 overflow-y-auto no-scrollbar overscroll-none" style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}>
+            <table className="w-full text-sm table-fixed">
+              <tbody>
+                {bibleStudents.map((householder) => {
+                  const initials = householder.name
+                    .split(" ")
+                    .filter(Boolean)
+                    .slice(0, 2)
+                    .map((part) => part[0]?.toUpperCase())
+                    .join("");
+
+                  return (
+                    <tr
+                      key={householder.id}
+                      className="border-b hover:bg-muted/30 cursor-pointer"
+                      onClick={() => {
+                        setContactsDrawerOpen(false);
+                        onContactClick?.(householder);
+                      }}
+                    >
+                      <td className="p-3 min-w-0 w-[65%]">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <Avatar className="h-7 w-7">
+                            <AvatarFallback className="text-[10px] font-semibold">{initials || "BS"}</AvatarFallback>
+                          </Avatar>
+                          <span className="truncate">{householder.name}</span>
+                        </div>
+                      </td>
+                      <td className="p-3 w-[35%]">
+                        {householder.status ? (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 leading-none">
+                            {formatBibleStudentStatus(householder.status)}
+                          </Badge>
+                        ) : null}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </FormModal>
 
       <Card>
         <CardHeader>
