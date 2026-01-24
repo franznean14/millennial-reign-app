@@ -189,12 +189,10 @@ export function HouseholderList({
   const renderDetailedView = (householder: HouseholderWithDetails, index: number) => (
     <motion.div
       key={householder.id}
-      initial={{ opacity: 0, scale: 0.88 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ 
-        opacity: { duration: 0.4, ease: [0.4, 0, 0.2, 1] },
-        scale: { duration: 0.5, ease: [0.4, 0, 0.2, 1] }
-      }}
+      initial={{ opacity: 0, filter: "blur(6px)" }}
+      animate={{ opacity: 1, filter: "blur(0px)" }}
+      exit={{ opacity: 0, filter: "blur(6px)" }}
+      transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
       className="w-full"
     >
       <Card
@@ -300,12 +298,10 @@ export function HouseholderList({
   const renderCompactView = (householder: HouseholderWithDetails, index: number) => (
     <motion.div
       key={householder.id}
-      initial={{ opacity: 0, scale: 0.88 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ 
-        opacity: { duration: 0.4, ease: [0.4, 0, 0.2, 1] },
-        scale: { duration: 0.5, ease: [0.4, 0, 0.2, 1] }
-      }}
+      initial={{ opacity: 0, filter: "blur(6px)" }}
+      animate={{ opacity: 1, filter: "blur(0px)" }}
+      exit={{ opacity: 0, filter: "blur(6px)" }}
+      transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
       className="w-full"
     >
       <Card
@@ -429,22 +425,39 @@ export function HouseholderList({
     >
 
       {/* Householders */}
-      {viewMode === 'table' ? (
-        <div className="w-full h-full flex-1 min-h-0">{renderTableView()}</div>
-      ) : (
-        <>
-          <div className="grid gap-4 mt-10 w-full">
-            {householders.slice(0, visibleCount).map((householder, index) => 
-              viewMode === 'detailed' 
-                ? renderDetailedView(householder, index)
-                : renderCompactView(householder, index)
+      <AnimatePresence mode="wait" initial={false}>
+        {viewMode === 'table' ? (
+          <motion.div
+            key="table"
+            initial={{ opacity: 0, filter: "blur(6px)" }}
+            animate={{ opacity: 1, filter: "blur(0px)" }}
+            exit={{ opacity: 0, filter: "blur(6px)" }}
+            transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+            className="w-full h-full flex-1 min-h-0"
+          >
+            {renderTableView()}
+          </motion.div>
+        ) : (
+          <motion.div
+            key="cards"
+            initial={{ opacity: 0, filter: "blur(6px)" }}
+            animate={{ opacity: 1, filter: "blur(0px)" }}
+            exit={{ opacity: 0, filter: "blur(6px)" }}
+            transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
+          >
+            <div className="grid gap-4 mt-10 w-full">
+              {householders.slice(0, visibleCount).map((householder, index) =>
+                viewMode === 'detailed'
+                  ? renderDetailedView(householder, index)
+                  : renderCompactView(householder, index)
+              )}
+            </div>
+            {visibleCount < householders.length && (
+              <div ref={sentinelRef} className="h-20 w-full" aria-label="Load more trigger" />
             )}
-          </div>
-          {visibleCount < householders.length && (
-            <div ref={sentinelRef} className="h-20 w-full" aria-label="Load more trigger" />
-          )}
-        </>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -158,7 +157,7 @@ export function HouseholderDetails({
 
   return (
     <div className="space-y-6 w-full max-w-full">
-      <motion.div layout className="w-full">
+      <div className="w-full">
         <Card className={cn("w-full", getHouseholderCardColor(householder.status))}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -187,9 +186,9 @@ export function HouseholderDetails({
             </div>
           </CardContent>
         </Card>
-      </motion.div>
+      </div>
 
-      <motion.div layout className="w-full">
+      <div className="w-full">
         <VisitUpdatesSection 
           visits={visits} 
           isHouseholderContext={true}
@@ -203,7 +202,7 @@ export function HouseholderDetails({
           }}
         />
         
-      </motion.div>
+      </div>
 
 
       <FormModal
@@ -235,10 +234,10 @@ export function HouseholderDetails({
       >
               <HouseholderForm
                 establishments={establishments}
-                selectedEstablishmentId={householder.establishment_id}
+                selectedEstablishmentId={householder.establishment_id ?? undefined}
                 isEditing
                 context={context}
-                publisherId={publisherId ?? householder.publisher_id ?? null}
+                publisherId={publisherId ?? householder.publisher_id ?? undefined}
           initialData={{
             id: householder.id,
             establishment_id: householder.establishment_id || "",

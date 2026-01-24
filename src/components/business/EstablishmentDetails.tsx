@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -132,7 +131,7 @@ export function EstablishmentDetails({
   return (
     <div className="space-y-6 w-full max-w-full">
       {/* Basic Establishment Info with Direction Button */}
-      <motion.div layout className="w-full">
+      <div className="w-full">
         <Card className={cn("w-full", getStatusColor(primaryStatus))}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -234,10 +233,10 @@ export function EstablishmentDetails({
             </div>
           </CardContent>
         </Card>
-      </motion.div>
+      </div>
 
       {/* Visit Updates Section */}
-      <motion.div layout className="w-full">
+      <div className="w-full">
         <VisitUpdatesSection 
           visits={visits} 
           isHouseholderContext={false}
@@ -247,10 +246,10 @@ export function EstablishmentDetails({
             // Visit updates will be handled by the parent component's data refresh
           }}
         />
-      </motion.div>
+      </div>
 
       {/* Householders Section */}
-      <motion.div layout className="w-full">
+      <div className="w-full">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -300,7 +299,7 @@ export function EstablishmentDetails({
             )}
           </CardContent>
         </Card>
-      </motion.div>
+      </div>
 
       <FormModal
         open={isEditing}

@@ -170,21 +170,21 @@ export function BusinessSection({
   }, [setFilters]);
 
   const listMotion = {
-    initial: { opacity: 0, x: -20 },
-    animate: { opacity: 1, x: 0 },
-    exit: { opacity: 0, x: -20 },
+    initial: { opacity: 0, filter: "blur(6px)" },
+    animate: { opacity: 1, filter: "blur(0px)" },
+    exit: { opacity: 0, filter: "blur(6px)" },
     transition: { duration: 0.2 }
   };
 
   const detailsMotion = {
-    initial: { opacity: 0, x: 20 },
-    animate: { opacity: 1, x: 0 },
-    exit: { opacity: 0, x: 20 },
+    initial: { opacity: 0, filter: "blur(6px)" },
+    animate: { opacity: 1, filter: "blur(0px)" },
+    exit: { opacity: 0, filter: "blur(6px)" },
     transition: { duration: 0.3 }
   };
 
   const getDetailsWrapperClass = (isMap: boolean) =>
-    isMap ? "space-y-6 pb-20 px-4 py-6" : "space-y-6 pt-[80px]";
+    isMap ? "space-y-6 pb-20 px-4 py-6" : "space-y-6";
 
   const handleSelectEstablishment = useCallback(
     (establishment: EstablishmentWithDetails) => {
@@ -259,7 +259,7 @@ export function BusinessSection({
           className={businessTab === "map" ? "w-full h-full" : "w-full"}
           transition={{ duration: 0.3, ease: "easeOut" }}
         >
-          <AnimatePresence>
+          <AnimatePresence mode="popLayout" initial={false}>
             {!selectedEstablishment && !selectedHouseholder ? (
               businessTab === "establishments" ? (
                 <motion.div key="establishment-list" {...listMotion} className="w-full">
@@ -316,7 +316,7 @@ export function BusinessSection({
                 </motion.div>
               )
             ) : selectedHouseholder ? (
-              <motion.div key="householder-details" {...detailsMotion} className="w-full" layout>
+              <motion.div key="householder-details" {...detailsMotion} className="w-full">
                 <div className={getDetailsWrapperClass(businessTab === "map")}>
                   <HouseholderDetails
                     householder={selectedHouseholder}
@@ -334,7 +334,7 @@ export function BusinessSection({
                 </div>
               </motion.div>
             ) : (
-              <motion.div key="establishment-details" {...detailsMotion} className="w-full" layout>
+              <motion.div key="establishment-details" {...detailsMotion} className="w-full">
                 {selectedEstablishment && (
                   <div className={getDetailsWrapperClass(businessTab === "map")}>
                     <EstablishmentDetails
