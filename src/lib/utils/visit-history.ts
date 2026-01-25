@@ -51,6 +51,13 @@ export function buildVisitRecords(establishmentVisits: any[] = [], householderVi
       (v.householders as any)?.business_establishments ||
       null;
 
+    // Get establishment_id from visit, or from householder, or from establishment data
+    const establishmentId = 
+      (v as any).establishment_id || 
+      (v.householders as any)?.establishment_id || 
+      establishmentData?.id || 
+      null;
+
     return {
     id: `hh-${v.id}`,
     visit_date: v.visit_date,
@@ -59,6 +66,7 @@ export function buildVisitRecords(establishmentVisits: any[] = [], householderVi
     establishment_status: getBestStatus(establishmentData?.statuses || []),
     establishment_area: establishmentData?.area || null,
     visit_type: "householder" as const,
+    establishment_id: establishmentId,
     householder_id: v.householder_id,
     notes: v.note,
     created_at: v.created_at,

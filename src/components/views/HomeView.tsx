@@ -2,7 +2,7 @@
 
 import { HomeSummary } from "@/components/home/HomeSummary";
 import { DesktopHomeSummary } from "@/components/home/DesktopHomeSummary";
-import { BWIVisitHistory } from "@/components/home/BWIVisitHistory";
+import { VisitHistory } from "@/components/home/VisitHistory";
 import { UpcomingEvents } from "@/components/home/UpcomingEvents";
 import { useEffect, useState } from "react";
 
@@ -64,7 +64,7 @@ export function HomeView({ userId, onVisitClick, onNavigateToCongregation, homeT
             {/* Gap between cards */}
             <div className="h-6" />
             
-            <BWIVisitHistory 
+            <VisitHistory 
               userId={userId} 
               onVisitClick={onVisitClick}
             />

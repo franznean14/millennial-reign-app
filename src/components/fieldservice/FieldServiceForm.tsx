@@ -174,6 +174,8 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
 
   // State to cache visit-to-householder name mappings
   const [visitNamesCache, setVisitNamesCache] = useState<Map<string, string>>(new Map());
+  // State to cache visit-to-householder ID mappings (for filtering)
+  const [visitHouseholderIdCache, setVisitHouseholderIdCache] = useState<Map<string, string>>(new Map());
   // Track which visit IDs are currently loading
   const [loadingVisitIds, setLoadingVisitIds] = useState<Set<string>>(new Set());
 
@@ -215,12 +217,17 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
         if (error) throw error;
 
         const newCache = new Map(visitNamesCache);
+        const newHouseholderIdCache = new Map(visitHouseholderIdCache);
         visits?.forEach((visit: any) => {
           if (visit.householders && visit.householders.name) {
             newCache.set(visit.id, visit.householders.name);
           }
+          if (visit.householder_id) {
+            newHouseholderIdCache.set(visit.id, visit.householder_id);
+          }
         });
         setVisitNamesCache(newCache);
+        setVisitHouseholderIdCache(newHouseholderIdCache);
         
         // Clear loading state for successfully loaded visits
         setLoadingVisitIds(prev => {
@@ -359,12 +366,24 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
         }
         
         // Create visit entry first
-        const visit = await addVisit({
+        // Only include establishment_id if the householder has one
+        // If householder doesn't have establishment_id, explicitly set to null (not undefined)
+        const visitPayload: {
+          householder_id: string;
+          publisher_id: string;
+          visit_date: string;
+          note: null;
+          establishment_id?: string | null;
+        } = {
           householder_id: householderId,
           publisher_id: userId,
           visit_date: date,
-          note: null
-        });
+          note: null,
+          // Explicitly set to null if householder doesn't have one, to prevent any database defaults
+          establishment_id: householder.establishment_id || null
+        };
+        
+        const visit = await addVisit(visitPayload);
         
         if (!visit || !visit.id) {
           console.error('Failed to create visit entry:', { visit, householderId, userId, date });
@@ -395,10 +414,17 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
           return;
         }
         
-        // Load the visit name into cache immediately
+        // Load the visit name and householder ID into cache immediately
         setVisitNamesCache(prev => {
           const newCache = new Map(prev);
           newCache.set(visit.id, householder.name);
+          return newCache;
+        });
+        setVisitHouseholderIdCache(prev => {
+          const newCache = new Map(prev);
+          if (visit.householder_id) {
+            newCache.set(visit.id, visit.householder_id);
+          }
           return newCache;
         });
         
@@ -438,30 +464,37 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
     // If it's a visit ID, delete the visit entry
     const visitId = getVisitId(studyEntry);
     if (visitId) {
+      // Optimistically remove from UI and emit event immediately
+      setStudies((s) => s.filter((n) => n !== studyEntry));
+      setDirty(true);
+      
+      // Emit event optimistically to update BWI visit history immediately
+      try {
+        window.dispatchEvent(new CustomEvent('visit-deleted', { detail: { visitId } }));
+        businessEventBus.emit('visit-deleted', { id: visitId });
+      } catch {}
+      
+      // Delete the visit entry in the background
       try {
         const { deleteVisit } = await import("@/lib/db/business");
         const deleted = await deleteVisit(visitId);
         if (deleted) {
           console.log('Visit entry deleted:', visitId);
-          // Emit event to refresh visit history
-          try {
-            window.dispatchEvent(new CustomEvent('visit-deleted', { detail: { visitId } }));
-            businessEventBus.emit('visit-deleted', { id: visitId });
-          } catch {}
         } else {
           console.error('Failed to delete visit entry:', visitId);
           toast.error("Failed to delete visit entry");
+          // Note: We don't revert the optimistic update - the visit is already removed from UI
         }
       } catch (error: any) {
         console.error('Error deleting visit entry:', error);
         toast.error(error?.message || "Failed to delete visit entry");
-        // Still remove from UI even if visit deletion fails
+        // Note: We don't revert the optimistic update - the visit is already removed from UI
       }
+    } else {
+      // Not a visit ID, just remove from studies array
+      setStudies((s) => s.filter((n) => n !== studyEntry));
+      setDirty(true);
     }
-    
-    // Remove from studies array (this will trigger save via dirty flag)
-    setStudies((s) => s.filter((n) => n !== studyEntry));
-    setDirty(true);
   };
 
   const changeStep = (delta: number) => {
@@ -780,9 +813,21 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
                       return !studies.some(s => {
                         const visitId = getVisitId(s);
                         const hhId = getHouseholderId(s);
-                        // We need to check if any visit for this householder is already in the list
-                        // For now, just check householder ID (legacy) - visit check will be done server-side
-                        return hhId === contact.id;
+                        
+                        // Check legacy householder ID format
+                        if (hhId === contact.id) {
+                          return true;
+                        }
+                        
+                        // Check if this contact is linked to any visit in the studies list
+                        if (visitId) {
+                          const visitHouseholderId = visitHouseholderIdCache.get(visitId);
+                          if (visitHouseholderId === contact.id) {
+                            return true;
+                          }
+                        }
+                        
+                        return false;
                       });
                     })
                     .map((contact) => (

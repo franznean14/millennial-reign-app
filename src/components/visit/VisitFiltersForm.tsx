@@ -9,6 +9,8 @@ export interface VisitFilters {
   statuses: string[];
   areas: string[];
   myUpdatesOnly: boolean;
+  bwiOnly: boolean;
+  householderOnly: boolean;
 }
 
 export interface VisitFilterOption {

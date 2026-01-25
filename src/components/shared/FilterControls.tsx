@@ -1,11 +1,10 @@
 "use client";
 
 import React, { type RefObject } from "react";
-import { AnimatePresence, motion } from "motion/react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Filter as FilterIcon, Search, User, UserCheck, X } from "lucide-react";
+import { Filter as FilterIcon, Search, User, UserCheck, X, Building2, Home } from "lucide-react";
 import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
 import { cn } from "@/lib/utils";
 import type { FilterBadge } from "@/lib/utils/filter-badges";
@@ -24,6 +23,14 @@ interface FilterControlsProps {
   myLabel: string;
   onMyActivate: () => void;
   onMyClear: () => void;
+  bwiActive?: boolean;
+  bwiLabel?: string;
+  onBwiActivate?: () => void;
+  onBwiClear?: () => void;
+  householderActive?: boolean;
+  householderLabel?: string;
+  onHouseholderActivate?: () => void;
+  onHouseholderClear?: () => void;
   filterBadges: FilterBadge[];
   onOpenFilters: () => void;
   onClearFilters: () => void;
@@ -44,6 +51,14 @@ export function FilterControls({
   myLabel,
   onMyActivate,
   onMyClear,
+  bwiActive = false,
+  bwiLabel = "BWI Only",
+  onBwiActivate,
+  onBwiClear,
+  householderActive = false,
+  householderLabel = "Householder Only",
+  onHouseholderActivate,
+  onHouseholderClear,
   filterBadges,
   onOpenFilters,
   onClearFilters,
@@ -54,15 +69,9 @@ export function FilterControls({
   const hasActiveFilters = filterBadges.length > 0;
 
   return (
-    <AnimatePresence mode="popLayout" initial={false}>
+    <>
       {isSearchActive ? (
-        <motion.div
-          key="search-field"
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.8 }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          layout
+        <div
           className={cn(
             "flex items-center gap-2 w-full",
             containerClassName?.includes("!max-w-none") ? "" : "max-w-full",
@@ -106,14 +115,9 @@ export function FilterControls({
               </Button>
             )}
           </div>
-        </motion.div>
+        </div>
       ) : hasActiveFilters ? (
-        <motion.div
-          key="filter-expanded"
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.8 }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        <div
           style={{ position: "relative" }}
           className={cn(
             "flex items-center gap-1 max-w-[calc(100vw-3rem)]",
@@ -179,67 +183,108 @@ export function FilterControls({
               <X className="h-4 w-4 text-primary-foreground" />
             </div>
           </Button>
-        </motion.div>
-      ) : myActive ? (
-        <motion.div
-          key="my-expanded"
-          layoutId="filter-controls-main"
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ 
-            opacity: 0, 
-            scale: 0.8,
-            position: "absolute",
-            left: 0,
-            right: 0,
-            width: "auto"
-          }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+        </div>
+      ) : myActive || bwiActive || householderActive ? (
+        <div
           className={cn("flex items-center gap-1", containerClassName)}
         >
-          <Button
-            type="button"
-            variant="default"
-            size="sm"
-            className="h-9 rounded-full px-3 flex items-center gap-2 text-primary-foreground"
-            onClick={onMyClear}
-            aria-label={myLabel}
-          >
-            <UserCheck className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
-            <span className="text-sm whitespace-nowrap text-primary-foreground">{myLabel}</span>
-            <X className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
-          </Button>
-        </motion.div>
-      ) : (
-        <motion.div
-          key="buttons-row"
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.8 }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          style={{ position: "relative" }}
-          className={cn("flex items-center gap-3", containerClassName)}
-        >
-          <motion.div
-            key="my-icon"
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-          >
+          {myActive && (
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              className="h-9 rounded-full px-3 flex items-center gap-2 text-primary-foreground"
+              onClick={onMyClear}
+              aria-label={myLabel}
+            >
+              <UserCheck className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
+              <span className="text-sm whitespace-nowrap text-primary-foreground">{myLabel}</span>
+              <X className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
+            </Button>
+          )}
+          {(bwiActive || householderActive) && onBwiActivate && (
+            <Button
+              type="button"
+              variant={householderActive ? "outline" : "default"}
+              size="sm"
+              className={cn(
+                "h-9 rounded-full flex items-center gap-2",
+                householderActive ? "px-2" : "px-3"
+              )}
+              onClick={householderActive ? onBwiActivate : onBwiClear}
+              aria-label={bwiLabel}
+            >
+              <Building2 className={cn(
+                "h-4 w-4 flex-shrink-0",
+                householderActive ? "text-foreground" : "text-primary-foreground"
+              )} />
+              {!householderActive && (
+                <>
+                  <span className="text-sm whitespace-nowrap text-primary-foreground">{bwiLabel}</span>
+                  <X className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
+                </>
+              )}
+            </Button>
+          )}
+          {(bwiActive || householderActive) && onHouseholderActivate && !householderActive && (
             <Button
               type="button"
               variant="outline"
               size="icon"
               className="h-9 w-9 rounded-full flex-shrink-0"
-              onClick={onMyActivate}
-              aria-pressed={false}
-              aria-label={myLabel}
-              title={myLabel}
+              onClick={onHouseholderActivate}
+              aria-label={householderLabel}
+              title={householderLabel}
             >
-              <User className="h-4 w-4 text-foreground" />
+              <Home className="h-4 w-4 text-foreground" />
             </Button>
-          </motion.div>
+          )}
+          {householderActive && onHouseholderClear && (
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              className="h-9 rounded-full px-3 flex items-center gap-2 text-primary-foreground"
+              onClick={onHouseholderClear}
+              aria-label={householderLabel}
+            >
+              <Home className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
+              <span className="text-sm whitespace-nowrap text-primary-foreground">{householderLabel}</span>
+              <X className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div
+          style={{ position: "relative" }}
+          className={cn("flex items-center gap-3", containerClassName)}
+        >
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 rounded-full flex-shrink-0"
+            onClick={onMyActivate}
+            aria-pressed={false}
+            aria-label={myLabel}
+            title={myLabel}
+          >
+            <User className="h-4 w-4 text-foreground" />
+          </Button>
+          {onBwiActivate && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 rounded-full flex-shrink-0"
+              onClick={onBwiActivate}
+              aria-pressed={false}
+              aria-label={bwiLabel}
+              title={bwiLabel}
+            >
+              <Building2 className="h-4 w-4 text-foreground" />
+            </Button>
+          )}
           <Button
             type="button"
             variant="outline"
@@ -262,8 +307,8 @@ export function FilterControls({
           >
             <FilterIcon className="h-4 w-4 text-foreground" />
           </Button>
-        </motion.div>
+        </div>
       )}
-    </AnimatePresence>
+    </>
   );
 }

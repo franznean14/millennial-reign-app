@@ -20,12 +20,12 @@ import { cn } from "@/lib/utils";
 import { getVisitSearchText } from "@/lib/utils/visit-history-ui";
 import { useMemo } from "react";
 
-interface BWIVisitHistoryProps {
+interface VisitHistoryProps {
   userId: string;
   onVisitClick?: (visit: VisitRecord) => void;
 }
 
-export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) {
+export function VisitHistory({ userId, onVisitClick }: VisitHistoryProps) {
   const [showDrawer, setShowDrawer] = useState(false);
   const [activePanel, setActivePanel] = useState<"list" | "filters">("list");
   const [isSearchActive, setIsSearchActive] = useState(false);
@@ -252,7 +252,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
   if (loading) {
     return (
       <div className="rounded-lg border p-4">
-        <div className="text-sm font-medium mb-2 text-foreground">BWI Visit History</div>
+        <div className="text-sm font-medium mb-2 text-foreground">Visit History</div>
         <div className="text-sm text-muted-foreground">Loading...</div>
       </div>
     );
@@ -266,7 +266,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
             onClick={handleSeeMore}
             className="flex items-center gap-2 text-sm font-bold text-foreground hover:opacity-80 transition-opacity"
           >
-            BWI Visit History
+            Visit History
             <ChevronRight className="h-4 w-4" />
           </button>
           {/* Legend */}
@@ -301,7 +301,7 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
           setShowDrawer(open);
           if (!open) setActivePanel("list");
         }}
-        title={activePanel === "filters" ? "Filter Visits" : "BWI Visit History"}
+        title={activePanel === "filters" ? "Filter Visits" : "Visit History"}
         description={activePanel === "filters" ? "Filter by status and area" : "Complete visit history with infinite scroll"}
       >
         {activePanel === "filters" ? (
@@ -361,9 +361,17 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
                   }
                 }}
                 myActive={filters.myUpdatesOnly}
-                myLabel="My Updates"
+                myLabel="My Visits"
                 onMyActivate={() => setFilters(prev => ({ ...prev, myUpdatesOnly: true }))}
                 onMyClear={() => setFilters(prev => ({ ...prev, myUpdatesOnly: false }))}
+                bwiActive={filters.bwiOnly}
+                bwiLabel="BWI Only"
+                onBwiActivate={() => setFilters(prev => ({ ...prev, bwiOnly: true, householderOnly: false }))}
+                onBwiClear={() => setFilters(prev => ({ ...prev, bwiOnly: false }))}
+                householderActive={filters.householderOnly}
+                householderLabel="Householder Only"
+                onHouseholderActivate={() => setFilters(prev => ({ ...prev, householderOnly: true, bwiOnly: false }))}
+                onHouseholderClear={() => setFilters(prev => ({ ...prev, householderOnly: false }))}
                 filterBadges={filterBadges}
                 onOpenFilters={() => setActivePanel("filters")}
                 onClearFilters={clearFilters}

@@ -90,17 +90,26 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
       setEstId(initialVisit.establishment_id);
       return;
     }
-    // If householder has an establishment_id, use it
-    if (householderEstablishmentId) {
-      setEstId(householderEstablishmentId);
+    
+    const hhId = householderId || initialVisit?.householder_id;
+    if (hhId) {
+      // If there's a householder, only use its establishment_id if it has one
+      // If householder doesn't have establishment_id, set to "none" (don't default to first establishment)
+      if (householderEstablishmentId) {
+        setEstId(householderEstablishmentId);
+      } else {
+        setEstId("none");
+      }
       return;
     }
+    
+    // No householder context, use first establishment or "none"
     if (establishments.length > 0) {
       setEstId(establishments[0]?.id || "none");
       return;
     }
     setEstId("none");
-  }, [selectedEstablishmentId, initialVisit?.establishment_id, householderEstablishmentId, establishments]);
+  }, [selectedEstablishmentId, initialVisit?.establishment_id, householderEstablishmentId, householderId, initialVisit?.householder_id, establishments]);
   
   // Ensure partner shows immediately even if participants have not loaded yet
   useEffect(() => {
@@ -196,10 +205,18 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
     e.preventDefault();
     setSaving(true);
     try {
-      // Use householder's establishment_id if available, otherwise use selected estId
-      const finalEstablishmentId = householderEstablishmentId 
-        ? householderEstablishmentId 
-        : (estId === "none" ? undefined : estId || undefined);
+      // Determine establishment_id based on householder context
+      let finalEstablishmentId: string | undefined;
+      const hhId = householderId || initialVisit?.householder_id;
+      
+      if (hhId) {
+        // If there's a householder, only use establishment_id if the householder has one
+        // If householder doesn't have establishment_id, visit should also not have one
+        finalEstablishmentId = householderEstablishmentId || undefined;
+      } else {
+        // No householder, use selected establishment (or none)
+        finalEstablishmentId = estId === "none" ? undefined : estId || undefined;
+      }
 
       const payload = { 
         establishment_id: finalEstablishmentId, 

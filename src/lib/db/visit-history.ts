@@ -79,6 +79,7 @@ async function fetchHouseholderVisits(limit: number, offset: number) {
         visit_date,
         note,
         created_at,
+        establishment_id,
         householder_id,
         publisher_id,
         householders(name, establishment_id, business_establishments(name, statuses, area)),

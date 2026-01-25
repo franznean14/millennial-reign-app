@@ -31,7 +31,9 @@ export function useBwiVisitHistory({
     search: "",
     statuses: [],
     areas: [],
-    myUpdatesOnly: false
+    myUpdatesOnly: false,
+    bwiOnly: false,
+    householderOnly: false
   });
 
   const loadInitialVisits = useCallback(async (forceRefresh = false) => {
@@ -151,12 +153,48 @@ export function useBwiVisitHistory({
       }
     };
 
+    const handleVisitDeleted = async (deletedVisit: { id: string }) => {
+      const visitId = deletedVisit?.id;
+      if (!visitId) return;
+
+      // Clear cache first to ensure fresh data
+      await cacheDelete("bwi-visits-all-v2");
+      // Clear all paginated cache entries
+      for (let i = 0; i < 10; i++) {
+        await cacheDelete(`bwi-all-visits-v2-${userId ?? "all"}-${i * 20}`);
+      }
+
+      // Optimistically remove the visit from the lists
+      setVisits((prev) => {
+        return prev.filter(v => {
+          // Visit IDs in the list can be either "hh-{visitId}" or "est-{visitId}"
+          return v.id !== `hh-${visitId}` && v.id !== `est-${visitId}`;
+        });
+      });
+
+      setAllVisitsRaw((prev) => {
+        return prev.filter(v => {
+          // Visit IDs in the list can be either "hh-{visitId}" or "est-{visitId}"
+          return v.id !== `hh-${visitId}` && v.id !== `est-${visitId}`;
+        });
+      });
+
+      // Then refresh from server to ensure consistency
+      loadInitialVisits(true);
+      // If full list is already loaded, refresh it too
+      if (allVisitsRaw.length > 0) {
+        loadAllVisits(0, true);
+      }
+    };
+
     businessEventBus.subscribe('visit-added', handleVisitAdded);
     businessEventBus.subscribe('visit-updated', handleVisitUpdated);
+    businessEventBus.subscribe('visit-deleted', handleVisitDeleted);
 
     return () => {
       businessEventBus.unsubscribe('visit-added', handleVisitAdded);
       businessEventBus.unsubscribe('visit-updated', handleVisitUpdated);
+      businessEventBus.unsubscribe('visit-deleted', handleVisitDeleted);
     };
   }, [loadInitialVisits, loadAllVisits, allVisitsRaw.length, userId, recentLimit]);
 
@@ -187,6 +225,12 @@ export function useBwiVisitHistory({
     let filtered = [...allVisitsRaw];
     if (filters.myUpdatesOnly) {
       filtered = filtered.filter((visit) => visit.publisher_id === userId);
+    }
+    if (filters.bwiOnly) {
+      filtered = filtered.filter((visit) => visit.establishment_id != null);
+    }
+    if (filters.householderOnly) {
+      filtered = filtered.filter((visit) => visit.establishment_id == null);
     }
     const searchLower = filters.search.trim().toLowerCase();
     if (searchLower) {
