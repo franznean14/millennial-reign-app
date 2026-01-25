@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useLayoutEffect, useState, useRef } from "react";
 import { formatVisitDateLong, getVisitDisplayName } from "@/lib/utils/visit-history-ui";
 import { Button } from "@/components/ui/button";
 import { FormModal } from "@/components/shared/FormModal";
@@ -16,6 +16,9 @@ import { VisitAvatars } from "@/components/visit/VisitAvatars";
 import { VisitList } from "@/components/visit/VisitList";
 import { VisitRowContent } from "@/components/visit/VisitRowContent";
 import { VisitStatusBadge } from "@/components/visit/VisitStatusBadge";
+import { cn } from "@/lib/utils";
+import { getVisitSearchText } from "@/lib/utils/visit-history-ui";
+import { useMemo } from "react";
 
 interface BWIVisitHistoryProps {
   userId: string;
@@ -26,13 +29,18 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
   const [showDrawer, setShowDrawer] = useState(false);
   const [activePanel, setActivePanel] = useState<"list" | "filters">("list");
   const [isSearchActive, setIsSearchActive] = useState(false);
+  const [localSearchValue, setLocalSearchValue] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const hasFocusedRef = useRef(false);
+  const searchDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const isTypingRef = useRef(false);
 
   const {
     visits,
     loading,
     allVisitsRawCount,
-    filteredVisits,
+    filteredVisits: hookFilteredVisits,
     filterOptions,
     filterBadges,
     filters,
@@ -44,6 +52,39 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
     loadingMore,
     hasMore
   } = useBwiVisitHistory({ userId });
+
+  // Client-side search filtering - filters locally without updating hook state
+  // This prevents all items from unmounting/remounting, only items that don't match will exit
+  // Keep filters.search empty so hookFilteredVisits doesn't include search filtering
+  // Then apply localSearchValue locally for instant, fluid filtering
+  // Use a ref to track previous filtered list to maintain stable references when possible
+  const filteredVisitsRef = useRef<typeof hookFilteredVisits>([]);
+  
+  const filteredVisits = useMemo(() => {
+    // Ensure filters.search is empty so hookFilteredVisits is filtered by everything except search
+    const baseFiltered = hookFilteredVisits;
+    
+    // Apply local search filter
+    if (!localSearchValue.trim()) {
+      // If search is empty and base hasn't changed, return previous to maintain reference
+      if (filteredVisitsRef.current.length === baseFiltered.length &&
+          filteredVisitsRef.current.every((v, i) => v.id === baseFiltered[i]?.id)) {
+        return filteredVisitsRef.current;
+      }
+      const result = baseFiltered;
+      filteredVisitsRef.current = result;
+      return result;
+    }
+    
+    const searchLower = localSearchValue.trim().toLowerCase();
+    const result = baseFiltered.filter((visit) => 
+      getVisitSearchText(visit).includes(searchLower)
+    );
+    
+    // Update ref for next comparison
+    filteredVisitsRef.current = result;
+    return result;
+  }, [hookFilteredVisits, localSearchValue]);
 
   // Apply all filters to visits (handled by hook)
 
@@ -120,24 +161,93 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
     }
   };
 
-  // Auto-focus search input when search becomes active
+  // Auto-focus search input when search becomes active (only once, and only if not already focused)
+  // This effect should NOT run when user is typing to prevent focus disruption
   useEffect(() => {
-    if (isSearchActive && searchInputRef.current) {
+    // Don't run if user is actively typing
+    if (isTypingRef.current) {
+      return;
+    }
+    
+    if (isSearchActive && searchInputRef.current && !hasFocusedRef.current) {
+      // Only focus if the input is not already focused
       const timer = setTimeout(() => {
-        if (searchInputRef.current) {
+        // Double-check that user is not typing and input is not already focused
+        if (!isTypingRef.current && 
+            searchInputRef.current && 
+            document.activeElement !== searchInputRef.current &&
+            !searchInputRef.current.matches(':focus-within')) {
           searchInputRef.current.focus();
+          hasFocusedRef.current = true;
         }
-      }, 100);
+      }, 200);
       return () => clearTimeout(timer);
+    }
+    if (!isSearchActive) {
+      hasFocusedRef.current = false;
     }
   }, [isSearchActive]);
 
-  // Auto-activate search if there's search text
+  // Keep filters.search empty to ensure hook doesn't filter by search
+  // This allows us to do all search filtering client-side for better performance
   useEffect(() => {
-    if (filters.search && filters.search.trim() !== '') {
+    // If filters.search has a value, clear it (search is now client-side only)
+    // Only clear if localSearchValue is also empty (user cleared search via clearSearch)
+    if (filters.search && filters.search.trim() !== '' && (!localSearchValue || localSearchValue.trim() === "")) {
+      clearSearch();
+    }
+    
+    // Activate search if there's a local search value
+    if (localSearchValue && localSearchValue.trim() !== '') {
       setIsSearchActive(true);
     }
-  }, [filters.search]);
+  }, [filters.search, localSearchValue, clearSearch]);
+
+  // Prevent drawer from receiving focus during typing
+  // Use a more targeted approach that doesn't interfere with normal focus behavior
+  useEffect(() => {
+    if (!isTypingRef.current) return;
+    
+    const input = searchInputRef.current;
+    if (!input) return;
+    
+    // Only intervene if focus has moved away from input to drawer/body
+    const checkFocus = () => {
+      if (!isTypingRef.current || !input) return;
+      
+      const activeElement = document.activeElement;
+      // If focus moved to body or drawer container, restore to input
+      if (activeElement !== input && 
+          (activeElement === document.body || 
+           activeElement?.tagName === 'DIV' && 
+           activeElement?.closest('[role="dialog"]'))) {
+        // Restore focus to input
+        const selectionStart = input.selectionStart;
+        const selectionEnd = input.selectionEnd;
+        input.focus();
+        if (selectionStart !== null && selectionEnd !== null) {
+          try {
+            input.setSelectionRange(selectionStart, selectionEnd);
+          } catch (e) {
+            // Ignore errors
+          }
+        }
+      }
+    };
+    
+    // Check focus after a short delay to catch focus shifts
+    const timeoutId = setTimeout(checkFocus, 0);
+    return () => clearTimeout(timeoutId);
+  }, [localSearchValue]);
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => {
+      if (searchDebounceTimerRef.current) {
+        clearTimeout(searchDebounceTimerRef.current);
+      }
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -205,21 +315,49 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
           </div>
         ) : (
           <>
-            {/* Filter Controls - Centered */}
-            <div className="mb-4 flex justify-center">
+            {/* Filter Controls - Centered when search inactive */}
+            <div className={cn(
+              "mb-4 w-full flex",
+              isSearchActive ? "justify-start" : "justify-center"
+            )}>
               <FilterControls
                 isSearchActive={isSearchActive}
-                searchValue={filters.search}
+                searchValue={localSearchValue}
                 searchInputRef={searchInputRef}
-                onSearchActivate={() => setIsSearchActive(true)}
-                onSearchChange={(value) => setFilters(prev => ({ ...prev, search: value }))}
+                onSearchActivate={() => {
+                  setIsSearchActive(true);
+                  hasFocusedRef.current = false;
+                }}
+                onSearchChange={(value) => {
+                  // Mark that user is actively typing to prevent focus effects from running
+                  isTypingRef.current = true;
+                  
+                  // Update local value immediately for responsive UI (client-side filtering)
+                  setLocalSearchValue(value);
+                  
+                  // Don't update filters.search - keep search completely client-side
+                  // This prevents rerenders and keeps items mounted, only unmounting items that don't match
+                  
+                  // Reset typing flag after a short delay to allow focus effects to run when user stops
+                  setTimeout(() => {
+                    isTypingRef.current = false;
+                  }, 500);
+                }}
                 onSearchClear={() => {
+                  setLocalSearchValue("");
+                  // Clear search in filters too for consistency
                   clearSearch();
                   setIsSearchActive(false);
+                  hasFocusedRef.current = false;
+                  isTypingRef.current = false;
                 }}
                 onSearchBlur={() => {
-                  if (!filters.search || filters.search.trim() === "") {
+                  // Mark that typing has stopped
+                  isTypingRef.current = false;
+                  setIsTyping(false);
+                  if (!localSearchValue || localSearchValue.trim() === "") {
                     setIsSearchActive(false);
+                    hasFocusedRef.current = false;
                   }
                 }}
                 myActive={filters.myUpdatesOnly}
@@ -236,23 +374,49 @@ export function BWIVisitHistory({ userId, onVisitClick }: BWIVisitHistoryProps) 
                     setFilters(prev => ({ ...prev, areas: prev.areas.filter(a => a !== badge.value) }));
                   }
                 }}
-                containerClassName="justify-center"
-                maxWidthClassName="mx-4"
+                containerClassName={isSearchActive ? "w-full !max-w-none !px-0" : "justify-center"}
+                maxWidthClassName={isSearchActive ? "" : "mx-4"}
               />
             </div>
 
-            <div className="relative max-h-[70vh] overflow-y-auto">
+            <div 
+              className="relative max-h-[70vh] overflow-y-auto"
+              tabIndex={-1}
+              onFocus={(e) => {
+                // If focus moves to the scrollable container, return it to the input if user is typing
+                if (isTypingRef.current && searchInputRef.current && e.target === e.currentTarget) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  // Use setTimeout to ensure this happens after any other focus handlers
+                  setTimeout(() => {
+                    if (searchInputRef.current && isTypingRef.current) {
+                      const input = searchInputRef.current;
+                      const selectionStart = input.selectionStart;
+                      const selectionEnd = input.selectionEnd;
+                      input.focus();
+                      if (selectionStart !== null && selectionEnd !== null) {
+                        try {
+                          input.setSelectionRange(selectionStart, selectionEnd);
+                        } catch (e) {
+                          // Ignore
+                        }
+                      }
+                    }
+                  }, 0);
+                }
+              }}
+            >
               <motion.div 
                 className="space-y-4"
-                layout
+                layout={!isTyping}
                 transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
               >
-                <AnimatePresence mode="popLayout">
+                <AnimatePresence mode="popLayout" initial={false}>
                   {filteredVisits.map((visit, index) => (
                     <motion.div
                       key={visit.id}
-                      layout
-                      initial={{ opacity: 0, height: 0, y: -10 }}
+                      layout={!isTyping}
+                      initial={false}
                       animate={{ opacity: 1, height: "auto", y: 0 }}
                       exit={{ opacity: 0, height: 0, y: -10 }}
                       transition={{ 

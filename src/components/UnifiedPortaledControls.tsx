@@ -10,6 +10,7 @@ import { HomeTabToggle } from "@/components/home/HomeTabToggle";
 import { AccountTabToggle } from "@/components/account/AccountTabToggle";
 import { FilterControls, type FilterBadge } from "@/components/shared/FilterControls";
 import { buildFilterBadges } from "@/lib/utils/filter-badges";
+import { cn } from "@/lib/utils";
 import { LayoutGrid, List, Table as TableIcon, X, Crosshair, ChevronLeft, Edit } from "lucide-react";
 import type { BusinessFiltersState, EstablishmentWithDetails, HouseholderWithDetails } from "@/lib/db/business";
 
@@ -92,6 +93,7 @@ function BusinessControlsContent({
   onEditClick: () => void;
 }) {
   const [isSearchActive, setIsSearchActive] = useState(false);
+  const [isExiting, setIsExiting] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -125,7 +127,12 @@ function BusinessControlsContent({
 
   const handleClearSearchAndRestore = () => {
     onClearSearch();
-    setIsSearchActive(false);
+    setIsExiting(true);
+    // Delay the state change to allow exit animation to complete
+    setTimeout(() => {
+      setIsSearchActive(false);
+      setIsExiting(false);
+    }, 300);
   };
 
   const hasFilterOptions = filters.statuses.length > 0 || filters.areas.length > 0 || filters.floors.length > 0;
@@ -216,11 +223,17 @@ function BusinessControlsContent({
       {!isDetailsView && (
         <motion.div
           key="buttons-row"
-          className="flex items-center gap-3 max-w-full px-4 justify-center"
-          layout
+          className="flex items-center gap-3 w-full"
+          style={{
+            justifyContent: isSearchActive ? "flex-start" : "center",
+          }}
           transition={{ type: "spring", stiffness: 300, damping: 30 }}
         >
-          <motion.div layout transition={{ type: "spring", stiffness: 300, damping: 30 }}>
+          <motion.div 
+            layout
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className={isSearchActive ? "flex-1 min-w-0" : "flex-shrink-0"}
+          >
             <FilterControls
               isSearchActive={isSearchActive}
               searchValue={filters.search}
@@ -230,7 +243,11 @@ function BusinessControlsContent({
               onSearchClear={handleClearSearchAndRestore}
               onSearchBlur={() => {
                 if (!filters.search || filters.search.trim() === "") {
-                  setIsSearchActive(false);
+                  setIsExiting(true);
+                  setTimeout(() => {
+                    setIsSearchActive(false);
+                    setIsExiting(false);
+                  }, 300);
                 }
               }}
               myActive={filters.myEstablishments}
@@ -256,8 +273,8 @@ function BusinessControlsContent({
                   onRemoveFloor(badge.value);
                 }
               }}
-              containerClassName="justify-center"
-              maxWidthClassName="mx-4"
+              containerClassName={(isSearchActive && !isExiting) ? "w-full !max-w-none !px-0" : "justify-center"}
+              maxWidthClassName={(isSearchActive && !isExiting) ? "" : "mx-4"}
             />
           </motion.div>
 

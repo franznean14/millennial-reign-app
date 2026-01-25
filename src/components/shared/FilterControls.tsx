@@ -54,22 +54,30 @@ export function FilterControls({
   const hasActiveFilters = filterBadges.length > 0;
 
   return (
-    <AnimatePresence mode="wait">
+    <AnimatePresence mode="popLayout" initial={false}>
       {isSearchActive ? (
         <motion.div
           key="search-field"
-          initial={{ opacity: 0, scale: 0.95 }}
+          initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          transition={{ duration: 0.2 }}
-          className={cn("flex items-center gap-2 max-w-full px-4 w-full", containerClassName)}
+          exit={{ opacity: 0, scale: 0.8 }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          layout
+          className={cn(
+            "flex items-center gap-2 w-full",
+            containerClassName?.includes("!max-w-none") ? "" : "max-w-full",
+            containerClassName?.includes("!px-0") ? "" : "px-4",
+            containerClassName
+          )}
         >
-          <div className="relative flex-1">
+          <div className="relative flex-1 w-full">
             <Input
               ref={searchInputRef}
               placeholder="Search ..."
               value={searchValue}
-              onChange={(e) => onSearchChange(e.target.value)}
+              onChange={(e) => {
+                onSearchChange(e.target.value);
+              }}
               onBlur={onSearchBlur}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -80,6 +88,10 @@ export function FilterControls({
                 }
               }}
               className="bg-background/95 backdrop-blur-sm border shadow-lg h-9 rounded-full w-full pr-10"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
             />
             {searchValue.trim() !== "" && (
               <Button
@@ -98,10 +110,11 @@ export function FilterControls({
       ) : hasActiveFilters ? (
         <motion.div
           key="filter-expanded"
-          initial={{ width: 36, opacity: 0 }}
-          animate={{ width: "auto", opacity: 1 }}
-          exit={{ width: 36, opacity: 0 }}
-          transition={{ duration: 0.2 }}
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.8 }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          style={{ position: "relative" }}
           className={cn(
             "flex items-center gap-1 max-w-[calc(100vw-3rem)]",
             maxWidthClassName,
@@ -170,10 +183,18 @@ export function FilterControls({
       ) : myActive ? (
         <motion.div
           key="my-expanded"
-          initial={{ width: 36, opacity: 0 }}
-          animate={{ width: "auto", opacity: 1 }}
-          exit={{ width: 36, opacity: 0 }}
-          transition={{ duration: 0.2 }}
+          layoutId="filter-controls-main"
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ 
+            opacity: 0, 
+            scale: 0.8,
+            position: "absolute",
+            left: 0,
+            right: 0,
+            width: "auto"
+          }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
           className={cn("flex items-center gap-1", containerClassName)}
         >
           <Button
@@ -192,18 +213,19 @@ export function FilterControls({
       ) : (
         <motion.div
           key="buttons-row"
-          initial={{ opacity: 0, scale: 0.95 }}
+          initial={{ opacity: 0, scale: 0.8 }}
           animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          transition={{ duration: 0.2 }}
+          exit={{ opacity: 0, scale: 0.8 }}
+          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          style={{ position: "relative" }}
           className={cn("flex items-center gap-3", containerClassName)}
         >
           <motion.div
             key="my-icon"
-            initial={{ width: "auto", opacity: 0 }}
-            animate={{ width: 36, opacity: 1 }}
-            exit={{ width: "auto", opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
           >
             <Button
               type="button"
