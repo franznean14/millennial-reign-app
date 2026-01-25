@@ -10,6 +10,7 @@ export interface VisitRecord {
   visit_type: "establishment" | "householder";
   establishment_id?: string;
   householder_id?: string;
+  householder_publisher_id?: string;
   establishment_status?: string;
   establishment_area?: string;
   notes?: string;
@@ -68,6 +69,7 @@ export function buildVisitRecords(establishmentVisits: any[] = [], householderVi
     visit_type: "householder" as const,
     establishment_id: establishmentId,
     householder_id: v.householder_id,
+    householder_publisher_id: (v.householders as any)?.publisher_id || undefined,
     notes: v.note,
     created_at: v.created_at,
     updated_at: (v as any).updated_at ?? v.created_at,

@@ -367,20 +367,20 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
         
         // Create visit entry first
         // Only include establishment_id if the householder has one
-        // If householder doesn't have establishment_id, explicitly set to null (not undefined)
+        // If householder doesn't have establishment_id, explicitly set to undefined (not null)
         const visitPayload: {
           householder_id: string;
           publisher_id: string;
           visit_date: string;
           note: null;
-          establishment_id?: string | null;
+          establishment_id?: string;
         } = {
           householder_id: householderId,
           publisher_id: userId,
           visit_date: date,
           note: null,
-          // Explicitly set to null if householder doesn't have one, to prevent any database defaults
-          establishment_id: householder.establishment_id || null
+          // Explicitly set to undefined if householder doesn't have one, to prevent any database defaults
+          establishment_id: householder.establishment_id ? householder.establishment_id : undefined
         };
         
         const visit = await addVisit(visitPayload);

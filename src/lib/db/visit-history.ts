@@ -19,6 +19,7 @@ type VisitQueryResult = {
   householders?: {
     name?: string | null;
     establishment_id?: string | null;
+    publisher_id?: string | null;
     business_establishments?: { name?: string | null; statuses?: string[] | null; area?: string | null } | null;
   } | null;
   publisher?: { first_name: string; last_name: string; avatar_url?: string | null } | null;
@@ -82,7 +83,7 @@ async function fetchHouseholderVisits(limit: number, offset: number) {
         establishment_id,
         householder_id,
         publisher_id,
-        householders(name, establishment_id, business_establishments(name, statuses, area)),
+        householders(name, establishment_id, publisher_id, business_establishments(name, statuses, area)),
         business_establishments(name, statuses, area),
         publisher:profiles!business_visits_publisher_id_fkey(first_name, last_name, avatar_url),
         partner:profiles!business_visits_partner_id_fkey(first_name, last_name, avatar_url)

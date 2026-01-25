@@ -56,7 +56,7 @@ export function FilterControls({
   onBwiActivate,
   onBwiClear,
   householderActive = false,
-  householderLabel = "Householder Only",
+  householderLabel = "Personal Contacts Only",
   onHouseholderActivate,
   onHouseholderClear,
   filterBadges,

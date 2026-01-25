@@ -369,7 +369,7 @@ export function VisitHistory({ userId, onVisitClick }: VisitHistoryProps) {
                 onBwiActivate={() => setFilters(prev => ({ ...prev, bwiOnly: true, householderOnly: false }))}
                 onBwiClear={() => setFilters(prev => ({ ...prev, bwiOnly: false }))}
                 householderActive={filters.householderOnly}
-                householderLabel="Householder Only"
+                householderLabel="Personal Contacts Only"
                 onHouseholderActivate={() => setFilters(prev => ({ ...prev, householderOnly: true, bwiOnly: false }))}
                 onHouseholderClear={() => setFilters(prev => ({ ...prev, householderOnly: false }))}
                 filterBadges={filterBadges}

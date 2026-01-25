@@ -230,7 +230,15 @@ export function useBwiVisitHistory({
       filtered = filtered.filter((visit) => visit.establishment_id != null);
     }
     if (filters.householderOnly) {
-      filtered = filtered.filter((visit) => visit.establishment_id == null);
+      // Personal contacts: householders that have a publisher_id (assigned to a publisher)
+      // This includes householders even if they also have an establishment_id
+      filtered = filtered.filter((visit) => {
+        // Only householder visits can be personal contacts
+        if (visit.visit_type !== "householder") return false;
+        // Check if the householder has a publisher_id (is a personal contact)
+        // Must be a truthy string value (not null, undefined, or empty string)
+        return Boolean(visit.householder_publisher_id);
+      });
     }
     const searchLower = filters.search.trim().toLowerCase();
     if (searchLower) {
