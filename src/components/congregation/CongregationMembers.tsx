@@ -126,7 +126,7 @@ export function CongregationMembers({ congregationId, currentUserId }: Congregat
     const initials = `${member.first_name?.[0] || ""}${member.last_name?.[0] || ""}`.toUpperCase() || "U";
     const primary = getPrimaryPrivilege(member.privileges);
     return (
-      <div className={compact ? "px-4 py-3" : "px-3 py-2"} role="row">
+      <div className={compact ? "" : "px-3 py-2"} role="row">
         <div className="flex items-center gap-3">
           <Avatar className={compact ? "h-9 w-9" : "h-8 w-8"}>
             <AvatarImage src={member.avatar_url || undefined} />
@@ -176,11 +176,11 @@ export function CongregationMembers({ congregationId, currentUserId }: Congregat
           ) : previewMembers.length === 0 ? (
             <div className="px-4 pb-6 text-sm text-muted-foreground">No members found.</div>
           ) : (
-            <div className="divide-y">
+            <div className="px-4 py-2 space-y-2">
               {previewMembers.map((member) => (
                 <div
                   key={member.id}
-                  className="hover:bg-muted/50 transition-colors cursor-pointer"
+                  className="px-3 py-2.5 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
                   role="button"
                   tabIndex={0}
                   onClick={() => setMembersDrawerOpen(true)}

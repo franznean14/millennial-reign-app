@@ -12,6 +12,7 @@ import { listHouseholders, type HouseholderWithDetails } from "@/lib/db/business
 import { formatTimeLabel, isEventOccurringToday } from "@/lib/utils/recurrence";
 import { formatStatusText } from "@/lib/utils/formatters";
 import { FormModal } from "@/components/shared/FormModal";
+import { businessEventBus } from "@/lib/events/business-events";
 import dynamic from "next/dynamic";
 
 const EventScheduleForm = dynamic(() => import("@/components/congregation/EventScheduleForm").then((m) => m.EventScheduleForm), {
@@ -67,34 +68,92 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
     loadEvents();
   }, [loadEvents]);
 
-  useEffect(() => {
-    let active = true;
-
-    async function loadBibleStudents() {
-      if (!userId) {
-        setBibleStudents([]);
-        return;
-      }
-
-      try {
-        setBibleStudentsLoading(true);
-        const householders = await listHouseholders();
-        if (!active) return;
-        const owned = householders.filter(
-          (householder) => householder.publisher_id && householder.publisher_id === userId
-        );
-        setBibleStudents(owned);
-      } catch (error) {
-        console.error("Error loading bible students:", error);
-        if (active) setBibleStudents([]);
-      } finally {
-        if (active) setBibleStudentsLoading(false);
-      }
+  const loadBibleStudents = useCallback(async () => {
+    if (!userId) {
+      setBibleStudents([]);
+      return;
     }
 
+    try {
+      setBibleStudentsLoading(true);
+      const householders = await listHouseholders();
+      const owned = householders.filter(
+        (householder) => householder.publisher_id && householder.publisher_id === userId
+      );
+      setBibleStudents(owned);
+    } catch (error) {
+      console.error("Error loading bible students:", error);
+      setBibleStudents([]);
+    } finally {
+      setBibleStudentsLoading(false);
+    }
+  }, [userId]);
+
+  useEffect(() => {
     loadBibleStudents();
+  }, [loadBibleStudents]);
+
+  // Subscribe to householder events for optimistic updates
+  useEffect(() => {
+    if (!userId) return;
+
+    const handleHouseholderAdded = (householder: HouseholderWithDetails) => {
+      // Only add if it belongs to the current user
+      if (householder.publisher_id === userId) {
+        setBibleStudents((prev) => {
+          // Check if already exists (avoid duplicates)
+          const exists = prev.some((h) => h.id === householder.id);
+          if (exists) return prev;
+          // Add to the beginning of the list
+          return [householder, ...prev];
+        });
+      }
+    };
+
+    const handleHouseholderUpdated = (updated: Partial<HouseholderWithDetails> & { id?: string; publisher_id?: string | null }) => {
+      if (!updated.id) return;
+      
+      setBibleStudents((prev) => {
+        const index = prev.findIndex((h) => h.id === updated.id);
+        const belongsToUser = updated.publisher_id === userId;
+        
+        if (index === -1) {
+          // Not in list currently
+          if (belongsToUser && updated.name) {
+            // Belongs to user now and we have enough data, add it
+            // The event should contain the full householder data
+            const newHouseholder = updated as HouseholderWithDetails;
+            return [newHouseholder, ...prev];
+          }
+          return prev;
+        }
+        
+        // Found in list
+        if (belongsToUser) {
+          // Still belongs to user, update it
+          const updatedList = [...prev];
+          updatedList[index] = { ...updatedList[index], ...updated } as HouseholderWithDetails;
+          return updatedList;
+        } else {
+          // No longer belongs to user, remove it
+          return prev.filter((h) => h.id !== updated.id);
+        }
+      });
+    };
+
+    const handleHouseholderDeleted = (deleted: { id?: string }) => {
+      if (!deleted.id) return;
+      setBibleStudents((prev) => prev.filter((h) => h.id !== deleted.id));
+    };
+
+    businessEventBus.subscribe('householder-added', handleHouseholderAdded);
+    businessEventBus.subscribe('householder-updated', handleHouseholderUpdated);
+    businessEventBus.subscribe('householder-deleted', handleHouseholderDeleted);
+
     return () => {
-      active = false;
+      businessEventBus.unsubscribe('householder-added', handleHouseholderAdded);
+      businessEventBus.unsubscribe('householder-updated', handleHouseholderUpdated);
+      businessEventBus.unsubscribe('householder-deleted', handleHouseholderDeleted);
     };
   }, [userId]);
 
@@ -122,16 +181,46 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
         days.add(event.day_of_week);
       }
     });
-    return Array.from(days).sort((a, b) => a - b);
+    // Sort with Monday (1) first, then Tuesday-Sunday
+    return Array.from(days).sort((a, b) => {
+      // Convert to Monday-first order: 1,2,3,4,5,6,0
+      const aOrder = a === 0 ? 7 : a;
+      const bOrder = b === 0 ? 7 : b;
+      return aOrder - bOrder;
+    });
   }, [allMinistryEvents]);
 
-  // Filter events by selected day
+  // Filter and sort events by selected day
   const filteredSchedules = useMemo(() => {
-    if (activeDay === null || activeDay === 'All') return allMinistryEvents;
-    const dayNum = parseInt(activeDay);
-    return allMinistryEvents.filter(event => 
-      event.recurrence_pattern === 'weekly' && event.day_of_week === dayNum
-    );
+    let filtered = allMinistryEvents;
+    
+    if (activeDay !== null && activeDay !== 'All') {
+      const dayNum = parseInt(activeDay);
+      filtered = allMinistryEvents.filter(event => 
+        event.recurrence_pattern === 'weekly' && event.day_of_week === dayNum
+      );
+    }
+    
+    // When showing "All", sort by day of week (Monday first)
+    if (activeDay === null || activeDay === 'All') {
+      return filtered.sort((a, b) => {
+        // Only sort weekly recurring events by day_of_week
+        if (a.recurrence_pattern === 'weekly' && b.recurrence_pattern === 'weekly') {
+          const aDay = a.day_of_week ?? 7; // Put null/undefined at end
+          const bDay = b.day_of_week ?? 7;
+          // Convert to Monday-first order: 1,2,3,4,5,6,0,7
+          const aOrder = aDay === 0 ? 7 : aDay;
+          const bOrder = bDay === 0 ? 7 : bDay;
+          return aOrder - bOrder;
+        }
+        // Non-weekly events go to the end
+        if (a.recurrence_pattern === 'weekly' && b.recurrence_pattern !== 'weekly') return -1;
+        if (a.recurrence_pattern !== 'weekly' && b.recurrence_pattern === 'weekly') return 1;
+        return 0;
+      });
+    }
+    
+    return filtered;
   }, [allMinistryEvents, activeDay]);
 
   // Set initial active day to "All"
@@ -159,8 +248,26 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
-            <div className="text-center py-6 text-muted-foreground">
-              <p className="text-sm">Loading...</p>
+            <div className="px-4 py-2 space-y-2">
+              {[1, 2].map((i) => (
+                <div key={i} className="px-3 py-2.5 rounded-lg">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <div className="h-4 bg-muted/60 rounded w-32 blur-[2px] animate-pulse" />
+                        <div className="h-4 bg-muted/60 rounded w-12 blur-[2px] animate-pulse" />
+                      </div>
+                      
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2">
+                        <div className="h-3 bg-muted/60 rounded w-24 blur-[2px] animate-pulse" />
+                        <div className="h-3 bg-muted/60 rounded w-32 blur-[2px] animate-pulse" />
+                      </div>
+                      
+                      <div className="h-3 bg-muted/60 rounded w-full max-w-[200px] mt-2 blur-[2px] animate-pulse" />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : todayEvents.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
@@ -168,9 +275,9 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
               <p className="text-sm">No ministry events scheduled for today</p>
             </div>
           ) : (
-            <div className="divide-y">
+            <div className="px-4 py-2 space-y-2">
               {todayEvents.map((event) => (
-                <div key={event.id} className="px-4 py-3 hover:bg-muted/50 transition-colors">
+                <div key={event.id} className="px-3 py-2.5 rounded-lg hover:bg-muted/50 transition-colors">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
@@ -243,7 +350,7 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
               <p className="text-sm">Bible students will appear here when assigned</p>
             </div>
           ) : (
-            <div className="divide-y">
+            <div className="px-4 py-2 space-y-2">
               {bibleStudents.slice(0, 3).map((householder) => {
                 const initials = householder.name
                   .split(" ")
@@ -255,7 +362,7 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
                 return (
                   <div
                     key={householder.id}
-                    className="px-4 py-3 hover:bg-muted/50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    className="px-3 py-2.5 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     role="button"
                     tabIndex={0}
                     onClick={() => setContactsDrawerOpen(true)}
@@ -440,11 +547,18 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
                         <td className="p-3 min-w-0 w-[60%]">
                           <div className="flex flex-col gap-1 min-w-0">
                             <span className="truncate font-medium">{event.title}</span>
-                            {event.ministry_type && (
-                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 leading-none w-fit">
-                                {formatMinistryType(event.ministry_type)}
-                              </Badge>
-                            )}
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {event.ministry_type && (
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 leading-none w-fit">
+                                  {formatMinistryType(event.ministry_type)}
+                                </Badge>
+                              )}
+                              {(activeDay === null || activeDay === 'All') && event.recurrence_pattern === 'weekly' && event.day_of_week != null && (
+                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 leading-none w-fit">
+                                  {dayNames[event.day_of_week]}
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                           {event.description && (
                             <p className="text-xs text-muted-foreground mt-1 line-clamp-1 truncate">{event.description}</p>
