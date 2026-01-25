@@ -339,7 +339,7 @@ export function AppClient() {
         try {
           const supabase = await getSupabaseClient();
           const { data: visits } = await supabase
-            .from('business_visits')
+            .from('calls')
             .select('establishment_id, householder_id')
             .eq('publisher_id', userId);
           

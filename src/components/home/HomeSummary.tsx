@@ -619,11 +619,11 @@ export function HomeSummary({
           const visitIdsToFetch = Array.from(visitIds).filter(id => !cacheRef.current.has(`visit:${id}`));
           if (visitIdsToFetch.length > 0) {
             const { data: visits, error: visitError } = await supabase
-              .from('business_visits')
+              .from('calls')
               .select(`
                 id,
                 householder_id,
-                householders:business_visits_householder_id_fkey(id, name)
+                householders:calls_householder_id_fkey(id, name)
               `)
               .in('id', visitIdsToFetch);
             

@@ -47,7 +47,7 @@ function isOffline() {
 async function fetchEstablishmentVisits(limit: number, offset: number) {
   const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase
-    .from("business_visits")
+    .from("calls")
     .select(
       `
         id,
@@ -57,8 +57,8 @@ async function fetchEstablishmentVisits(limit: number, offset: number) {
         establishment_id,
         publisher_id,
         business_establishments(name, statuses, area),
-        publisher:profiles!business_visits_publisher_id_fkey(first_name, last_name, avatar_url),
-        partner:profiles!business_visits_partner_id_fkey(first_name, last_name, avatar_url)
+        publisher:profiles!calls_publisher_id_fkey(first_name, last_name, avatar_url),
+        partner:profiles!calls_partner_id_fkey(first_name, last_name, avatar_url)
       `
     )
     .is("householder_id", null)
@@ -73,7 +73,7 @@ async function fetchEstablishmentVisits(limit: number, offset: number) {
 async function fetchHouseholderVisits(limit: number, offset: number) {
   const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase
-    .from("business_visits")
+    .from("calls")
     .select(
       `
         id,
@@ -85,8 +85,8 @@ async function fetchHouseholderVisits(limit: number, offset: number) {
         publisher_id,
         householders(name, establishment_id, publisher_id, business_establishments(name, statuses, area)),
         business_establishments(name, statuses, area),
-        publisher:profiles!business_visits_publisher_id_fkey(first_name, last_name, avatar_url),
-        partner:profiles!business_visits_partner_id_fkey(first_name, last_name, avatar_url)
+        publisher:profiles!calls_publisher_id_fkey(first_name, last_name, avatar_url),
+        partner:profiles!calls_partner_id_fkey(first_name, last_name, avatar_url)
       `
     )
     .not("householder_id", "is", null)
@@ -220,7 +220,7 @@ function normalizeVisitWithUser(visit: VisitWithUserRaw): VisitWithUser {
 export async function getEstablishmentVisitsWithUsers(establishmentId: string): Promise<VisitWithUser[]> {
   const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase
-    .from("business_visits")
+    .from("calls")
     .select(
       `
         id,
@@ -230,9 +230,9 @@ export async function getEstablishmentVisitsWithUsers(establishmentId: string): 
         partner_id,
         householder_id,
         establishment_id,
-        publisher:profiles!business_visits_publisher_id_fkey(id, first_name, last_name, avatar_url),
-        partner:profiles!business_visits_partner_id_fkey(id, first_name, last_name, avatar_url),
-        householder:householders!business_visits_householder_id_fkey(id, name, status)
+        publisher:profiles!calls_publisher_id_fkey(id, first_name, last_name, avatar_url),
+        partner:profiles!calls_partner_id_fkey(id, first_name, last_name, avatar_url),
+        householder:householders!calls_householder_id_fkey(id, name, status)
       `
     )
     .eq("establishment_id", establishmentId)
@@ -245,7 +245,7 @@ export async function getEstablishmentVisitsWithUsers(establishmentId: string): 
 export async function getHouseholderVisitsWithUsers(householderId: string): Promise<VisitWithUser[]> {
   const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase
-    .from("business_visits")
+    .from("calls")
     .select(
       `
         id,
@@ -255,10 +255,10 @@ export async function getHouseholderVisitsWithUsers(householderId: string): Prom
         partner_id,
         establishment_id,
         householder_id,
-        publisher:profiles!business_visits_publisher_id_fkey(id, first_name, last_name, avatar_url),
-        partner:profiles!business_visits_partner_id_fkey(id, first_name, last_name, avatar_url),
-        householder:householders!business_visits_householder_id_fkey(id, name, status),
-        establishment:business_establishments!business_visits_establishment_id_fkey(id, name, statuses)
+        publisher:profiles!calls_publisher_id_fkey(id, first_name, last_name, avatar_url),
+        partner:profiles!calls_partner_id_fkey(id, first_name, last_name, avatar_url),
+        householder:householders!calls_householder_id_fkey(id, name, status),
+        establishment:business_establishments!calls_establishment_id_fkey(id, name, statuses)
       `
     )
     .eq("householder_id", householderId)

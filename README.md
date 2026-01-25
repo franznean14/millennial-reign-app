@@ -104,7 +104,7 @@ A modern Kingdom Ministry application built with Next.js 15, React 19, and Supab
 - **congregations**: Group management
 - **business_establishments**: Territory locations
 - **business_householders**: Individual contacts
-- **business_visits**: Field service records
+- **calls**: Field service records (formerly business_visits)
 - **push_subscriptions**: Push notification subscriptions
 
 ### Security

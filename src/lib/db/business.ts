@@ -248,11 +248,11 @@ export async function listHouseholders(): Promise<HouseholderWithDetails[]> {
       .select(`
         *,
         establishment:business_establishments(name, statuses),
-        visits:business_visits(
+        visits:calls(
           publisher_id,
           partner_id,
-          publisher:profiles!business_visits_publisher_id_fkey(first_name, last_name, avatar_url),
-          partner:profiles!business_visits_partner_id_fkey(first_name, last_name, avatar_url)
+          publisher:profiles!calls_publisher_id_fkey(first_name, last_name, avatar_url),
+          partner:profiles!calls_partner_id_fkey(first_name, last_name, avatar_url)
         )
       `)
       .eq('is_deleted', false)
@@ -590,7 +590,7 @@ export async function addVisit(visit: {
 
 
     const { data, error } = await supabase
-      .from('business_visits')
+      .from('calls')
       .insert({
         congregation_id: profile.congregation_id,
         establishment_id: visit.establishment_id === 'none' ? null : visit.establishment_id,
@@ -629,7 +629,7 @@ export async function updateVisit(visit: {
   try {
     await supabase.auth.getSession().catch(() => {});
     const { error } = await supabase
-      .from('business_visits')
+      .from('calls')
       .update({
         establishment_id: visit.establishment_id ?? null,
         householder_id: visit.householder_id ?? null,
@@ -660,7 +660,7 @@ export async function deleteVisit(visitId: string, _establishmentId?: string | n
     let publisherId: string | null = null;
     try {
       const { data: visit } = await supabase
-        .from('business_visits')
+        .from('calls')
         .select('publisher_id')
         .eq('id', visitId)
         .maybeSingle();
@@ -743,7 +743,7 @@ export async function deleteVisit(visitId: string, _establishmentId?: string | n
     
     // Delete the visit
     const { error, status } = await supabase
-      .from('business_visits')
+      .from('calls')
       .delete()
       .eq('id', visitId);
     if (error) {
@@ -827,16 +827,16 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
       .from('business_establishments')
       .select(`
         *,
-        visits:business_visits!business_visits_establishment_id_fkey(
+        visits:calls!calls_establishment_id_fkey(
           id,
           visit_date,
-          publisher:profiles!business_visits_publisher_id_fkey(
+          publisher:profiles!calls_publisher_id_fkey(
             id,
             first_name,
             last_name,
             avatar_url
           ),
-          partner:profiles!business_visits_partner_id_fkey(
+          partner:profiles!calls_partner_id_fkey(
             id,
             first_name,
             last_name,
@@ -969,10 +969,10 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
   
   // Get top visitors for establishment
   const { data: topVisitors } = await supabase
-    .from('business_visits')
+    .from('calls')
     .select(`
       publisher_id,
-      profiles!business_visits_publisher_id_fkey(first_name, last_name, avatar_url)
+      profiles!calls_publisher_id_fkey(first_name, last_name, avatar_url)
     `)
     .eq('establishment_id', establishmentId)
     .not('publisher_id', 'is', null);

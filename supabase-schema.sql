@@ -378,8 +378,8 @@ CREATE INDEX IF NOT EXISTS householders_establishment_id_idx ON public.household
 CREATE INDEX IF NOT EXISTS householders_publisher_id_idx ON public.householders(publisher_id) WHERE publisher_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS householders_coordinates_idx ON public.householders(lat, lng) WHERE lat IS NOT NULL AND lng IS NOT NULL;
 
--- Business visits
-CREATE TABLE IF NOT EXISTS public.business_visits (
+-- Calls (formerly business_visits)
+CREATE TABLE IF NOT EXISTS public.calls (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   congregation_id uuid NOT NULL REFERENCES public.congregations(id) ON DELETE CASCADE,
   establishment_id uuid REFERENCES public.business_establishments(id) ON DELETE SET NULL,
@@ -614,7 +614,7 @@ ALTER TABLE public.daily_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.business_participants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.business_establishments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.householders ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.business_visits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.calls ENABLE ROW LEVEL SECURITY;
 
 -- ==============================================
 -- RLS Policies
@@ -769,47 +769,47 @@ CREATE POLICY "Householders: write" ON public.householders FOR ALL USING (
   )
 );
 
-DROP POLICY IF EXISTS "Business: visit read" ON public.business_visits;
-CREATE POLICY "Business: visit read" ON public.business_visits FOR SELECT USING (
-  EXISTS (SELECT 1 FROM public.profiles me WHERE me.id = auth.uid() AND me.congregation_id = public.business_visits.congregation_id)
+DROP POLICY IF EXISTS "Business: visit read" ON public.calls;
+CREATE POLICY "Business: visit read" ON public.calls FOR SELECT USING (
+  EXISTS (SELECT 1 FROM public.profiles me WHERE me.id = auth.uid() AND me.congregation_id = public.calls.congregation_id)
 );
 
-DROP POLICY IF EXISTS "Business: visit write" ON public.business_visits;
-CREATE POLICY "Business: visit write" ON public.business_visits FOR INSERT WITH CHECK (
+DROP POLICY IF EXISTS "Business: visit write" ON public.calls;
+CREATE POLICY "Business: visit write" ON public.calls FOR INSERT WITH CHECK (
   EXISTS (
     SELECT 1 FROM public.business_participants bp, public.profiles me
     WHERE bp.user_id = auth.uid() AND me.id = auth.uid()
     AND me.congregation_id = bp.congregation_id AND bp.active = true
-    AND bp.congregation_id = public.business_visits.congregation_id
+    AND bp.congregation_id = public.calls.congregation_id
   )
 );
 
 -- Allow participants to UPDATE visits in their congregation
-DROP POLICY IF EXISTS "Business: visit update" ON public.business_visits;
-CREATE POLICY "Business: visit update" ON public.business_visits FOR UPDATE USING (
+DROP POLICY IF EXISTS "Business: visit update" ON public.calls;
+CREATE POLICY "Business: visit update" ON public.calls FOR UPDATE USING (
   EXISTS (
     SELECT 1 FROM public.business_participants bp, public.profiles me
     WHERE bp.user_id = auth.uid() AND me.id = auth.uid()
     AND me.congregation_id = bp.congregation_id AND bp.active = true
-    AND bp.congregation_id = public.business_visits.congregation_id
+    AND bp.congregation_id = public.calls.congregation_id
   )
 ) WITH CHECK (
   EXISTS (
     SELECT 1 FROM public.business_participants bp, public.profiles me
     WHERE bp.user_id = auth.uid() AND me.id = auth.uid()
     AND me.congregation_id = bp.congregation_id AND bp.active = true
-    AND bp.congregation_id = public.business_visits.congregation_id
+    AND bp.congregation_id = public.calls.congregation_id
   )
 );
 
 -- Allow participants to DELETE visits in their congregation
-DROP POLICY IF EXISTS "Business: visit delete" ON public.business_visits;
-CREATE POLICY "Business: visit delete" ON public.business_visits FOR DELETE USING (
+DROP POLICY IF EXISTS "Business: visit delete" ON public.calls;
+CREATE POLICY "Business: visit delete" ON public.calls FOR DELETE USING (
   EXISTS (
     SELECT 1 FROM public.business_participants bp, public.profiles me
     WHERE bp.user_id = auth.uid() AND me.id = auth.uid()
     AND me.congregation_id = bp.congregation_id AND bp.active = true
-    AND bp.congregation_id = public.business_visits.congregation_id
+    AND bp.congregation_id = public.calls.congregation_id
   )
 );
 

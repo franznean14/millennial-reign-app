@@ -105,13 +105,31 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
     } catch {}
   };
 
+  // Use refs to always get the latest state values
+  const studiesRef = useRef(studies);
+  const hoursRef = useRef(hours);
+  const noteRef = useRef(note);
+  
+  // Update refs when state changes
+  useEffect(() => {
+    studiesRef.current = studies;
+  }, [studies]);
+  
+  useEffect(() => {
+    hoursRef.current = hours;
+  }, [hours]);
+  
+  useEffect(() => {
+    noteRef.current = note;
+  }, [note]);
+
   const scheduleSave = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
-      // Use the latest values from state
-      const currentStudies = studies;
-      const currentHours = hours;
-      const currentNote = note;
+      // Use the latest values from refs to ensure we always have the current state
+      const currentStudies = studiesRef.current;
+      const currentHours = hoursRef.current;
+      const currentNote = noteRef.current;
       
       const payload = {
         user_id: userId,
@@ -144,7 +162,7 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
         toast.error(e.message ?? "Failed to save");
       }
     }, 1000);
-  }, [studies, hours, note, userId, date]);
+  }, [userId, date]);
 
   // Helper to check if a study entry is a visit ID
   const isVisitId = (study: string): boolean => {
@@ -206,11 +224,11 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
         await supabase.auth.getSession();
         
         const { data: visits, error } = await supabase
-          .from('business_visits')
+          .from('calls')
           .select(`
             id,
             householder_id,
-            householders:business_visits_householder_id_fkey(id, name)
+            householders:calls_householder_id_fkey(id, name)
           `)
           .in('id', missingIds);
 
@@ -567,7 +585,7 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
         const supabase = createSupabaseBrowserClient();
         await supabase.auth.getSession();
         const { data, error } = await supabase
-          .from('business_visits')
+          .from('calls')
           .select('id, establishment_id, householder_id, note, publisher_id, partner_id, visit_date')
           .eq('id', editVisitId)
           .single();
