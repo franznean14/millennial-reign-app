@@ -685,7 +685,8 @@ export function AppClient() {
     householders,
     filters,
     userVisitedEstablishments,
-    userVisitedHouseholders
+    userVisitedHouseholders,
+    userId
   });
 
   const handleRemoveStatus = (status: string) => {

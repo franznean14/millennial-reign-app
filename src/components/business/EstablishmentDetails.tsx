@@ -25,6 +25,7 @@ interface EstablishmentDetailsProps {
   onBackClick: () => void;
   onEstablishmentUpdated?: (establishment: EstablishmentWithDetails) => void;
   onHouseholderClick?: (householder: HouseholderWithDetails) => void;
+  isLoading?: boolean;
 }
 
 // Helper function for householder status color coding
@@ -51,7 +52,8 @@ export function EstablishmentDetails({
   householders, 
   onBackClick,
   onEstablishmentUpdated,
-  onHouseholderClick
+  onHouseholderClick,
+  isLoading = false
 }: EstablishmentDetailsProps) {
   
   // Reset scroll position to top when component mounts
@@ -129,7 +131,7 @@ export function EstablishmentDetails({
   };
 
   return (
-    <div className="space-y-6 w-full max-w-full">
+    <div className="space-y-6 w-full max-w-full -mt-2">
       {/* Basic Establishment Info with Direction Button */}
       <div className="w-full">
         <Card className={cn("w-full", getStatusColor(primaryStatus))}>
@@ -140,75 +142,102 @@ export function EstablishmentDetails({
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Status</p>
-                <div className="flex items-center gap-2">
-                  <Badge 
-                    variant="outline" 
-                    className={cn("flex-shrink-0", getStatusTextColor(primaryStatus))}
-                  >
-                    {formatStatusText(primaryStatus)}
-                  </Badge>
-                  {establishment.statuses && establishment.statuses.length > 1 && (
-                    <div className="flex gap-1">
-                      {establishment.statuses
-                        .filter((s) => s !== primaryStatus)
-                        .map((status) => {
-                          let dotColor = '';
-                          switch (status) {
-                            case 'declined_rack':
-                              dotColor = 'bg-red-500';
-                              break;
-                            case 'for_scouting':
-                              dotColor = 'bg-cyan-500';
-                              break;
-                            case 'for_follow_up':
-                              dotColor = 'bg-orange-500';
-                              break;
-                            case 'accepted_rack':
-                              dotColor = 'bg-blue-500';
-                              break;
-                            case 'for_replenishment':
-                              dotColor = 'bg-purple-500';
-                              break;
-                            case 'has_bible_studies':
-                              dotColor = 'bg-emerald-500';
-                              break;
-                            case 'closed':
-                              dotColor = 'bg-slate-500';
-                              break;
-                            default:
-                              dotColor = 'bg-gray-500';
-                          }
-                          return (
-                            <div key={status} className={cn("w-2 h-2 rounded-full", dotColor)} title={formatStatusText(status)} />
-                          );
-                        })}
+            {isLoading ? (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="h-3 bg-muted/60 rounded w-16 mb-2 blur-[2px] animate-pulse" />
+                    <div className="flex items-center gap-2">
+                      <div className="h-6 bg-muted/60 rounded w-20 blur-[2px] animate-pulse" />
+                      <div className="w-2 h-2 bg-muted/60 rounded-full blur-[2px] animate-pulse" />
                     </div>
-                  )}
+                  </div>
+                  <div>
+                    <div className="h-3 bg-muted/60 rounded w-16 mb-2 blur-[2px] animate-pulse" />
+                    <div className="h-4 bg-muted/60 rounded w-24 blur-[2px] animate-pulse" />
+                  </div>
                 </div>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Floor</p>
-                <p>{establishment.floor || 'Not specified'}</p>
-              </div>
-            </div>
-            {establishment.description && (
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Description</p>
-                <p className="break-words">{establishment.description}</p>
-              </div>
-            )}
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Note</p>
-              <div className="flex items-start justify-between gap-3">
-                <p className="text-sm break-words flex-1 max-w-[70%]">
-                  {(() => {
-                    const raw = establishment.note ? String(establishment.note) : 'No notes added';
-                    return raw.length > 100 ? raw.slice(0, 100) + '…' : raw;
-                  })()}
-                </p>
+                <div>
+                  <div className="h-3 bg-muted/60 rounded w-20 mb-2 blur-[2px] animate-pulse" />
+                  <div className="h-4 bg-muted/60 rounded w-full max-w-[200px] blur-[2px] animate-pulse" />
+                </div>
+                <div>
+                  <div className="h-3 bg-muted/60 rounded w-16 mb-2 blur-[2px] animate-pulse" />
+                  <div className="h-4 bg-muted/60 rounded w-full max-w-[300px] blur-[2px] animate-pulse" />
+                  <div className="h-4 bg-muted/60 rounded w-full max-w-[250px] mt-2 blur-[2px] animate-pulse" />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Status</p>
+                    <div className="flex items-center gap-2">
+                      <Badge 
+                        variant="outline" 
+                        className={cn("flex-shrink-0", getStatusTextColor(primaryStatus))}
+                      >
+                        {formatStatusText(primaryStatus)}
+                      </Badge>
+                      {establishment.statuses && establishment.statuses.length > 1 && (
+                        <div className="flex gap-1">
+                          {establishment.statuses
+                            .filter((s) => s !== primaryStatus)
+                            .map((status) => {
+                              let dotColor = '';
+                              switch (status) {
+                                case 'declined_rack':
+                                  dotColor = 'bg-red-500';
+                                  break;
+                                case 'for_scouting':
+                                  dotColor = 'bg-cyan-500';
+                                  break;
+                                case 'for_follow_up':
+                                  dotColor = 'bg-orange-500';
+                                  break;
+                                case 'accepted_rack':
+                                  dotColor = 'bg-blue-500';
+                                  break;
+                                case 'for_replenishment':
+                                  dotColor = 'bg-purple-500';
+                                  break;
+                                case 'has_bible_studies':
+                                  dotColor = 'bg-emerald-500';
+                                  break;
+                                case 'closed':
+                                  dotColor = 'bg-slate-500';
+                                  break;
+                                default:
+                                  dotColor = 'bg-gray-500';
+                              }
+                              return (
+                                <div key={status} className={cn("w-2 h-2 rounded-full", dotColor)} title={formatStatusText(status)} />
+                              );
+                            })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Floor</p>
+                    <p>{establishment.floor || 'Not specified'}</p>
+                  </div>
+                </div>
+                {establishment.description && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Description</p>
+                    <p className="break-words">{establishment.description}</p>
+                  </div>
+                )}
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Note</p>
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-sm break-words flex-1 max-w-[70%]">
+                      {(() => {
+                        const raw = establishment.note ? String(establishment.note) : 'No notes added';
+                        return raw.length > 100 ? raw.slice(0, 100) + '…' : raw;
+                      })()}
+                    </p>
                 {(() => {
                   const hasCoords = !!establishment.lat && !!establishment.lng;
                   const common = "inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs whitespace-nowrap";
@@ -229,8 +258,10 @@ export function EstablishmentDetails({
                     </span>
                   );
                 })()}
-              </div>
-            </div>
+                  </div>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -242,6 +273,7 @@ export function EstablishmentDetails({
           isHouseholderContext={false}
           establishments={[{ id: establishment.id, name: establishment.name }]}
           selectedEstablishmentId={establishment.id}
+          isLoading={isLoading}
           onVisitUpdated={() => {
             // Visit updates will be handled by the parent component's data refresh
           }}

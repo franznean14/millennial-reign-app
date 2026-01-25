@@ -22,6 +22,7 @@ interface VisitUpdatesSectionProps {
   householderName?: string;
   householderStatus?: string;
   onVisitUpdated?: () => void;
+  isLoading?: boolean;
 }
 
 export function VisitUpdatesSection({ 
@@ -32,7 +33,8 @@ export function VisitUpdatesSection({
   householderId, 
   householderName,
   householderStatus,
-  onVisitUpdated 
+  onVisitUpdated,
+  isLoading = false
 }: VisitUpdatesSectionProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editVisit, setEditVisit] = useState<VisitWithUser | null>(null);
@@ -45,7 +47,7 @@ export function VisitUpdatesSection({
 
     const lineLengthClass = getTimelineLineClassWithPosition(isDrawer);
     const dotSizeClass = getTimelineDotSize();
-    const avatarSizeClass = 'w-8 h-8'; // 10% smaller than w-9 h-9 (36px -> 32px)
+    const avatarSizeClass = 'w-6 h-6'; // Match BWI visit history avatar size
 
     return (
       <VisitTimelineRow
@@ -71,7 +73,7 @@ export function VisitUpdatesSection({
             publisher={visit.publisher ?? null}
             partner={visit.partner ?? null}
             sizeClassName={avatarSizeClass}
-            textClassName="text-xs"
+            textClassName="text-[10px]"
           />
         }
       >
@@ -110,12 +112,41 @@ export function VisitUpdatesSection({
         <ChevronRight className="h-4 w-4" />
       </button>
 
-      <VisitList
-        items={mainVisits}
-        getKey={(visit) => visit.id}
-        renderItem={(visit, index, total) => renderVisitEntry(visit, index, false, total)}
-        emptyText="No visit updates found."
-      />
+      {isLoading ? (
+        <div className="space-y-2">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="relative flex items-start w-full">
+              {i < 3 && (
+                <div className="absolute left-[5px] top-[12px] w-0.5 h-[calc(100%+1rem)] bg-gray-500/60 z-0" />
+              )}
+              <div className="relative flex-shrink-0 z-10">
+                <div className="w-3 h-3 bg-muted/60 rounded-full border-2 border-muted/60 blur-[2px] animate-pulse" />
+              </div>
+              <div className="flex-1 min-w-0 ml-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="h-4 bg-muted/60 rounded w-24 blur-[2px] animate-pulse" />
+                  <div className="h-4 bg-muted/60 rounded w-16 blur-[2px] animate-pulse" />
+                </div>
+                <div className="flex items-center gap-1 mb-2">
+                  <div className="h-3 w-3 bg-muted/60 rounded blur-[2px] animate-pulse" />
+                  <div className="h-3 bg-muted/60 rounded w-32 blur-[2px] animate-pulse" />
+                </div>
+                <div className="h-3 bg-muted/60 rounded w-full max-w-[200px] blur-[2px] animate-pulse" />
+              </div>
+              <div className="flex-shrink-0 ml-4">
+                <div className="w-6 h-6 bg-muted/60 rounded-full blur-[2px] animate-pulse" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <VisitList
+          items={mainVisits}
+          getKey={(visit) => visit.id}
+          renderItem={(visit, index, total) => renderVisitEntry(visit, index, false, total)}
+          emptyText="No visit updates found."
+        />
+      )}
 
       <FormModal
         open={drawerOpen}
@@ -123,12 +154,41 @@ export function VisitUpdatesSection({
         title="All Visit Updates"
       >
         <div className="flex-1 overflow-y-auto p-4 pb-20">
-          <VisitList
-            items={visits}
-            getKey={(visit) => visit.id}
-            renderItem={(visit, index, total) => renderVisitEntry(visit, index, true, total)}
-            emptyText="No visit updates found."
-          />
+          {isLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="relative flex items-start w-full">
+                  {i < 5 && (
+                    <div className="absolute left-[5px] top-[12px] w-0.5 h-[calc(100%+1.5rem)] bg-gray-500/60 z-0" />
+                  )}
+                  <div className="relative flex-shrink-0 z-10">
+                    <div className="w-3 h-3 bg-muted/60 rounded-full border-2 border-muted/60 blur-[2px] animate-pulse" />
+                  </div>
+                  <div className="flex-1 min-w-0 ml-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="h-4 bg-muted/60 rounded w-24 blur-[2px] animate-pulse" />
+                      <div className="h-4 bg-muted/60 rounded w-16 blur-[2px] animate-pulse" />
+                    </div>
+                    <div className="flex items-center gap-1 mb-2">
+                      <div className="h-3 w-3 bg-muted/60 rounded blur-[2px] animate-pulse" />
+                      <div className="h-3 bg-muted/60 rounded w-32 blur-[2px] animate-pulse" />
+                    </div>
+                    <div className="h-3 bg-muted/60 rounded w-full max-w-[250px] blur-[2px] animate-pulse" />
+                  </div>
+                  <div className="flex-shrink-0 ml-4">
+                    <div className="w-6 h-6 bg-muted/60 rounded-full blur-[2px] animate-pulse" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <VisitList
+              items={visits}
+              getKey={(visit) => visit.id}
+              renderItem={(visit, index, total) => renderVisitEntry(visit, index, true, total)}
+              emptyText="No visit updates found."
+            />
+          )}
         </div>
       </FormModal>
 

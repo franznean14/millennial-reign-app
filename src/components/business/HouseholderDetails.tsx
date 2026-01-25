@@ -5,17 +5,22 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, User2, Archive, FilePlus2 } from "lucide-react";
+import { Calendar, User2, Archive, FilePlus2, UserPlus, Minus } from "lucide-react";
 import { FormModal } from "@/components/shared/FormModal";
 import { toast } from "@/components/ui/sonner";
 import { HouseholderForm } from "@/components/business/HouseholderForm";
 import { VisitForm } from "@/components/business/VisitForm";
 import { VisitUpdatesSection } from "@/components/business/VisitUpdatesSection";
-import { type HouseholderWithDetails, type VisitWithUser } from "@/lib/db/business";
+import { type HouseholderWithDetails, type VisitWithUser, upsertHouseholder } from "@/lib/db/business";
 import { deleteHouseholder, archiveHouseholder } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { cn } from "@/lib/utils";
 import { formatStatusText } from "@/lib/utils/formatters";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { getInitials } from "@/lib/utils/visit-history-ui";
+import { getProfile } from "@/lib/db/profiles";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { cacheDelete } from "@/lib/offline/store";
 
 interface HouseholderDetailsProps {
   householder: HouseholderWithDetails;
@@ -26,6 +31,7 @@ interface HouseholderDetailsProps {
   context?: "bwi" | "congregation";
   showEstablishment?: boolean;
   publisherId?: string | null;
+  isLoading?: boolean;
 }
 
 // Helper function for householder status color coding
@@ -72,7 +78,8 @@ export function HouseholderDetails({
   onBackClick,
   context = "bwi",
   showEstablishment = true,
-  publisherId
+  publisherId,
+  isLoading = false
 }: HouseholderDetailsProps) {
   
   // Reset scroll position to top when component mounts
@@ -90,6 +97,31 @@ export function HouseholderDetails({
   const [newVisitOpen, setNewVisitOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const [showAddConfirm, setShowAddConfirm] = useState(false);
+  const [showMinusButton, setShowMinusButton] = useState(false);
+  const [updatingPublisher, setUpdatingPublisher] = useState(false);
+  const avatarButtonRef = useRef<HTMLButtonElement>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(publisherId || null);
+
+  // Get current user ID if not provided
+  useEffect(() => {
+    if (!publisherId) {
+      const getCurrentUserId = async () => {
+        try {
+          const supabase = createSupabaseBrowserClient();
+          const { data: { session } } = await supabase.auth.getSession();
+          setCurrentUserId(session?.user?.id || null);
+        } catch (e) {
+          console.error('Error getting current user ID:', e);
+        }
+      };
+      getCurrentUserId();
+    }
+  }, [publisherId]);
+
+  // Use publisherId prop if provided, otherwise use currentUserId from state
+  const effectivePublisherId = publisherId || currentUserId;
 
   // Listen for edit trigger from header
   useEffect(() => {
@@ -155,35 +187,288 @@ export function HouseholderDetails({
     }
   };
 
+  const handleAddAsPersonalContact = async () => {
+    if (!householder?.id || !effectivePublisherId) return;
+    setUpdatingPublisher(true);
+    try {
+      const updated = await upsertHouseholder({
+        ...householder,
+        id: householder.id,
+        publisher_id: effectivePublisherId
+      });
+      if (updated && updated.id) {
+        // Fetch the publisher profile to include in the update
+        const profile = await getProfile(effectivePublisherId);
+        const updatedWithUser: HouseholderWithDetails = {
+          id: updated.id,
+          name: updated.name,
+          status: updated.status,
+          note: updated.note ?? null,
+          establishment_id: updated.establishment_id ?? null,
+          establishment_name: householder.establishment_name ?? null,
+          publisher_id: updated.publisher_id ?? null,
+          lat: updated.lat ?? null,
+          lng: updated.lng ?? null,
+          assigned_user: profile ? {
+            id: profile.id,
+            first_name: profile.first_name,
+            last_name: profile.last_name,
+            avatar_url: profile.avatar_url || undefined
+          } : null
+        };
+        // Clear cache to force fresh fetch on next load
+        if (updated.id) {
+          await cacheDelete(`householder:details:${updated.id}`);
+        }
+        toast.success("Added as personal contact");
+        businessEventBus.emit('householder-updated', updatedWithUser);
+        setShowAddConfirm(false);
+      } else {
+        toast.error("Failed to add as personal contact");
+      }
+    } catch (e) {
+      toast.error("Error adding as personal contact");
+    } finally {
+      setUpdatingPublisher(false);
+    }
+  };
+
+  const handleRemoveAsPersonalContact = async () => {
+    if (!householder?.id) return;
+    setUpdatingPublisher(true);
+    try {
+      const updated = await upsertHouseholder({
+        ...householder,
+        id: householder.id,
+        publisher_id: null
+      });
+      if (updated && updated.id) {
+        const updatedWithUser: HouseholderWithDetails = {
+          id: updated.id,
+          name: updated.name,
+          status: updated.status,
+          note: updated.note ?? null,
+          establishment_id: updated.establishment_id ?? null,
+          establishment_name: householder.establishment_name ?? null,
+          publisher_id: null,
+          lat: updated.lat ?? null,
+          lng: updated.lng ?? null,
+          assigned_user: null
+        };
+        // Clear cache to force fresh fetch on next load
+        if (updated.id) {
+          await cacheDelete(`householder:details:${updated.id}`);
+        }
+        toast.success("Removed as personal contact");
+        businessEventBus.emit('householder-updated', updatedWithUser);
+        setShowRemoveConfirm(false);
+        setShowMinusButton(false);
+      } else {
+        toast.error("Failed to remove as personal contact");
+      }
+    } catch (e) {
+      toast.error("Error removing as personal contact");
+    } finally {
+      setUpdatingPublisher(false);
+    }
+  };
+
+  const isCurrentUserPublisher = effectivePublisherId && householder.publisher_id === effectivePublisherId;
+  const assignedUser = householder.assigned_user;
+
+  // Handle click outside to restore avatar when minus button is shown
+  useEffect(() => {
+    if (!showMinusButton) return;
+    
+    const handleClickOutside = (event: Event) => {
+      if (avatarButtonRef.current && !avatarButtonRef.current.contains(event.target as Node)) {
+        setShowMinusButton(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside as EventListener);
+    document.addEventListener('touchstart', handleClickOutside as EventListener);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside as EventListener);
+      document.removeEventListener('touchstart', handleClickOutside as EventListener);
+    };
+  }, [showMinusButton]);
+
   return (
-    <div className="space-y-6 w-full max-w-full">
+    <div className="space-y-6 w-full max-w-full -mt-2">
       <div className="w-full">
         <Card className={cn("w-full", getHouseholderCardColor(householder.status))}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User2 className="h-5 w-5 flex-shrink-0" />
-              Householder Details
+            <CardTitle className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <User2 className="h-5 w-5 flex-shrink-0" />
+                Householder Details
+              </div>
+              {/* User+ button or Avatar on the same row */}
+              <div className="flex-shrink-0">
+                {isLoading ? (
+                  // Skeleton loading for user+ button/avatar
+                  <div className="h-8 w-8 rounded-full bg-muted/60 blur-[2px] animate-pulse" />
+                ) : assignedUser && isCurrentUserPublisher ? (
+                // Show avatar that changes to minus button on tap, then shows remove confirmation
+                showMinusButton ? (
+                  <Popover open={showRemoveConfirm} onOpenChange={(open) => {
+                    setShowRemoveConfirm(open);
+                    if (!open) {
+                      setShowMinusButton(false);
+                    }
+                  }}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        ref={avatarButtonRef}
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        className="h-8 w-8 rounded-full"
+                        onClick={() => setShowRemoveConfirm(true)}
+                      >
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-56" align="end">
+                      <div className="space-y-3">
+                        <p className="text-sm">Remove as Personal Contact?</p>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setShowRemoveConfirm(false);
+                              setShowMinusButton(false);
+                            }}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            disabled={updatingPublisher}
+                            onClick={handleRemoveAsPersonalContact}
+                          >
+                            {updatingPublisher ? "Removing..." : "Remove"}
+                          </Button>
+                        </div>
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                ) : (
+                  <Button
+                    ref={avatarButtonRef}
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 rounded-full p-0"
+                    onClick={() => setShowMinusButton(true)}
+                  >
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={assignedUser.avatar_url || undefined} alt={`${assignedUser.first_name} ${assignedUser.last_name}`} />
+                      <AvatarFallback className="text-xs">
+                        {getInitials(`${assignedUser.first_name} ${assignedUser.last_name}`)}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                )
+              ) : assignedUser ? (
+                // Show avatar if someone else is the publisher (not clickable)
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={assignedUser.avatar_url || undefined} alt={`${assignedUser.first_name} ${assignedUser.last_name}`} />
+                  <AvatarFallback className="text-xs">
+                    {getInitials(`${assignedUser.first_name} ${assignedUser.last_name}`)}
+                  </AvatarFallback>
+                </Avatar>
+              ) : (
+                // Show user+ button if no publisher
+                <Popover open={showAddConfirm} onOpenChange={setShowAddConfirm}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 rounded-full"
+                      disabled={!effectivePublisherId || updatingPublisher}
+                    >
+                      <UserPlus className="h-4 w-4" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56" align="end">
+                    <div className="space-y-3">
+                      <p className="text-sm">Take as Personal Contact?</p>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowAddConfirm(false)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="default"
+                          size="sm"
+                          disabled={updatingPublisher || !effectivePublisherId}
+                          onClick={handleAddAsPersonalContact}
+                        >
+                          {updatingPublisher ? "Adding..." : "Add"}
+                        </Button>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+                )}
+              </div>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Status</p>
-                <Badge variant="outline" className={cn("text-xs capitalize", getHouseholderStatusColorClass(householder.status))}>
-                  {formatStatusText(householder.status)}
-                </Badge>
-              </div>
-              {showEstablishment && (
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Establishment</p>
-                <p className="truncate">{establishment?.name || 'Not specified'}</p>
-              </div>
-              )}
-            </div>
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Note</p>
-              <p className="text-sm break-words">{householder.note || 'No notes added'}</p>
-            </div>
+            {isLoading ? (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <div className="h-3 bg-muted/60 rounded w-16 mb-2 blur-[2px] animate-pulse" />
+                    <div className="h-6 bg-muted/60 rounded w-20 blur-[2px] animate-pulse" />
+                  </div>
+                  {showEstablishment && (
+                    <div>
+                      <div className="h-3 bg-muted/60 rounded w-24 mb-2 blur-[2px] animate-pulse" />
+                      <div className="h-4 bg-muted/60 rounded w-32 blur-[2px] animate-pulse" />
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <div className="h-3 bg-muted/60 rounded w-16 mb-2 blur-[2px] animate-pulse" />
+                  <div className="h-4 bg-muted/60 rounded w-full max-w-[300px] blur-[2px] animate-pulse" />
+                  <div className="h-4 bg-muted/60 rounded w-full max-w-[200px] mt-2 blur-[2px] animate-pulse" />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Status</p>
+                    <Badge variant="outline" className={cn("text-xs capitalize", getHouseholderStatusColorClass(householder.status))}>
+                      {formatStatusText(householder.status)}
+                    </Badge>
+                  </div>
+                  {showEstablishment && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Establishment</p>
+                    <p className="truncate">{establishment?.name || 'Not specified'}</p>
+                  </div>
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Note</p>
+                  <p className="text-sm break-words">{householder.note || 'No notes added'}</p>
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -197,6 +482,7 @@ export function HouseholderDetails({
           householderId={householder.id}
           householderName={householder.name}
           householderStatus={householder.status}
+          isLoading={isLoading}
           onVisitUpdated={() => {
             // Visit updates will be handled by the parent component's data refresh
           }}

@@ -178,6 +178,7 @@ export function CongregationView({ data, onEdit, canEdit, initialTab = 'meetings
             context="congregation"
             showEstablishment={false}
             publisherId={(selectedHouseholderDetails?.householder || selectedHouseholder).publisher_id ?? null}
+            isLoading={!selectedHouseholderDetails}
             onBackClick={() => {
               onClearSelectedHouseholder();
             }}

@@ -319,12 +319,13 @@ export function BusinessSection({
               <motion.div key="householder-details" {...detailsMotion} className="w-full">
                 <div className={getDetailsWrapperClass(businessTab === "map")}>
                   <HouseholderDetails
-                    householder={selectedHouseholder}
+                    householder={selectedHouseholderDetails?.householder || selectedHouseholder}
                     visits={selectedHouseholderDetails?.visits || []}
                     establishment={selectedHouseholderDetails?.establishment || null}
                     establishments={
                       selectedHouseholderDetails?.establishment ? [selectedHouseholderDetails.establishment] : []
                     }
+                    isLoading={!selectedHouseholderDetails}
                     onBackClick={() => {
                       setSelectedHouseholder(null);
                       setSelectedHouseholderDetails(null);
@@ -341,6 +342,7 @@ export function BusinessSection({
                       establishment={selectedEstablishment}
                       visits={selectedEstablishmentDetails?.visits || []}
                       householders={selectedEstablishmentDetails?.householders || []}
+                      isLoading={!selectedEstablishmentDetails}
                       onBackClick={() => {
                         setSelectedEstablishment(null);
                         setSelectedEstablishmentDetails(null);

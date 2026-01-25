@@ -14,6 +14,7 @@ interface UseBusinessFilteredListsOptions {
   filters: BusinessFiltersState;
   userVisitedEstablishments: Set<string>;
   userVisitedHouseholders: Set<string>;
+  userId?: string | null;
 }
 
 export function useBusinessFilteredLists({
@@ -21,7 +22,8 @@ export function useBusinessFilteredLists({
   householders,
   filters,
   userVisitedEstablishments,
-  userVisitedHouseholders
+  userVisitedHouseholders,
+  userId
 }: UseBusinessFilteredListsOptions) {
   const filteredEstablishments = useMemo(() => {
     const base = establishments.filter((establishment) => {
@@ -158,6 +160,29 @@ export function useBusinessFilteredLists({
     });
 
     const sorted = [...base];
+    
+    // Status priority order: BS (bible_study), RV (return_visit), Interest (interested), Potential (potential), DNC (do_not_call)
+    const getStatusPriority = (status: string): number => {
+      switch (status) {
+        case 'bible_study':
+        case 'has_bible_studies':
+          return 1;
+        case 'return_visit':
+        case 'for_follow_up':
+          return 2;
+        case 'interested':
+          return 3;
+        case 'potential':
+          return 4;
+        case 'do_not_call':
+        case 'declined_rack':
+        case 'inappropriate':
+          return 5;
+        default:
+          return 6;
+      }
+    };
+
     if (filters.nearMe && filters.userLocation) {
       const [userLat, userLng] = filters.userLocation;
       const distanceOf = (h: HouseholderWithDetails) => {
@@ -184,7 +209,37 @@ export function useBusinessFilteredLists({
           break;
         case "last_visit_desc":
         default:
+          // Default sort: owned by user > visited by user > status priority
           sorted.sort((a, b) => {
+            // First priority: owned by user (publisher_id matches userId)
+            const aIsOwned = userId && a.publisher_id === userId;
+            const bIsOwned = userId && b.publisher_id === userId;
+            if (aIsOwned && !bIsOwned) return -1;
+            if (!aIsOwned && bIsOwned) return 1;
+            
+            // Second priority: visited by user
+            if (aIsOwned === bIsOwned) {
+              const aIsVisited = a.id ? userVisitedHouseholders.has(a.id) : false;
+              const bIsVisited = b.id ? userVisitedHouseholders.has(b.id) : false;
+              if (aIsVisited && !bIsVisited) return -1;
+              if (!aIsVisited && bIsVisited) return 1;
+              
+              // Third priority: status priority
+              if (aIsVisited === bIsVisited) {
+                const aPriority = getStatusPriority(a.status);
+                const bPriority = getStatusPriority(b.status);
+                if (aPriority !== bPriority) {
+                  return aPriority - bPriority;
+                }
+                // If same status priority, sort by last visit (descending)
+                if (!a.last_visit_at && !b.last_visit_at) return 0;
+                if (!a.last_visit_at) return 1;
+                if (!b.last_visit_at) return -1;
+                return b.last_visit_at.localeCompare(a.last_visit_at);
+              }
+            }
+            
+            // Fallback to last visit descending
             if (!a.last_visit_at && !b.last_visit_at) return 0;
             if (!a.last_visit_at) return 1;
             if (!b.last_visit_at) return -1;
@@ -195,7 +250,7 @@ export function useBusinessFilteredLists({
     }
 
     return sorted;
-  }, [establishments, householders, filters, userVisitedHouseholders]);
+  }, [establishments, householders, filters, userVisitedHouseholders, userId]);
 
   return { filteredEstablishments, filteredHouseholders };
 }

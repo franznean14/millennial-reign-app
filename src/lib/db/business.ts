@@ -915,16 +915,39 @@ export async function getHouseholderDetails(householderId: string): Promise<{
       return cached ?? null;
     }
 
-  // Householder with establishment
-  const { data: hh } = await supabase
+  // Householder with establishment and publisher profile
+  // Fetch visits first to ensure they're always loaded, even if householder query fails
+  const transformedVisits = await getHouseholderVisitsWithUsers(householderId);
+  
+  // Fetch householder without publisher join (more reliable)
+  const { data: hh, error: hhError } = await supabase
     .from('householders')
     .select('id,name,status,note,establishment_id,publisher_id,lat,lng, establishment:business_establishments(id,name,statuses)')
     .eq('id', householderId)
     .single();
 
-  if (!hh) return null;
-
-  const transformedVisits = await getHouseholderVisitsWithUsers(householderId);
+  if (hhError || !hh) {
+    console.error('Error fetching householder:', hhError);
+    // Return cached data if available, otherwise return null
+    const cached = await cacheGet<{
+      householder: HouseholderWithDetails;
+      visits: VisitWithUser[];
+      establishment?: { id: string; name: string } | null;
+    }>(cacheKey);
+    return cached ?? null;
+  }
+  
+  // Fetch publisher profile separately if needed
+  let publisher = null;
+  if (hh.publisher_id) {
+    try {
+      const profileModule = await import('@/lib/db/profiles');
+      publisher = await profileModule.getProfile(hh.publisher_id);
+    } catch (e) {
+      // Silently fail - publisher profile is optional
+      console.debug('Could not fetch publisher profile:', e);
+    }
+  }
 
   const establishment = Array.isArray((hh as any).establishment) ? (hh as any).establishment[0] : (hh as any).establishment;
 
@@ -938,6 +961,12 @@ export async function getHouseholderDetails(householderId: string): Promise<{
     publisher_id: hh.publisher_id,
     lat: hh.lat,
     lng: hh.lng,
+    assigned_user: publisher ? {
+      id: publisher.id,
+      first_name: publisher.first_name,
+      last_name: publisher.last_name,
+      avatar_url: publisher.avatar_url || undefined
+    } : null,
   };
 
   const result = {
