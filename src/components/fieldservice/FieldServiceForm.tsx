@@ -10,6 +10,7 @@ import { getDailyRecord, listDailyByMonth, upsertDailyRecord, isDailyEmpty, dele
 import { useMobile } from "@/lib/hooks/use-mobile";
 import { motion } from "framer-motion";
 import { NumberFlowInput } from "@/components/ui/number-flow-input";
+import { getPersonalContactHouseholders } from "@/lib/db/business";
 
 function toLocalStr(d: Date) {
   const y = d.getFullYear();
@@ -35,6 +36,10 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
   const notifyRef = useRef<any>(null);
   const [dirty, setDirty] = useState(false);
   const [monthMarks, setMonthMarks] = useState<Record<string, boolean>>({});
+  const [personalContacts, setPersonalContacts] = useState<Array<{ id: string; name: string }>>([]);
+  const [bibleStudiesInputFocused, setBibleStudiesInputFocused] = useState(false);
+  const [bibleStudiesInputValue, setBibleStudiesInputValue] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const monthLabel = useMemo(() => view.toLocaleString(undefined, { month: "long" }), [view]);
   const yearLabel = useMemo(() => String(view.getFullYear()), [view]);
@@ -79,6 +84,7 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
       setHours(rec ? String(rec.hours) : "");
       setStudies(rec?.bible_studies ?? []);
       setNote(rec?.note ?? "");
+      setBibleStudiesInputValue("");
       setDirty(false);
     } catch {}
   };
@@ -115,12 +121,81 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
     }, 1000);
   };
 
-  const addStudy = (name: string) => {
-    const trimmed = name.trim();
+  // Helper to check if a study entry is a householder ID
+  const isHouseholderId = (study: string): boolean => {
+    return study.startsWith("householder:");
+  };
+
+  // Helper to get householder ID from study entry
+  const getHouseholderId = (study: string): string | null => {
+    if (isHouseholderId(study)) {
+      return study.replace("householder:", "");
+    }
+    return null;
+  };
+
+  // Helper to get display name for a study entry
+  const getStudyDisplayName = (study: string): string => {
+    const householderId = getHouseholderId(study);
+    if (householderId) {
+      const contact = personalContacts.find(c => c.id === householderId);
+      return contact ? contact.name : study;
+    }
+    return study;
+  };
+
+  const addStudy = async (nameOrId: string, isHouseholderIdParam: boolean = false) => {
+    const trimmed = nameOrId.trim();
     if (!trimmed) return;
-    if (studies.includes(trimmed)) return;
-    setStudies((s) => [...s, trimmed]);
+    
+    let studyEntry: string;
+    
+    if (isHouseholderIdParam) {
+      // It's already a householder ID from the dropdown
+      studyEntry = `householder:${trimmed}`;
+    } else {
+      // It's a custom name - create a householder automatically
+      try {
+        const { upsertHouseholder } = await import("@/lib/db/business");
+        const newHouseholder = await upsertHouseholder({
+          name: trimmed,
+          status: "bible_study",
+          publisher_id: userId,
+          note: null,
+          establishment_id: null,
+          lat: null,
+          lng: null
+        });
+        
+        if (newHouseholder && newHouseholder.id) {
+          studyEntry = `householder:${newHouseholder.id}`;
+          // Refresh personal contacts to include the new one
+          const contacts = await getPersonalContactHouseholders(userId);
+          setPersonalContacts(contacts);
+          toast.success(`Created householder: ${trimmed}`);
+        } else {
+          // Fallback to plain text if creation fails
+          studyEntry = trimmed;
+          toast.error("Failed to create householder. Using name only.");
+        }
+      } catch (error: any) {
+        console.error('Error creating householder:', error);
+        // Fallback to plain text if creation fails
+        studyEntry = trimmed;
+        toast.error(error?.message || "Failed to create householder. Using name only.");
+      }
+    }
+    
+    // Check if already exists (check both formats)
+    if (studies.includes(studyEntry)) return;
+    const householderIdFromEntry = getHouseholderId(studyEntry);
+    if (householderIdFromEntry && studies.some(s => getHouseholderId(s) === householderIdFromEntry)) return;
+    if (!householderIdFromEntry && studies.some(s => !isHouseholderId(s) && s === trimmed)) return;
+    
+    setStudies((s) => [...s, studyEntry]);
     setDirty(true);
+    setBibleStudiesInputValue("");
+    inputRef.current?.focus();
   };
 
   const removeStudy = (name: string) => {
@@ -146,6 +221,19 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
     const start = base - 7;
     return Array.from({ length: 12 }, (_, i) => start + i);
   }, [view]);
+
+  // Load personal contact householders
+  useEffect(() => {
+    const loadPersonalContacts = async () => {
+      try {
+        const contacts = await getPersonalContactHouseholders(userId);
+        setPersonalContacts(contacts);
+      } catch (error) {
+        console.error('Error loading personal contacts:', error);
+      }
+    };
+    loadPersonalContacts();
+  }, [userId]);
 
   useEffect(() => {
     loadMonthMarks();
@@ -270,7 +358,7 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
             <div className="flex flex-wrap gap-2">
               {studies.map((s) => (
                 <span key={s} className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs">
-                  {s}
+                  {getStudyDisplayName(s)}
                   <Button
                     variant="ghost"
                     size="sm"
@@ -282,17 +370,81 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
                 </span>
               ))}
             </div>
-            <Input 
-              placeholder="Type a name and press Enter" 
-              onKeyDown={(e) => { 
-                if (e.key === "Enter") { 
-                  e.preventDefault(); 
-                  const v = (e.target as HTMLInputElement).value; 
-                  addStudy(v); 
-                  (e.target as HTMLInputElement).value = ""; 
-                } 
-              }} 
-            />
+            <div className="relative">
+              <Input 
+                ref={inputRef}
+                placeholder="Type a name and press Enter" 
+                value={bibleStudiesInputValue}
+                onChange={(e) => setBibleStudiesInputValue(e.target.value)}
+                onFocus={() => setBibleStudiesInputFocused(true)}
+                onBlur={(e) => {
+                  // Check if the blur is going to the dropdown
+                  const relatedTarget = e.relatedTarget as HTMLElement;
+                  if (relatedTarget && relatedTarget.closest('.bible-studies-dropdown')) {
+                    // Don't close if clicking inside dropdown
+                    return;
+                  }
+                  // Delay to allow click on dropdown item
+                  setTimeout(() => setBibleStudiesInputFocused(false), 200);
+                }}
+                onKeyDown={(e) => { 
+                  if (e.key === "Enter") { 
+                    e.preventDefault(); 
+                    const v = bibleStudiesInputValue.trim();
+                    if (v) {
+                      addStudy(v, false);
+                    }
+                  } 
+                }} 
+              />
+              {bibleStudiesInputFocused && personalContacts.length > 0 && (
+                <div 
+                  className="bible-studies-dropdown absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md p-1 max-h-[200px] overflow-y-auto"
+                  onMouseDown={(e) => {
+                    // Prevent input blur when clicking in dropdown
+                    e.preventDefault();
+                  }}
+                >
+                  {personalContacts
+                    .filter(contact => 
+                      !bibleStudiesInputValue || 
+                      contact.name.toLowerCase().includes(bibleStudiesInputValue.toLowerCase())
+                    )
+                    .filter(contact => 
+                      !studies.some(s => getHouseholderId(s) === contact.id)
+                    )
+                    .map((contact) => (
+                      <Button
+                        key={contact.id}
+                        variant="ghost"
+                        className="w-full justify-start text-sm h-auto py-2 px-2"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          addStudy(contact.id, true);
+                          // Clear input but keep dropdown open
+                          setBibleStudiesInputValue("");
+                          // Refocus input to keep dropdown visible
+                          setTimeout(() => {
+                            inputRef.current?.focus();
+                          }, 0);
+                        }}
+                      >
+                        {contact.name}
+                      </Button>
+                    ))}
+                  {personalContacts.filter(contact => 
+                    !bibleStudiesInputValue || 
+                    contact.name.toLowerCase().includes(bibleStudiesInputValue.toLowerCase())
+                  ).filter(contact => 
+                    !studies.some(s => getHouseholderId(s) === contact.id)
+                  ).length === 0 && (
+                    <div className="text-xs text-muted-foreground px-2 py-2 text-center">
+                      No available contacts
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
           <div className="grid gap-1 text-sm">
             <span className="opacity-70">Note</span>

@@ -72,7 +72,7 @@ export const getStatusTextColor = (status: string) => {
       return 'text-slate-500 border-slate-500/50';
     // Householder statuses
     case 'potential':
-      return 'text-gray-500 border-gray-500/50';
+      return 'text-cyan-500 border-cyan-500/50';
     case 'interested':
       return 'text-blue-500 border-blue-500/50';
     case 'return_visit':

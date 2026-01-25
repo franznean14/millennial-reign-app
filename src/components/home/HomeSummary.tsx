@@ -577,6 +577,52 @@ export function HomeSummary({
     return `${monthFull} ${year}`;
   };
 
+  // Cache for householder names
+  const [householderNamesCache, setHouseholderNamesCache] = useState<Map<string, string>>(new Map());
+  const cacheRef = useRef<Map<string, string>>(new Map());
+
+  // Load householder names for IDs found in bible studies
+  useEffect(() => {
+    if (!selectedMonth || !uid) return;
+    
+    const monthRecords = dailyRecords.filter(r => r.date.startsWith(selectedMonth));
+    const householderIds = new Set<string>();
+    
+    monthRecords.forEach(r => {
+      if (Array.isArray(r.bible_studies)) {
+        r.bible_studies.forEach(bs => {
+          if (bs && bs.trim() && bs.startsWith("householder:")) {
+            const id = bs.replace("householder:", "");
+            householderIds.add(id);
+          }
+        });
+      }
+    });
+    
+    // Fetch names for IDs not in cache
+    const idsToFetch = Array.from(householderIds).filter(id => !cacheRef.current.has(id));
+    if (idsToFetch.length === 0) return;
+    
+    const fetchNames = async () => {
+      try {
+        const { listHouseholders } = await import("@/lib/db/business");
+        const householders = await listHouseholders();
+        const newCache = new Map(cacheRef.current);
+        householders.forEach(hh => {
+          if (hh.id && householderIds.has(hh.id)) {
+            newCache.set(hh.id, hh.name);
+          }
+        });
+        cacheRef.current = newCache;
+        setHouseholderNamesCache(newCache);
+      } catch (error) {
+        console.error('Error fetching householder names:', error);
+      }
+    };
+    
+    fetchNames();
+  }, [selectedMonth, dailyRecords, uid]);
+
   // Get month detail data
   const monthDetailData = useMemo(() => {
     if (!selectedMonth) return null;
@@ -597,9 +643,17 @@ export function HomeSummary({
       }
     });
     
-    // Convert to array of {name, sessions} and sort by name
+    // Convert to array of {name, sessions} and resolve householder IDs to names
     const bibleStudies = Array.from(bsSessionCounts.entries())
-      .map(([name, sessions]) => ({ name, sessions }))
+      .map(([nameOrId, sessions]) => {
+        // Check if it's a householder ID
+        if (nameOrId.startsWith("householder:")) {
+          const id = nameOrId.replace("householder:", "");
+          const resolvedName = cacheRef.current.get(id) || nameOrId;
+          return { name: resolvedName, sessions, id };
+        }
+        return { name: nameOrId, sessions, id: null };
+      })
       .sort((a, b) => a.name.localeCompare(b.name));
     
     // Collect notes with dates
@@ -617,7 +671,7 @@ export function HomeSummary({
       bibleStudies,
       notes,
     };
-  }, [selectedMonth, dailyRecords]);
+  }, [selectedMonth, dailyRecords, householderNamesCache]);
 
   // Copy month data to clipboard
   const copyMonthToClipboard = async (month: string) => {

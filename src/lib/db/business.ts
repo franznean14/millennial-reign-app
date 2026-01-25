@@ -193,6 +193,45 @@ export async function listEstablishments(): Promise<Establishment[]> {
   }
 }
 
+export async function getPersonalContactHouseholders(userId: string): Promise<Array<{ id: string; name: string }>> {
+  const supabase = createSupabaseBrowserClient();
+  await supabase.auth.getSession().catch(() => {});
+  const cacheKey = `householders:personal:${userId}`;
+  try {
+    // If offline, serve from cache
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      const cached = await cacheGet<Array<{ id: string; name: string }>>(cacheKey);
+      return cached ?? [];
+    }
+    
+    const { data, error } = await supabase
+      .from('householders')
+      .select('id, name')
+      .eq('publisher_id', userId)
+      .eq('is_deleted', false)
+      .eq('is_archived', false)
+      .order('name', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching personal contact householders:', error);
+      const cached = await cacheGet<Array<{ id: string; name: string }>>(cacheKey);
+      return cached ?? [];
+    }
+    
+    const householders = (data ?? []).map((hh: any) => ({
+      id: hh.id,
+      name: hh.name
+    }));
+
+    await cacheSet(cacheKey, householders);
+    return householders;
+  } catch (error) {
+    console.error('Error getting personal contact householders:', error);
+    const cached = await cacheGet<Array<{ id: string; name: string }>>(cacheKey);
+    return cached ?? [];
+  }
+}
+
 export async function listHouseholders(): Promise<HouseholderWithDetails[]> {
   const supabase = createSupabaseBrowserClient();
   await supabase.auth.getSession().catch(() => {});

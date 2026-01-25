@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Calendar, BookOpen, Users, Clock, MapPin, ChevronRight } from "lucide-react";
+import { Calendar, BookOpen, Users, Clock, MapPin, ChevronRight, Map, Building2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -11,6 +11,8 @@ import { listEventSchedules, type EventSchedule } from "@/lib/db/eventSchedules"
 import { listHouseholders, type HouseholderWithDetails } from "@/lib/db/business";
 import { formatTimeLabel, isEventOccurringToday } from "@/lib/utils/recurrence";
 import { formatStatusText } from "@/lib/utils/formatters";
+import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
+import { cn } from "@/lib/utils";
 import { FormModal } from "@/components/shared/FormModal";
 import { businessEventBus } from "@/lib/events/business-events";
 import dynamic from "next/dynamic";
@@ -80,7 +82,23 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
       const owned = householders.filter(
         (householder) => householder.publisher_id && householder.publisher_id === userId
       );
-      setBibleStudents(owned);
+      
+      // Sort by most visited (total visit count)
+      // Calculate total visits by summing visit_count from all top_visitors
+      const sorted = owned.sort((a, b) => {
+        const aVisitCount = a.top_visitors?.reduce((sum, visitor) => sum + (visitor.visit_count || 0), 0) || 0;
+        const bVisitCount = b.top_visitors?.reduce((sum, visitor) => sum + (visitor.visit_count || 0), 0) || 0;
+        
+        // Sort by visit count (descending)
+        if (bVisitCount !== aVisitCount) {
+          return bVisitCount - aVisitCount;
+        }
+        
+        // If same visit count, sort by name alphabetically
+        return a.name.localeCompare(b.name);
+      });
+      
+      setBibleStudents(sorted);
     } catch (error) {
       console.error("Error loading bible students:", error);
       setBibleStudents([]);
@@ -340,8 +358,21 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
         </CardHeader>
         <CardContent className="p-0">
           {bibleStudentsLoading ? (
-            <div className="text-center py-6 text-muted-foreground px-4">
-              <p className="text-sm">Loading...</p>
+            <div className="px-4 py-2 space-y-2">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="px-3 py-2.5 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 bg-muted/60 rounded-full blur-[2px] animate-pulse" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-3 mb-1">
+                        <div className="h-4 bg-muted/60 rounded w-24 blur-[2px] animate-pulse" />
+                        <div className="h-5 bg-muted/60 rounded w-20 blur-[2px] animate-pulse" />
+                      </div>
+                      <div className="h-3 bg-muted/60 rounded w-32 blur-[2px] animate-pulse" />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : bibleStudents.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground px-4">
@@ -383,16 +414,42 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
                         <div className="flex items-center justify-between gap-3">
                           <p className="text-sm font-medium truncate">{householder.name}</p>
                           {householder.status && (
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 leading-none">
+                            <Badge 
+                              variant="outline" 
+                              className={cn(
+                                "text-xs px-2 py-0.5 h-5 leading-none",
+                                getStatusTextColor(householder.status)
+                              )}
+                            >
                               {formatBibleStudentStatus(householder.status)}
                             </Badge>
                           )}
                         </div>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                          <MapPin className="h-3 w-3" />
-                          <span className="truncate">
-                            {householder.establishment_name || "Householder"}
-                          </span>
+                          {(() => {
+                            // If has establishment_id, show building icon
+                            if (householder.establishment_id) {
+                              return (
+                                <>
+                                  <Building2 className="h-3 w-3" />
+                                  <span className="truncate">
+                                    {householder.establishment_name || "Establishment"}
+                                  </span>
+                                </>
+                              );
+                            }
+                            // If has GPS data, show map icon with "Householder" label
+                            if (householder.lat != null && householder.lng != null) {
+                              return (
+                                <>
+                                  <Map className="h-3 w-3" />
+                                  <span className="truncate">Householder</span>
+                                </>
+                              );
+                            }
+                            // If no establishment AND no GPS, don't show anything
+                            return null;
+                          })()}
                         </div>
                       </div>
                     </div>
@@ -426,7 +483,24 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
           <div className="flex-1 overflow-y-auto no-scrollbar overscroll-none" style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}>
             <table className="w-full text-sm table-fixed">
               <tbody>
-                {bibleStudents.map((householder) => {
+                {bibleStudentsLoading ? (
+                  <>
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <tr key={i} className="border-b">
+                        <td className="p-3 min-w-0 w-[65%]">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="h-7 w-7 bg-muted/60 rounded-full blur-[2px] animate-pulse" />
+                            <div className="h-4 bg-muted/60 rounded w-32 blur-[2px] animate-pulse" />
+                          </div>
+                        </td>
+                        <td className="p-3 w-[35%]">
+                          <div className="h-5 bg-muted/60 rounded w-20 blur-[2px] animate-pulse" />
+                        </td>
+                      </tr>
+                    ))}
+                  </>
+                ) : (
+                  bibleStudents.map((householder) => {
                   const initials = householder.name
                     .split(" ")
                     .filter(Boolean)
@@ -453,14 +527,20 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
                       </td>
                       <td className="p-3 w-[35%]">
                         {householder.status ? (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 leading-none">
+                          <Badge 
+                            variant="outline" 
+                            className={cn(
+                              "text-xs px-2 py-0.5 h-5 leading-none",
+                              getStatusTextColor(householder.status)
+                            )}
+                          >
                             {formatBibleStudentStatus(householder.status)}
                           </Badge>
                         ) : null}
                       </td>
                     </tr>
                   );
-                })}
+                }))}
               </tbody>
             </table>
           </div>
