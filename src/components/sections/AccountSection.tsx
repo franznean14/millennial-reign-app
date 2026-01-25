@@ -10,7 +10,7 @@ import { NotificationSettings } from "@/components/account/NotificationSettings"
 import { BiometricToggle } from "@/components/account/BiometricToggle";
 import { ProfileForm } from "@/components/account/ProfileForm";
 import { EditAccountForm } from "@/components/account/EditAccountForm";
-import { PasswordDialog } from "@/components/account/PasswordDialog";
+import { PasswordForm } from "@/components/account/PasswordForm";
 import { FormModal } from "@/components/shared/FormModal";
 import { ChevronRight, MapPin } from "lucide-react";
 
@@ -199,7 +199,7 @@ export function AccountSection({
                   )}
                   {!!userId && (
                     <Button variant="outline" onClick={() => setPasswordOpen(true)}>
-                      {hasPassword ? "Change Password" : "Add Password"}
+                      {hasPassword ? "Edit Password" : "Add Password"}
                     </Button>
                   )}
                 </div>
@@ -283,18 +283,45 @@ export function AccountSection({
           </FormModal>
         )}
 
-        <PasswordDialog
+        <FormModal
           open={passwordOpen}
-          onOpenChange={setPasswordOpen}
-          email={profile?.email}
-          hasPassword={hasPassword}
-          onUpdated={() => {
-            try {
-              localStorage.setItem("has_password", "1");
-            } catch {}
-            setHasPassword(true);
+          onOpenChange={(open) => {
+            setPasswordOpen(open);
+            // Refresh password status when opening the modal
+            if (open && userId) {
+              const checkPasswordStatus = async () => {
+                try {
+                  const supabase = await getSupabaseClient();
+                  const { data: hasPasswordAuth } = await supabase.rpc("has_password_auth");
+                  if (hasPasswordAuth === true) {
+                    localStorage.setItem("has_password", "1");
+                    setHasPassword(true);
+                  } else {
+                    const stored = localStorage.getItem("has_password");
+                    setHasPassword(stored === "1");
+                  }
+                } catch (error) {
+                  console.error("Error refreshing password status:", error);
+                }
+              };
+              checkPasswordStatus();
+            }
           }}
-        />
+          title={hasPassword ? "Edit Password" : "Add Password"}
+          description={hasPassword ? "Update your account password" : "Add a password to secure your account"}
+        >
+          <PasswordForm
+            email={profile?.email}
+            hasPassword={hasPassword}
+            onSaved={() => {
+              setPasswordOpen(false);
+              try {
+                localStorage.setItem("has_password", "1");
+              } catch {}
+              setHasPassword(true);
+            }}
+          />
+        </FormModal>
 
         <FormModal
           open={privacyPolicyOpen}
