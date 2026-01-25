@@ -235,8 +235,9 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
       }
       
       // Ensure lat/lng are numbers or null (not undefined)
-      const latValue = typeof finalLat === 'number' && !isNaN(finalLat) ? finalLat : null;
-      const lngValue = typeof finalLng === 'number' && !isNaN(finalLng) ? finalLng : null;
+      // Only allow GPS coordinates in congregation context (ministry page)
+      const latValue = isCongregationContext && typeof finalLat === 'number' && !isNaN(finalLat) ? finalLat : null;
+      const lngValue = isCongregationContext && typeof finalLng === 'number' && !isNaN(finalLng) ? finalLng : null;
       
       const result = await upsertHouseholder({ 
         id: initialData?.id,
@@ -303,42 +304,44 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
           </SelectContent>
         </Select>
       </div>
-      <div className="grid gap-1">
-        <Label>GPS</Label>
-        <div className="flex gap-2">
-          <Input 
-            className="flex-1"
-            placeholder="14.5995, 120.9842"
-            value={gps}
-            onChange={(e) => {
-              const v = e.target.value;
-              setGps(v);
-              const parsed = parseGps(v);
-              if (!v.trim()) {
-                setLat(null);
-                setLng(null);
-              } else if (parsed) {
-                setLat(parsed.lat);
-                setLng(parsed.lng);
-              }
-            }}
-          />
-          <Button 
-            type="button" 
-            variant="outline" 
-            size="icon"
-            onClick={getCurrentLocation}
-            disabled={gpsLoading}
-            title={gpsLoading ? "Getting location..." : "Use current location"}
-          >
-            {gpsLoading ? (
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-            ) : (
-              <Crosshair className="h-4 w-4" />
-            )}
-          </Button>
+      {isCongregationContext && (
+        <div className="grid gap-1">
+          <Label>GPS</Label>
+          <div className="flex gap-2">
+            <Input 
+              className="flex-1"
+              placeholder="14.5995, 120.9842"
+              value={gps}
+              onChange={(e) => {
+                const v = e.target.value;
+                setGps(v);
+                const parsed = parseGps(v);
+                if (!v.trim()) {
+                  setLat(null);
+                  setLng(null);
+                } else if (parsed) {
+                  setLat(parsed.lat);
+                  setLng(parsed.lng);
+                }
+              }}
+            />
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="icon"
+              onClick={getCurrentLocation}
+              disabled={gpsLoading}
+              title={gpsLoading ? "Getting location..." : "Use current location"}
+            >
+              {gpsLoading ? (
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              ) : (
+                <Crosshair className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
       <div className="grid gap-1">
         <Label>Note</Label>
         <Textarea value={note} onChange={e=>setNote(e.target.value)} />
