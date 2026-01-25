@@ -45,8 +45,8 @@ export function AccountTabToggle({
   };
 
   return (
-    <div className={cn("bg-background/95 backdrop-blur-sm border p-0.1 rounded-lg shadow-lg w-full relative overflow-hidden flex items-center gap-2", className)}>
-      <div className="pl-2 flex-shrink-0 w-[39px] flex items-center justify-center">
+    <div className={cn("bg-background/95 backdrop-blur-sm border p-0.1 rounded-lg shadow-lg w-full relative overflow-hidden flex items-center", className)}>
+      <div className="pl-2 flex-shrink-0 flex items-center justify-center h-full">
         <ThemeToggle />
       </div>
       <ToggleGroup
@@ -57,29 +57,41 @@ export function AccountTabToggle({
             onValueChange(newValue as 'profile' | 'account');
           }
         }}
-        className="flex-[3] h-full"
+        className="flex-[3] h-full rounded-none flex-1"
       >
         <ToggleGroupItem 
           value="profile" 
-          className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 flex flex-col items-center justify-center gap-1 transition-colors"
+          className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 flex flex-col items-center justify-center gap-1 transition-colors !rounded-none"
+          style={{ 
+            borderTopLeftRadius: '0.375rem',
+            borderBottomLeftRadius: '0.375rem',
+            borderTopRightRadius: '0',
+            borderBottomRightRadius: '0'
+          }}
         >
           <User className="h-4 w-4 flex-shrink-0" />
           <span className="text-[10px] font-medium text-center">Profile</span>
         </ToggleGroupItem>
         <ToggleGroupItem 
           value="account" 
-          className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 flex flex-col items-center justify-center gap-1 transition-colors"
+          className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 flex flex-col items-center justify-center gap-1 transition-colors !rounded-none"
+          style={{ 
+            borderTopLeftRadius: '0',
+            borderBottomLeftRadius: '0',
+            borderTopRightRadius: '0.375rem',
+            borderBottomRightRadius: '0.375rem'
+          }}
         >
           <Settings className="h-4 w-4 flex-shrink-0" />
           <span className="text-[10px] font-medium text-center">Account</span>
         </ToggleGroupItem>
       </ToggleGroup>
-      <div className="pr-2 flex-shrink-0 w-[39px] flex items-center justify-center">
+      <div className="pr-3 pl-2 flex-shrink-0 flex items-center justify-center h-full">
         <Button
           variant="ghost"
           onClick={handleLogout}
           disabled={loading}
-          className="flex flex-col items-center justify-center gap-1 px-1.5 py-6 h-full w-full transition-colors"
+          className="flex flex-col items-center justify-center gap-1 px-2 py-6 h-full transition-colors"
           aria-label={loading ? "Signing out" : "Sign out"}
         >
           {loading ? (
