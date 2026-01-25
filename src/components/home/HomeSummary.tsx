@@ -577,42 +577,80 @@ export function HomeSummary({
     return `${monthFull} ${year}`;
   };
 
-  // Cache for householder names
+  // Cache for householder names (from visit IDs and legacy householder IDs)
   const [householderNamesCache, setHouseholderNamesCache] = useState<Map<string, string>>(new Map());
   const cacheRef = useRef<Map<string, string>>(new Map());
 
-  // Load householder names for IDs found in bible studies
+  // Load householder names for visit IDs and legacy householder IDs found in bible studies
   useEffect(() => {
     if (!selectedMonth || !uid) return;
     
     const monthRecords = dailyRecords.filter(r => r.date.startsWith(selectedMonth));
+    const visitIds = new Set<string>();
     const householderIds = new Set<string>();
     
     monthRecords.forEach(r => {
       if (Array.isArray(r.bible_studies)) {
         r.bible_studies.forEach(bs => {
-          if (bs && bs.trim() && bs.startsWith("householder:")) {
-            const id = bs.replace("householder:", "");
-            householderIds.add(id);
+          if (bs && bs.trim()) {
+            // Check for visit:ID format (new)
+            if (bs.startsWith("visit:")) {
+              const id = bs.replace("visit:", "");
+              visitIds.add(id);
+            }
+            // Check for householder:ID format (legacy)
+            else if (bs.startsWith("householder:")) {
+              const id = bs.replace("householder:", "");
+              householderIds.add(id);
+            }
           }
         });
       }
     });
     
-    // Fetch names for IDs not in cache
-    const idsToFetch = Array.from(householderIds).filter(id => !cacheRef.current.has(id));
-    if (idsToFetch.length === 0) return;
-    
     const fetchNames = async () => {
       try {
-        const { listHouseholders } = await import("@/lib/db/business");
-        const householders = await listHouseholders();
+        const supabase = createSupabaseBrowserClient();
+        await supabase.auth.getSession();
         const newCache = new Map(cacheRef.current);
-        householders.forEach(hh => {
-          if (hh.id && householderIds.has(hh.id)) {
-            newCache.set(hh.id, hh.name);
+        
+        // Fetch visit IDs to householder names
+        if (visitIds.size > 0) {
+          const visitIdsToFetch = Array.from(visitIds).filter(id => !cacheRef.current.has(`visit:${id}`));
+          if (visitIdsToFetch.length > 0) {
+            const { data: visits, error: visitError } = await supabase
+              .from('business_visits')
+              .select(`
+                id,
+                householder_id,
+                householders:business_visits_householder_id_fkey(id, name)
+              `)
+              .in('id', visitIdsToFetch);
+            
+            if (!visitError && visits) {
+              visits.forEach((visit: any) => {
+                if (visit.householders && visit.householders.name) {
+                  newCache.set(`visit:${visit.id}`, visit.householders.name);
+                }
+              });
+            }
           }
-        });
+        }
+        
+        // Fetch legacy householder IDs
+        if (householderIds.size > 0) {
+          const idsToFetch = Array.from(householderIds).filter(id => !cacheRef.current.has(`householder:${id}`));
+          if (idsToFetch.length > 0) {
+            const { listHouseholders } = await import("@/lib/db/business");
+            const householders = await listHouseholders();
+            householders.forEach(hh => {
+              if (hh.id && householderIds.has(hh.id)) {
+                newCache.set(`householder:${hh.id}`, hh.name);
+              }
+            });
+          }
+        }
+        
         cacheRef.current = newCache;
         setHouseholderNamesCache(newCache);
       } catch (error) {
@@ -620,7 +658,9 @@ export function HomeSummary({
       }
     };
     
-    fetchNames();
+    if (visitIds.size > 0 || householderIds.size > 0) {
+      fetchNames();
+    }
   }, [selectedMonth, dailyRecords, uid]);
 
   // Get month detail data
@@ -643,15 +683,20 @@ export function HomeSummary({
       }
     });
     
-    // Convert to array of {name, sessions} and resolve householder IDs to names
+    // Convert to array of {name, sessions} and resolve visit IDs and householder IDs to names
     const bibleStudies = Array.from(bsSessionCounts.entries())
       .map(([nameOrId, sessions]) => {
-        // Check if it's a householder ID
-        if (nameOrId.startsWith("householder:")) {
-          const id = nameOrId.replace("householder:", "");
-          const resolvedName = cacheRef.current.get(id) || nameOrId;
-          return { name: resolvedName, sessions, id };
+        // Check if it's a visit ID (new format)
+        if (nameOrId.startsWith("visit:")) {
+          const resolvedName = cacheRef.current.get(nameOrId) || nameOrId;
+          return { name: resolvedName, sessions, id: null };
         }
+        // Check if it's a householder ID (legacy format)
+        else if (nameOrId.startsWith("householder:")) {
+          const resolvedName = cacheRef.current.get(nameOrId) || nameOrId;
+          return { name: resolvedName, sessions, id: null };
+        }
+        // Plain text name
         return { name: nameOrId, sessions, id: null };
       })
       .sort((a, b) => a.name.localeCompare(b.name));
@@ -678,13 +723,15 @@ export function HomeSummary({
     const monthRecords = dailyRecords.filter(r => r.date.startsWith(month));
     const totalHours = monthRecords.reduce((sum, r) => sum + (Number(r.hours) || 0), 0);
     
-    // Collect unique Bible Study names
+    // Collect unique Bible Study names (resolved from visit IDs or householder IDs)
     const uniqueBS = new Set<string>();
     monthRecords.forEach(r => {
       if (Array.isArray(r.bible_studies)) {
         r.bible_studies.forEach(bs => {
           if (bs && bs.trim()) {
-            uniqueBS.add(bs.trim());
+            // Resolve visit ID or householder ID to name
+            const resolvedName = cacheRef.current.get(bs.trim()) || bs.trim();
+            uniqueBS.add(resolvedName);
           }
         });
       }

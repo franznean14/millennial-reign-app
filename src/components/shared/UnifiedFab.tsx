@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactElement } from "react";
 import { FormModal } from "@/components/shared/FormModal";
 import { FabMenu } from "@/components/shared/FabMenu";
 import { EstablishmentForm } from "@/components/business/EstablishmentForm";
@@ -73,7 +73,7 @@ export function UnifiedFab({
   const isCongregationDetails = !!congregationSelectedHouseholder;
 
   const actions = useMemo(() => {
-    const items: { key: FabActionKey; label: string; icon: JSX.Element; variant?: "default" | "outline" }[] = [];
+    const items: { key: FabActionKey; label: string; icon: ReactElement; variant?: "default" | "outline" }[] = [];
 
     if (currentSection === "business" || currentSection.startsWith("business-")) {
       if (showExpandableButtons) {
@@ -263,9 +263,8 @@ export function UnifiedFab({
       <FormModal
         open={openKey === "field-service"}
         onOpenChange={(open) => setOpenKey(open ? "field-service" : null)}
-        title="Field Service"
-        description="Record your daily activity."
-        headerClassName="text-center"
+        title=""
+        headerClassName="sr-only"
       >
         <FieldServiceForm userId={userId} onClose={() => setOpenKey(null)} />
       </FormModal>

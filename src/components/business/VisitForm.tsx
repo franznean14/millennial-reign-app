@@ -44,7 +44,41 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
   const [estId, setEstId] = useState<string>(
     selectedEstablishmentId || initialVisit?.establishment_id || establishments[0]?.id || "none"
   );
+  const [householderEstablishmentId, setHouseholderEstablishmentId] = useState<string | null>(null);
   const isMobile = useMobile();
+
+  // Fetch householder's establishment_id when householderId is provided or when editing a visit with householder_id
+  useEffect(() => {
+    const hhId = householderId || initialVisit?.householder_id;
+    if (!hhId) {
+      setHouseholderEstablishmentId(null);
+      return;
+    }
+
+    const fetchHouseholderEstablishment = async () => {
+      try {
+        const supabase = createSupabaseBrowserClient();
+        await supabase.auth.getSession();
+        const { data, error } = await supabase
+          .from('householders')
+          .select('establishment_id')
+          .eq('id', hhId)
+          .single();
+
+        if (error) throw error;
+        if (data?.establishment_id) {
+          setHouseholderEstablishmentId(data.establishment_id);
+        } else {
+          setHouseholderEstablishmentId(null);
+        }
+      } catch (error) {
+        console.error('Error fetching householder establishment:', error);
+        setHouseholderEstablishmentId(null);
+      }
+    };
+
+    fetchHouseholderEstablishment();
+  }, [householderId, initialVisit?.householder_id]);
 
   // Keep estId in sync when props change with clear priority
   useEffect(() => {
@@ -56,12 +90,17 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
       setEstId(initialVisit.establishment_id);
       return;
     }
+    // If householder has an establishment_id, use it
+    if (householderEstablishmentId) {
+      setEstId(householderEstablishmentId);
+      return;
+    }
     if (establishments.length > 0) {
       setEstId(establishments[0]?.id || "none");
       return;
     }
     setEstId("none");
-  }, [selectedEstablishmentId, initialVisit?.establishment_id, establishments]);
+  }, [selectedEstablishmentId, initialVisit?.establishment_id, householderEstablishmentId, establishments]);
   
   // Ensure partner shows immediately even if participants have not loaded yet
   useEffect(() => {
@@ -157,8 +196,13 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
     e.preventDefault();
     setSaving(true);
     try {
+      // Use householder's establishment_id if available, otherwise use selected estId
+      const finalEstablishmentId = householderEstablishmentId 
+        ? householderEstablishmentId 
+        : (estId === "none" ? undefined : estId || undefined);
+
       const payload = { 
-        establishment_id: estId === "none" ? undefined : estId || undefined, 
+        establishment_id: finalEstablishmentId, 
         note: note?.trim() || null,
         visit_date: formatLocalDate(visitDate),
         publisher_id: publishers[0] || undefined,

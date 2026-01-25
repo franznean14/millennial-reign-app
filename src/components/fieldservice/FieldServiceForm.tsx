@@ -1,16 +1,21 @@
 "use client";
 
-import { Plus, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, ChevronRight } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { getDailyRecord, listDailyByMonth, upsertDailyRecord, isDailyEmpty, deleteDailyRecord } from "@/lib/db/dailyRecords";
 import { useMobile } from "@/lib/hooks/use-mobile";
 import { motion } from "framer-motion";
 import { NumberFlowInput } from "@/components/ui/number-flow-input";
-import { getPersonalContactHouseholders } from "@/lib/db/business";
+import { getPersonalContactHouseholders, listEstablishments } from "@/lib/db/business";
+import { businessEventBus } from "@/lib/events/business-events";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { VisitForm } from "@/components/business/VisitForm";
+import { ChevronLeft } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function toLocalStr(d: Date) {
   const y = d.getFullYear();
@@ -40,6 +45,17 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
   const [bibleStudiesInputFocused, setBibleStudiesInputFocused] = useState(false);
   const [bibleStudiesInputValue, setBibleStudiesInputValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const [editVisitId, setEditVisitId] = useState<string | null>(null);
+  const [editVisit, setEditVisit] = useState<{
+    id: string;
+    establishment_id?: string | null;
+    householder_id?: string | null;
+    note?: string | null;
+    publisher_id?: string | null;
+    partner_id?: string | null;
+    visit_date?: string;
+  } | null>(null);
+  const [establishments, setEstablishments] = useState<any[]>([]);
 
   const monthLabel = useMemo(() => view.toLocaleString(undefined, { month: "long" }), [view]);
   const yearLabel = useMemo(() => String(view.getFullYear()), [view]);
@@ -89,16 +105,23 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
     } catch {}
   };
 
-  const scheduleSave = () => {
+  const scheduleSave = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
+      // Use the latest values from state
+      const currentStudies = studies;
+      const currentHours = hours;
+      const currentNote = note;
+      
       const payload = {
         user_id: userId,
         date,
-        hours: Number(hours || 0),
-        bible_studies: studies,
-        note: note.trim() || null,
+        hours: Number(currentHours || 0),
+        bible_studies: currentStudies,
+        note: currentNote.trim() || null,
       };
+      console.log('Saving daily record with payload:', payload);
+      console.log('Bible studies array:', payload.bible_studies);
       try {
         if (isDailyEmpty(payload)) {
           await deleteDailyRecord(userId, date);
@@ -108,7 +131,8 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
             return cp;
           });
         } else {
-          await upsertDailyRecord(payload);
+          const result = await upsertDailyRecord(payload);
+          console.log('Daily record saved successfully:', result);
           setMonthMarks((m) => ({ ...m, [date]: true }));
         }
         setDirty(false);
@@ -116,17 +140,31 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
           window.dispatchEvent(new CustomEvent('daily-records-changed', { detail: { userId } }));
         } catch {}
       } catch (e: any) {
+        console.error('Error saving daily record:', e);
         toast.error(e.message ?? "Failed to save");
       }
     }, 1000);
+  }, [studies, hours, note, userId, date]);
+
+  // Helper to check if a study entry is a visit ID
+  const isVisitId = (study: string): boolean => {
+    return study.startsWith("visit:");
   };
 
-  // Helper to check if a study entry is a householder ID
+  // Helper to check if a study entry is a householder ID (legacy support)
   const isHouseholderId = (study: string): boolean => {
     return study.startsWith("householder:");
   };
 
-  // Helper to get householder ID from study entry
+  // Helper to get visit ID from study entry
+  const getVisitId = (study: string): string | null => {
+    if (isVisitId(study)) {
+      return study.replace("visit:", "");
+    }
+    return null;
+  };
+
+  // Helper to get householder ID from study entry (legacy support)
   const getHouseholderId = (study: string): string | null => {
     if (isHouseholderId(study)) {
       return study.replace("householder:", "");
@@ -134,13 +172,99 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
     return null;
   };
 
+  // State to cache visit-to-householder name mappings
+  const [visitNamesCache, setVisitNamesCache] = useState<Map<string, string>>(new Map());
+  // Track which visit IDs are currently loading
+  const [loadingVisitIds, setLoadingVisitIds] = useState<Set<string>>(new Set());
+
+  // Load visit names for display
+  useEffect(() => {
+    const loadVisitNames = async () => {
+      const visitIds = studies
+        .map(s => getVisitId(s))
+        .filter((id): id is string => id !== null);
+      
+      if (visitIds.length === 0) {
+        setLoadingVisitIds(new Set());
+        return;
+      }
+
+      // Check which visits we need to fetch
+      const missingIds = visitIds.filter(id => !visitNamesCache.has(id));
+      if (missingIds.length === 0) {
+        setLoadingVisitIds(new Set());
+        return;
+      }
+
+      // Mark these IDs as loading
+      setLoadingVisitIds(new Set(missingIds));
+
+      try {
+        const supabase = createSupabaseBrowserClient();
+        await supabase.auth.getSession();
+        
+        const { data: visits, error } = await supabase
+          .from('business_visits')
+          .select(`
+            id,
+            householder_id,
+            householders:business_visits_householder_id_fkey(id, name)
+          `)
+          .in('id', missingIds);
+
+        if (error) throw error;
+
+        const newCache = new Map(visitNamesCache);
+        visits?.forEach((visit: any) => {
+          if (visit.householders && visit.householders.name) {
+            newCache.set(visit.id, visit.householders.name);
+          }
+        });
+        setVisitNamesCache(newCache);
+        
+        // Clear loading state for successfully loaded visits
+        setLoadingVisitIds(prev => {
+          const next = new Set(prev);
+          visits?.forEach((visit: any) => {
+            next.delete(visit.id);
+          });
+          return next;
+        });
+      } catch (error) {
+        console.error('Error loading visit names:', error);
+        // Clear loading state on error
+        setLoadingVisitIds(new Set());
+      }
+    };
+
+    loadVisitNames();
+  }, [studies, visitNamesCache]);
+
+  // Helper to check if a study entry is loading
+  const isStudyLoading = (study: string): boolean => {
+    const visitId = getVisitId(study);
+    return visitId ? loadingVisitIds.has(visitId) : false;
+  };
+
   // Helper to get display name for a study entry
-  const getStudyDisplayName = (study: string): string => {
+  const getStudyDisplayName = (study: string): string | null => {
+    // Check for visit ID first (new format)
+    const visitId = getVisitId(study);
+    if (visitId) {
+      const name = visitNamesCache.get(visitId);
+      if (name) return name;
+      // Return null if still loading (don't show visit ID)
+      return null;
+    }
+
+    // Legacy support for householder ID
     const householderId = getHouseholderId(study);
     if (householderId) {
       const contact = personalContacts.find(c => c.id === householderId);
       return contact ? contact.name : study;
     }
+
+    // Plain text name
     return study;
   };
 
@@ -149,10 +273,11 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
     if (!trimmed) return;
     
     let studyEntry: string;
+    let householderId: string | null = null;
     
     if (isHouseholderIdParam) {
       // It's already a householder ID from the dropdown
-      studyEntry = `householder:${trimmed}`;
+      householderId = trimmed;
     } else {
       // It's a custom name - create a householder automatically
       try {
@@ -168,7 +293,7 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
         });
         
         if (newHouseholder && newHouseholder.id) {
-          studyEntry = `householder:${newHouseholder.id}`;
+          householderId = newHouseholder.id;
           // Refresh personal contacts to include the new one
           const contacts = await getPersonalContactHouseholders(userId);
           setPersonalContacts(contacts);
@@ -177,29 +302,165 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
           // Fallback to plain text if creation fails
           studyEntry = trimmed;
           toast.error("Failed to create householder. Using name only.");
+          setStudies((s) => [...s, studyEntry]);
+          setDirty(true);
+          setBibleStudiesInputValue("");
+          inputRef.current?.focus();
+          return;
         }
       } catch (error: any) {
         console.error('Error creating householder:', error);
         // Fallback to plain text if creation fails
         studyEntry = trimmed;
         toast.error(error?.message || "Failed to create householder. Using name only.");
+        setStudies((s) => [...s, studyEntry]);
+        setDirty(true);
+        setBibleStudiesInputValue("");
+        inputRef.current?.focus();
+        return;
       }
     }
     
-    // Check if already exists (check both formats)
-    if (studies.includes(studyEntry)) return;
-    const householderIdFromEntry = getHouseholderId(studyEntry);
-    if (householderIdFromEntry && studies.some(s => getHouseholderId(s) === householderIdFromEntry)) return;
-    if (!householderIdFromEntry && studies.some(s => !isHouseholderId(s) && s === trimmed)) return;
+    // If we have a householder ID, create a visit entry first, then store visit:ID
+    if (householderId) {
+      try {
+        const { addVisit, upsertHouseholder, listHouseholders } = await import("@/lib/db/business");
+        
+        // Get the householder to check current status
+        const allHouseholders = await listHouseholders();
+        const householder = allHouseholders.find(h => h.id === householderId);
+        
+        if (!householder) {
+          toast.error("Householder not found");
+          return;
+        }
+
+        let updatedHouseholder = householder;
+        
+        // Update status to bible_study if not already
+        if (householder.status !== "bible_study") {
+          const updated = await upsertHouseholder({
+            id: householder.id,
+            name: householder.name,
+            status: "bible_study",
+            publisher_id: householder.publisher_id,
+            note: householder.note,
+            establishment_id: householder.establishment_id,
+            lat: householder.lat,
+            lng: householder.lng
+          });
+          
+          if (updated) {
+            updatedHouseholder = {
+              ...householder,
+              status: "bible_study"
+            };
+          }
+        }
+        
+        // Create visit entry first
+        const visit = await addVisit({
+          householder_id: householderId,
+          publisher_id: userId,
+          visit_date: date,
+          note: null
+        });
+        
+        if (!visit || !visit.id) {
+          console.error('Failed to create visit entry:', { visit, householderId, userId, date });
+          toast.error("Failed to create visit entry");
+          return;
+        }
+
+        console.log('Visit created successfully:', visit.id);
+
+        // Store visit:ID in the studies array
+        studyEntry = `visit:${visit.id}`;
+        
+        console.log('Study entry to be saved:', studyEntry);
+        
+        // Check if already exists (check both visit ID and householder ID formats for legacy support)
+        if (studies.includes(studyEntry)) {
+          console.log('Study entry already exists, skipping');
+          return;
+        }
+        const visitIdFromEntry = getVisitId(studyEntry);
+        if (visitIdFromEntry && studies.some(s => getVisitId(s) === visitIdFromEntry)) {
+          console.log('Visit ID already exists in studies, skipping');
+          return;
+        }
+        // Also check for existing householder ID (legacy)
+        if (studies.some(s => getHouseholderId(s) === householderId)) {
+          console.log('Householder ID already exists in studies, skipping');
+          return;
+        }
+        
+        // Load the visit name into cache immediately
+        setVisitNamesCache(prev => {
+          const newCache = new Map(prev);
+          newCache.set(visit.id, householder.name);
+          return newCache;
+        });
+        
+        // Emit events to refresh visit history
+        try {
+          window.dispatchEvent(new CustomEvent('visit-added', { detail: { householderId, date, visitId: visit.id } }));
+          businessEventBus.emit('visit-added', visit);
+          businessEventBus.emit('householder-updated', updatedHouseholder);
+        } catch {}
+      } catch (error: any) {
+        console.error('Error creating visit entry:', error);
+        toast.error(error?.message || "Failed to create visit entry");
+        return;
+      }
+    } else {
+      // Plain text entry (shouldn't happen, but handle gracefully)
+      studyEntry = trimmed;
+      
+      // Check if already exists
+      if (studies.includes(studyEntry)) return;
+      if (studies.some(s => !isVisitId(s) && !isHouseholderId(s) && s === trimmed)) return;
+    }
     
-    setStudies((s) => [...s, studyEntry]);
+    console.log('Adding study entry to state:', studyEntry);
+    console.log('Current studies before add:', studies);
+    setStudies((s) => {
+      const updated = [...s, studyEntry];
+      console.log('Updated studies array:', updated);
+      return updated;
+    });
     setDirty(true);
     setBibleStudiesInputValue("");
     inputRef.current?.focus();
   };
 
-  const removeStudy = (name: string) => {
-    setStudies((s) => s.filter((n) => n !== name));
+  const removeStudy = async (studyEntry: string) => {
+    // If it's a visit ID, delete the visit entry
+    const visitId = getVisitId(studyEntry);
+    if (visitId) {
+      try {
+        const { deleteVisit } = await import("@/lib/db/business");
+        const deleted = await deleteVisit(visitId);
+        if (deleted) {
+          console.log('Visit entry deleted:', visitId);
+          // Emit event to refresh visit history
+          try {
+            window.dispatchEvent(new CustomEvent('visit-deleted', { detail: { visitId } }));
+            businessEventBus.emit('visit-deleted', { id: visitId });
+          } catch {}
+        } else {
+          console.error('Failed to delete visit entry:', visitId);
+          toast.error("Failed to delete visit entry");
+        }
+      } catch (error: any) {
+        console.error('Error deleting visit entry:', error);
+        toast.error(error?.message || "Failed to delete visit entry");
+        // Still remove from UI even if visit deletion fails
+      }
+    }
+    
+    // Remove from studies array (this will trigger save via dirty flag)
+    setStudies((s) => s.filter((n) => n !== studyEntry));
     setDirty(true);
   };
 
@@ -235,6 +496,50 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
     loadPersonalContacts();
   }, [userId]);
 
+  // Load establishments for VisitForm
+  useEffect(() => {
+    const loadEstablishments = async () => {
+      try {
+        const ests = await listEstablishments();
+        setEstablishments(ests);
+      } catch (error) {
+        console.error('Error loading establishments:', error);
+      }
+    };
+    loadEstablishments();
+  }, []);
+
+  // Load visit data when editVisitId changes
+  useEffect(() => {
+    if (!editVisitId) {
+      setEditVisit(null);
+      return;
+    }
+
+    const loadVisit = async () => {
+      try {
+        const supabase = createSupabaseBrowserClient();
+        await supabase.auth.getSession();
+        const { data, error } = await supabase
+          .from('business_visits')
+          .select('id, establishment_id, householder_id, note, publisher_id, partner_id, visit_date')
+          .eq('id', editVisitId)
+          .single();
+
+        if (error) throw error;
+        if (data) {
+          setEditVisit(data);
+        }
+      } catch (error) {
+        console.error('Error loading visit:', error);
+        toast.error('Failed to load visit details');
+        setEditVisitId(null);
+      }
+    };
+
+    loadVisit();
+  }, [editVisitId]);
+
   useEffect(() => {
     loadMonthMarks();
     load(date);
@@ -248,11 +553,50 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
         toast.success("Saving...");
       }, 500);
     }
-  }, [dirty, hours, studies, note]);
+  }, [dirty, scheduleSave]);
+
+  // If editing a visit, show only the edit form
+  if (editVisitId && editVisit) {
+    return (
+      <div className="-mx-4 px-4 pb-10 relative">
+        <div className="mb-4 flex items-center justify-center gap-2 relative pt-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setEditVisitId(null)}
+            className="h-8 w-8 p-0 absolute left-0"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Button>
+          <div className="text-center">
+            <h2 className="text-lg font-semibold">Edit Visit</h2>
+            <p className="text-sm text-muted-foreground">Update visit details</p>
+          </div>
+        </div>
+        <VisitForm
+          establishments={establishments}
+          initialVisit={editVisit}
+          householderId={editVisit.householder_id || undefined}
+          householderName={visitNamesCache.get(editVisitId) || undefined}
+          onSaved={() => {
+            setEditVisitId(null);
+            // Refresh the studies to get updated visit data
+            load(date);
+          }}
+          disableEstablishmentSelect={!!editVisit.householder_id}
+        />
+      </div>
+    );
+  }
 
   return (
-    <div className="grid md:grid-cols-2">
-      <div className="p-4 border-b md:border-b-0 md:border-r">
+    <div>
+      <div className="p-4 pb-0 text-center">
+        <h2 className="text-lg font-semibold">Field Service</h2>
+        <p className="text-sm text-muted-foreground">Record your daily activity.</p>
+      </div>
+      <div className="grid md:grid-cols-2">
+        <div className="p-4 border-b md:border-b-0 md:border-r">
         <div className="flex items-center justify-between pb-3">
           <Button variant="ghost" size="sm" onClick={() => changeStep(-1)}>
             <ChevronLeft className="h-5 w-5" />
@@ -337,7 +681,7 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
           </div>
         )}
       </div>
-      <div className="p-4 pb-10">
+        <div className="p-4 pb-10">
         <div className="mt-0 grid gap-4">
           <div className="grid gap-1 text-sm place-items-center">
             <span className="opacity-70">Hours</span>
@@ -356,19 +700,40 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
           <div className="grid gap-1 text-sm">
             <span className="opacity-70">Bible Studies</span>
             <div className="flex flex-wrap gap-2">
-              {studies.map((s) => (
-                <span key={s} className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs">
-                  {getStudyDisplayName(s)}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-auto p-0.5"
-                    onClick={() => removeStudy(s)}
-                  >
-                    ×
-                  </Button>
-                </span>
-              ))}
+              {studies.map((s) => {
+                const visitId = getVisitId(s);
+                const displayName = getStudyDisplayName(s);
+                const isLoading = isStudyLoading(s);
+                
+                return (
+                  <span key={s} className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs">
+                    {isLoading ? (
+                      <Skeleton className="h-4 w-20" />
+                    ) : visitId && displayName ? (
+                      <button
+                        type="button"
+                        onClick={() => setEditVisitId(visitId)}
+                        className="cursor-pointer hover:underline"
+                      >
+                        {displayName}
+                      </button>
+                    ) : displayName ? (
+                      <span>{displayName}</span>
+                    ) : null}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-auto p-0.5"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeStudy(s);
+                      }}
+                    >
+                      ×
+                    </Button>
+                  </span>
+                );
+              })}
             </div>
             <div className="relative">
               <Input 
@@ -410,9 +775,16 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
                       !bibleStudiesInputValue || 
                       contact.name.toLowerCase().includes(bibleStudiesInputValue.toLowerCase())
                     )
-                    .filter(contact => 
-                      !studies.some(s => getHouseholderId(s) === contact.id)
-                    )
+                    .filter(contact => {
+                      // Check if contact is already added (by visit ID or householder ID)
+                      return !studies.some(s => {
+                        const visitId = getVisitId(s);
+                        const hhId = getHouseholderId(s);
+                        // We need to check if any visit for this householder is already in the list
+                        // For now, just check householder ID (legacy) - visit check will be done server-side
+                        return hhId === contact.id;
+                      });
+                    })
                     .map((contact) => (
                       <Button
                         key={contact.id}
@@ -458,6 +830,7 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
               placeholder="Optional note for this day" 
             />
           </div>
+        </div>
         </div>
       </div>
     </div>
