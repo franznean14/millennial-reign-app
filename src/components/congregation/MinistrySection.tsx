@@ -1,55 +1,71 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Calendar, BookOpen, Users, Clock, MapPin, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { Congregation } from "@/lib/db/congregations";
 import { listEventSchedules, type EventSchedule } from "@/lib/db/eventSchedules";
 import { listHouseholders, type HouseholderWithDetails } from "@/lib/db/business";
 import { formatTimeLabel, isEventOccurringToday } from "@/lib/utils/recurrence";
 import { formatStatusText } from "@/lib/utils/formatters";
 import { FormModal } from "@/components/shared/FormModal";
+import dynamic from "next/dynamic";
+
+const EventScheduleForm = dynamic(() => import("@/components/congregation/EventScheduleForm").then((m) => m.EventScheduleForm), {
+  ssr: false
+});
 
 interface MinistrySectionProps {
   congregationData: Congregation;
   userId?: string | null;
   onContactClick?: (householder: HouseholderWithDetails) => void;
+  canEdit?: boolean;
 }
 
 // Helper to check if an event should appear today
 
-export function MinistrySection({ congregationData, userId, onContactClick }: MinistrySectionProps) {
+export function MinistrySection({ congregationData, userId, onContactClick, canEdit = false }: MinistrySectionProps) {
   const [todayEvents, setTodayEvents] = useState<EventSchedule[]>([]);
+  const [allMinistryEvents, setAllMinistryEvents] = useState<EventSchedule[]>([]);
   const [loading, setLoading] = useState(true);
   const [bibleStudents, setBibleStudents] = useState<HouseholderWithDetails[]>([]);
   const [bibleStudentsLoading, setBibleStudentsLoading] = useState(false);
   const [contactsDrawerOpen, setContactsDrawerOpen] = useState(false);
+  const [schedulesDrawerOpen, setSchedulesDrawerOpen] = useState(false);
+  const [activeDay, setActiveDay] = useState<string | null>(null);
+  const [editScheduleOpen, setEditScheduleOpen] = useState(false);
+  const [selectedSchedule, setSelectedSchedule] = useState<EventSchedule | null>(null);
   
-  useEffect(() => {
-    async function loadTodayEvents() {
-      if (!congregationData.id) {
-        setLoading(false);
-        return;
-      }
-      
-      try {
-        setLoading(true);
-        const allEvents = await listEventSchedules(congregationData.id);
-        const today = new Date();
-        const filtered = allEvents.filter(event => isEventOccurringToday(event, today));
-        setTodayEvents(filtered);
-      } catch (error) {
-        console.error('Error loading today events:', error);
-        setTodayEvents([]);
-      } finally {
-        setLoading(false);
-      }
+  const loadEvents = useCallback(async () => {
+    if (!congregationData.id) {
+      setLoading(false);
+      return;
     }
     
-    loadTodayEvents();
+    try {
+      setLoading(true);
+      const allEvents = await listEventSchedules(congregationData.id);
+      // Filter for ministry events only
+      const ministryEvents = allEvents.filter(e => e.event_type === 'ministry' && e.status === 'active');
+      setAllMinistryEvents(ministryEvents);
+      const today = new Date();
+      const filtered = ministryEvents.filter(event => isEventOccurringToday(event, today));
+      setTodayEvents(filtered);
+    } catch (error) {
+      console.error('Error loading today events:', error);
+      setTodayEvents([]);
+      setAllMinistryEvents([]);
+    } finally {
+      setLoading(false);
+    }
   }, [congregationData.id]);
+
+  useEffect(() => {
+    loadEvents();
+  }, [loadEvents]);
 
   useEffect(() => {
     let active = true;
@@ -87,15 +103,59 @@ export function MinistrySection({ congregationData, userId, onContactClick }: Mi
     if (status === "bible_study") return "Bible Student";
     return formatStatusText(status);
   };
+
+  const formatMinistryType = (ministryType?: string | null) => {
+    if (!ministryType) return "";
+    if (ministryType === "business_witnessing") return "BWI";
+    if (ministryType === "house_to_house") return "H2H";
+    return ministryType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
+
+  // Day names: 0=Sunday, 1=Monday, ..., 6=Saturday
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  
+  // Get days with recurring weekly schedules
+  const daysWithSchedules = useMemo(() => {
+    const days = new Set<number>();
+    allMinistryEvents.forEach(event => {
+      if (event.recurrence_pattern === 'weekly' && event.day_of_week != null) {
+        days.add(event.day_of_week);
+      }
+    });
+    return Array.from(days).sort((a, b) => a - b);
+  }, [allMinistryEvents]);
+
+  // Filter events by selected day
+  const filteredSchedules = useMemo(() => {
+    if (activeDay === null || activeDay === 'All') return allMinistryEvents;
+    const dayNum = parseInt(activeDay);
+    return allMinistryEvents.filter(event => 
+      event.recurrence_pattern === 'weekly' && event.day_of_week === dayNum
+    );
+  }, [allMinistryEvents, activeDay]);
+
+  // Set initial active day to "All"
+  useEffect(() => {
+    if (activeDay === null) {
+      setActiveDay('All');
+    }
+  }, [activeDay]);
   
   return (
     <div className="space-y-4">
-      <Card>
+      <Card className="gap-2">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Today
-          </CardTitle>
+          <button
+            type="button"
+            className="w-full flex items-center justify-between gap-3 text-left rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            onClick={() => setSchedulesDrawerOpen(true)}
+          >
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Today
+            </CardTitle>
+            <ChevronRight className="h-4 w-4 opacity-70" />
+          </button>
         </CardHeader>
         <CardContent className="p-0">
           {loading ? (
@@ -117,7 +177,7 @@ export function MinistrySection({ congregationData, userId, onContactClick }: Mi
                         <h4 className="font-medium text-sm">{event.title}</h4>
                         {event.ministry_type && (
                           <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 leading-none">
-                            {event.ministry_type.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            {formatMinistryType(event.ministry_type)}
                           </Badge>
                         )}
                         {event.recurrence_pattern !== 'none' && (
@@ -299,6 +359,146 @@ export function MinistrySection({ congregationData, userId, onContactClick }: Mi
           </div>
         </div>
       </FormModal>
+
+      <FormModal
+        open={schedulesDrawerOpen}
+        onOpenChange={setSchedulesDrawerOpen}
+        title="Ministry Schedules"
+      >
+        <div className="space-y-4">
+          <div className="flex justify-center">
+            <div className="bg-background/95 backdrop-blur-sm border p-0.1 rounded-lg shadow-lg w-full max-w-screen-sm relative overflow-hidden">
+              <div className="w-full overflow-x-auto no-scrollbar">
+                <ToggleGroup
+                  type="single"
+                  value={activeDay ?? 'All'}
+                  onValueChange={(v) => {
+                    if (v) setActiveDay(v);
+                  }}
+                  className="w-max min-w-full h-full justify-center"
+                >
+                  <ToggleGroupItem
+                    value="All"
+                    className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm min-w-0 px-3 h-12 flex items-center justify-center transition-colors"
+                    title="All"
+                  >
+                    <span className="text-[11px] font-medium text-center truncate w-full">All</span>
+                  </ToggleGroupItem>
+                  {daysWithSchedules.map((dayNum) => (
+                    <ToggleGroupItem
+                      key={dayNum}
+                      value={String(dayNum)}
+                      className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm min-w-0 px-3 h-12 flex items-center justify-center transition-colors"
+                      title={dayNames[dayNum]}
+                    >
+                      <span className="text-[11px] font-medium text-center truncate w-full">{dayNames[dayNum]}</span>
+                    </ToggleGroupItem>
+                  ))}
+                </ToggleGroup>
+              </div>
+            </div>
+          </div>
+
+          <div className="w-full h-[calc(70vh)] overflow-hidden flex flex-col overscroll-none">
+            {/* Fixed Table Header */}
+            <div className="flex-shrink-0 border-b bg-background">
+              <table className="w-full text-sm table-fixed">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-3 px-3 w-[60%]">Title</th>
+                    <th className="text-center py-3 px-3 w-[40%]">Time</th>
+                  </tr>
+                </thead>
+              </table>
+            </div>
+
+            {/* Scrollable Table Body */}
+            <div
+              className="flex-1 overflow-y-auto no-scrollbar overscroll-none"
+              style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
+            >
+              <table className="w-full text-sm table-fixed">
+                <tbody>
+                  {filteredSchedules.length === 0 ? (
+                    <tr>
+                      <td colSpan={2} className="p-6 text-center text-sm text-muted-foreground">
+                        No schedules found
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredSchedules.map((event) => (
+                      <tr 
+                        key={event.id} 
+                        className={`border-b hover:bg-muted/30 ${canEdit ? 'cursor-pointer' : ''}`}
+                        onClick={() => {
+                          if (canEdit && event.id) {
+                            setSelectedSchedule(event);
+                            setEditScheduleOpen(true);
+                          }
+                        }}
+                      >
+                        <td className="p-3 min-w-0 w-[60%]">
+                          <div className="flex flex-col gap-1 min-w-0">
+                            <span className="truncate font-medium">{event.title}</span>
+                            {event.ministry_type && (
+                              <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 leading-none w-fit">
+                                {formatMinistryType(event.ministry_type)}
+                              </Badge>
+                            )}
+                          </div>
+                          {event.description && (
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-1 truncate">{event.description}</p>
+                          )}
+                        </td>
+                        <td className="p-3 w-[40%]">
+                          {event.is_all_day ? (
+                            <div className="text-center">
+                              <span className="text-xs text-muted-foreground">All day</span>
+                            </div>
+                          ) : event.start_time ? (
+                            <div className="flex flex-col items-center text-xs">
+                              <div>{formatTimeLabel(event.start_time)}</div>
+                              {event.end_time && (
+                                <>
+                                  <div className="text-muted-foreground">to</div>
+                                  <div>{formatTimeLabel(event.end_time)}</div>
+                                </>
+                              )}
+                            </div>
+                          ) : null}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </FormModal>
+
+      {canEdit && (
+        <FormModal
+          open={editScheduleOpen}
+          onOpenChange={setEditScheduleOpen}
+          title={selectedSchedule ? "Edit Event Schedule" : "New Event Schedule"}
+        >
+          {selectedSchedule && congregationData.id && (
+            <EventScheduleForm
+              congregationId={congregationData.id}
+              initialData={selectedSchedule}
+              isEditing={true}
+              onSaved={async (savedEvent) => {
+                if (savedEvent) {
+                  setEditScheduleOpen(false);
+                  setSelectedSchedule(null);
+                  await loadEvents();
+                }
+              }}
+            />
+          )}
+        </FormModal>
+      )}
 
       <Card>
         <CardHeader>

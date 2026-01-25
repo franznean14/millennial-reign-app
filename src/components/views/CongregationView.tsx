@@ -183,7 +183,7 @@ export function CongregationView({ data, onEdit, canEdit, initialTab = 'meetings
             }}
           />
         ) : (
-          <MinistrySection congregationData={data} userId={userId} onContactClick={handleContactOpen} />
+          <MinistrySection congregationData={data} userId={userId} onContactClick={handleContactOpen} canEdit={canEdit} />
         )
       )}
       
