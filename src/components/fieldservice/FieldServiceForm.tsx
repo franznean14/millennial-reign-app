@@ -434,6 +434,19 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
           businessEventBus.emit('visit-added', visit);
           businessEventBus.emit('householder-updated', updatedHouseholder);
         } catch {}
+        
+        // Add the study entry to state immediately after visit creation
+        console.log('Adding study entry to state:', studyEntry);
+        console.log('Current studies before add:', studies);
+        setStudies((s) => {
+          const updated = [...s, studyEntry];
+          console.log('Updated studies array:', updated);
+          return updated;
+        });
+        setDirty(true);
+        setBibleStudiesInputValue("");
+        inputRef.current?.focus();
+        return; // Return early since we've already added the study
       } catch (error: any) {
         console.error('Error creating visit entry:', error);
         toast.error(error?.message || "Failed to create visit entry");
@@ -446,18 +459,18 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
       // Check if already exists
       if (studies.includes(studyEntry)) return;
       if (studies.some(s => !isVisitId(s) && !isHouseholderId(s) && s === trimmed)) return;
+      
+      // Add plain text study entry
+      console.log('Adding plain text study entry to state:', studyEntry);
+      setStudies((s) => {
+        const updated = [...s, studyEntry];
+        console.log('Updated studies array:', updated);
+        return updated;
+      });
+      setDirty(true);
+      setBibleStudiesInputValue("");
+      inputRef.current?.focus();
     }
-    
-    console.log('Adding study entry to state:', studyEntry);
-    console.log('Current studies before add:', studies);
-    setStudies((s) => {
-      const updated = [...s, studyEntry];
-      console.log('Updated studies array:', updated);
-      return updated;
-    });
-    setDirty(true);
-    setBibleStudiesInputValue("");
-    inputRef.current?.focus();
   };
 
   const removeStudy = async (studyEntry: string) => {

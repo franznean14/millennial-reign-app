@@ -77,10 +77,8 @@ export function HomeSection({
             .maybeSingle();
 
           if (householder && !error) {
-            if (!householder.establishment_id) {
-              alert("This householder isn't linked to an establishment yet.");
-              return;
-            }
+            // Allow navigation to householder details regardless of establishment_id
+            // Personal contacts (householders with publisher_id) may not have an establishment_id
             setSelectedHouseholder(householder);
             setBusinessTab("householders");
             pushNavigation(currentSection);

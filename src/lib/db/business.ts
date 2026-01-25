@@ -654,6 +654,94 @@ export async function deleteVisit(visitId: string, _establishmentId?: string | n
   const supabase = createSupabaseBrowserClient();
   try {
     await supabase.auth.getSession().catch(() => {});
+    
+    // First, get the visit to find the publisher_id (user who created it)
+    // This is needed to find which user's daily records might contain this visit
+    let publisherId: string | null = null;
+    try {
+      const { data: visit } = await supabase
+        .from('business_visits')
+        .select('publisher_id')
+        .eq('id', visitId)
+        .maybeSingle();
+      publisherId = visit?.publisher_id || null;
+    } catch (e) {
+      console.error('Error fetching visit for publisher_id:', e);
+    }
+    
+    // Remove the visit ID from all daily records that reference it
+    const visitIdString = `visit:${visitId}`;
+    try {
+      // Get the current user's ID to find their daily records
+      const { data: { user } } = await supabase.auth.getUser();
+      const userIdToCheck = publisherId || user?.id;
+      
+      if (userIdToCheck) {
+        // Fetch all daily records for the publisher (or current user if publisher not found)
+        // Using a reasonable date range (last 2 years to present)
+        const twoYearsAgo = new Date();
+        twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+        const dateFrom = twoYearsAgo.toISOString().split('T')[0];
+        
+        const { data: dailyRecords, error: fetchError } = await supabase
+          .from('daily_records')
+          .select('id, user_id, date, bible_studies')
+          .eq('user_id', userIdToCheck)
+          .gte('date', dateFrom);
+        
+        if (!fetchError && dailyRecords && dailyRecords.length > 0) {
+          // Filter records that contain the visit ID
+          const recordsToUpdate = dailyRecords.filter((record: any) => 
+            Array.isArray(record.bible_studies) && record.bible_studies.includes(visitIdString)
+          );
+          
+          // Update each daily record to remove the visit ID
+          for (const record of recordsToUpdate) {
+            const updatedStudies = (record.bible_studies || []).filter(
+              (study: string) => study !== visitIdString
+            );
+            
+            // Update the record
+            const { error: updateError } = await supabase
+              .from('daily_records')
+              .update({ bible_studies: updatedStudies })
+              .eq('id', record.id);
+            
+            if (updateError) {
+              console.error('Error updating daily record:', updateError);
+            } else {
+              // Update cache
+              const { cacheSet, cacheGet } = await import("@/lib/offline/store");
+              const dayKey = `daily:${record.user_id}:${record.date}`;
+              const updatedRecord = { ...record, bible_studies: updatedStudies };
+              await cacheSet(dayKey, updatedRecord);
+              
+              // Update month cache
+              const month = record.date.slice(0, 7);
+              const monthKey = `daily:${record.user_id}:month:${month}`;
+              const monthCache = (await cacheGet(monthKey)) || [];
+              const recordIndex = monthCache.findIndex((r: any) => r.date === record.date);
+              if (recordIndex >= 0) {
+                monthCache[recordIndex] = updatedRecord;
+                await cacheSet(monthKey, monthCache.sort((a: any, b: any) => a.date.localeCompare(b.date)));
+              }
+              
+              // Emit event to notify UI of daily record change
+              try {
+                window.dispatchEvent(new CustomEvent('daily-records-changed', { 
+                  detail: { userId: record.user_id } 
+                }));
+              } catch {}
+            }
+          }
+        }
+      }
+    } catch (cleanupError) {
+      console.error('Error cleaning up visit ID from daily records:', cleanupError);
+      // Continue with visit deletion even if cleanup fails
+    }
+    
+    // Delete the visit
     const { error, status } = await supabase
       .from('business_visits')
       .delete()
