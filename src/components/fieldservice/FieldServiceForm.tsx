@@ -5,7 +5,7 @@ import { toast } from "@/components/ui/sonner";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback, type ReactElement } from "react";
 import { getDailyRecord, listDailyByMonth, upsertDailyRecord, isDailyEmpty, deleteDailyRecord } from "@/lib/db/dailyRecords";
 import { useMobile } from "@/lib/hooks/use-mobile";
 import { motion } from "framer-motion";
@@ -40,7 +40,7 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
   const debounceRef = useRef<any>(null);
   const notifyRef = useRef<any>(null);
   const [dirty, setDirty] = useState(false);
-  const [monthMarks, setMonthMarks] = useState<Record<string, boolean>>({});
+  const [monthMarks, setMonthMarks] = useState<Record<string, { hours: number; hasNotes: boolean; hasBibleStudies: boolean }>>({});
   const [personalContacts, setPersonalContacts] = useState<Array<{ id: string; name: string }>>([]);
   const [bibleStudiesInputFocused, setBibleStudiesInputFocused] = useState(false);
   const [bibleStudiesInputValue, setBibleStudiesInputValue] = useState("");
@@ -81,14 +81,18 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
     try {
       const month = viewMonthKey();
       const list = await listDailyByMonth(userId, month);
-      const marks: Record<string, boolean> = {};
+      const marks: Record<string, { hours: number; hasNotes: boolean; hasBibleStudies: boolean }> = {};
       for (const r of list) {
         if (!(r as any) || (typeof r !== "object")) continue;
         const h = Number((r as any).hours || 0);
         const bs = Array.isArray((r as any).bible_studies) ? (r as any).bible_studies.filter(Boolean) : [];
         const n = ((r as any).note ?? "").toString().trim();
-        const empty = (!h || h === 0) && bs.length === 0 && n.length === 0;
-        if (!empty) marks[(r as any).date] = true;
+        const hasBibleStudies = bs.length > 0;
+        const hasNotes = n.length > 0;
+        // Only mark dates that have at least one of: hours, notes, or bible studies
+        if (h > 0 || hasNotes || hasBibleStudies) {
+          marks[(r as any).date] = { hours: h, hasNotes, hasBibleStudies };
+        }
       }
       setMonthMarks(marks);
     } catch {}
@@ -148,10 +152,24 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
             delete cp[date];
             return cp;
           });
+          // Reload month marks to update bible study indicators
+          loadMonthMarks();
         } else {
           const result = await upsertDailyRecord(payload);
           console.log('Daily record saved successfully:', result);
-          setMonthMarks((m) => ({ ...m, [date]: true }));
+          // Update month marks to reflect hours, notes, and bible studies
+          const hours = Number(currentHours || 0);
+          const hasBibleStudies = currentStudies.length > 0;
+          const hasNotes = (currentNote.trim() || "").length > 0;
+          setMonthMarks((m) => {
+            if (hours > 0 || hasNotes || hasBibleStudies) {
+              return { ...m, [date]: { hours, hasNotes, hasBibleStudies } };
+            } else {
+              const cp = { ...m };
+              delete cp[date];
+              return cp;
+            }
+          });
         }
         setDirty(false);
         try {
@@ -687,13 +705,49 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
                 const sel = isSelected(d);
                 const muted = !inMonth(d);
                 const ds = toLocalStr(d);
-                const hasData = !!monthMarks[ds];
+                const mark = monthMarks[ds];
+                const hours = mark?.hours ?? 0;
+                const hasHours = hours > 0;
+                const hasNotes = mark?.hasNotes ?? false;
+                const hasBibleStudies = mark?.hasBibleStudies ?? false;
+                const showDot = hasHours || hasNotes || hasBibleStudies;
+                const hasHighHours = hours >= 8;
+                
+                // Determine dot color/style
+                let dotElement: ReactElement | null = null;
+                if (hasBibleStudies && hasNotes) {
+                  // Half green/half brown - use a gradient approach with two overlapping divs
+                  dotElement = (
+                    <span className="absolute bottom-1 right-1 h-1.5 w-1.5 rounded-full overflow-hidden flex">
+                      <span className="w-1/2 h-full bg-emerald-500" />
+                      <span className="w-1/2 h-full bg-amber-700" />
+                    </span>
+                  );
+                } else if (hasBibleStudies) {
+                  // Green dot for bible studies
+                  dotElement = <span className="absolute bottom-1 right-1 h-1.5 w-1.5 rounded-full bg-emerald-500" />;
+                } else if (hasNotes) {
+                  // Brown dot for notes (amber-700, similar to RV orange but more brown)
+                  dotElement = <span className="absolute bottom-1 right-1 h-1.5 w-1.5 rounded-full bg-amber-700" />;
+                } else if (hasHours) {
+                  // White dot for hours only
+                  dotElement = <span className="absolute bottom-1 right-1 h-1.5 w-1.5 rounded-full bg-white border border-gray-300" />;
+                }
+                
+                // Determine button styling
+                let buttonClassName = `relative h-10 ${muted ? "opacity-50" : ""}`;
+                if (hasHighHours) {
+                  // Purple/yellow/turquoise gradient background for 8+ hours
+                  // Override default button styles to show gradient
+                  buttonClassName += " !bg-gradient-to-br !from-purple-500 !via-yellow-400 !to-cyan-400 !text-gray-900 dark:!text-gray-900 !font-semibold hover:!opacity-90";
+                }
+                
                 return (
                   <Button
                     key={i}
-                    variant={sel ? "default" : "ghost"}
+                    variant={hasHighHours ? "default" : (sel ? "default" : "ghost")}
                     size="sm"
-                    className={`relative h-10 ${muted ? "opacity-50" : ""}`}
+                    className={buttonClassName}
                     onClick={() => {
                       setDate(ds);
                       setView(d);
@@ -701,7 +755,7 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
                     }}
                   >
                     {d.getDate()}
-                    {hasData && <span className="absolute bottom-1 right-1 h-1.5 w-1.5 rounded-full bg-primary" />}
+                    {showDot && dotElement}
                   </Button>
                 );
               })}
