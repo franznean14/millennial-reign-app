@@ -1,10 +1,16 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import NumberFlow from "@number-flow/react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatDateHuman } from "@/lib/utils";
 import { cacheGet, cacheSet } from "@/lib/offline/store";
+import { FormModal } from "@/components/shared/FormModal";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Button } from "@/components/ui/button";
+import { Eye, Copy, ChevronLeft } from "lucide-react";
+import { toast } from "@/components/ui/sonner";
+import type { DailyRecord } from "@/lib/db/types";
 
 type StudyCount = [string, number];
 
@@ -49,6 +55,11 @@ export function HomeSummary({
   const [timeZone, setTimeZone] = useState<string | null>(null);
   const [uid, setUid] = useState<string | null>(null);
   const [isOffline, setIsOffline] = useState(false);
+  const [recordsDrawerOpen, setRecordsDrawerOpen] = useState(false);
+  const [dailyRecords, setDailyRecords] = useState<DailyRecord[]>([]);
+  const [recordsLoading, setRecordsLoading] = useState(false);
+  const [activeServiceYear, setActiveServiceYear] = useState<string | null>(null);
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [range, setRange] = useState({
     mStart: monthStart,
     mNext: nextMonthStart,
@@ -255,35 +266,699 @@ export function HomeSummary({
     }
   }, [uid]);
 
-  return (
-    <section>
-      <h2 className="text-lg font-semibold mb-3">This Month</h2>
-      <div className="grid gap-3 sm:grid-cols-3">
-        {/* Combined hours card */}
-        <div 
-          className={`sm:col-span-3 rounded-lg border p-6 ${onNavigateToCongregation ? 'cursor-pointer hover:bg-muted/50 transition-colors' : ''}`}
-          onClick={onNavigateToCongregation}
-        >
-          <div className="flex flex-row items-end justify-between gap-6">
-            <div>
-              <div className="text-5xl font-semibold leading-tight">
-                <NumberFlow value={Number(fmtHours(monthHours))} locales="en-US" format={{ useGrouping: false }} />
-              </div>
-              <div className="mt-0.5 text-sm opacity-70">Hours</div>
-            </div>
-            {localPioneer ? (
-              <div className="text-right">
-                <div className="text-xs opacity-70">This service year</div>
-                <div className="mt-1 text-2xl font-semibold leading-tight">
-                  <NumberFlow value={Number(fmtHours(syHours))} locales="en-US" format={{ useGrouping: false }} />
-                </div>
-                <div className="text-xs opacity-70 mt-1">Since {formatDateHuman(serviceYearStart, timeZone || undefined)}</div>
-              </div>
-            ) : null}
-          </div>
-        </div>
+  // Load daily records when drawer opens
+  useEffect(() => {
+    if (!recordsDrawerOpen || !uid) return;
+    
+    const loadRecords = async () => {
+      setRecordsLoading(true);
+      try {
+        const supabase = createSupabaseBrowserClient();
+        await supabase.auth.getSession();
+        // Fetch all daily records for the user
+        const { data, error } = await supabase
+          .from("daily_records")
+          .select("id, user_id, date, hours, bible_studies, note")
+          .eq("user_id", uid)
+          .order("date", { ascending: false });
+        
+        if (error) throw error;
+        setDailyRecords((data ?? []) as DailyRecord[]);
+      } catch (error) {
+        console.error("Error loading daily records:", error);
+        setDailyRecords([]);
+      } finally {
+        setRecordsLoading(false);
+      }
+    };
+    
+    loadRecords();
+  }, [recordsDrawerOpen, uid]);
 
-      </div>
-    </section>
+  // Aggregate daily records by month
+  const monthlyAggregates = useMemo(() => {
+    const monthMap = new Map<string, {
+      month: string;
+      hours: number;
+      uniqueBS: Set<string>;
+      notes: string[];
+    }>();
+
+    dailyRecords.forEach(record => {
+      const month = record.date.slice(0, 7); // YYYY-MM
+      if (!monthMap.has(month)) {
+        monthMap.set(month, {
+          month,
+          hours: 0,
+          uniqueBS: new Set<string>(),
+          notes: [],
+        });
+      }
+      const agg = monthMap.get(month)!;
+      agg.hours += Number(record.hours) || 0;
+      if (Array.isArray(record.bible_studies)) {
+        record.bible_studies.forEach(bs => {
+          if (bs && bs.trim()) {
+            agg.uniqueBS.add(bs.trim());
+          }
+        });
+      }
+      if (record.note && record.note.trim()) {
+        agg.notes.push(record.note.trim());
+      }
+    });
+
+    return Array.from(monthMap.values()).map(agg => ({
+      month: agg.month,
+      hours: agg.hours,
+      bsCount: agg.uniqueBS.size,
+      notes: agg.notes,
+    }));
+  }, [dailyRecords]);
+
+  // Get service years from records (September to August)
+  const serviceYears = useMemo(() => {
+    const years = new Set<number>();
+    monthlyAggregates.forEach(agg => {
+      const [year, month] = agg.month.split('-').map(Number);
+      // Service year is the year that contains September
+      // If month is Sep-Dec, service year is that year
+      // If month is Jan-Aug, service year is previous year
+      const serviceYear = month >= 9 ? year : year - 1;
+      years.add(serviceYear);
+    });
+    return Array.from(years).sort((a, b) => b - a); // Most recent first
+  }, [monthlyAggregates]);
+
+  // Set initial active service year
+  useEffect(() => {
+    if (serviceYears.length > 0 && activeServiceYear === null) {
+      setActiveServiceYear(String(serviceYears[0]));
+    }
+  }, [serviceYears, activeServiceYear]);
+
+  // Filter records by active service year
+  const filteredRecords = useMemo(() => {
+    if (activeServiceYear === null) return [];
+    const year = parseInt(activeServiceYear);
+    return monthlyAggregates.filter(agg => {
+      const [recordYear, recordMonth] = agg.month.split('-').map(Number);
+      const recordServiceYear = recordMonth >= 9 ? recordYear : recordYear - 1;
+      return recordServiceYear === year;
+    }).sort((a, b) => {
+      // Sort by month descending (most recent first)
+      return b.month.localeCompare(a.month);
+    });
+  }, [monthlyAggregates, activeServiceYear]);
+
+  // SwipeableTableRow component
+  const SwipeableTableRow = ({
+    month,
+    hours,
+    bsCount,
+    notesCount,
+    formatMonth,
+    fmtHours,
+    onViewDetails,
+    onCopy,
+  }: {
+    month: string;
+    hours: number;
+    bsCount: number;
+    notesCount: number;
+    formatMonth: (month: string) => string;
+    fmtHours: (hours: number) => string;
+    onViewDetails: () => void;
+    onCopy: () => Promise<void>;
+  }) => {
+    const BUTTON_WIDTH = 80; // Exact width of action buttons container
+    const [swipeOffset, setSwipeOffset] = useState(0);
+    const [isSwiping, setIsSwiping] = useState(false);
+    const touchStartX = useRef<number | null>(null);
+    const touchStartY = useRef<number | null>(null);
+
+    const handleTouchStart = (e: React.TouchEvent) => {
+      touchStartX.current = e.touches[0].clientX;
+      touchStartY.current = e.touches[0].clientY;
+      setIsSwiping(false);
+      // Prevent table from scrolling horizontally
+      e.stopPropagation();
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+      if (touchStartX.current === null || touchStartY.current === null) return;
+      
+      const deltaX = e.touches[0].clientX - touchStartX.current;
+      const deltaY = Math.abs(e.touches[0].clientY - touchStartY.current);
+      const absDeltaX = Math.abs(deltaX);
+      
+      // Only handle horizontal swipe if it's clearly horizontal (more horizontal than vertical)
+      if (absDeltaX > deltaY && absDeltaX > 5) {
+        setIsSwiping(true);
+        // Prevent default scrolling behavior to stop table from scrolling
+        e.preventDefault();
+        e.stopPropagation();
+        // Swipe left (negative deltaX) reveals actions
+        // Limit swipe to exactly match button width
+        const newOffset = Math.max(-BUTTON_WIDTH, Math.min(0, deltaX));
+        setSwipeOffset(newOffset);
+      } else if (deltaY > absDeltaX && deltaY > 10) {
+        // If vertical movement is clearly dominant, reset swipe and allow table scrolling
+        if (isSwiping || absDeltaX > 0) {
+          setSwipeOffset(0);
+          setIsSwiping(false);
+          touchStartX.current = null;
+          touchStartY.current = null;
+        }
+        // Don't prevent default - allow vertical scrolling
+      }
+    };
+
+    const handleTouchEnd = (e: React.TouchEvent) => {
+      if (touchStartX.current === null) return;
+      
+      // If swiped more than half way, snap to fully open/closed
+      if (swipeOffset < -BUTTON_WIDTH / 2) {
+        setSwipeOffset(-BUTTON_WIDTH);
+      } else {
+        setSwipeOffset(0);
+      }
+      
+      touchStartX.current = null;
+      touchStartY.current = null;
+      setIsSwiping(false);
+      e.stopPropagation();
+    };
+
+      return (
+      <tr 
+        className="border-b hover:bg-muted/30 group relative"
+        style={{ 
+          overflow: 'visible',
+          zIndex: 1,
+        }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      >
+        {/* Table content cells - swipeable */}
+        <td className="p-3 w-[30%] bg-background relative" style={{ transform: `translateX(${swipeOffset}px)`, transition: isSwiping ? 'none' : 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+          <span className="font-medium">{formatMonth(month)}</span>
+        </td>
+        <td className="p-3 w-[20%] text-center bg-background relative" style={{ transform: `translateX(${swipeOffset}px)`, transition: isSwiping ? 'none' : 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+          <span>{fmtHours(hours)}</span>
+        </td>
+        <td className="p-3 w-[20%] text-center bg-background relative" style={{ transform: `translateX(${swipeOffset}px)`, transition: isSwiping ? 'none' : 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+          <span>{bsCount}</span>
+        </td>
+        <td className="p-3 w-[30%] min-w-0 text-center bg-background relative" style={{ transform: `translateX(${swipeOffset}px)`, transition: isSwiping ? 'none' : 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+          <span className="truncate block text-muted-foreground">
+            {notesCount > 0 ? `${notesCount} note${notesCount > 1 ? 's' : ''}` : ""}
+          </span>
+          {/* Background action buttons (mobile) - always rendered, revealed on swipe */}
+          <div 
+            className="absolute top-0 right-0 h-full flex items-center justify-center gap-2 md:hidden"
+            style={{ 
+              width: `${BUTTON_WIDTH}px`,
+              height: '100%',
+              right: `${swipeOffset}px`,
+              transition: isSwiping ? 'none' : 'right 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              opacity: Math.abs(swipeOffset) > 10 ? 1 : 0,
+              zIndex: 10,
+              backgroundColor: 'hsl(var(--muted))',
+              padding: '0 8px',
+              display: 'flex',
+              pointerEvents: swipeOffset < -BUTTON_WIDTH / 2 ? 'auto' : 'none',
+            }}
+          >
+            <button
+              type="button"
+              className="h-9 w-9 p-0 flex items-center justify-center rounded-md bg-background border border-border hover:bg-accent hover:text-accent-foreground active:bg-accent/80 text-foreground shadow-sm flex-shrink-0"
+              style={{ 
+                touchAction: 'manipulation',
+                WebkitTapHighlightColor: 'transparent',
+                pointerEvents: 'auto',
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onViewDetails();
+                setSwipeOffset(0);
+              }}
+              title="View details"
+            >
+              <Eye className="h-4 w-4 text-foreground" />
+            </button>
+            <button
+              type="button"
+              className="h-9 w-9 p-0 flex items-center justify-center rounded-md bg-background border border-border hover:bg-accent hover:text-accent-foreground active:bg-accent/80 text-foreground shadow-sm flex-shrink-0"
+              style={{ 
+                touchAction: 'manipulation',
+                WebkitTapHighlightColor: 'transparent',
+                pointerEvents: 'auto',
+              }}
+              onClick={async (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                await onCopy();
+                setSwipeOffset(0);
+              }}
+              title="Copy to clipboard"
+            >
+              <Copy className="h-4 w-4 text-foreground" />
+            </button>
+          </div>
+        </td>
+        {/* Desktop: always visible on hover */}
+        <td className="p-3 w-auto hidden md:table-cell bg-background z-10">
+          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <button
+              type="button"
+              className="h-8 w-8 p-0 flex items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground"
+              onClick={(e) => {
+                e.stopPropagation();
+                onViewDetails();
+              }}
+              title="View details"
+            >
+              <Eye className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              className="h-8 w-8 p-0 flex items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground"
+              onClick={async (e) => {
+                e.stopPropagation();
+                await onCopy();
+              }}
+              title="Copy to clipboard"
+            >
+              <Copy className="h-4 w-4" />
+            </button>
+          </div>
+        </td>
+      </tr>
+      );
+  };
+
+  // Format month for display (short format: "Jan '26")
+  const formatMonth = (monthStr: string) => {
+    const [year, month] = monthStr.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1);
+    const monthShort = date.toLocaleDateString('en-US', { month: 'short' });
+    const yearShort = `'${year.slice(-2)}`;
+    return `${monthShort} ${yearShort}`;
+  };
+
+  // Format full month and year for display (full format: "January 2026")
+  const formatFullMonth = (monthStr: string) => {
+    const [year, month] = monthStr.split('-');
+    const date = new Date(parseInt(year), parseInt(month) - 1);
+    const monthFull = date.toLocaleDateString('en-US', { month: 'long' });
+    return `${monthFull} ${year}`;
+  };
+
+  // Get month detail data
+  const monthDetailData = useMemo(() => {
+    if (!selectedMonth) return null;
+    
+    const monthRecords = dailyRecords.filter(r => r.date.startsWith(selectedMonth));
+    const totalHours = monthRecords.reduce((sum, r) => sum + (Number(r.hours) || 0), 0);
+    
+    // Collect Bible Study names with session counts
+    const bsSessionCounts = new Map<string, number>();
+    monthRecords.forEach(r => {
+      if (Array.isArray(r.bible_studies)) {
+        r.bible_studies.forEach(bs => {
+          if (bs && bs.trim()) {
+            const trimmedBS = bs.trim();
+            bsSessionCounts.set(trimmedBS, (bsSessionCounts.get(trimmedBS) || 0) + 1);
+          }
+        });
+      }
+    });
+    
+    // Convert to array of {name, sessions} and sort by name
+    const bibleStudies = Array.from(bsSessionCounts.entries())
+      .map(([name, sessions]) => ({ name, sessions }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+    
+    // Collect notes with dates
+    const notes = monthRecords
+      .filter(r => r.note && r.note.trim())
+      .map(r => ({
+        date: r.date,
+        note: r.note!.trim(),
+      }))
+      .sort((a, b) => b.date.localeCompare(a.date));
+    
+    return {
+      month: selectedMonth,
+      totalHours,
+      bibleStudies,
+      notes,
+    };
+  }, [selectedMonth, dailyRecords]);
+
+  // Copy month data to clipboard
+  const copyMonthToClipboard = async (month: string) => {
+    const monthRecords = dailyRecords.filter(r => r.date.startsWith(month));
+    const totalHours = monthRecords.reduce((sum, r) => sum + (Number(r.hours) || 0), 0);
+    
+    // Collect unique Bible Study names
+    const uniqueBS = new Set<string>();
+    monthRecords.forEach(r => {
+      if (Array.isArray(r.bible_studies)) {
+        r.bible_studies.forEach(bs => {
+          if (bs && bs.trim()) {
+            uniqueBS.add(bs.trim());
+          }
+        });
+      }
+    });
+    
+    // Collect notes with dates
+    const notes = monthRecords
+      .filter(r => r.note && r.note.trim())
+      .map(r => ({
+        date: r.date,
+        note: r.note!.trim(),
+      }))
+      .sort((a, b) => b.date.localeCompare(a.date));
+    
+    const bsCount = uniqueBS.size;
+    const lines = [
+      formatFullMonth(month),
+      `Hours: ${fmtHours(totalHours)}`,
+      `Bible Studie${bsCount !== 1 ? 's' : ''}: ${bsCount}`,
+      '',
+      'Notes:',
+      ...notes.map(n => {
+        const date = new Date(n.date);
+        const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+        return `${dateStr}: ${n.note}`;
+      }),
+    ];
+    
+    const text = lines.join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success('Copied to clipboard');
+    } catch (error) {
+      toast.error('Failed to copy to clipboard');
+    }
+  };
+
+  // Calculate service year totals
+  const serviceYearTotals = useMemo(() => {
+    if (filteredRecords.length === 0) {
+      return { totalHours: 0, totalBS: 0, totalNotes: 0 };
+    }
+    
+    // Collect all unique BS names across all months in this service year
+    const allUniqueBS = new Set<string>();
+    let totalHours = 0;
+    let totalNotes = 0;
+    
+    // We need to go back to daily records to get unique BS names across the service year
+    const year = activeServiceYear ? parseInt(activeServiceYear) : null;
+    if (year) {
+      dailyRecords.forEach(record => {
+        const [recordYear, recordMonth] = record.date.slice(0, 7).split('-').map(Number);
+        const recordServiceYear = recordMonth >= 9 ? recordYear : recordYear - 1;
+        if (recordServiceYear === year) {
+          totalHours += Number(record.hours) || 0;
+          if (record.note && record.note.trim()) {
+            totalNotes++;
+          }
+          if (Array.isArray(record.bible_studies)) {
+            record.bible_studies.forEach(bs => {
+              if (bs && bs.trim()) {
+                allUniqueBS.add(bs.trim());
+              }
+            });
+          }
+        }
+      });
+    }
+    
+    return {
+      totalHours,
+      totalBS: allUniqueBS.size,
+      totalNotes,
+    };
+  }, [filteredRecords, dailyRecords, activeServiceYear]);
+
+  return (
+    <>
+      <section>
+        <h2 className="text-lg font-semibold mb-3">This Month</h2>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {/* Combined hours card */}
+          <div 
+            className="sm:col-span-3 rounded-lg border p-6 cursor-pointer hover:bg-muted/50 transition-colors"
+            onClick={() => setRecordsDrawerOpen(true)}
+          >
+            <div className="flex flex-row items-end justify-between gap-6">
+              <div>
+                <div className="text-5xl font-semibold leading-tight">
+                  <NumberFlow value={Number(fmtHours(monthHours))} locales="en-US" format={{ useGrouping: false }} />
+                </div>
+                <div className="mt-0.5 text-sm opacity-70">Hours</div>
+              </div>
+              {localPioneer ? (
+                <div className="text-right">
+                  <div className="text-xs opacity-70">This service year</div>
+                  <div className="mt-1 text-2xl font-semibold leading-tight">
+                    <NumberFlow value={Number(fmtHours(syHours))} locales="en-US" format={{ useGrouping: false }} />
+                  </div>
+                  <div className="text-xs opacity-70 mt-1">Since {formatDateHuman(serviceYearStart, timeZone || undefined)}</div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <FormModal
+        open={recordsDrawerOpen}
+        onOpenChange={setRecordsDrawerOpen}
+        title="Monthly Records"
+      >
+        <div className="space-y-4">
+          {serviceYears.length > 0 ? (
+            <>
+              <div className="flex justify-center">
+                <div className="bg-background/95 backdrop-blur-sm border p-0.1 rounded-lg shadow-lg w-full max-w-screen-sm relative overflow-hidden">
+                  <div className="w-full overflow-x-auto no-scrollbar">
+                    {selectedMonth ? (
+                      <div className="flex items-center gap-1 w-full h-12">
+                        {/* Back Button - Left */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setSelectedMonth(null)}
+                          className="flex-shrink-0 px-3 h-12 flex items-center justify-center transition-colors hover:bg-muted"
+                        >
+                          <ChevronLeft className="h-4 w-4 flex-shrink-0" />
+                        </Button>
+                        
+                        {/* Month and Year - Middle (wider, plain text, no button feel) */}
+                        <div className="flex-[2] min-w-0 px-3 h-12 flex items-center justify-center bg-transparent border-none">
+                          <span className="text-sm font-semibold text-foreground truncate w-full text-center pointer-events-none">
+                            {formatFullMonth(selectedMonth)}
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <ToggleGroup
+                        type="single"
+                        value={activeServiceYear ? String(activeServiceYear) : undefined}
+                        onValueChange={(v) => {
+                          if (v) {
+                            setActiveServiceYear(v);
+                            setSelectedMonth(null);
+                          }
+                        }}
+                        className="w-max min-w-full h-full justify-center"
+                      >
+                        {serviceYears.map((year) => (
+                          <ToggleGroupItem
+                            key={year}
+                            value={String(year)}
+                            className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm min-w-0 px-3 h-12 flex items-center justify-center transition-colors"
+                            title={String(year)}
+                          >
+                            <span className="text-[11px] font-medium text-center truncate w-full">{year}</span>
+                          </ToggleGroupItem>
+                        ))}
+                      </ToggleGroup>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {selectedMonth && monthDetailData ? (
+                /* Detail View */
+                <div className="space-y-4 pb-6">
+                  {/* Hours Summary */}
+                  <div className="rounded-lg border p-4 bg-muted/30">
+                    <div className="text-center">
+                      <div className="text-3xl font-semibold">{fmtHours(monthDetailData.totalHours)}</div>
+                      <div className="text-sm text-muted-foreground mt-1">Hours</div>
+                    </div>
+                  </div>
+
+                  {/* Bible Studies Table */}
+                  {monthDetailData.bibleStudies && monthDetailData.bibleStudies.length > 0 ? (
+                    <div className="rounded-lg border">
+                      <div className="px-4 py-3 border-b bg-muted/30">
+                        <h3 className="text-sm font-semibold">Bible Studies</h3>
+                      </div>
+                      <div className="max-h-[200px] overflow-y-auto">
+                        <table className="w-full text-sm">
+                          <tbody>
+                            {monthDetailData.bibleStudies.map((bs, idx) => (
+                              <tr key={idx} className="border-b last:border-b-0">
+                                <td className="p-3">{bs.name}</td>
+                                <td className="p-3 text-right text-muted-foreground">{bs.sessions} session{bs.sessions !== 1 ? 's' : ''}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border p-4 text-center text-sm text-muted-foreground">
+                      No Bible Studies
+                    </div>
+                  )}
+
+                  {/* Notes Table */}
+                  {monthDetailData.notes.length > 0 ? (
+                    <div className="rounded-lg border">
+                      <div className="px-4 py-3 border-b bg-muted/30">
+                        <h3 className="text-sm font-semibold">Notes</h3>
+                      </div>
+                      <div className="max-h-[200px] overflow-y-auto">
+                        <table className="w-full text-sm">
+                          <tbody>
+                            {monthDetailData.notes.map((note, idx) => {
+                              const date = new Date(note.date);
+                              const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+                              return (
+                                <tr key={idx} className="border-b last:border-b-0">
+                                  <td className="p-3 text-muted-foreground">{dateStr}</td>
+                                  <td className="p-3">{note.note}</td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border p-4 text-center text-sm text-muted-foreground">
+                      No Notes
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* List View */
+                <>
+                  {/* Summary Section */}
+                  {activeServiceYear && (
+                    <div className="rounded-lg border p-4 bg-muted/30">
+                      <div className="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                          <div className="text-2xl font-semibold">{fmtHours(serviceYearTotals.totalHours)}</div>
+                          <div className="text-xs text-muted-foreground mt-1">Hours</div>
+                        </div>
+                        <div>
+                          <div className="text-2xl font-semibold">{serviceYearTotals.totalBS}</div>
+                          <div className="text-xs text-muted-foreground mt-1">BS</div>
+                        </div>
+                        <div>
+                          <div className="text-2xl font-semibold">{serviceYearTotals.totalNotes}</div>
+                          <div className="text-xs text-muted-foreground mt-1">Notes</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-4 text-sm text-muted-foreground">
+              No records found
+            </div>
+          )}
+
+          {!selectedMonth && (
+            <div className="w-full h-[calc(70vh)] overflow-y-auto overflow-x-visible flex flex-col overscroll-none">
+            {/* Fixed Table Header */}
+            <div className="flex-shrink-0 border-b bg-background">
+              <table className="w-full text-sm table-fixed" style={{ touchAction: 'none' }}>
+                  <thead>
+                    <tr className="border-b">
+                      <th className="text-left py-3 px-3 w-[30%]">Month</th>
+                      <th className="text-center py-3 px-3 w-[20%]">Hours</th>
+                      <th className="text-center py-3 px-3 w-[20%]">BS</th>
+                      <th className="text-center py-3 px-3 w-[30%]">Notes</th>
+                      <th className="w-auto"></th>
+                    </tr>
+                  </thead>
+                </table>
+              </div>
+
+              {/* Scrollable Table Body */}
+              <div
+                className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar overscroll-none"
+                style={{ 
+                  overscrollBehavior: "contain",
+                  touchAction: 'pan-y', // Only allow vertical panning
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <table className="w-full text-sm table-fixed" style={{ touchAction: 'none', position: 'relative' }}>
+                  <tbody style={{ position: 'relative' }}>
+                    {recordsLoading ? (
+                      <tr>
+                        <td colSpan={5} className="p-6 text-center text-sm text-muted-foreground">
+                          Loading...
+                        </td>
+                      </tr>
+                    ) : filteredRecords.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="p-6 text-center text-sm text-muted-foreground">
+                          No records found
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredRecords.map((agg) => {
+                        const rowKey = `row-${agg.month}`;
+                        return (
+                          <SwipeableTableRow
+                            key={rowKey}
+                            month={agg.month}
+                            hours={agg.hours}
+                            bsCount={agg.bsCount}
+                            notesCount={agg.notes.length}
+                            formatMonth={formatMonth}
+                            fmtHours={fmtHours}
+                            onViewDetails={() => setSelectedMonth(agg.month)}
+                            onCopy={() => copyMonthToClipboard(agg.month)}
+                          />
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      </FormModal>
+    </>
   );
 }
