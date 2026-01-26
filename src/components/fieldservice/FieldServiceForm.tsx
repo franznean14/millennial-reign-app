@@ -920,8 +920,8 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
                   // Brown dot for notes (amber-700, similar to RV orange but more brown)
                   dotElement = <span className="absolute bottom-1 right-1 h-1.5 w-1.5 rounded-full bg-amber-700" />;
                 } else if (hasHours) {
-                  // White dot for hours only
-                  dotElement = <span className="absolute bottom-1 right-1 h-1.5 w-1.5 rounded-full bg-white border border-gray-300" />;
+                  // Black dot for hours only in light mode, white in dark mode
+                  dotElement = <span className="absolute bottom-1 right-1 h-1.5 w-1.5 rounded-full bg-black dark:bg-white border border-gray-300 dark:border-gray-600" />;
                 }
                 
                 // Determine button styling
