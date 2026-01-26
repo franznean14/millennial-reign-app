@@ -92,6 +92,18 @@ export function useBusinessFilteredLists({
       return a! > b! ? -1 : a! < b! ? 1 : 0;
     };
 
+    const compareDate = (a?: string | null, b?: string | null, asc: boolean = false) => {
+      const ahas = !!a;
+      const bhas = !!b;
+      if (ahas && !bhas) return -1;
+      if (!ahas && bhas) return 1;
+      if (!ahas && !bhas) return 0;
+      if (asc) {
+        return a! < b! ? -1 : a! > b! ? 1 : 0;
+      }
+      return a! > b! ? -1 : a! < b! ? 1 : 0;
+    };
+
     if (filters.nearMe && filters.userLocation) {
       const [userLat, userLng] = filters.userLocation;
       const distanceOf = (e: EstablishmentWithDetails) => {
@@ -112,6 +124,12 @@ export function useBusinessFilteredLists({
           break;
         case "area_desc":
           sorted.sort((a, b) => (b.area || "").localeCompare(a.area || ""));
+          break;
+        case "date_added_asc":
+          sorted.sort((a, b) => compareDate(a.created_at, b.created_at, true));
+          break;
+        case "date_added_desc":
+          sorted.sort((a, b) => compareDate(a.created_at, b.created_at, false));
           break;
         case "last_visit_asc":
           sorted.sort((a, b) => compareLastVisit(a.last_visit_at, b.last_visit_at, true));

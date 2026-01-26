@@ -305,7 +305,7 @@ export function VisitHistory({ userId, onVisitClick }: VisitHistoryProps) {
         description={activePanel === "filters" ? "Filter by status and area" : "Complete visit history with infinite scroll"}
       >
         {activePanel === "filters" ? (
-          <div className="pb-6">
+          <div className="pb-[calc(max(env(safe-area-inset-bottom),0px)+40px)]">
             {filterForm}
             <div className="flex justify-end pt-4">
               <Button type="button" variant="outline" onClick={() => setActivePanel("list")}>
@@ -388,7 +388,7 @@ export function VisitHistory({ userId, onVisitClick }: VisitHistoryProps) {
             </div>
 
             <div 
-              className="relative max-h-[70vh] overflow-y-auto"
+              className="relative max-h-[70vh] overflow-y-auto pb-[calc(max(env(safe-area-inset-bottom),0px)+40px)]"
               tabIndex={-1}
               onFocus={(e) => {
                 // If focus moves to the scrollable container, return it to the input if user is typing

@@ -27,7 +27,7 @@ export interface BusinessFiltersState {
   myEstablishments: boolean;
   nearMe: boolean;
   userLocation?: [number, number] | null;
-  sort?: 'name_asc' | 'name_desc' | 'last_visit_desc' | 'last_visit_asc' | 'area_asc' | 'area_desc';
+  sort?: 'name_asc' | 'name_desc' | 'last_visit_desc' | 'last_visit_asc' | 'area_asc' | 'area_desc' | 'date_added_asc' | 'date_added_desc';
 }
 
 export type EstablishmentStatus = 

@@ -53,7 +53,9 @@ export function BusinessFiltersForm({
       statuses: [],
       areas: [],
       floors: [],
-      myEstablishments: false
+      myEstablishments: false,
+      nearMe: false,
+      userLocation: null
     });
   };
 
@@ -93,7 +95,7 @@ export function BusinessFiltersForm({
   // Search field removed from filters form
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-[calc(max(env(safe-area-inset-bottom),0px)+40px)]">
       <div className="space-y-4">
         <div className="space-y-2">
           <Label>Status</Label>
@@ -165,6 +167,7 @@ export function BusinessFiltersForm({
                       <SelectItem value="last_visit">Last Visit</SelectItem>
                       <SelectItem value="name">Name</SelectItem>
                       <SelectItem value="area">Area</SelectItem>
+                      <SelectItem value="date_added">Date Added</SelectItem>
                     </SelectContent>
                   </Select>
                   <Button
