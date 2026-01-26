@@ -41,43 +41,10 @@ function NameWithAvatarsCell({
   name: string;
   visitors?: Array<{ user_id?: string; avatar_url?: string; first_name?: string; last_name?: string }>;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const [scrollDistance, setScrollDistance] = useState(0);
-  const [shouldScroll, setShouldScroll] = useState(false);
-
-  useEffect(() => {
-    const measure = () => {
-      const container = containerRef.current;
-      const content = contentRef.current;
-      if (!container || !content) return;
-      const fadeWidthPx = 40; // width of gradient fade
-      const overshootPx = 6; // ensure text clears fade fully
-      const overflow = content.scrollWidth - container.clientWidth;
-      const willScroll = overflow > 4;
-      setShouldScroll(willScroll);
-      setScrollDistance(willScroll ? overflow + fadeWidthPx + overshootPx : 0);
-    };
-    measure();
-    window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
-  }, [name]);
-
   return (
     <div className="flex items-center gap-2 min-w-0">
-      <div className="relative flex-1 min-w-0">
-        <div ref={containerRef} className="relative w-full overflow-hidden">
-          <motion.div
-            ref={contentRef}
-            className="inline-block w-max whitespace-nowrap pr-10"
-            animate={shouldScroll ? { x: [0, -scrollDistance, 0] } : undefined}
-            transition={shouldScroll ? { duration: Math.max(scrollDistance / 40, 10), times: [0, 0.6, 1], repeat: Infinity, ease: "linear", repeatDelay: 0.8 } : undefined}
-            title={name}
-          >
-            {name}
-          </motion.div>
-          <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-background to-transparent" />
-        </div>
+      <div className="truncate flex-1 min-w-0" title={name}>
+        {name}
       </div>
       {visitors && visitors.length > 0 && (
         <div className="flex items-center flex-shrink-0">
@@ -99,63 +66,11 @@ function NameWithAvatarsCell({
 }
 
 function EstablishmentNameCell({ name }: { name: string }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
-  const [scrollDistance, setScrollDistance] = useState(0);
-  const [shouldScroll, setShouldScroll] = useState(false);
-
-  useEffect(() => {
-    const measure = () => {
-      const container = containerRef.current;
-      const content = contentRef.current;
-      if (!container || !content) return;
-      const fadeWidthPx = 40;
-      const overshootPx = 6;
-      const overflow = content.scrollWidth - container.clientWidth;
-      const willScroll = overflow > 2;
-      setShouldScroll(willScroll);
-      setScrollDistance(willScroll ? overflow + fadeWidthPx + overshootPx : 0);
-    };
-    // Measure after layout settles (tables + fonts can delay widths)
-    const raf = requestAnimationFrame(measure);
-    const t = window.setTimeout(measure, 120);
-    window.addEventListener("resize", measure);
-    const ro = new ResizeObserver(measure);
-    if (containerRef.current) ro.observe(containerRef.current);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.clearTimeout(t);
-      window.removeEventListener("resize", measure);
-      ro.disconnect();
-    };
-  }, [name]);
-
   return (
     <div className="flex items-center gap-1 min-w-0 w-full">
       <Building2 className="h-3 w-3 flex-shrink-0" />
-      <div className="relative flex-1 min-w-0">
-        <div ref={containerRef} className="relative w-full overflow-hidden">
-          <motion.div
-            ref={contentRef}
-            className="inline-block w-max whitespace-nowrap pr-10"
-            animate={shouldScroll ? { x: [0, -scrollDistance, 0] } : undefined}
-            transition={
-              shouldScroll
-                ? {
-                    duration: Math.max(scrollDistance / 40, 10),
-                    times: [0, 0.6, 1],
-                    repeat: Infinity,
-                    ease: "linear",
-                    repeatDelay: 0.8,
-                  }
-                : undefined
-            }
-            title={name}
-          >
-            {name}
-          </motion.div>
-          <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-background to-transparent" />
-        </div>
+      <div className="truncate flex-1 min-w-0" title={name}>
+        {name}
       </div>
     </div>
   );
