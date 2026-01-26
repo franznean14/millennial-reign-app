@@ -146,16 +146,27 @@ export function BusinessFiltersForm({
             {(() => {
               const current = (localFilters.sort as string) || 'last_visit_desc';
               const underscoreIndex = current.lastIndexOf('_');
-              const key = underscoreIndex >= 0 ? (current.slice(0, underscoreIndex)) : 'last_visit';
-              const dir = underscoreIndex >= 0 ? (current.slice(underscoreIndex + 1)) : 'desc';
-              const isAsc = dir === 'asc';
+              const parsedKey = underscoreIndex >= 0 ? (current.slice(0, underscoreIndex)) : 'last_visit';
+              const parsedDir = underscoreIndex >= 0 ? (current.slice(underscoreIndex + 1)) : 'desc';
+              
+              // Ensure key is valid
+              const validKeys = ['last_visit', 'name', 'area', 'date_added'] as const;
+              const validDirs = ['asc', 'desc'] as const;
+              
+              const currentKey = validKeys.includes(parsedKey as any) ? parsedKey : 'last_visit';
+              const currentDir: 'asc' | 'desc' = validDirs.includes(parsedDir as any) ? (parsedDir as 'asc' | 'desc') : 'desc';
+              const currentIsAsc = currentDir === 'asc';
+              
               const makeSort = (k: string, d: 'asc'|'desc') => `${k}_${d}` as const;
+              
               return (
                 <div className="flex items-center gap-2">
                   <Select
-                    value={key as any}
+                    value={currentKey}
                     onValueChange={(newKey) => {
-                      const next = { ...localFilters, sort: makeSort(newKey, isAsc ? 'asc' : 'desc') as any };
+                      // When changing the sort key, preserve the current direction
+                      const newSort = makeSort(newKey, currentDir) as any;
+                      const next = { ...localFilters, sort: newSort };
                       setLocalFilters(next);
                       applyFiltersImmediately(next);
                     }}
@@ -174,17 +185,20 @@ export function BusinessFiltersForm({
                     type="button"
                     variant="outline"
                     size="icon"
-                    aria-label={`Toggle ${isAsc ? 'descending' : 'ascending'}`}
+                    aria-label={`Toggle ${currentIsAsc ? 'descending' : 'ascending'}`}
                     onClick={() => {
-                      const next = { ...localFilters, sort: makeSort(key, isAsc ? 'desc' : 'asc') as any };
+                      // Toggle the direction for the current key
+                      const newDir: 'asc' | 'desc' = currentIsAsc ? 'desc' : 'asc';
+                      const newSort = makeSort(currentKey, newDir) as any;
+                      const next = { ...localFilters, sort: newSort };
                       setLocalFilters(next);
                       applyFiltersImmediately(next);
                     }}
                   >
-                    {key === 'name' ? (
-                      isAsc ? <ArrowUpAZ className="h-4 w-4" /> : <ArrowDownAZ className="h-4 w-4" />
+                    {currentKey === 'name' ? (
+                      currentIsAsc ? <ArrowUpAZ className="h-4 w-4" /> : <ArrowDownAZ className="h-4 w-4" />
                     ) : (
-                      isAsc ? <ArrowUpWideNarrow className="h-4 w-4" /> : <ArrowDownWideNarrow className="h-4 w-4" />
+                      currentIsAsc ? <ArrowUpWideNarrow className="h-4 w-4" /> : <ArrowDownWideNarrow className="h-4 w-4" />
                     )}
                   </Button>
                 </div>

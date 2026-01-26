@@ -210,12 +210,30 @@ export function useBusinessFilteredLists({
       };
       sorted.sort((a, b) => distanceOf(a) - distanceOf(b));
     } else {
+      const compareDate = (a?: string | null, b?: string | null, asc: boolean = false) => {
+        const ahas = !!a;
+        const bhas = !!b;
+        if (ahas && !bhas) return -1;
+        if (!ahas && bhas) return 1;
+        if (!ahas && !bhas) return 0;
+        if (asc) {
+          return a! < b! ? -1 : a! > b! ? 1 : 0;
+        }
+        return a! > b! ? -1 : a! < b! ? 1 : 0;
+      };
+
       switch (filters.sort) {
         case "name_asc":
           sorted.sort((a, b) => a.name.localeCompare(b.name));
           break;
         case "name_desc":
           sorted.sort((a, b) => b.name.localeCompare(a.name));
+          break;
+        case "date_added_asc":
+          sorted.sort((a, b) => compareDate(a.created_at, b.created_at, true));
+          break;
+        case "date_added_desc":
+          sorted.sort((a, b) => compareDate(a.created_at, b.created_at, false));
           break;
         case "last_visit_asc":
           sorted.sort((a, b) => {

@@ -36,6 +36,75 @@ interface EstablishmentListProps {
 
 type ViewMode = 'detailed' | 'compact' | 'table';
 
+function MarqueeCell({
+  text
+}: {
+  text: string;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [scrollDistance, setScrollDistance] = useState(0);
+  const [shouldScroll, setShouldScroll] = useState(false);
+
+  useEffect(() => {
+    const measure = () => {
+      const container = containerRef.current;
+      const content = contentRef.current;
+      if (!container || !content) return;
+      const overflow = content.scrollWidth - container.clientWidth;
+      // Only scroll if there's overflow (at least 4px)
+      const willScroll = overflow > 4;
+      setShouldScroll(willScroll);
+      // Scroll distance is just the overflow amount - stops when last character becomes visible
+      setScrollDistance(willScroll ? overflow : 0);
+    };
+    // Measure after layout is complete
+    const raf = requestAnimationFrame(() => {
+      requestAnimationFrame(measure);
+    });
+    const timeout = setTimeout(measure, 100);
+    window.addEventListener('resize', measure);
+    
+    // Use ResizeObserver to catch container size changes
+    const resizeObserver = new ResizeObserver(measure);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+    
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(timeout);
+      window.removeEventListener('resize', measure);
+      resizeObserver.disconnect();
+    };
+  }, [text]);
+
+  return (
+    <div className="relative w-full overflow-hidden min-w-0">
+      <div ref={containerRef} className="relative w-full overflow-hidden">
+        <motion.div
+          ref={contentRef}
+          className="inline-block w-max whitespace-nowrap"
+          animate={shouldScroll ? { x: [0, -scrollDistance, 0] } : undefined}
+          transition={shouldScroll ? { 
+            duration: Math.max(scrollDistance / 30, 8), 
+            times: [0, 0.6, 1], 
+            repeat: Infinity, 
+            ease: "linear", 
+            repeatDelay: 1.0 
+          } : undefined}
+          title={text}
+        >
+          {text}
+        </motion.div>
+        {shouldScroll && (
+          <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-background to-transparent" />
+        )}
+      </div>
+    </div>
+  );
+}
+
 function NameWithAvatarsCell({
   name,
   visitors
@@ -53,16 +122,32 @@ function NameWithAvatarsCell({
       const container = containerRef.current;
       const content = contentRef.current;
       if (!container || !content) return;
-      const fadeWidthPx = 40; // width of gradient fade
-      const overshootPx = 6; // ensure text clears fade fully
       const overflow = content.scrollWidth - container.clientWidth;
+      // Only scroll if there's overflow (at least 4px)
       const willScroll = overflow > 4;
       setShouldScroll(willScroll);
-      setScrollDistance(willScroll ? overflow + fadeWidthPx + overshootPx : 0);
+      // Scroll distance is just the overflow amount - stops when last character becomes visible
+      setScrollDistance(willScroll ? overflow : 0);
     };
-    measure();
+    // Measure after layout is complete
+    const raf = requestAnimationFrame(() => {
+      requestAnimationFrame(measure);
+    });
+    const timeout = setTimeout(measure, 100);
     window.addEventListener('resize', measure);
-    return () => window.removeEventListener('resize', measure);
+    
+    // Use ResizeObserver to catch container size changes
+    const resizeObserver = new ResizeObserver(measure);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+    
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(timeout);
+      window.removeEventListener('resize', measure);
+      resizeObserver.disconnect();
+    };
   }, [name]);
 
   return (
@@ -71,14 +156,22 @@ function NameWithAvatarsCell({
         <div ref={containerRef} className="relative w-full overflow-hidden">
           <motion.div
             ref={contentRef}
-            className="inline-block w-max whitespace-nowrap pr-10"
+            className="inline-block w-max whitespace-nowrap"
             animate={shouldScroll ? { x: [0, -scrollDistance, 0] } : undefined}
-            transition={shouldScroll ? { duration: Math.max(scrollDistance / 40, 10), times: [0, 0.6, 1], repeat: Infinity, ease: "linear", repeatDelay: 0.8 } : undefined}
+            transition={shouldScroll ? { 
+              duration: Math.max(scrollDistance / 30, 8), 
+              times: [0, 0.6, 1], 
+              repeat: Infinity, 
+              ease: "linear", 
+              repeatDelay: 1.0 
+            } : undefined}
             title={name}
           >
             {name}
           </motion.div>
-          <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-background to-transparent" />
+          {shouldScroll && (
+            <div className="pointer-events-none absolute right-0 top-0 h-full w-10 bg-gradient-to-l from-background to-transparent" />
+          )}
         </div>
       </div>
       {visitors && visitors.length > 0 && (
@@ -498,7 +591,9 @@ export function EstablishmentList({
                     )}
                   </div>
                 </td>
-                <td className="p-3 truncate w-[27%]">{establishment.area || '-'}</td>
+                <td className="p-3 min-w-0 w-[27%]">
+                  <MarqueeCell text={establishment.area || '-'} />
+                </td>
               </tr>
             ))}
           </tbody>

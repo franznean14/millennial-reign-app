@@ -141,6 +141,8 @@ export interface HouseholderWithDetails {
   publisher_id?: string | null;
   lat?: number | null;
   lng?: number | null;
+  created_at?: string;
+  last_visit_at?: string | null;
   assigned_user?: {
     id: string;
     first_name: string;
@@ -249,6 +251,7 @@ export async function listHouseholders(): Promise<HouseholderWithDetails[]> {
         *,
         establishment:business_establishments(name, statuses),
         visits:calls(
+          visit_date,
           publisher_id,
           partner_id,
           publisher:profiles!calls_publisher_id_fkey(first_name, last_name, avatar_url),
@@ -301,6 +304,12 @@ export async function listHouseholders(): Promise<HouseholderWithDetails[]> {
         }
       });
 
+      // Calculate last_visit_at from visits
+      const last_visit_at = (hh.visits || [])
+        .map((v: any) => v?.visit_date)
+        .filter(Boolean)
+        .sort((a: string, b: string) => (a < b ? 1 : a > b ? -1 : 0))[0] || null;
+
       return {
         id: hh.id,
         name: hh.name,
@@ -311,6 +320,8 @@ export async function listHouseholders(): Promise<HouseholderWithDetails[]> {
         publisher_id: hh.publisher_id ?? null,
         lat: hh.lat ?? null,
         lng: hh.lng ?? null,
+        created_at: hh.created_at,
+        last_visit_at,
         top_visitors: Array.from(visitors.values()).sort((a, b) => b.visit_count - a.visit_count)
       };
     });
@@ -1049,7 +1060,7 @@ export async function getHouseholderDetails(householderId: string): Promise<{
   // Fetch householder without publisher join (more reliable)
   const { data: hh, error: hhError } = await supabase
     .from('householders')
-    .select('id,name,status,note,establishment_id,publisher_id,lat,lng, establishment:business_establishments(id,name,statuses)')
+    .select('id,name,status,note,establishment_id,publisher_id,lat,lng,created_at, establishment:business_establishments(id,name,statuses)')
     .eq('id', householderId)
     .single();
 
@@ -1078,6 +1089,14 @@ export async function getHouseholderDetails(householderId: string): Promise<{
 
   const establishment = Array.isArray((hh as any).establishment) ? (hh as any).establishment[0] : (hh as any).establishment;
 
+  // Calculate last_visit_at from visits
+  const last_visit_at = transformedVisits.length > 0
+    ? transformedVisits
+        .map((v) => v.visit_date)
+        .filter(Boolean)
+        .sort((a: string, b: string) => (a < b ? 1 : a > b ? -1 : 0))[0] || null
+    : null;
+
   const householder: HouseholderWithDetails = {
     id: hh.id,
     name: hh.name,
@@ -1088,6 +1107,8 @@ export async function getHouseholderDetails(householderId: string): Promise<{
     publisher_id: hh.publisher_id,
     lat: hh.lat,
     lng: hh.lng,
+    created_at: hh.created_at,
+    last_visit_at,
     assigned_user: publisher ? {
       id: publisher.id,
       first_name: publisher.first_name,
