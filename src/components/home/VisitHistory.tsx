@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useState, useRef } from "react";
 import { formatVisitDateLong, getVisitDisplayName } from "@/lib/utils/visit-history-ui";
 import { Button } from "@/components/ui/button";
 import { FormModal } from "@/components/shared/FormModal";
-import { Calendar, ChevronRight } from "lucide-react";
+import { Building2, Calendar, ChevronRight, History } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { getTimelineDotSize, getTimelineLineStyle, getVisitTypeDotColor } from "@/lib/utils/visit-timeline";
 import type { VisitRecord } from "@/lib/utils/visit-history";
@@ -19,6 +19,9 @@ import { VisitStatusBadge } from "@/components/visit/VisitStatusBadge";
 import { cn } from "@/lib/utils";
 import { getVisitSearchText } from "@/lib/utils/visit-history-ui";
 import { useMemo } from "react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { getEstablishmentsWithDetails, listHouseholders, type EstablishmentWithDetails, type HouseholderWithDetails } from "@/lib/db/business";
+import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
 
 interface VisitHistoryProps {
   userId: string;
@@ -31,6 +34,12 @@ export function VisitHistory({ userId, onVisitClick }: VisitHistoryProps) {
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [localSearchValue, setLocalSearchValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [activeTab, setActiveTab] = useState<"bwi" | "visit-history">("bwi");
+  const activeTabRef = useRef<"bwi" | "visit-history">("bwi");
+  const visitHistoryPointerDownTabRef = useRef<"bwi" | "visit-history">("bwi");
+  const [bwiEstablishments, setBwiEstablishments] = useState<EstablishmentWithDetails[]>([]);
+  const [bwiHouseholders, setBwiHouseholders] = useState<HouseholderWithDetails[]>([]);
+  const [bwiLoading, setBwiLoading] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const hasFocusedRef = useRef(false);
   const searchDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -98,6 +107,111 @@ export function VisitHistory({ userId, onVisitClick }: VisitHistoryProps) {
       loadAllVisits(0, true);
     }
   };
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadBwiData = async () => {
+      if (activeTab !== "bwi") return;
+      setBwiLoading(true);
+      try {
+        const [establishments, householders] = await Promise.all([
+          getEstablishmentsWithDetails(),
+          listHouseholders()
+        ]);
+        if (!isMounted) return;
+        setBwiEstablishments(establishments);
+        setBwiHouseholders(householders.filter((hh) => !!hh.establishment_id));
+      } catch (error) {
+        console.error("Error loading BWI summary data:", error);
+      } finally {
+        if (isMounted) {
+          setBwiLoading(false);
+        }
+      }
+    };
+    loadBwiData();
+    return () => {
+      isMounted = false;
+    };
+  }, [activeTab]);
+
+  const establishmentStatusCounts = useMemo(() => {
+    const counts = {
+      for_replenishment: 0,
+      accepted_rack: 0,
+      for_follow_up: 0,
+      for_scouting: 0
+    };
+    bwiEstablishments.forEach((est) => {
+      const statuses = est.statuses ?? [];
+      if (statuses.includes("for_replenishment")) counts.for_replenishment += 1;
+      if (statuses.includes("accepted_rack")) counts.accepted_rack += 1;
+      if (statuses.includes("for_follow_up")) counts.for_follow_up += 1;
+      if (statuses.includes("for_scouting")) counts.for_scouting += 1;
+    });
+    return counts;
+  }, [bwiEstablishments]);
+
+  const householderStatusCounts = useMemo(() => {
+    const counts = {
+      bible_study: 0,
+      return_visit: 0,
+      interested: 0,
+      potential: 0
+    };
+    bwiHouseholders.forEach((hh) => {
+      switch (hh.status) {
+        case "bible_study":
+          counts.bible_study += 1;
+          break;
+        case "return_visit":
+          counts.return_visit += 1;
+          break;
+        case "interested":
+          counts.interested += 1;
+          break;
+        case "potential":
+          counts.potential += 1;
+          break;
+        default:
+          break;
+      }
+    });
+    return counts;
+  }, [bwiHouseholders]);
+
+  // Helper to extract just the text color class
+  const getStatusTextColorClass = (status: string) => {
+    const colorString = getStatusTextColor(status);
+    return colorString.split(" ")[0]; // Extract just the text color class
+  };
+
+  const handleTabChange = (value: string) => {
+    const currentActiveTab = activeTabRef.current;
+    if (value !== currentActiveTab) {
+      setActiveTab(value as "bwi" | "visit-history");
+    }
+  };
+
+  const handleVisitHistoryPointerDown = () => {
+    visitHistoryPointerDownTabRef.current = activeTabRef.current;
+  };
+
+  const handleVisitHistoryTabClick = (e: React.MouseEvent) => {
+    // Use the tab that was active at pointer-down time
+    const tabAtPointerDown = visitHistoryPointerDownTabRef.current;
+    if (tabAtPointerDown === "visit-history") {
+      e.preventDefault();
+      e.stopPropagation();
+      handleSeeMore();
+    }
+  };
+
 
   const formatVisitDate = formatVisitDateLong;
 
@@ -251,47 +365,251 @@ export function VisitHistory({ userId, onVisitClick }: VisitHistoryProps) {
 
   if (loading) {
     return (
-      <div className="rounded-lg border p-4">
-        <div className="text-sm font-medium mb-2 text-foreground">Visit History</div>
-        <div className="text-sm text-muted-foreground">Loading...</div>
+      <div className="rounded-lg border overflow-hidden bg-background">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+          <TabsList className="w-full grid grid-cols-2 mb-0 -mb-px p-0 h-auto bg-transparent gap-0 border-0 border-b-0 [&>*]:border-0 relative z-10">
+            <TabsTrigger 
+              value="bwi"
+              className={cn(
+                "rounded-tl-lg rounded-tr-none rounded-bl-none rounded-br-none",
+                "bg-primary text-primary-foreground dark:text-primary-foreground font-medium",
+                "data-[state=active]:!bg-background data-[state=active]:!text-foreground",
+                "shadow-none",
+                "relative h-10 px-4",
+                "transition-all duration-200",
+                "hover:bg-primary/90 data-[state=active]:hover:!bg-background",
+                "!border-0 border-b-0 focus-visible:ring-0 focus-visible:outline-none",
+                "[&>svg]:text-primary-foreground data-[state=active]:[&>svg]:text-foreground",
+                "after:hidden"
+              )}
+            >
+              <Building2 className="h-4 w-4" />
+              <span>BWI</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="visit-history"
+              onPointerDown={handleVisitHistoryPointerDown}
+              onClick={handleVisitHistoryTabClick}
+              className={cn(
+                "rounded-tr-lg rounded-tl-none rounded-bl-none rounded-br-none",
+                "bg-primary text-primary-foreground dark:text-primary-foreground font-medium",
+                "data-[state=active]:!bg-background data-[state=active]:!text-foreground",
+                "shadow-none",
+                "relative h-10 px-4",
+                "transition-all duration-200",
+                "hover:bg-primary/90 data-[state=active]:hover:!bg-background",
+                "!border-0 border-b-0 focus-visible:ring-0 focus-visible:outline-none",
+                "[&>svg]:text-primary-foreground data-[state=active]:[&>svg]:text-foreground",
+                "after:hidden"
+              )}
+            >
+              <History className="h-4 w-4" />
+              <span>Visit History</span>
+              {activeTab === "visit-history" ? (
+                <ChevronRight className="h-4 w-4 opacity-70" />
+              ) : null}
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value="bwi" className="mt-0 rounded-b-lg bg-background p-4 overflow-y-auto scrollbar-hide">
+            {bwiLoading ? (
+              <div className="text-sm text-muted-foreground">Loading...</div>
+            ) : (
+              <div className="space-y-6">
+                {/* Establishment Status Section */}
+                <div>
+                  <div className="grid grid-cols-2 gap-4 items-end">
+                    <div>
+                      <div className={cn("text-5xl font-semibold leading-tight", getStatusTextColorClass("for_replenishment"))}>
+                        {establishmentStatusCounts.for_replenishment}
+                      </div>
+                      <div className="mt-1 text-sm opacity-70">For Replenishment</div>
+                    </div>
+                    <div>
+                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("accepted_rack"))}>{establishmentStatusCounts.accepted_rack}</div>
+                      <div className="text-sm opacity-70 mt-0.5">Rack Accepted</div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("for_follow_up"))}>{establishmentStatusCounts.for_follow_up}</div>
+                      <div className="text-sm opacity-70 mt-0.5">For Follow Up</div>
+                    </div>
+                    <div>
+                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("for_scouting"))}>{establishmentStatusCounts.for_scouting}</div>
+                      <div className="text-sm opacity-70 mt-0.5">For Scouting</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Householder Status Section */}
+                <div className="pt-4 border-t pb-0">
+                  <div className="text-xs text-muted-foreground mb-4">Householder status</div>
+                  
+                  <div className="grid grid-cols-2 gap-4 items-end">
+                    <div>
+                      <div className={cn("text-5xl font-semibold leading-tight", getStatusTextColorClass("bible_study"))}>{householderStatusCounts.bible_study}</div>
+                      <div className="mt-1 text-sm opacity-70">Bible Study</div>
+                    </div>
+                    <div>
+                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("return_visit"))}>{householderStatusCounts.return_visit}</div>
+                      <div className="text-sm opacity-70 mt-0.5">Return Visit</div>
+                    </div>
+                    <div>
+                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("interested"))}>{householderStatusCounts.interested}</div>
+                      <div className="text-sm opacity-70 mt-0.5">Interested</div>
+                    </div>
+                    <div>
+                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("potential"))}>{householderStatusCounts.potential}</div>
+                      <div className="text-sm opacity-70 mt-0.5">Potential</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </TabsContent>
+          <TabsContent value="visit-history" className="mt-0 rounded-b-lg bg-background p-4">
+            <div className="text-sm text-muted-foreground">Loading...</div>
+          </TabsContent>
+        </Tabs>
       </div>
     );
   }
 
   return (
     <>
-      <div className="rounded-lg border p-4">
-        <div className="flex items-center justify-between mb-3">
-          <button 
-            onClick={handleSeeMore}
-            className="flex items-center gap-2 text-sm font-bold text-foreground hover:opacity-80 transition-opacity"
-          >
-            Visit History
-            <ChevronRight className="h-4 w-4" />
-          </button>
-          {/* Legend */}
-          <div className="flex items-center gap-3 text-xs">
-            <div className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-              <span className="text-muted-foreground">Establishment</span>
+      <div className="rounded-lg border overflow-hidden bg-background">
+        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+          <TabsList className="w-full grid grid-cols-2 mb-0 -mb-px p-0 h-auto bg-transparent gap-0 border-0 [&>*]:border-0 relative z-10">
+            <TabsTrigger 
+              value="bwi"
+              className={cn(
+                "rounded-tl-lg rounded-tr-none rounded-bl-none rounded-br-none",
+                "bg-primary text-primary-foreground dark:text-primary-foreground font-medium",
+                "data-[state=active]:!bg-background data-[state=active]:!text-foreground",
+                "shadow-none",
+                "relative h-10 px-4",
+                "transition-all duration-200",
+                "hover:bg-primary/90 data-[state=active]:hover:!bg-background",
+                "!border-0 focus-visible:ring-0 focus-visible:outline-none",
+                "[&>svg]:text-primary-foreground data-[state=active]:[&>svg]:text-foreground",
+                "after:hidden"
+              )}
+            >
+              <Building2 className="h-4 w-4" />
+              <span>BWI</span>
+            </TabsTrigger>
+            <TabsTrigger 
+              value="visit-history"
+              onPointerDown={handleVisitHistoryPointerDown}
+              onClick={handleVisitHistoryTabClick}
+              className={cn(
+                "rounded-tr-lg rounded-tl-none rounded-bl-none rounded-br-none",
+                "bg-primary text-primary-foreground dark:text-primary-foreground font-medium",
+                "data-[state=active]:!bg-background data-[state=active]:!text-foreground",
+                "shadow-none",
+                "relative h-10 px-4",
+                "transition-all duration-200",
+                "hover:bg-primary/90 data-[state=active]:hover:!bg-background",
+                "!border-0 focus-visible:ring-0 focus-visible:outline-none",
+                "[&>svg]:text-primary-foreground data-[state=active]:[&>svg]:text-foreground",
+                "after:hidden"
+              )}
+            >
+              <History className="h-4 w-4" />
+              <span>Visit History</span>
+              {activeTab === "visit-history" ? (
+                <ChevronRight className="h-4 w-4 opacity-70" />
+              ) : null}
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="bwi" className="mt-0 rounded-b-lg bg-background p-4 overflow-y-auto scrollbar-hide">
+            {bwiLoading ? (
+              <div className="text-sm text-muted-foreground">Loading...</div>
+            ) : (
+              <div className="space-y-6">
+                {/* Establishment Status Section */}
+                <div>
+                  <div className="grid grid-cols-2 gap-4 items-end">
+                    <div>
+                      <div className={cn("text-5xl font-semibold leading-tight", getStatusTextColorClass("for_replenishment"))}>
+                        {establishmentStatusCounts.for_replenishment}
+                      </div>
+                      <div className="mt-1 text-sm opacity-70">For Replenishment</div>
+                    </div>
+                    <div>
+                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("accepted_rack"))}>{establishmentStatusCounts.accepted_rack}</div>
+                      <div className="text-sm opacity-70 mt-0.5">Rack Accepted</div>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 mt-4">
+                    <div>
+                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("for_follow_up"))}>{establishmentStatusCounts.for_follow_up}</div>
+                      <div className="text-sm opacity-70 mt-0.5">For Follow Up</div>
+                    </div>
+                    <div>
+                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("for_scouting"))}>{establishmentStatusCounts.for_scouting}</div>
+                      <div className="text-sm opacity-70 mt-0.5">For Scouting</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Householder Status Section */}
+                <div className="pt-4 border-t pb-0">
+                  <div className="text-xs text-muted-foreground mb-4">Householder status</div>
+                  
+                  <div className="grid grid-cols-2 gap-4 items-end">
+                    <div>
+                      <div className={cn("text-5xl font-semibold leading-tight", getStatusTextColorClass("bible_study"))}>{householderStatusCounts.bible_study}</div>
+                      <div className="mt-1 text-sm opacity-70">Bible Study</div>
+                    </div>
+                    <div>
+                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("return_visit"))}>{householderStatusCounts.return_visit}</div>
+                      <div className="text-sm opacity-70 mt-0.5">Return Visit</div>
+                    </div>
+                    <div>
+                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("interested"))}>{householderStatusCounts.interested}</div>
+                      <div className="text-sm opacity-70 mt-0.5">Interested</div>
+                    </div>
+                    <div>
+                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("potential"))}>{householderStatusCounts.potential}</div>
+                      <div className="text-sm opacity-70 mt-0.5">Potential</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="visit-history" className="mt-0 rounded-b-lg bg-background p-4">
+            <div className="flex items-center justify-between mb-3">
+              {/* Legend */}
+              <div className="flex items-center gap-3 text-xs">
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                  <span className="text-muted-foreground">Establishment</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                  <span className="text-muted-foreground">Householder</span>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-1">
-              <div className="w-2 h-2 rounded-full bg-green-500"></div>
-              <span className="text-muted-foreground">Householder</span>
+            
+            <div className="relative">
+              <VisitList
+                items={visits}
+                getKey={(visit) => visit.id}
+                renderItem={(visit, index, total) => renderVisitRow(visit, index, total, false)}
+                className="space-y-6"
+                isEmpty={visits.length === 0}
+                emptyText="No visits recorded yet."
+              />
             </div>
-          </div>
-        </div>
-        
-        <div className="relative">
-          <VisitList
-            items={visits}
-            getKey={(visit) => visit.id}
-            renderItem={(visit, index, total) => renderVisitRow(visit, index, total, false)}
-            className="space-y-6"
-            isEmpty={visits.length === 0}
-            emptyText="No visits recorded yet."
-          />
-        </div>
+          </TabsContent>
+        </Tabs>
       </div>
 
       {/* Drawer for all visits */}
