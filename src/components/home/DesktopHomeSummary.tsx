@@ -65,6 +65,7 @@ export function DesktopHomeSummary({
   const [syHours, setSyHours] = useState(0);
   const [studies, setStudies] = useState<StudyCount[]>([]);
   const [localPioneer, setLocalPioneer] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false);
   const [timeZone, setTimeZone] = useState<string | null>(null);
   const [uid, setUid] = useState<string | null>(null);
   const [isOffline, setIsOffline] = useState(false);
@@ -164,6 +165,7 @@ export function DesktopHomeSummary({
       setSyHours(cachedData.syHours || 0);
       setStudies(cachedData.studies || []);
       setLocalPioneer(cachedData.localPioneer || false);
+      setDataLoaded(true);
     }
     
     // If offline, don't attempt network request
@@ -204,6 +206,7 @@ export function DesktopHomeSummary({
         const syHoursValue = sumHours(sy.data);
         setSyHours(syHoursValue);
       }
+      setDataLoaded(true);
       if (profile.data) {
         const privileges = profile.data.privileges;
         const pioneerValue = Array.isArray(privileges) && privileges.includes("Regular Pioneer");
@@ -389,6 +392,7 @@ export function DesktopHomeSummary({
       setSyHours(0);
       setStudies([]);
       setLocalPioneer(false);
+      setDataLoaded(false);
     }
   }, [uid]);
 
@@ -656,9 +660,19 @@ export function DesktopHomeSummary({
                 <div className="text-right">
                   <div className="text-xs opacity-70">This service year</div>
                   <div className="mt-1 text-2xl font-semibold leading-tight">
-                    <NumberFlow value={Number(fmtHours(syHours))} locales="en-US" format={{ useGrouping: false }} />
+                    <NumberFlow key={`sy-hours-${dataLoaded}`} value={syHours} locales="en-US" format={{ useGrouping: false }} />
                   </div>
-                  <div className="text-xs opacity-70 mt-1">Since {formatDateHuman(serviceYearStart, timeZone || undefined)}</div>
+                  <div className="text-xs opacity-70 mt-1">Since {(() => {
+                    if (!serviceYearStart) return "—";
+                    const parts = serviceYearStart.split("-");
+                    if (parts.length >= 2) {
+                      const [y, m] = parts;
+                      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                      const monthIndex = parseInt(m, 10) - 1;
+                      return `${monthNames[monthIndex] || m} ${y}`;
+                    }
+                    return formatDateHuman(serviceYearStart, timeZone || undefined);
+                  })()}</div>
                 </div>
               ) : null}
             </div>

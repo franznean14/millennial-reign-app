@@ -22,6 +22,8 @@ import { useMemo } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { getEstablishmentsWithDetails, listHouseholders, type EstablishmentWithDetails, type HouseholderWithDetails } from "@/lib/db/business";
 import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
+import NumberFlow from "@number-flow/react";
+import { cacheGet, cacheSet } from "@/lib/offline/store";
 
 interface VisitHistoryProps {
   userId: string;
@@ -39,7 +41,6 @@ export function VisitHistory({ userId, onVisitClick }: VisitHistoryProps) {
   const visitHistoryPointerDownTabRef = useRef<"bwi" | "visit-history">("bwi");
   const [bwiEstablishments, setBwiEstablishments] = useState<EstablishmentWithDetails[]>([]);
   const [bwiHouseholders, setBwiHouseholders] = useState<HouseholderWithDetails[]>([]);
-  const [bwiLoading, setBwiLoading] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const hasFocusedRef = useRef(false);
   const searchDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -117,7 +118,21 @@ export function VisitHistory({ userId, onVisitClick }: VisitHistoryProps) {
     let isMounted = true;
     const loadBwiData = async () => {
       if (activeTab !== "bwi") return;
-      setBwiLoading(true);
+      
+      // Load from cache first (like HomeSummary does)
+      const cacheKey = 'bwi-summary-data';
+      const cached = await cacheGet<{ establishments?: EstablishmentWithDetails[], householders?: HouseholderWithDetails[] }>(cacheKey);
+      if (cached?.establishments || cached?.householders) {
+        if (!isMounted) return;
+        setBwiEstablishments(cached.establishments || []);
+        setBwiHouseholders((cached.householders || []).filter((hh) => !!hh.establishment_id));
+      }
+      
+      // Only fetch fresh data if we don't have data yet or if we're online
+      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+        return;
+      }
+      
       try {
         const [establishments, householders] = await Promise.all([
           getEstablishmentsWithDetails(),
@@ -126,12 +141,11 @@ export function VisitHistory({ userId, onVisitClick }: VisitHistoryProps) {
         if (!isMounted) return;
         setBwiEstablishments(establishments);
         setBwiHouseholders(householders.filter((hh) => !!hh.establishment_id));
+        
+        // Cache the data for next time
+        await cacheSet(cacheKey, { establishments, householders });
       } catch (error) {
         console.error("Error loading BWI summary data:", error);
-      } finally {
-        if (isMounted) {
-          setBwiLoading(false);
-        }
       }
     };
     loadBwiData();
@@ -411,32 +425,35 @@ export function VisitHistory({ userId, onVisitClick }: VisitHistoryProps) {
             </TabsTrigger>
           </TabsList>
           <TabsContent value="bwi" className="mt-0 rounded-b-lg bg-background p-4 overflow-y-auto scrollbar-hide">
-            {bwiLoading ? (
-              <div className="text-sm text-muted-foreground">Loading...</div>
-            ) : (
-              <div className="space-y-6">
+            <div className="space-y-6">
                 {/* Establishment Status Section */}
                 <div>
                   <div className="grid grid-cols-2 gap-4 items-end">
                     <div>
                       <div className={cn("text-5xl font-semibold leading-tight", getStatusTextColorClass("for_replenishment"))}>
-                        {establishmentStatusCounts.for_replenishment}
+                        <NumberFlow value={establishmentStatusCounts.for_replenishment} locales="en-US" format={{ useGrouping: false }} />
                       </div>
                       <div className="mt-1 text-sm opacity-70">For Replenishment</div>
                     </div>
                     <div>
-                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("accepted_rack"))}>{establishmentStatusCounts.accepted_rack}</div>
+                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("accepted_rack"))}>
+                        <NumberFlow value={establishmentStatusCounts.accepted_rack} locales="en-US" format={{ useGrouping: false }} />
+                      </div>
                       <div className="text-sm opacity-70 mt-0.5">Rack Accepted</div>
                     </div>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-4 mt-4">
                     <div>
-                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("for_follow_up"))}>{establishmentStatusCounts.for_follow_up}</div>
+                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("for_follow_up"))}>
+                        <NumberFlow value={establishmentStatusCounts.for_follow_up} locales="en-US" format={{ useGrouping: false }} />
+                      </div>
                       <div className="text-sm opacity-70 mt-0.5">For Follow Up</div>
                     </div>
                     <div>
-                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("for_scouting"))}>{establishmentStatusCounts.for_scouting}</div>
+                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("for_scouting"))}>
+                        <NumberFlow value={establishmentStatusCounts.for_scouting} locales="en-US" format={{ useGrouping: false }} />
+                      </div>
                       <div className="text-sm opacity-70 mt-0.5">For Scouting</div>
                     </div>
                   </div>
@@ -448,25 +465,32 @@ export function VisitHistory({ userId, onVisitClick }: VisitHistoryProps) {
                   
                   <div className="grid grid-cols-2 gap-4 items-end">
                     <div>
-                      <div className={cn("text-5xl font-semibold leading-tight", getStatusTextColorClass("bible_study"))}>{householderStatusCounts.bible_study}</div>
+                      <div className={cn("text-5xl font-semibold leading-tight", getStatusTextColorClass("bible_study"))}>
+                        <NumberFlow value={householderStatusCounts.bible_study} locales="en-US" format={{ useGrouping: false }} />
+                      </div>
                       <div className="mt-1 text-sm opacity-70">Bible Study</div>
                     </div>
                     <div>
-                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("return_visit"))}>{householderStatusCounts.return_visit}</div>
+                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("return_visit"))}>
+                        <NumberFlow value={householderStatusCounts.return_visit} locales="en-US" format={{ useGrouping: false }} />
+                      </div>
                       <div className="text-sm opacity-70 mt-0.5">Return Visit</div>
                     </div>
                     <div>
-                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("interested"))}>{householderStatusCounts.interested}</div>
+                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("interested"))}>
+                        <NumberFlow value={householderStatusCounts.interested} locales="en-US" format={{ useGrouping: false }} />
+                      </div>
                       <div className="text-sm opacity-70 mt-0.5">Interested</div>
                     </div>
                     <div>
-                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("potential"))}>{householderStatusCounts.potential}</div>
+                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("potential"))}>
+                        <NumberFlow value={householderStatusCounts.potential} locales="en-US" format={{ useGrouping: false }} />
+                      </div>
                       <div className="text-sm opacity-70 mt-0.5">Potential</div>
                     </div>
                   </div>
                 </div>
               </div>
-            )}
           </TabsContent>
           <TabsContent value="visit-history" className="mt-0 rounded-b-lg bg-background p-4">
             <div className="text-sm text-muted-foreground">Loading...</div>
@@ -525,32 +549,35 @@ export function VisitHistory({ userId, onVisitClick }: VisitHistoryProps) {
           </TabsList>
           
           <TabsContent value="bwi" className="mt-0 rounded-b-lg bg-background p-4 overflow-y-auto scrollbar-hide">
-            {bwiLoading ? (
-              <div className="text-sm text-muted-foreground">Loading...</div>
-            ) : (
-              <div className="space-y-6">
+            <div className="space-y-6">
                 {/* Establishment Status Section */}
                 <div>
                   <div className="grid grid-cols-2 gap-4 items-end">
                     <div>
                       <div className={cn("text-5xl font-semibold leading-tight", getStatusTextColorClass("for_replenishment"))}>
-                        {establishmentStatusCounts.for_replenishment}
+                        <NumberFlow value={establishmentStatusCounts.for_replenishment} locales="en-US" format={{ useGrouping: false }} />
                       </div>
                       <div className="mt-1 text-sm opacity-70">For Replenishment</div>
                     </div>
                     <div>
-                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("accepted_rack"))}>{establishmentStatusCounts.accepted_rack}</div>
+                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("accepted_rack"))}>
+                        <NumberFlow value={establishmentStatusCounts.accepted_rack} locales="en-US" format={{ useGrouping: false }} />
+                      </div>
                       <div className="text-sm opacity-70 mt-0.5">Rack Accepted</div>
                     </div>
                   </div>
                   
                   <div className="grid grid-cols-2 gap-4 mt-4">
                     <div>
-                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("for_follow_up"))}>{establishmentStatusCounts.for_follow_up}</div>
+                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("for_follow_up"))}>
+                        <NumberFlow value={establishmentStatusCounts.for_follow_up} locales="en-US" format={{ useGrouping: false }} />
+                      </div>
                       <div className="text-sm opacity-70 mt-0.5">For Follow Up</div>
                     </div>
                     <div>
-                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("for_scouting"))}>{establishmentStatusCounts.for_scouting}</div>
+                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("for_scouting"))}>
+                        <NumberFlow value={establishmentStatusCounts.for_scouting} locales="en-US" format={{ useGrouping: false }} />
+                      </div>
                       <div className="text-sm opacity-70 mt-0.5">For Scouting</div>
                     </div>
                   </div>
@@ -562,25 +589,32 @@ export function VisitHistory({ userId, onVisitClick }: VisitHistoryProps) {
                   
                   <div className="grid grid-cols-2 gap-4 items-end">
                     <div>
-                      <div className={cn("text-5xl font-semibold leading-tight", getStatusTextColorClass("bible_study"))}>{householderStatusCounts.bible_study}</div>
+                      <div className={cn("text-5xl font-semibold leading-tight", getStatusTextColorClass("bible_study"))}>
+                        <NumberFlow value={householderStatusCounts.bible_study} locales="en-US" format={{ useGrouping: false }} />
+                      </div>
                       <div className="mt-1 text-sm opacity-70">Bible Study</div>
                     </div>
                     <div>
-                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("return_visit"))}>{householderStatusCounts.return_visit}</div>
+                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("return_visit"))}>
+                        <NumberFlow value={householderStatusCounts.return_visit} locales="en-US" format={{ useGrouping: false }} />
+                      </div>
                       <div className="text-sm opacity-70 mt-0.5">Return Visit</div>
                     </div>
                     <div>
-                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("interested"))}>{householderStatusCounts.interested}</div>
+                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("interested"))}>
+                        <NumberFlow value={householderStatusCounts.interested} locales="en-US" format={{ useGrouping: false }} />
+                      </div>
                       <div className="text-sm opacity-70 mt-0.5">Interested</div>
                     </div>
                     <div>
-                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("potential"))}>{householderStatusCounts.potential}</div>
+                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("potential"))}>
+                        <NumberFlow value={householderStatusCounts.potential} locales="en-US" format={{ useGrouping: false }} />
+                      </div>
                       <div className="text-sm opacity-70 mt-0.5">Potential</div>
                     </div>
                   </div>
                 </div>
               </div>
-            )}
           </TabsContent>
           
           <TabsContent value="visit-history" className="mt-0 rounded-b-lg bg-background p-4">

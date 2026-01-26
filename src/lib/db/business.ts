@@ -239,12 +239,14 @@ export async function listHouseholders(): Promise<HouseholderWithDetails[]> {
   await supabase.auth.getSession().catch(() => {});
   const cacheKey = 'householders:list';
   try {
-    // If offline, serve from cache
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      const cached = await cacheGet<HouseholderWithDetails[]>(cacheKey);
-      return cached ?? [];
+    // Return cached data immediately if available (for fast initial load)
+    const cached = await cacheGet<HouseholderWithDetails[]>(cacheKey);
+    if (cached?.length && typeof navigator !== 'undefined' && !navigator.onLine) {
+      // If offline, return cached data
+      return cached;
     }
     
+    // Fetch fresh data
     const { data, error } = await supabase
       .from('householders')
       .select(`
@@ -327,6 +329,13 @@ export async function listHouseholders(): Promise<HouseholderWithDetails[]> {
     });
 
     await cacheSet(cacheKey, householders);
+    
+    // Return cached data if available and we're online (for instant display), otherwise return fresh data
+    if (cached?.length && typeof navigator !== 'undefined' && navigator.onLine) {
+      // Return cached for instant display, fresh data is now cached for next time
+      return cached;
+    }
+    
     return householders;
   } catch (error) {
     console.error('Error listing householders:', error);
@@ -809,10 +818,11 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
   const cacheKey = 'establishments:with-details';
   
   try {
-    // If offline, serve from cache
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      const cached = await cacheGet<EstablishmentWithDetails[]>(cacheKey);
-      return cached ?? [];
+    // Return cached data immediately if available (for fast initial load)
+    const cached = await cacheGet<EstablishmentWithDetails[]>(cacheKey);
+    if (cached?.length && typeof navigator !== 'undefined' && !navigator.onLine) {
+      // If offline, return cached data
+      return cached;
     }
     
     // Get current user's congregation_id
@@ -925,6 +935,13 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
 
     // Cache the results
     await cacheSet(cacheKey, establishments);
+    
+    // Return cached data if available and we're online (for instant display), otherwise return fresh data
+    if (cached?.length && typeof navigator !== 'undefined' && navigator.onLine) {
+      // Return cached for instant display, fresh data is now cached for next time
+      return cached;
+    }
+    
     return establishments;
   } catch (error) {
     console.error('Unexpected error in getEstablishmentsWithDetails:', error);
