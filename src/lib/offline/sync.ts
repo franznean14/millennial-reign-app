@@ -73,6 +73,8 @@ export function initOfflineSync() {
       const daily = items.filter((i) => i.type === "upsert_daily");
       const deletes = items.filter((i) => i.type === "delete_daily");
       const profiles = items.filter((i) => i.type === "upsert_profile");
+      const bibleStudyVisits = items.filter((i) => i.type === "add_bible_study_with_visit");
+      const bibleStudyDeletes = items.filter((i) => i.type === "delete_bible_study_with_visit");
 
       let anyFlushed = false;
 
@@ -117,6 +119,50 @@ export function initOfflineSync() {
           if (!uid) throw new Error("No session");
           const payload = { id: uid, ...item.payload } as any;
           await supabase.from("profiles").upsert(payload, { onConflict: "id" });
+          await outboxRemove(item.id!);
+          anyFlushed = true;
+        } catch {}
+      }
+
+      // Process bible study visit RPC calls (sequential to preserve order)
+      for (const item of bibleStudyVisits) {
+        try {
+          const { data, error } = await supabase.rpc("add_bible_study_with_visit", item.payload);
+          if (error) throw error;
+          const rec = data?.[0]?.daily_record as any;
+          if (rec?.user_id && rec?.date) {
+            const keyDay = `daily:${rec.user_id}:${rec.date}`;
+            await cacheSet(keyDay, rec);
+            const month = String(rec.date).slice(0, 7);
+            const keyMonth = `daily:${rec.user_id}:month:${month}`;
+            const monthCache = (await cacheGet<any[]>(keyMonth)) || [];
+            const idx = monthCache.findIndex((r) => r.date === rec.date);
+            if (idx >= 0) monthCache[idx] = rec; else monthCache.push(rec);
+            monthCache.sort((a, b) => a.date.localeCompare(b.date));
+            await cacheSet(keyMonth, monthCache);
+          }
+          await outboxRemove(item.id!);
+          anyFlushed = true;
+        } catch {}
+      }
+
+      // Process bible study deletes (sequential to preserve order)
+      for (const item of bibleStudyDeletes) {
+        try {
+          const { data, error } = await supabase.rpc("delete_bible_study_with_visit", item.payload);
+          if (error) throw error;
+          const rec = data?.[0]?.daily_record as any;
+          if (rec?.user_id && rec?.date) {
+            const keyDay = `daily:${rec.user_id}:${rec.date}`;
+            await cacheSet(keyDay, rec);
+            const month = String(rec.date).slice(0, 7);
+            const keyMonth = `daily:${rec.user_id}:month:${month}`;
+            const monthCache = (await cacheGet<any[]>(keyMonth)) || [];
+            const idx = monthCache.findIndex((r) => r.date === rec.date);
+            if (idx >= 0) monthCache[idx] = rec; else monthCache.push(rec);
+            monthCache.sort((a, b) => a.date.localeCompare(b.date));
+            await cacheSet(keyMonth, monthCache);
+          }
           await outboxRemove(item.id!);
           anyFlushed = true;
         } catch {}

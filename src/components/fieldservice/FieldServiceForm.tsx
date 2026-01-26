@@ -13,6 +13,7 @@ import { NumberFlowInput } from "@/components/ui/number-flow-input";
 import { getPersonalContactHouseholders, listEstablishments } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { outboxEnqueue } from "@/lib/offline/store";
 import { VisitForm } from "@/components/business/VisitForm";
 import { ChevronLeft } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -31,9 +32,21 @@ interface FieldServiceFormProps {
 
 export default function FieldServiceForm({ userId, onClose }: FieldServiceFormProps) {
   const isMobile = useMobile();
-  const [view, setView] = useState<Date>(new Date());
+  const [view, setView] = useState<Date>(() => {
+    if (typeof window === "undefined") return new Date();
+    const stored = localStorage.getItem(`fieldservice:selectedDate:${userId}`);
+    if (stored) {
+      const [y, m, d] = stored.split("-").map(Number);
+      if (y && m && d) return new Date(y, m - 1, d);
+    }
+    return new Date();
+  });
   const [mode, setMode] = useState<"days"|"months"|"years">("days");
-  const [date, setDate] = useState<string>(toLocalStr(new Date()));
+  const [date, setDate] = useState<string>(() => {
+    if (typeof window === "undefined") return toLocalStr(new Date());
+    const stored = localStorage.getItem(`fieldservice:selectedDate:${userId}`);
+    return stored || toLocalStr(new Date());
+  });
   const [hours, setHours] = useState<string>("");
   const [studies, setStudies] = useState<string[]>([]);
   const [note, setNote] = useState<string>("");
@@ -56,6 +69,11 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
     visit_date?: string;
   } | null>(null);
   const [establishments, setEstablishments] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(`fieldservice:selectedDate:${userId}`, date);
+  }, [date, userId]);
 
   const monthLabel = useMemo(() => view.toLocaleString(undefined, { month: "long" }), [view]);
   const yearLabel = useMemo(() => String(view.getFullYear()), [view]);
@@ -131,9 +149,12 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
       // Use the latest values from refs to ensure we always have the current state
-      const currentStudies = studiesRef.current;
+      let currentStudies = studiesRef.current;
       const currentHours = hoursRef.current;
       const currentNote = noteRef.current;
+      
+      // Filter out temporary placeholders - only save actual visit IDs or plain text entries
+      currentStudies = currentStudies.filter(s => !isTemporaryPlaceholder(s));
       
       const payload = {
         user_id: userId,
@@ -227,8 +248,36 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
         return;
       }
 
+      const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+      
       // Check which visits we need to fetch
       const missingIds = visitIds.filter(id => !visitNamesCache.has(id));
+      
+      // When offline, try to load from cache
+      if (isOffline && missingIds.length > 0) {
+        const { cacheGet } = await import("@/lib/offline/store");
+        const newCache = new Map(visitNamesCache);
+        const newHouseholderIdCache = new Map(visitHouseholderIdCache);
+        
+        for (const visitId of missingIds) {
+          // Try to load from visit name cache
+          const cachedName = await cacheGet<string>(`visit:${visitId}:name`);
+          const cachedHouseholderId = await cacheGet<string>(`visit:${visitId}:householder_id`);
+          
+          if (cachedName) {
+            newCache.set(visitId, cachedName);
+          }
+          if (cachedHouseholderId) {
+            newHouseholderIdCache.set(visitId, cachedHouseholderId);
+          }
+        }
+        
+        setVisitNamesCache(newCache);
+        setVisitHouseholderIdCache(newHouseholderIdCache);
+        setLoadingVisitIds(new Set());
+        return;
+      }
+
       if (missingIds.length === 0) {
         setLoadingVisitIds(new Set());
         return;
@@ -252,14 +301,19 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
 
         if (error) throw error;
 
+        const { cacheSet } = await import("@/lib/offline/store");
         const newCache = new Map(visitNamesCache);
         const newHouseholderIdCache = new Map(visitHouseholderIdCache);
         visits?.forEach((visit: any) => {
           if (visit.householders && visit.householders.name) {
             newCache.set(visit.id, visit.householders.name);
+            // Cache for offline access
+            cacheSet(`visit:${visit.id}:name`, visit.householders.name);
           }
           if (visit.householder_id) {
             newHouseholderIdCache.set(visit.id, visit.householder_id);
+            // Cache for offline access
+            cacheSet(`visit:${visit.id}:householder_id`, visit.householder_id);
           }
         });
         setVisitNamesCache(newCache);
@@ -283,14 +337,29 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
     loadVisitNames();
   }, [studies, visitNamesCache]);
 
+  // Helper to check if a study entry is a temporary placeholder
+  const isTemporaryPlaceholder = (study: string): boolean => {
+    return study.startsWith("temp:");
+  };
+
   // Helper to check if a study entry is loading
   const isStudyLoading = (study: string): boolean => {
+    // Temporary placeholders are always "loading" (being processed)
+    if (isTemporaryPlaceholder(study)) {
+      return true;
+    }
     const visitId = getVisitId(study);
     return visitId ? loadingVisitIds.has(visitId) : false;
   };
 
   // Helper to get display name for a study entry
   const getStudyDisplayName = (study: string): string | null => {
+    // Check for temporary placeholder
+    if (isTemporaryPlaceholder(study)) {
+      // Extract the name from temp:name format
+      return study.replace("temp:", "");
+    }
+
     // Check for visit ID first (new format)
     const visitId = getVisitId(study);
     if (visitId) {
@@ -311,205 +380,306 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
     return study;
   };
 
-  const addStudy = async (nameOrId: string, isHouseholderIdParam: boolean = false) => {
+  const addStudy = async (
+    nameOrId: string,
+    isHouseholderIdParam: boolean = false,
+    householderNameParam?: string
+  ) => {
     const trimmed = nameOrId.trim();
     if (!trimmed) return;
     
-    let studyEntry: string;
     let householderId: string | null = null;
-    
-    if (isHouseholderIdParam) {
-      // It's already a householder ID from the dropdown
-      householderId = trimmed;
-    } else {
-      // It's a custom name - create a householder automatically
-      try {
-        const { upsertHouseholder } = await import("@/lib/db/business");
-        const newHouseholder = await upsertHouseholder({
-          name: trimmed,
-          status: "bible_study",
-          publisher_id: userId,
-          note: null,
-          establishment_id: null,
-          lat: null,
-          lng: null
-        });
-        
-        if (newHouseholder && newHouseholder.id) {
-          householderId = newHouseholder.id;
-          // Refresh personal contacts to include the new one
-          const contacts = await getPersonalContactHouseholders(userId);
-          setPersonalContacts(contacts);
-          toast.success(`Created householder: ${trimmed}`);
-        } else {
-          // Fallback to plain text if creation fails
-          studyEntry = trimmed;
-          toast.error("Failed to create householder. Using name only.");
-          setStudies((s) => [...s, studyEntry]);
-          setDirty(true);
-          setBibleStudiesInputValue("");
-          inputRef.current?.focus();
-          return;
-        }
-      } catch (error: any) {
-        console.error('Error creating householder:', error);
-        // Fallback to plain text if creation fails
-        studyEntry = trimmed;
-        toast.error(error?.message || "Failed to create householder. Using name only.");
-        setStudies((s) => [...s, studyEntry]);
-        setDirty(true);
-        setBibleStudiesInputValue("");
-        inputRef.current?.focus();
-        return;
-      }
+    let householderName: string = householderNameParam?.trim() || trimmed;
+
+    if (isHouseholderIdParam && !householderNameParam) {
+      const contact = personalContacts.find(c => c.id === trimmed);
+      if (contact?.name) householderName = contact.name;
     }
     
-    // If we have a householder ID, create a visit entry first, then store visit:ID
-    if (householderId) {
-      try {
-        const { addVisit, upsertHouseholder, listHouseholders } = await import("@/lib/db/business");
-        
-        // Get the householder to check current status
-        const allHouseholders = await listHouseholders();
-        const householder = allHouseholders.find(h => h.id === householderId);
-        
-        if (!householder) {
-          toast.error("Householder not found");
-          return;
+    // OPTIMISTIC UI UPDATE: Add temporary placeholder immediately for instant feedback
+    const tempPlaceholder = `temp:${householderName}`;
+    
+    // Check if already exists before adding
+    const currentStudies = studiesRef.current;
+    if (currentStudies.includes(tempPlaceholder)) return;
+    if (currentStudies.some(s => {
+      const visitId = getVisitId(s);
+      const hhId = getHouseholderId(s);
+      if (isHouseholderIdParam && hhId === trimmed) return true;
+      if (visitId) {
+        const visitHouseholderId = visitHouseholderIdCache.get(visitId);
+        if (visitHouseholderId === trimmed) return true;
+      }
+      return false;
+    })) return;
+    
+    // Add temporary placeholder immediately for instant UI feedback
+    setStudies((s) => {
+      // Double-check to avoid duplicates
+      if (s.includes(tempPlaceholder)) return s;
+      if (s.some(existing => {
+        const visitId = getVisitId(existing);
+        const hhId = getHouseholderId(existing);
+        if (isHouseholderIdParam && hhId === trimmed) return true;
+        if (visitId) {
+          const visitHouseholderId = visitHouseholderIdCache.get(visitId);
+          if (visitHouseholderId === trimmed) return true;
         }
-
-        let updatedHouseholder = householder;
-        
-        // Update status to bible_study if not already
-        if (householder.status !== "bible_study") {
-          const updated = await upsertHouseholder({
-            id: householder.id,
-            name: householder.name,
+        return false;
+      })) return s;
+      return [...s, tempPlaceholder];
+    });
+    setBibleStudiesInputValue("");
+    inputRef.current?.focus();
+    
+    // Now do async operations in the background
+    try {
+      if (isHouseholderIdParam) {
+        // It's already a householder ID from the dropdown
+        householderId = trimmed;
+        // Get the householder name from personal contacts
+        const contact = personalContacts.find(c => c.id === trimmed);
+        if (contact) {
+          householderName = contact.name;
+        } else {
+          // Need to fetch the name
+          const { listHouseholders } = await import("@/lib/db/business");
+          const allHouseholders = await listHouseholders();
+          const householder = allHouseholders.find(h => h.id === trimmed);
+          if (householder) {
+            householderName = householder.name;
+          }
+        }
+      } else {
+        // It's a custom name - create a householder automatically
+        try {
+          const { upsertHouseholder } = await import("@/lib/db/business");
+          const newHouseholder = await upsertHouseholder({
+            name: trimmed,
             status: "bible_study",
-            publisher_id: householder.publisher_id,
-            note: householder.note,
-            establishment_id: householder.establishment_id,
-            lat: householder.lat,
-            lng: householder.lng
+            publisher_id: userId,
+            note: null,
+            establishment_id: null,
+            lat: null,
+            lng: null
           });
           
-          if (updated) {
-            updatedHouseholder = {
-              ...householder,
-              status: "bible_study"
-            };
+          if (newHouseholder && newHouseholder.id) {
+            householderId = newHouseholder.id;
+            householderName = newHouseholder.name;
+            // Refresh personal contacts to include the new one
+            const contacts = await getPersonalContactHouseholders(userId);
+            setPersonalContacts(contacts);
+            toast.success(`Created householder: ${trimmed}`);
+          } else {
+            // Fallback to plain text if creation fails
+            // Replace temp placeholder with plain text
+            setStudies((s) => {
+              const filtered = s.filter(entry => entry !== tempPlaceholder);
+              if (filtered.includes(trimmed)) return filtered;
+              return [...filtered, trimmed];
+            });
+            setDirty(true);
+            toast.error("Failed to create householder. Using name only.");
+            return;
           }
-        }
-        
-        // Create visit entry first
-        // Only include establishment_id if the householder has one
-        // If householder doesn't have establishment_id, explicitly set to undefined (not null)
-        const visitPayload: {
-          householder_id: string;
-          publisher_id: string;
-          visit_date: string;
-          note: null;
-          establishment_id?: string;
-        } = {
-          householder_id: householderId,
-          publisher_id: userId,
-          visit_date: date,
-          note: null,
-          // Explicitly set to undefined if householder doesn't have one, to prevent any database defaults
-          establishment_id: householder.establishment_id ? householder.establishment_id : undefined
-        };
-        
-        const visit = await addVisit(visitPayload);
-        
-        if (!visit || !visit.id) {
-          console.error('Failed to create visit entry:', { visit, householderId, userId, date });
-          toast.error("Failed to create visit entry");
+        } catch (error: any) {
+          console.error('Error creating householder:', error);
+          // Replace temp placeholder with plain text
+          setStudies((s) => {
+            const filtered = s.filter(entry => entry !== tempPlaceholder);
+            if (filtered.includes(trimmed)) return filtered;
+            return [...filtered, trimmed];
+          });
+          setDirty(true);
+          toast.error(error?.message || "Failed to create householder. Using name only.");
           return;
         }
-
-        console.log('Visit created successfully:', visit.id);
-
-        // Store visit:ID in the studies array
-        studyEntry = `visit:${visit.id}`;
-        
-        console.log('Study entry to be saved:', studyEntry);
-        
-        // Check if already exists (check both visit ID and householder ID formats for legacy support)
-        if (studies.includes(studyEntry)) {
-          console.log('Study entry already exists, skipping');
-          return;
-        }
-        const visitIdFromEntry = getVisitId(studyEntry);
-        if (visitIdFromEntry && studies.some(s => getVisitId(s) === visitIdFromEntry)) {
-          console.log('Visit ID already exists in studies, skipping');
-          return;
-        }
-        // Also check for existing householder ID (legacy)
-        if (studies.some(s => getHouseholderId(s) === householderId)) {
-          console.log('Householder ID already exists in studies, skipping');
-          return;
-        }
-        
-        // Load the visit name and householder ID into cache immediately
-        setVisitNamesCache(prev => {
-          const newCache = new Map(prev);
-          newCache.set(visit.id, householder.name);
-          return newCache;
-        });
-        setVisitHouseholderIdCache(prev => {
-          const newCache = new Map(prev);
-          if (visit.householder_id) {
-            newCache.set(visit.id, visit.householder_id);
-          }
-          return newCache;
-        });
-        
-        // Emit events to refresh visit history
+      }
+      
+      // If we have a householder ID, create a visit entry, then replace temp placeholder with visit:ID
+      if (householderId) {
         try {
-          window.dispatchEvent(new CustomEvent('visit-added', { detail: { householderId, date, visitId: visit.id } }));
-          businessEventBus.emit('visit-added', visit);
-          businessEventBus.emit('householder-updated', updatedHouseholder);
-        } catch {}
-        
-        // Add the study entry to state immediately after visit creation
-        console.log('Adding study entry to state:', studyEntry);
-        console.log('Current studies before add:', studies);
+          const { upsertHouseholder, listHouseholders } = await import("@/lib/db/business");
+          
+          // Get the householder to check current status
+          const allHouseholders = await listHouseholders();
+          const householder = allHouseholders.find(h => h.id === householderId);
+          
+          if (!householder) {
+            // Remove temp placeholder on error
+            setStudies((s) => s.filter(entry => entry !== tempPlaceholder));
+            toast.error("Householder not found");
+            return;
+          }
+
+          let updatedHouseholder = householder;
+          
+          // Update status to bible_study if not already
+          if (householder.status !== "bible_study") {
+            const updated = await upsertHouseholder({
+              id: householder.id,
+              name: householder.name,
+              status: "bible_study",
+              publisher_id: householder.publisher_id,
+              note: householder.note,
+              establishment_id: householder.establishment_id,
+              lat: householder.lat,
+              lng: householder.lng
+            });
+            
+            if (updated) {
+              updatedHouseholder = {
+                ...householder,
+                status: "bible_study"
+              };
+            }
+          }
+          
+          const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+          let visitId: string | null = null;
+          let rpcData: any[] | null = null;
+
+          if (isOffline) {
+            if (typeof crypto === "undefined" || !crypto.randomUUID) {
+              console.error("crypto.randomUUID unavailable for offline visit id");
+              setStudies((s) => s.filter(entry => entry !== tempPlaceholder));
+              toast.error("Offline add requires secure UUID support");
+              return;
+            }
+            visitId = crypto.randomUUID();
+            await outboxEnqueue({
+              type: "add_bible_study_with_visit",
+              payload: {
+                p_visit_date: date,
+                p_householder_id: householderId,
+                p_establishment_id: householder.establishment_id ?? null,
+                p_note: null,
+                p_visit_id: visitId
+              }
+            });
+            toast.success("Saved offline. Will sync when online.");
+          } else {
+            const supabase = createSupabaseBrowserClient();
+            await supabase.auth.getSession();
+            const { data, error } = await supabase.rpc("add_bible_study_with_visit", {
+              p_visit_date: date,
+              p_householder_id: householderId,
+              p_establishment_id: householder.establishment_id ?? null,
+              p_note: null,
+              p_visit_id: null
+            });
+
+            if (error || !data || data.length === 0) {
+              console.error('Failed to create visit entry via RPC:', { error, householderId, userId, date });
+              // Remove temp placeholder on error
+              setStudies((s) => s.filter(entry => entry !== tempPlaceholder));
+              toast.error("Failed to create visit entry");
+              return;
+            }
+            rpcData = data as any[];
+            visitId = (data[0]?.visit_id as string | undefined) ?? null;
+          }
+
+          if (!visitId) {
+            console.error('RPC response missing visit_id:', rpcData);
+            setStudies((s) => s.filter(entry => entry !== tempPlaceholder));
+            toast.error("Failed to create visit entry");
+            return;
+          }
+
+          console.log('Visit created successfully:', visitId);
+
+          // Replace temp placeholder with visit:ID
+          const studyEntry = `visit:${visitId}`;
+          
+          // Check if visit ID already exists (shouldn't happen, but be safe)
+          const currentStudiesAfterTemp = studiesRef.current;
+          if (currentStudiesAfterTemp.some(s => {
+            const existingVisitId = getVisitId(s);
+            return existingVisitId === visitId;
+          })) {
+            // Visit ID already exists, just remove temp placeholder
+            setStudies((s) => s.filter(entry => entry !== tempPlaceholder));
+            return;
+          }
+          
+          // Replace temp placeholder with actual visit ID
+          setStudies((s) => {
+            const filtered = s.filter(entry => entry !== tempPlaceholder);
+            // Double-check visit ID doesn't exist
+            if (filtered.some(existing => {
+              const existingVisitId = getVisitId(existing);
+              return existingVisitId === visitId;
+            })) {
+              return filtered;
+            }
+            return [...filtered, studyEntry];
+          });
+          
+          // Load the visit name and householder ID into cache immediately
+          setVisitNamesCache(prev => {
+            const newCache = new Map(prev);
+            newCache.set(visitId, householder.name);
+            return newCache;
+          });
+          setVisitHouseholderIdCache(prev => {
+            const newCache = new Map(prev);
+            newCache.set(visitId, householderId as string);
+            return newCache;
+          });
+          
+          // Emit events to refresh visit history
+          try {
+            const visitEvent = {
+              id: visitId,
+              establishment_id: householder.establishment_id ?? null,
+              householder_id: householderId,
+              note: null,
+              publisher_id: userId,
+              partner_id: null,
+              visit_date: date
+            };
+            window.dispatchEvent(new CustomEvent('visit-added', { detail: { householderId, date, visitId } }));
+            businessEventBus.emit('visit-added', visitEvent);
+            businessEventBus.emit('householder-updated', updatedHouseholder);
+          } catch {}
+          
+          // Mark as dirty to trigger save
+          setDirty(true);
+        } catch (error: any) {
+          console.error('Error creating visit entry:', error);
+          // Remove temp placeholder on error
+          setStudies((s) => s.filter(entry => entry !== tempPlaceholder));
+          toast.error(error?.message || "Failed to create visit entry");
+          return;
+        }
+      } else {
+        // Plain text entry (shouldn't happen, but handle gracefully)
+        // Replace temp placeholder with plain text
         setStudies((s) => {
-          const updated = [...s, studyEntry];
-          console.log('Updated studies array:', updated);
-          return updated;
+          const filtered = s.filter(entry => entry !== tempPlaceholder);
+          if (filtered.includes(trimmed)) return filtered;
+          return [...filtered, trimmed];
         });
         setDirty(true);
-        setBibleStudiesInputValue("");
-        inputRef.current?.focus();
-        return; // Return early since we've already added the study
-      } catch (error: any) {
-        console.error('Error creating visit entry:', error);
-        toast.error(error?.message || "Failed to create visit entry");
-        return;
       }
-    } else {
-      // Plain text entry (shouldn't happen, but handle gracefully)
-      studyEntry = trimmed;
-      
-      // Check if already exists
-      if (studies.includes(studyEntry)) return;
-      if (studies.some(s => !isVisitId(s) && !isHouseholderId(s) && s === trimmed)) return;
-      
-      // Add plain text study entry
-      console.log('Adding plain text study entry to state:', studyEntry);
-      setStudies((s) => {
-        const updated = [...s, studyEntry];
-        console.log('Updated studies array:', updated);
-        return updated;
-      });
-      setDirty(true);
-      setBibleStudiesInputValue("");
-      inputRef.current?.focus();
+    } catch (error: any) {
+      console.error('Unexpected error in addStudy:', error);
+      // Remove temp placeholder on error
+      setStudies((s) => s.filter(entry => entry !== tempPlaceholder));
+      toast.error(error?.message || "Failed to add bible study");
     }
   };
 
   const removeStudy = async (studyEntry: string) => {
+    // If it's a temporary placeholder, just remove it (no visit created yet)
+    if (isTemporaryPlaceholder(studyEntry)) {
+      setStudies((s) => s.filter((n) => n !== studyEntry));
+      setDirty(true);
+      return;
+    }
+    
     // If it's a visit ID, delete the visit entry
     const visitId = getVisitId(studyEntry);
     if (visitId) {
@@ -523,13 +693,33 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
         businessEventBus.emit('visit-deleted', { id: visitId });
       } catch {}
       
-      // Delete the visit entry in the background
+      const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+      if (isOffline) {
+        try {
+          await outboxEnqueue({
+            type: "delete_bible_study_with_visit",
+            payload: {
+              p_visit_id: visitId,
+              p_visit_date: date
+            }
+          });
+          toast.success("Deleted offline. Will sync when online.");
+        } catch (error: any) {
+          console.error('Error queueing delete visit entry:', error);
+          toast.error(error?.message || "Failed to queue delete");
+        }
+        return;
+      }
+
+      // Delete the visit entry via RPC in the background
       try {
-        const { deleteVisit } = await import("@/lib/db/business");
-        const deleted = await deleteVisit(visitId);
-        if (deleted) {
-          console.log('Visit entry deleted:', visitId);
-        } else {
+        const supabase = createSupabaseBrowserClient();
+        await supabase.auth.getSession();
+        const { error } = await supabase.rpc("delete_bible_study_with_visit", {
+          p_visit_id: visitId,
+          p_visit_date: date
+        });
+        if (error) {
           console.error('Failed to delete visit entry:', visitId);
           toast.error("Failed to delete visit entry");
           // Note: We don't revert the optimistic update - the visit is already removed from UI
@@ -635,7 +825,7 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
         toast.success("Saving...");
       }, 500);
     }
-  }, [dirty, scheduleSave]);
+  }, [dirty, scheduleSave, studies, hours, note]);
 
   // If editing a visit, show only the edit form
   if (editVisitId && editVisit) {
@@ -822,10 +1012,12 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
                 const visitId = getVisitId(s);
                 const displayName = getStudyDisplayName(s);
                 const isLoading = isStudyLoading(s);
+                const isTemp = isTemporaryPlaceholder(s);
                 
                 return (
                   <span key={s} className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs">
-                    {isLoading ? (
+                    {isLoading && !isTemp ? (
+                      // Show skeleton only for visit IDs that are loading, not temp placeholders
                       <Skeleton className="h-4 w-20" />
                     ) : visitId && displayName ? (
                       <button
@@ -836,7 +1028,7 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
                         {displayName}
                       </button>
                     ) : displayName ? (
-                      <span>{displayName}</span>
+                      <span className={isTemp ? "opacity-70" : ""}>{displayName}</span>
                     ) : null}
                     <Button
                       variant="ghost"
@@ -895,7 +1087,14 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
                     )
                     .filter(contact => {
                       // Check if contact is already added (by visit ID or householder ID)
+                      // Also check temporary placeholders
                       return !studies.some(s => {
+                        // Skip temporary placeholders in this check (they're being processed)
+                        if (isTemporaryPlaceholder(s)) {
+                          const tempName = s.replace("temp:", "");
+                          return tempName === contact.name || tempName === contact.id;
+                        }
+                        
                         const visitId = getVisitId(s);
                         const hhId = getHouseholderId(s);
                         
@@ -922,7 +1121,7 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
                         className="w-full justify-start text-sm h-auto py-2 px-2"
                         onMouseDown={(e) => {
                           e.preventDefault();
-                          addStudy(contact.id, true);
+                          addStudy(contact.id, true, contact.name);
                           // Clear input but keep dropdown open
                           setBibleStudiesInputValue("");
                           // Refocus input to keep dropdown visible

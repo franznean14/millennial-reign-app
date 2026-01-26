@@ -4,7 +4,7 @@
 
 type OutboxItem = {
   id?: number;
-  type: "upsert_profile" | "upsert_daily" | "delete_daily";
+  type: "upsert_profile" | "upsert_daily" | "delete_daily" | "add_bible_study_with_visit" | "delete_bible_study_with_visit";
   payload: any;
   createdAt: number;
 };
