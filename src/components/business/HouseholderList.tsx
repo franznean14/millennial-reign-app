@@ -358,7 +358,10 @@ export function HouseholderList({
       </div>
       
       {/* Scrollable Table Body */}
-      <div className="flex-1 overflow-y-auto no-scrollbar overscroll-none" style={{ overscrollBehavior: 'contain', touchAction: 'pan-y' }}>
+      <div
+        className="flex-1 overflow-y-auto no-scrollbar overscroll-none pb-[calc(max(env(safe-area-inset-bottom),0px)+5px)]"
+        style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
+      >
         <table className="w-full text-sm table-fixed">
           <tbody>
             {householders.map((householder, index) => (
@@ -393,10 +396,18 @@ export function HouseholderList({
     <div
       className={
         viewMode === 'table'
-          ? "w-full h-[calc(100vh-280px)] overflow-hidden flex flex-col overscroll-none mt-6"
+          ? "w-full overflow-hidden flex flex-col overscroll-none mt-6"
           : "w-full"
       }
-      style={viewMode === 'table' ? { overscrollBehavior: 'none' } : undefined}
+      style={
+        viewMode === "table"
+          ? {
+              overscrollBehavior: "none",
+              // Full dynamic viewport height minus bottom nav height (80px)
+              height: "calc(100dvh - 80px)"
+            }
+          : undefined
+      }
     >
 
       {/* Householders */}
