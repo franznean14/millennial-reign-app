@@ -3,40 +3,6 @@
 export function getFadedStatusColor(status: string) {
   switch (status) {
     case "inappropriate":
-      return "text-red-800/50 border-red-800/30";
-    case "declined_rack":
-      return "text-red-500/50 border-red-500/30";
-    case "for_scouting":
-      return "text-cyan-500/50 border-cyan-500/30";
-    case "for_follow_up":
-      return "text-orange-500/50 border-orange-500/30";
-    case "accepted_rack":
-      return "text-blue-500/50 border-blue-500/30";
-    case "for_replenishment":
-      return "text-purple-500/50 border-purple-500/30";
-    case "has_bible_studies":
-      return "text-emerald-500/50 border-emerald-500/30";
-    case "closed":
-      return "text-slate-500/50 border-slate-500/30";
-    // Householder statuses
-    case "potential":
-      return "text-gray-500/50 border-gray-500/30";
-    case "interested":
-      return "text-blue-500/50 border-blue-500/30";
-    case "return_visit":
-      return "text-orange-500/50 border-orange-500/30";
-    case "bible_study":
-      return "text-emerald-500/50 border-emerald-500/30";
-    case "do_not_call":
-      return "text-red-500/50 border-red-500/30";
-    default:
-      return "text-gray-500/50 border-gray-500/30";
-  }
-}
-
-export function getSelectedStatusColor(status: string) {
-  switch (status) {
-    case "inappropriate":
       return "text-red-800 border-red-800 bg-red-800/5";
     case "declined_rack":
       return "text-red-500 border-red-500 bg-red-500/5";
@@ -65,5 +31,39 @@ export function getSelectedStatusColor(status: string) {
       return "text-red-500 border-red-500 bg-red-500/5";
     default:
       return "text-gray-500 border-gray-500 bg-gray-500/5";
+  }
+}
+
+export function getSelectedStatusColor(status: string) {
+  switch (status) {
+    case "inappropriate":
+      return "text-white bg-red-800 border-red-800";
+    case "declined_rack":
+      return "text-white bg-red-500 border-red-500";
+    case "for_scouting":
+      return "text-white bg-cyan-500 border-cyan-500";
+    case "for_follow_up":
+      return "text-white bg-orange-500 border-orange-500";
+    case "accepted_rack":
+      return "text-white bg-blue-500 border-blue-500";
+    case "for_replenishment":
+      return "text-white bg-purple-500 border-purple-500";
+    case "has_bible_studies":
+      return "text-white bg-emerald-600 border-emerald-600";
+    case "closed":
+      return "text-white bg-slate-600 border-slate-600";
+    // Householder statuses
+    case "potential":
+      return "text-white bg-gray-500 border-gray-500";
+    case "interested":
+      return "text-white bg-blue-500 border-blue-500";
+    case "return_visit":
+      return "text-white bg-orange-500 border-orange-500";
+    case "bible_study":
+      return "text-white bg-emerald-600 border-emerald-600";
+    case "do_not_call":
+      return "text-white bg-red-600 border-red-600";
+    default:
+      return "text-white bg-gray-600 border-gray-600";
   }
 }

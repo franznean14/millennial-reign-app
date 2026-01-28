@@ -16,6 +16,7 @@ interface BusinessFiltersFormProps {
   onFiltersChange: (filters: BusinessFiltersState) => void;
   onClearFilters: () => void;
   hasActiveFilters: boolean;
+  scope: "establishments" | "householders" | "map";
   statusOptions: Array<{ value: string; label: string }>;
   areaOptions: Array<{ value: string; label: string }>;
   floorOptions: Array<{ value: string; label: string }>;
@@ -28,6 +29,7 @@ export function BusinessFiltersForm({
   onFiltersChange, 
   onClearFilters, 
   hasActiveFilters, 
+  scope,
   statusOptions, 
   areaOptions,
   floorOptions,
@@ -123,22 +125,24 @@ export function BusinessFiltersForm({
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Label>Floors</Label>
-          <div className="flex flex-wrap gap-2">
-            {floorOptions.map((option) => (
-              <Button
-                key={option.value}
-                variant={localFilters.floors.includes(option.value) ? "default" : "outline"}
-                size="sm"
-                onClick={() => toggleFloor(option.value)}
-                className="h-8"
-              >
-                {option.value}
-              </Button>
-            ))}
+        {scope !== "householders" && (
+          <div className="space-y-2">
+            <Label>Floors</Label>
+            <div className="flex flex-wrap gap-2">
+              {floorOptions.map((option) => (
+                <Button
+                  key={option.value}
+                  variant={localFilters.floors.includes(option.value) ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => toggleFloor(option.value)}
+                  className="h-8"
+                >
+                  {option.value}
+                </Button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {!isMapView && (
           <div className="space-y-2">

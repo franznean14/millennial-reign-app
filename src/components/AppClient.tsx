@@ -795,6 +795,7 @@ export function AppClient() {
 
   const { dynamicStatusOptions, dynamicAreaOptions, dynamicFloorOptions } = useBusinessFilterOptions({
     establishments,
+    householders,
     filters,
     userVisitedEstablishments,
     businessTab

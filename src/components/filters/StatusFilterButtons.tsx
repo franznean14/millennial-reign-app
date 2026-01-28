@@ -29,7 +29,7 @@ export function StatusFilterButtons({
         return (
           <Button
             key={option.value}
-            variant="outline"
+            variant={isSelected ? "default" : "outline"}
             size="sm"
             onClick={() => onToggle(option.value)}
             className={cn(

@@ -371,6 +371,7 @@ export function BusinessSection({
             onFiltersChange={setFilters}
             onClearFilters={clearFilters}
             hasActiveFilters={hasActiveFilters}
+            scope={businessTab}
             statusOptions={dynamicStatusOptions}
             areaOptions={dynamicAreaOptions}
             floorOptions={dynamicFloorOptions}

@@ -1,10 +1,16 @@
 "use client";
 
 import { useCallback, useMemo } from "react";
-import { calculateDistance, type BusinessFiltersState, type EstablishmentWithDetails } from "@/lib/db/business";
+import {
+  calculateDistance,
+  type BusinessFiltersState,
+  type EstablishmentWithDetails,
+  type HouseholderWithDetails
+} from "@/lib/db/business";
 
 interface UseBusinessFilterOptionsProps {
   establishments: EstablishmentWithDetails[];
+  householders: HouseholderWithDetails[];
   filters: BusinessFiltersState;
   userVisitedEstablishments: Set<string>;
   businessTab: "establishments" | "householders" | "map";
@@ -12,6 +18,7 @@ interface UseBusinessFilterOptionsProps {
 
 export function useBusinessFilterOptions({
   establishments,
+  householders,
   filters,
   userVisitedEstablishments,
   businessTab
@@ -80,20 +87,21 @@ export function useBusinessFilterOptions({
   );
 
   const dynamicStatusOptions = useMemo(() => {
-    const filtered = getFilteredEstablishmentsExcluding("statuses");
-    const allStatuses = new Set<string>();
-
-    filters.statuses.forEach((status) => allStatuses.add(status));
-
-    filtered.forEach((establishment) => {
-      establishment.statuses?.forEach((status) => {
-        allStatuses.add(status);
-      });
-    });
-
-    const statusList = Array.from(allStatuses).sort();
-
     if (businessTab === "establishments" || businessTab === "map") {
+      const filtered = getFilteredEstablishmentsExcluding("statuses");
+      const allStatuses = new Set<string>();
+
+      // Always include currently selected statuses so chips don't disappear
+      filters.statuses.forEach((status) => allStatuses.add(status));
+
+      filtered.forEach((establishment) => {
+        establishment.statuses?.forEach((status) => {
+          allStatuses.add(status);
+        });
+      });
+
+      const statusList = Array.from(allStatuses).sort();
+
       const statusMap: Record<string, string> = {
         for_scouting: "For Scouting",
         for_follow_up: "For Follow Up",
@@ -106,6 +114,21 @@ export function useBusinessFilterOptions({
       return statusList.filter((s) => s in statusMap).map((s) => ({ value: s, label: statusMap[s] }));
     }
 
+    // Householder tab – build options from householder statuses
+    const allHouseholderStatuses = new Set<string>();
+
+    // Preserve any active filters
+    filters.statuses.forEach((status) => allHouseholderStatuses.add(status));
+
+    // Collect statuses from the visible data set
+    householders.forEach((householder) => {
+      if (householder.status) {
+        allHouseholderStatuses.add(householder.status);
+      }
+    });
+
+    const statusList = Array.from(allHouseholderStatuses).sort();
+
     const statusMap: Record<string, string> = {
       interested: "Interested",
       return_visit: "Return Visit",
@@ -116,25 +139,73 @@ export function useBusinessFilterOptions({
   }, [getFilteredEstablishmentsExcluding, businessTab, filters.statuses]);
 
   const dynamicAreaOptions = useMemo(() => {
-    const filtered = getFilteredEstablishmentsExcluding("areas");
     const areaSet = new Set<string>();
 
+    // Always keep currently selected areas so chips never disappear
     filters.areas.forEach((area) => {
       if (area && area.trim() !== "") {
         areaSet.add(area);
       }
     });
 
-    filtered.forEach((e) => {
-      if (e.area && typeof e.area === "string" && e.area.trim() !== "") {
-        areaSet.add(e.area);
-      }
-    });
+    if (businessTab === "householders") {
+      // For householders, derive areas from householders that match the
+      // current filters EXCEPT the area filter itself.
+      const establishmentsById = new Map(establishments.map((e) => [e.id, e] as const));
+
+      const filteredHouseholders = householders.filter((householder) => {
+        // Apply text search
+        if (filters.search && filters.search.trim() !== "") {
+          const searchTerm = filters.search.toLowerCase().trim();
+          if (!householder.name.toLowerCase().includes(searchTerm)) {
+            return false;
+          }
+        }
+
+        // Apply status filter
+        if (filters.statuses.length > 0 && !filters.statuses.includes(householder.status)) {
+          return false;
+        }
+
+        // Apply near-me filter based on parent establishment location
+        if (filters.nearMe) {
+          if (!filters.userLocation) return false;
+          if (!householder.establishment_id) return false;
+          const parent = establishmentsById.get(householder.establishment_id);
+          if (!parent || parent.lat == null || parent.lng == null) return false;
+          const distanceKm = calculateDistance(
+            filters.userLocation[0],
+            filters.userLocation[1],
+            parent.lat,
+            parent.lng
+          );
+          if (distanceKm > 0.15) return false;
+        }
+
+        return true;
+      });
+
+      filteredHouseholders.forEach((householder) => {
+        if (!householder.establishment_id) return;
+        const parent = establishmentsById.get(householder.establishment_id);
+        if (parent && typeof parent.area === "string" && parent.area.trim() !== "") {
+          areaSet.add(parent.area);
+        }
+      });
+    } else {
+      // For establishments/map, use filtered establishments (excluding area filter itself)
+      const filtered = getFilteredEstablishmentsExcluding("areas");
+      filtered.forEach((e) => {
+        if (e.area && typeof e.area === "string" && e.area.trim() !== "") {
+          areaSet.add(e.area);
+        }
+      });
+    }
 
     return Array.from(areaSet)
       .sort()
       .map((area) => ({ value: area || "", label: area || "" }));
-  }, [getFilteredEstablishmentsExcluding, filters.areas]);
+  }, [businessTab, establishments, householders, getFilteredEstablishmentsExcluding, filters.areas]);
 
   const dynamicFloorOptions = useMemo(() => {
     const filtered = getFilteredEstablishmentsExcluding("floors");

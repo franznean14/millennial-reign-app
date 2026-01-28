@@ -156,6 +156,15 @@ export function useBusinessFilteredLists({
         return false;
       }
 
+      // Area filter for householders is derived from the parent establishment's area
+      if (filters.areas.length > 0) {
+        if (!householder.establishment_id) return false;
+        const parent = establishmentsById.get(householder.establishment_id);
+        if (!parent || !parent.area || !filters.areas.includes(parent.area)) {
+          return false;
+        }
+      }
+
       if (filters.myEstablishments) {
         const visitedByUser = householder.id ? userVisitedHouseholders.has(householder.id) : false;
         if (!visitedByUser) return false;
