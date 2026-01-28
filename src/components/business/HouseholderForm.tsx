@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { cacheGet } from "@/lib/offline/store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -176,15 +175,16 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
 
   // Prefill from active business filters (area doesn't apply here; status can)
   useEffect(() => {
-    (async () => {
-      try {
-        const filters = await cacheGet<any>("business:filters");
-        if (filters && Array.isArray(filters.statuses) && filters.statuses.length > 0) {
-          const preferred = filters.statuses[0] as any;
-          setStatus(preferred);
-        }
-      } catch {}
-    })();
+    try {
+      if (typeof window === "undefined") return;
+      const raw = window.localStorage.getItem("business:filters");
+      if (!raw) return;
+      const filters = JSON.parse(raw) as any;
+      if (filters && Array.isArray(filters.statuses) && filters.statuses.length > 0) {
+        const preferred = filters.statuses[0] as any;
+        setStatus(preferred);
+      }
+    } catch {}
   }, []);
 
   // Update form fields when initialData changes (e.g., when editing a different householder or modal opens)

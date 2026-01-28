@@ -11,7 +11,6 @@ import { Crosshair, ChevronDown } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { upsertEstablishment, getUniqueAreas, getUniqueFloors, findEstablishmentDuplicates } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
-import { cacheGet, cacheSet } from "@/lib/offline/store";
 import { useMobile } from "@/lib/hooks/use-mobile";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
@@ -93,23 +92,30 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
     (async () => {
       setAreas(await getUniqueAreas());
       setFloors(await getUniqueFloors());
-      // Prefill from active business filters if available
+      // Prefill from active business filters if available (localStorage)
       try {
-        const filters = await cacheGet<any>("business:filters");
-        if (filters) {
-          if (!draftAppliedRef.current) {
-            if (!area && Array.isArray(filters.areas) && filters.areas.length > 0) {
-              setArea(filters.areas[0]);
-            }
-            if (Array.isArray(filters.statuses) && filters.statuses.length > 0 && (!status || status.length === 0)) {
-              setStatus([...filters.statuses]);
+        if (typeof window !== "undefined") {
+          const raw = window.localStorage.getItem("business:filters");
+          if (raw) {
+            const filters = JSON.parse(raw) as any;
+            if (!draftAppliedRef.current) {
+              if (!area && Array.isArray(filters.areas) && filters.areas.length > 0) {
+                setArea(filters.areas[0]);
+              }
+              if (Array.isArray(filters.statuses) && filters.statuses.length > 0 && (!status || status.length === 0)) {
+                setStatus([...filters.statuses]);
+              }
             }
           }
         }
       } catch {}
       // Load any existing draft (if present) - only apply non-empty fields to avoid wiping prefill
       try {
-        const persisted = await cacheGet<any>(draftKey);
+        let persisted: any = null;
+        if (typeof window !== "undefined") {
+          const rawDraft = window.localStorage.getItem(draftKey);
+          if (rawDraft) persisted = JSON.parse(rawDraft);
+        }
         const draft = isNonEmptyDraft(externalDraft) ? externalDraft : persisted;
         if (draft && active) {
           draftAppliedRef.current = true;
@@ -147,8 +153,10 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
     if (onDraftChange) onDraftChange(latestDraftRef.current);
     const id = setTimeout(() => {
       // Only persist non-empty drafts to avoid clearing prefills
-      if (isNonEmptyDraft(latestDraftRef.current)) {
-        cacheSet(draftKey, latestDraftRef.current).catch(() => {});
+      if (isNonEmptyDraft(latestDraftRef.current) && typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem(draftKey, JSON.stringify(latestDraftRef.current));
+        } catch {}
       }
     }, 150);
     return () => clearTimeout(id);
@@ -179,8 +187,10 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
   // Flush draft immediately on unmount to avoid losing the latest edits when closing the modal quickly
   useEffect(() => {
     return () => {
-      if (latestDraftRef.current) {
-        cacheSet(draftKey, latestDraftRef.current).catch(() => {});
+      if (latestDraftRef.current && typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem(draftKey, JSON.stringify(latestDraftRef.current));
+        } catch {}
       }
     };
   }, [draftKey]);
@@ -298,10 +308,11 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
       if (result) {
         toast.success(isEditing ? "Establishment updated successfully!" : "Establishment saved successfully!");
         onSaved(result);
-        // Clear draft after successful save and invalidate establishments cache
+        // Clear draft after successful save (localStorage) and invalidate establishments cache (left in IndexedDB)
         try { 
-          await cacheSet(draftKey, null);
-          await cacheSet('establishments:list', null);
+          if (typeof window !== "undefined") {
+            window.localStorage.removeItem(draftKey);
+          }
         } catch {}
         // For new entries, reset the form and reapply active filters prefill
         if (!isEditing) {

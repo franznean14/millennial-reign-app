@@ -15,7 +15,6 @@ const getSupabaseClient = async () => {
 };
 import { motion } from "motion/react";
 import { toast } from "@/components/ui/sonner";
-import { cacheSet } from "@/lib/offline/store";
 import { LoginView } from "@/components/views/LoginView";
 import { LoadingView } from "@/components/views/LoadingView";
 import { UnifiedPortaledControls } from "@/components/UnifiedPortaledControls";
@@ -161,17 +160,48 @@ export function AppClient() {
     userLocation: null,
     sort: 'last_visit_desc'
   });
+  const [filtersHydrated, setFiltersHydrated] = useState(false);
   const [filtersModalOpen, setFiltersModalOpen] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationWatchId, setLocationWatchId] = useState<number | null>(null);
 
-  // Persist business filters globally for form auto-population
+  // Load persisted business filters (including sort + direction) from localStorage on mount
   useEffect(() => {
+    let isMounted = true;
     try {
-      cacheSet("business:filters", filters);
+      if (typeof window === "undefined") return;
+      const raw = window.localStorage.getItem("business:filters");
+      if (!raw) return;
+      const saved = JSON.parse(raw) as BusinessFiltersState;
+      if (!saved || !isMounted) return;
+      setFilters((prev) => ({
+        ...prev,
+        ...saved,
+        sort: saved.sort ?? prev.sort ?? "last_visit_desc"
+      }));
+      if (isMounted) {
+        setFiltersHydrated(true);
+      }
+    } catch {
+      // Ignore JSON / storage errors and keep defaults
+      if (isMounted) {
+        setFiltersHydrated(true);
+      }
+    }
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Persist business filters globally for form auto-population + sort persistence (localStorage)
+  useEffect(() => {
+    if (!filtersHydrated) return;
+    try {
+      if (typeof window === "undefined") return;
+      window.localStorage.setItem("business:filters", JSON.stringify(filters));
     } catch {}
-  }, [filters]);
+  }, [filters, filtersHydrated]);
 
   // Congregation state
   const [cong, setCong] = useState<Congregation | null>(null);

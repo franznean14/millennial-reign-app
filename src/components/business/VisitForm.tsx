@@ -15,7 +15,6 @@ import { addVisit, getBwiParticipants, updateVisit, deleteVisit } from "@/lib/db
 import { businessEventBus } from "@/lib/events/business-events";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getBestStatus } from "@/lib/utils/status-hierarchy";
-import { cacheGet } from "@/lib/offline/store";
 import { useMobile } from "@/lib/hooks/use-mobile";
 
 interface VisitFormProps {
@@ -147,18 +146,19 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
   // Prefill from active business filters ONLY when creating and no explicit selection
   useEffect(() => {
     if (initialVisit?.id || selectedEstablishmentId) return;
-    (async () => {
-      try {
-        const filters = await cacheGet<any>("business:filters");
-        if (filters && Array.isArray(filters.areas) && filters.areas.length > 0) {
-          const area = filters.areas[0];
-          const match = establishments.find(e => e.area === area);
-          if (match?.id) {
-            setEstId(match.id);
-          }
+    try {
+      if (typeof window === "undefined") return;
+      const raw = window.localStorage.getItem("business:filters");
+      if (!raw) return;
+      const filters = JSON.parse(raw) as any;
+      if (filters && Array.isArray(filters.areas) && filters.areas.length > 0) {
+        const area = filters.areas[0];
+        const match = establishments.find(e => e.area === area);
+        if (match?.id) {
+          setEstId(match.id);
         }
-      } catch {}
-    })();
+      }
+    } catch {}
   }, [establishments, initialVisit?.id, selectedEstablishmentId]);
 
   useEffect(() => {
