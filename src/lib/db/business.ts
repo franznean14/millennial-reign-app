@@ -1181,36 +1181,54 @@ export async function getBwiParticipants(): Promise<Array<{
     if (!profile?.congregation_id) {
       return [];
     }
-  
-  
-  const { data, error } = await supabase
-    .from('business_participants')
-    .select(`
-      user_id,
-      profiles!business_participants_user_id_fkey(id, first_name, last_name, avatar_url)
-    `)
-    .eq('congregation_id', profile.congregation_id)
-    .eq('active', true);
-  
-  
-  if (error) {
-    console.error('Error fetching participants:', error);
-    return [];
-  }
-  
-  const participants = data?.map(item => {
-    const profile = Array.isArray(item.profiles) ? item.profiles[0] : item.profiles;
-    return {
-      id: item.user_id,
-      first_name: profile?.first_name || '',
-      last_name: profile?.last_name || '',
-      avatar_url: profile?.avatar_url
-    };
-  }) || [];
-  
-  // Cache the results
-  await cacheSet(cacheKey, participants);
-  return participants;
+
+    // Primary: active BWI participants for this congregation
+    const { data, error } = await supabase
+      .from('business_participants')
+      .select(`
+        user_id,
+        profiles!business_participants_user_id_fkey(id, first_name, last_name, avatar_url)
+      `)
+      .eq('congregation_id', profile.congregation_id)
+      .eq('active', true);
+
+    let participants: Array<{ id: string; first_name: string; last_name: string; avatar_url?: string }> =
+      data?.map((item) => {
+        const p = Array.isArray(item.profiles) ? item.profiles[0] : item.profiles;
+        return {
+          id: item.user_id,
+          first_name: p?.first_name || "",
+          last_name: p?.last_name || "",
+          avatar_url: p?.avatar_url
+        };
+      }) || [];
+
+    // Fallback: if there are no explicit BWI participants (or query fails), use all congregation members.
+    // This ensures elders and other users can still select publishers for visit updates.
+    if ((!participants || participants.length === 0) || error) {
+      try {
+        const { data: profilesFallback } = await supabase
+          .from("profiles")
+          .select("id, first_name, last_name, avatar_url")
+          .eq("congregation_id", profile.congregation_id);
+
+        if (profilesFallback && profilesFallback.length > 0) {
+          participants =
+            profilesFallback.map((p: any) => ({
+              id: p.id,
+              first_name: p.first_name || "",
+              last_name: p.last_name || "",
+              avatar_url: p.avatar_url || undefined
+            })) || participants;
+        }
+      } catch (fallbackError) {
+        console.error("Error fetching congregation profiles as fallback for participants:", fallbackError);
+      }
+    }
+
+    // Cache the results (whatever list we ended up with)
+    await cacheSet(cacheKey, participants);
+    return participants;
   } catch (error) {
     console.error('Error fetching participants:', error);
     const cached = await cacheGet<Array<{

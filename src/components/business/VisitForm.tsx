@@ -166,9 +166,15 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
       try {
         const participantsList = await getBwiParticipants();
         setParticipants(participantsList);
+        // Debug participants loading for visit edit / add-publisher dropdown
+        console.log("[VisitForm] Loaded BWI participants", {
+          count: participantsList?.length ?? 0,
+          sample: participantsList?.slice(0, 5) ?? []
+        });
         
         const supabase = createSupabaseBrowserClient();
         const { data: profile } = await supabase.rpc('get_my_profile');
+        console.log("[VisitForm] Current profile from get_my_profile", profile);
         if (profile && (!initialVisit || publishers.length === 0)) {
           const currentUserData = participantsList.find(p => p.id === profile.id);
           if (currentUserData) {
@@ -176,7 +182,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
           }
         }
       } catch (error) {
-        console.error('Error loading participants:', error);
+        console.error('[VisitForm] Error loading participants:', error);
       }
     };
     
@@ -192,6 +198,14 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
       setPublishers(next);
     }
   }, [initialVisit?.id, initialVisit?.publisher_id, initialVisit?.partner_id]);
+
+  // Log whenever participants state changes so it's easy to see in console
+  useEffect(() => {
+    console.log("[VisitForm] participants state changed", {
+      count: participants.length,
+      ids: participants.map((p) => p.id)
+    });
+  }, [participants]);
   
   // Helper to format date as YYYY-MM-DD in local timezone (not UTC)
   const formatLocalDate = (date: Date): string => {
