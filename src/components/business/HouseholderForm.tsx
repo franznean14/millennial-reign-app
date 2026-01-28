@@ -12,6 +12,8 @@ import { Crosshair } from "lucide-react";
 import { upsertHouseholder } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { useMobile } from "@/lib/hooks/use-mobile";
+import { cn } from "@/lib/utils";
+import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
 
 interface HouseholderFormProps {
   establishments: any[];
@@ -279,9 +281,19 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
             </div>
           ) : (
             <Select value={estId} onValueChange={setEstId}>
-              <SelectTrigger><SelectValue placeholder="Select establishment"/></SelectTrigger>
-              <SelectContent>
-                {establishments.map((e)=> <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
+              <SelectTrigger className="h-10 text-sm">
+                <SelectValue placeholder="Select establishment" />
+              </SelectTrigger>
+              <SelectContent className="max-h-64 text-sm">
+                {establishments.map((e) => (
+                  <SelectItem
+                    key={e.id}
+                    value={e.id}
+                    className="py-2.5 text-sm"
+                  >
+                    {e.name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           )}
@@ -294,13 +306,49 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
       <div className="grid gap-1">
         <Label>Status</Label>
         <Select value={status} onValueChange={(v:any)=> setStatus(v)}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="potential">Potential</SelectItem>
-            <SelectItem value="interested">Interested</SelectItem>
-            <SelectItem value="return_visit">Return Visit</SelectItem>
-            <SelectItem value="bible_study">Bible Study</SelectItem>
-            <SelectItem value="do_not_call">Do Not Call</SelectItem>
+          <SelectTrigger
+            className={cn(
+              "h-10 text-sm",
+              status
+                ? getStatusTextColor(status)
+                    .split(" ")
+                    .find((c) => c.startsWith("text-")) ?? ""
+                : ""
+            )}
+          >
+            <SelectValue placeholder="Select status" />
+          </SelectTrigger>
+          <SelectContent className="max-h-64 text-sm">
+            <SelectItem
+              value="potential"
+              className={cn("py-2.5 text-sm", getStatusTextColor("potential"))}
+            >
+              Potential
+            </SelectItem>
+            <SelectItem
+              value="interested"
+              className={cn("py-2.5 text-sm", getStatusTextColor("interested"))}
+            >
+              Interested
+            </SelectItem>
+            <SelectItem
+              value="return_visit"
+              className={cn("py-2.5 text-sm", getStatusTextColor("return_visit"))}
+            >
+              Return Visit
+            </SelectItem>
+            <SelectItem
+              value="bible_study"
+              className={cn("py-2.5 text-sm", getStatusTextColor("bible_study"))}
+            >
+              Bible Study
+            </SelectItem>
+            <SelectItem
+              value="do_not_call"
+              className={cn("py-2.5 text-sm", getStatusTextColor("do_not_call"))}
+            >
+              Do Not Call
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>

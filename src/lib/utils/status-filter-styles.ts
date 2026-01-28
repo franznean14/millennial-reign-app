@@ -6,6 +6,8 @@ export function getFadedStatusColor(status: string) {
       return "text-red-800 border-red-800 bg-red-800/5";
     case "declined_rack":
       return "text-red-500 border-red-500 bg-red-500/5";
+    case "rack_pulled_out":
+      return "text-amber-600 border-amber-500 bg-amber-500/5";
     case "for_scouting":
       return "text-cyan-500 border-cyan-500 bg-cyan-500/5";
     case "for_follow_up":
@@ -48,6 +50,8 @@ export function getSelectedStatusColor(status: string) {
       return "text-white bg-blue-500 border-blue-500";
     case "for_replenishment":
       return "text-white bg-purple-500 border-purple-500";
+    case "rack_pulled_out":
+      return "text-white bg-amber-600 border-amber-600";
     case "has_bible_studies":
       return "text-white bg-emerald-600 border-emerald-600";
     case "closed":

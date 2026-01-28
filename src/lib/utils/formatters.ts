@@ -29,9 +29,11 @@ export function formatEstablishmentStatusCompactText(status: string): string {
     case "for_replenishment":
       return "Replenish";
     case "accepted_rack":
-      return "Accepted";
+      return "Rack Accepted";
     case "declined_rack":
-      return "Declined";
+      return "Rack Declined";
+    case "rack_pulled_out":
+      return "Rack Out";
     case "for_scouting":
       return "Scouting";
     case "has_bible_studies":

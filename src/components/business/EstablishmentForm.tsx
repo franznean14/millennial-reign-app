@@ -5,14 +5,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuCheckboxItem } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuCheckboxItem
+} from "@/components/ui/dropdown-menu";
 import { Crosshair, ChevronDown } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { upsertEstablishment, getUniqueAreas, getUniqueFloors, findEstablishmentDuplicates } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { useMobile } from "@/lib/hooks/use-mobile";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
+import { cn } from "@/lib/utils";
 
 // Determine whether a draft object has any meaningful data
 function isNonEmptyDraft(d: any | null | undefined): boolean {
@@ -54,6 +64,23 @@ interface EstablishmentFormProps {
   } | null;
   onDraftChange?: (draft: any) => void;
 }
+
+const ESTABLISHMENT_STATUS_OPTIONS: { value: string; label: string }[] = [
+  // Positive to negative ordering
+  { value: "for_scouting", label: "For Scouting" },
+  { value: "for_follow_up", label: "For Follow Up" },
+  { value: "accepted_rack", label: "Rack Accepted" },
+  { value: "for_replenishment", label: "For Replenishment" },
+  { value: "has_bible_studies", label: "Has Bible Studies" },
+  { value: "declined_rack", label: "Rack Declined" },
+  { value: "rack_pulled_out", label: "Rack Pulled Out" },
+  { value: "closed", label: "Closed" },
+  { value: "inappropriate", label: "Inappropriate" }
+];
+
+const getEstablishmentStatusLabel = (value: string): string => {
+  return ESTABLISHMENT_STATUS_OPTIONS.find((o) => o.value === value)?.label ?? value;
+};
 
 export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, initialData, isEditing = false, draft: externalDraft, onDraftChange }: EstablishmentFormProps) {
   // Persist unsaved draft locally to survive modal close
@@ -314,7 +341,7 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
             window.localStorage.removeItem(draftKey);
           }
         } catch {}
-        // For new entries, reset the form and reapply active filters prefill
+        // For new entries, reset the form and reapply active filters prefill (from localStorage)
         if (!isEditing) {
           setName("");
           setDescription("");
@@ -327,16 +354,21 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
           setGps("");
           draftAppliedRef.current = false;
           try {
-            const filters = await cacheGet<any>("business:filters");
-            if (filters) {
-              if (Array.isArray(filters.areas) && filters.areas.length > 0) {
-                setArea(filters.areas[0]);
-              }
-              if (Array.isArray(filters.statuses) && filters.statuses.length > 0) {
-                setStatus([...filters.statuses]);
+            if (typeof window !== "undefined") {
+              const raw = window.localStorage.getItem("business:filters");
+              if (raw) {
+                const filters = JSON.parse(raw) as any;
+                if (Array.isArray(filters.areas) && filters.areas.length > 0) {
+                  setArea(filters.areas[0]);
+                }
+                if (Array.isArray(filters.statuses) && filters.statuses.length > 0) {
+                  setStatus([...filters.statuses]);
+                }
               }
             }
-          } catch {}
+          } catch {
+            // ignore
+          }
         }
         // Emit event for live update
         if (isEditing) {
@@ -400,27 +432,125 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
             </Button>
           </div>
         ) : (
-          <Select value={area} onValueChange={(value) => {
-            if (value === "__custom__") {
-              setShowAreaInput(true);
-              setArea("");
-            } else {
-              setArea(value);
-            }
-          }}>
-            <SelectTrigger>
+          <Select
+            value={area}
+            onValueChange={(value) => {
+              if (value === "__custom__") {
+                setShowAreaInput(true);
+                setArea("");
+              } else {
+                setArea(value);
+              }
+            }}
+          >
+            <SelectTrigger className="h-10 text-sm">
               <SelectValue placeholder="Select area or add new" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="max-h-64 text-sm">
               {areas.map((a) => (
-                <SelectItem key={a} value={a}>{a}</SelectItem>
+                <SelectItem
+                  key={a}
+                  value={a}
+                  className="py-2.5 text-sm"
+                >
+                  {a}
+                </SelectItem>
               ))}
-              <SelectItem value="__custom__">
+              <SelectItem value="__custom__" className="py-2.5 text-sm">
                 + Add new area
               </SelectItem>
             </SelectContent>
           </Select>
         )}
+      </div>
+
+      <div className="grid gap-1">
+        <Label>Status</Label>
+        <DropdownMenu open={statusDropdownOpen} onOpenChange={setStatusDropdownOpen}>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              className="w-full justify-between px-3 h-9 text-sm"
+            >
+              <div className="flex items-center justify-between w-full gap-2">
+                <div className="flex flex-wrap gap-1 items-center flex-1 min-w-0">
+                  {(status.length ? status : ["for_scouting"]).map((s) => (
+                    <Badge
+                      key={s}
+                      variant="outline"
+                      className={cn(
+                        "h-6 px-2 py-0 text-xs font-medium flex items-center gap-1",
+                        getStatusTextColor(s)
+                      )}
+                    >
+                      <span className="truncate max-w-[8rem]">
+                        {getEstablishmentStatusLabel(s)}
+                      </span>
+                      {status.includes(s) && (
+                        <span
+                          role="button"
+                          tabIndex={-1}
+                          onPointerDown={(e) => {
+                            // Prevent Radix DropdownMenuTrigger from opening on this control
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setStatus((prev) => prev.filter((value) => value !== s));
+                          }}
+                          className="ml-1 inline-flex items-center justify-center rounded-full px-1 text-[10px] leading-none hover:bg-background/40"
+                          aria-label={`Remove ${getEstablishmentStatusLabel(s)}`}
+                        >
+                          ×
+                        </span>
+                      )}
+                    </Badge>
+                  ))}
+                </div>
+                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </div>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="w-64 max-h-[320px] overflow-y-auto text-sm">
+            <DropdownMenuLabel className="text-xs text-muted-foreground">
+              Tap to toggle establishment statuses
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {ESTABLISHMENT_STATUS_OPTIONS.map((statusOption) => {
+              const textColor =
+                getStatusTextColor(statusOption.value)
+                  .split(" ")
+                  .find((c) => c.startsWith("text-")) ?? "";
+              const isActive = status.includes(statusOption.value);
+              return (
+                <DropdownMenuCheckboxItem
+                  key={statusOption.value}
+                  checked={isActive}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setStatus([...status, statusOption.value]);
+                    } else {
+                      setStatus(status.filter((s) => s !== statusOption.value));
+                    }
+                  }}
+                  onSelect={(e) => e.preventDefault()}
+                  className={cn(
+                    "flex items-center justify-between gap-2 py-2.5 text-sm",
+                    textColor
+                  )}
+                >
+                  <span>{statusOption.label}</span>
+                  {isActive && (
+                    <span className="ml-2 inline-flex h-5 items-center rounded-full bg-primary/10 px-2 text-[10px] uppercase tracking-wide text-primary">
+                      ACTIVE
+                    </span>
+                  )}
+                </DropdownMenuCheckboxItem>
+              );
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="grid gap-1">
@@ -458,47 +588,6 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
             )}
           </Button>
         </div>
-      </div>
-
-      <div className="grid gap-1">
-        <Label>Status</Label>
-        <DropdownMenu open={statusDropdownOpen} onOpenChange={setStatusDropdownOpen}>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" className="w-full justify-between">
-              {status.length === 0 ? "Select Statuses" : `${status.length} selected`}
-              <ChevronDown className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56">
-            <DropdownMenuLabel>Select Statuses</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {[
-              { value: "for_scouting", label: "For Scouting" },
-              { value: "for_follow_up", label: "For Follow Up" },
-              { value: "accepted_rack", label: "Accepted Rack" },
-              { value: "declined_rack", label: "Declined Rack" },
-              { value: "for_replenishment", label: "For Replenishment" },
-              { value: "has_bible_studies", label: "Has Bible Studies" },
-              { value: "closed", label: "Closed" },
-              { value: "inappropriate", label: "Inappropriate" }
-            ].map((statusOption) => (
-              <DropdownMenuCheckboxItem
-                key={statusOption.value}
-                checked={status.includes(statusOption.value)}
-                onCheckedChange={(checked) => {
-                  if (checked) {
-                    setStatus([...status, statusOption.value]);
-                  } else {
-                    setStatus(status.filter(s => s !== statusOption.value));
-                  }
-                }}
-                onSelect={(e) => e.preventDefault()}
-              >
-                {statusOption.label}
-              </DropdownMenuCheckboxItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
 
       <div className="grid gap-1">

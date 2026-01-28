@@ -100,18 +100,36 @@ export function useBusinessFilterOptions({
         });
       });
 
-      const statusList = Array.from(allStatuses).sort();
+      // Positive-to-negative order for filters (match form dropdown)
+      const orderedStatuses: string[] = [
+        "for_scouting",
+        "for_follow_up",
+        "accepted_rack",
+        "for_replenishment",
+        "has_bible_studies",
+        "declined_rack",
+        "rack_pulled_out",
+        "closed",
+        "inappropriate"
+      ];
 
       const statusMap: Record<string, string> = {
         for_scouting: "For Scouting",
         for_follow_up: "For Follow Up",
+        accepted_rack: "Rack Accepted",
         for_replenishment: "For Replenishment",
-        accepted_rack: "Accepted Rack",
-        declined_rack: "Declined Rack",
         has_bible_studies: "Has Bible Studies",
-        closed: "Closed"
+        declined_rack: "Rack Declined",
+        rack_pulled_out: "Rack Pulled Out",
+        closed: "Closed",
+        inappropriate: "Inappropriate"
       };
-      return statusList.filter((s) => s in statusMap).map((s) => ({ value: s, label: statusMap[s] }));
+
+      // Filter to statuses that actually exist in data, then map in desired order
+      const available = new Set(allStatuses);
+      return orderedStatuses
+        .filter((s) => available.has(s))
+        .map((s) => ({ value: s, label: statusMap[s] }));
     }
 
     // Householder tab – build options from householder statuses

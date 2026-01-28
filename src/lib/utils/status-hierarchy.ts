@@ -2,8 +2,9 @@
 export const STATUS_HIERARCHY = [
   'inappropriate',      // Worst
   'declined_rack',      // Bad
+  'rack_pulled_out',    // Neutral / slightly negative - rack removed
   'closed',             // Neutral - establishment closed
-  'for_scouting',        // Better
+  'for_scouting',       // Better
   'for_follow_up',      // Good
   'accepted_rack',      // Better
   'has_bible_studies'   // Best
@@ -34,6 +35,8 @@ export const getStatusColor = (status: string) => {
       return 'border-red-800/50 bg-red-800/5';
     case 'declined_rack':
       return 'border-red-500/50 bg-red-500/5';
+    case 'rack_pulled_out':
+      return 'border-amber-500/50 bg-amber-500/5';
     case 'for_scouting':
       return 'border-cyan-500/50 bg-cyan-500/5';
     case 'for_follow_up':
@@ -66,6 +69,8 @@ export const getStatusTextColor = (status: string) => {
       return 'text-blue-500 border-blue-500/50';
     case 'for_replenishment':
       return 'text-purple-500 border-purple-500/50';
+    case 'rack_pulled_out':
+      return 'text-amber-600 border-amber-500/60';
     case 'has_bible_studies':
       return 'text-emerald-500 border-emerald-500/50';
     case 'closed':
