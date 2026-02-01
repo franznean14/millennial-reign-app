@@ -343,7 +343,7 @@ export function BusinessSection({
                 {selectedEstablishment && (
                   <div className={getDetailsWrapperClass(businessTab === "map")}>
                     <EstablishmentDetails
-                      establishment={selectedEstablishment}
+                      establishment={selectedEstablishmentDetails?.establishment ?? selectedEstablishment}
                       visits={selectedEstablishmentDetails?.visits || []}
                       householders={selectedEstablishmentDetails?.householders || []}
                       isLoading={!selectedEstablishmentDetails}

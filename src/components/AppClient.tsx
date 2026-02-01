@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo, type ComponentType } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef, type ComponentType } from "react";
 import dynamic from "next/dynamic";
 // Lazy-load Supabase client to keep initial bundle small
 let getSupabaseClientOnce: (() => Promise<import("@supabase/supabase-js").SupabaseClient>) | null = null;
@@ -29,6 +29,7 @@ import { useBusinessFilterOptions } from "@/lib/hooks/use-business-filter-option
 import { useAccountState } from "@/lib/hooks/use-account-state";
 import { getMyCongregation, saveCongregation, isAdmin, type Congregation } from "@/lib/db/congregations";
 import { getProfile } from "@/lib/db/profiles";
+import { cacheDelete } from "@/lib/offline/store";
 import { archiveEstablishment, deleteEstablishment } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { formatStatusText } from "@/lib/utils/formatters";
@@ -546,7 +547,17 @@ export function AppClient() {
     }
   }, []);
 
-  // Refetch-only (no event bus). Used when other users change data via Supabase Realtime.
+  // Refs so Realtime refetch can refresh open detail views without stale closures
+  const selectedEstablishmentIdRef = useRef<string | null>(null);
+  const selectedHouseholderIdRef = useRef<string | null>(null);
+  const congregationSelectedHouseholderIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    selectedEstablishmentIdRef.current = selectedEstablishment?.id ?? null;
+    selectedHouseholderIdRef.current = selectedHouseholder?.id ?? null;
+    congregationSelectedHouseholderIdRef.current = congregationSelectedHouseholder?.id ?? null;
+  }, [selectedEstablishment?.id, selectedHouseholder?.id, congregationSelectedHouseholder?.id]);
+
+  // Refetch-only (no event bus). Used when Supabase Realtime detects changes so views re-render with latest data.
   const refetchBusinessData = useCallback(async () => {
     try {
       const [establishmentsData, householdersData] = await Promise.all([
@@ -555,12 +566,38 @@ export function AppClient() {
       ]);
       setEstablishments(establishmentsData);
       setHouseholders(householdersData.filter((householder) => !!householder.establishment_id));
+      const estId = selectedEstablishmentIdRef.current;
+      const hhId = selectedHouseholderIdRef.current;
+      const congHhId = congregationSelectedHouseholderIdRef.current;
+      // Invalidate detail caches so getEstablishmentDetails/getHouseholderDetails return fresh data (note, area, householders list)
+      await Promise.all([
+        estId ? cacheDelete(`establishment:details:${estId}`) : Promise.resolve(),
+        hhId ? cacheDelete(`householder:details:${hhId}`) : Promise.resolve(),
+        congHhId ? cacheDelete(`householder:details:${congHhId}`) : Promise.resolve(),
+      ]);
+      const [estDetails, hhDetails, congHhDetails] = await Promise.all([
+        estId ? getEstablishmentDetails(estId) : Promise.resolve(null),
+        hhId ? getHouseholderDetails(hhId) : Promise.resolve(null),
+        congHhId ? getHouseholderDetails(congHhId) : Promise.resolve(null),
+      ]);
+      if (estDetails) {
+        setSelectedEstablishmentDetails(estDetails);
+        // Keep selected establishment (name, status, note, area, floor) in sync so details view updates live
+        setSelectedEstablishment((prev) =>
+          prev?.id === estDetails.establishment.id ? { ...prev, ...estDetails.establishment } : prev
+        );
+      }
+      if (hhDetails) setSelectedHouseholderDetails(hhDetails);
+      if (congHhDetails) {
+        setCongregationSelectedHouseholderDetails(congHhDetails);
+        setCongregationSelectedHouseholder(congHhDetails.householder);
+      }
     } catch (error) {
       console.error('Failed to refetch business data:', error);
     }
   }, []);
 
-  // Realtime: refetch business data when other users in the same congregation change establishments, householders, or visits
+  // Realtime: Supabase postgres_changes → refetch → setState → React re-renders; no manual refresh needed
   const congregationId = (profile as any)?.congregation_id;
   useEffect(() => {
     if (!userId || !congregationId || (typeof navigator !== "undefined" && !navigator.onLine)) return;
@@ -587,6 +624,26 @@ export function AppClient() {
       try { supabase.removeChannel(channel); } catch {}
     };
   }, [userId, congregationId, refetchBusinessData]);
+
+  // When current user soft-deletes a householder, refetch establishment details so householders list and establishment fields stay in sync
+  useEffect(() => {
+    const handler = () => {
+      const estId = selectedEstablishmentIdRef.current;
+      if (!estId) return;
+      cacheDelete(`establishment:details:${estId}`).then(() =>
+        getEstablishmentDetails(estId).then((d) => {
+          if (d) {
+            setSelectedEstablishmentDetails(d);
+            setSelectedEstablishment((prev) =>
+              prev?.id === d.establishment.id ? { ...prev, ...d.establishment } : prev
+            );
+          }
+        })
+      );
+    };
+    businessEventBus.subscribe("householder-deleted", handler);
+    return () => businessEventBus.unsubscribe("householder-deleted", handler);
+  }, []);
 
   const loadEstablishmentDetails = useCallback(async (establishmentId: string) => {
     try {

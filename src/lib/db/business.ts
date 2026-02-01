@@ -329,13 +329,6 @@ export async function listHouseholders(): Promise<HouseholderWithDetails[]> {
     });
 
     await cacheSet(cacheKey, householders);
-    
-    // Return cached data if available and we're online (for instant display), otherwise return fresh data
-    if (cached?.length && typeof navigator !== 'undefined' && navigator.onLine) {
-      // Return cached for instant display, fresh data is now cached for next time
-      return cached;
-    }
-    
     return householders;
   } catch (error) {
     console.error('Error listing householders:', error);
@@ -933,15 +926,8 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
       };
     }) || [];
 
-    // Cache the results
+    // Cache the results and return fresh data so refetches (e.g. from Realtime) show latest immediately
     await cacheSet(cacheKey, establishments);
-    
-    // Return cached data if available and we're online (for instant display), otherwise return fresh data
-    if (cached?.length && typeof navigator !== 'undefined' && navigator.onLine) {
-      // Return cached for instant display, fresh data is now cached for next time
-      return cached;
-    }
-    
     return establishments;
   } catch (error) {
     console.error('Unexpected error in getEstablishmentsWithDetails:', error);
