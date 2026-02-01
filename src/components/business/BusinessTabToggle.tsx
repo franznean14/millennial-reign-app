@@ -81,7 +81,6 @@ export function BusinessTabToggle({
               onValueChange={(newValue) => {
                 if (newValue) {
                   onValueChange(newValue as 'establishments' | 'householders' | 'map');
-                  onClearStatusFilters();
                 }
               }}
               className="w-full h-full"

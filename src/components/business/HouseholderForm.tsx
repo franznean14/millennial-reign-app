@@ -179,7 +179,7 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
   useEffect(() => {
     try {
       if (typeof window === "undefined") return;
-      const raw = window.localStorage.getItem("business:filters");
+      const raw = window.localStorage.getItem("business:filters:householders");
       if (!raw) return;
       const filters = JSON.parse(raw) as any;
       if (filters && Array.isArray(filters.statuses) && filters.statuses.length > 0) {

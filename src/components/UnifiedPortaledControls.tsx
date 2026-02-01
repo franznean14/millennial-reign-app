@@ -168,7 +168,6 @@ function BusinessControlsContent({
             onValueChange={(value) => {
               if (!isDetailsView) {
                 onBusinessTabChange(value);
-                onFiltersChange({ ...filters, statuses: [] });
               }
             }}
             onClearStatusFilters={() => onFiltersChange({ ...filters, statuses: [] })}
@@ -187,7 +186,6 @@ function BusinessControlsContent({
             value={businessTab}
             onValueChange={(value) => {
               onBusinessTabChange(value);
-              onFiltersChange({ ...filters, statuses: [] });
             }}
             onClearStatusFilters={() => onFiltersChange({ ...filters, statuses: [] })}
             className="w-full h-full"

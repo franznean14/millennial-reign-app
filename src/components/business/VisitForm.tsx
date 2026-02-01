@@ -148,7 +148,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
     if (initialVisit?.id || selectedEstablishmentId) return;
     try {
       if (typeof window === "undefined") return;
-      const raw = window.localStorage.getItem("business:filters");
+      const raw = window.localStorage.getItem("business:filters:establishments");
       if (!raw) return;
       const filters = JSON.parse(raw) as any;
       if (filters && Array.isArray(filters.areas) && filters.areas.length > 0) {

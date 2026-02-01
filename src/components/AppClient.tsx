@@ -150,7 +150,7 @@ export function AppClient() {
     visits: VisitWithUser[];
     establishment?: { id: string; name: string } | null;
   } | null>(null);
-  const [filters, setFilters] = useState<BusinessFiltersState>({
+  const defaultFilters: BusinessFiltersState = {
     search: "",
     statuses: [],
     areas: [],
@@ -158,46 +158,78 @@ export function AppClient() {
     myEstablishments: false,
     nearMe: false,
     userLocation: null,
-    sort: 'last_visit_desc'
-  });
+    sort: "last_visit_desc",
+  };
+
+  const [filtersEstablishments, setFiltersEstablishments] = useState<BusinessFiltersState>(defaultFilters);
+  const [filtersHouseholders, setFiltersHouseholders] = useState<BusinessFiltersState>(defaultFilters);
   const [filtersHydrated, setFiltersHydrated] = useState(false);
   const [filtersModalOpen, setFiltersModalOpen] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationWatchId, setLocationWatchId] = useState<number | null>(null);
 
-  // Load persisted business filters (including sort + direction) from localStorage on mount.
-  // Always set filtersHydrated(true) after attempting load so persist effect can run (even when no saved data).
+  // Current tab's filters (establishments tab + map use establishment filters; householders tab uses householder filters).
+  const filters = businessTab === "householders" ? filtersHouseholders : filtersEstablishments;
+
+  const setFilters = useCallback(
+    (updater: React.SetStateAction<BusinessFiltersState>) => {
+      if (businessTab === "householders") {
+        setFiltersHouseholders(updater);
+      } else {
+        setFiltersEstablishments(updater);
+      }
+    },
+    [businessTab]
+  );
+
+  // Load persisted business filters from localStorage on mount (separate per establishment vs householder list).
+  // Persisted: statuses, areas, floors, sort, search, myEstablishments, nearMe, userLocation for each list.
   useEffect(() => {
     let isMounted = true;
     try {
       if (typeof window === "undefined") return;
-      const raw = window.localStorage.getItem("business:filters");
-      if (raw) {
-        const saved = JSON.parse(raw) as BusinessFiltersState;
-        if (saved && isMounted) {
-          setFilters((prev) => ({
-            ...prev,
-            ...saved,
-            sort: saved.sort ?? prev.sort ?? "last_visit_desc"
-          }));
+      const rawEst = window.localStorage.getItem("business:filters:establishments");
+      const rawHh = window.localStorage.getItem("business:filters:householders");
+      const merge = (raw: string | null, prev: BusinessFiltersState): BusinessFiltersState => {
+        if (!raw) return prev;
+        try {
+          const saved = JSON.parse(raw) as Partial<BusinessFiltersState>;
+          if (!saved) return prev;
+          return {
+            search: typeof saved.search === "string" ? saved.search : prev.search,
+            statuses: Array.isArray(saved.statuses) ? saved.statuses : prev.statuses,
+            areas: Array.isArray(saved.areas) ? saved.areas : prev.areas,
+            floors: Array.isArray(saved.floors) ? saved.floors : prev.floors,
+            myEstablishments: typeof saved.myEstablishments === "boolean" ? saved.myEstablishments : prev.myEstablishments,
+            nearMe: typeof saved.nearMe === "boolean" ? saved.nearMe : prev.nearMe,
+            userLocation: saved.userLocation != null ? saved.userLocation : prev.userLocation,
+            sort: saved.sort ?? prev.sort ?? "last_visit_desc",
+          };
+        } catch {
+          return prev;
         }
+      };
+      if (isMounted) {
+        setFiltersEstablishments((prev) => merge(rawEst, prev));
+        setFiltersHouseholders((prev) => merge(rawHh, prev));
       }
     } catch {
-      // Ignore JSON / storage errors and keep defaults
+      // Ignore
     }
     if (isMounted) setFiltersHydrated(true);
     return () => { isMounted = false; };
   }, []);
 
-  // Persist business filters globally for form auto-population + sort persistence (localStorage)
+  // Persist establishment and householder filters separately so switching tabs doesn't reset either.
   useEffect(() => {
     if (!filtersHydrated) return;
     try {
       if (typeof window === "undefined") return;
-      window.localStorage.setItem("business:filters", JSON.stringify(filters));
+      window.localStorage.setItem("business:filters:establishments", JSON.stringify(filtersEstablishments));
+      window.localStorage.setItem("business:filters:householders", JSON.stringify(filtersHouseholders));
     } catch {}
-  }, [filters, filtersHydrated]);
+  }, [filtersEstablishments, filtersHouseholders, filtersHydrated]);
 
   // Congregation state
   const [cong, setCong] = useState<Congregation | null>(null);
@@ -348,14 +380,16 @@ export function AppClient() {
     };
   }, [locationWatchId]);
 
-  // Stop location tracking when leaving business section
+  // Stop location tracking only when leaving the business area entirely (not when switching establishment/householder/map tabs).
+  const isBusinessArea = currentSection === "business" || currentSection.startsWith("business-");
   useEffect(() => {
-    if (currentSection !== 'business' && locationWatchId !== null) {
+    if (!isBusinessArea && locationWatchId !== null) {
       navigator.geolocation.clearWatch(locationWatchId);
       setLocationWatchId(null);
-      setFilters(prev => ({ ...prev, nearMe: false, userLocation: null }));
+      setFiltersEstablishments((prev) => ({ ...prev, nearMe: false, userLocation: null }));
+      setFiltersHouseholders((prev) => ({ ...prev, nearMe: false, userLocation: null }));
     }
-  }, [currentSection, locationWatchId]);
+  }, [isBusinessArea, locationWatchId]);
 
 
   // Add this effect to load user's visited establishments
@@ -709,7 +743,8 @@ export function AppClient() {
   const { filteredEstablishments, filteredHouseholders } = useBusinessFilteredLists({
     establishments,
     householders,
-    filters,
+    filtersEstablishments,
+    filtersHouseholders,
     userVisitedEstablishments,
     userVisitedHouseholders,
     userId

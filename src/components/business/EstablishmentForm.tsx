@@ -122,7 +122,7 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
       // Prefill from active business filters if available (localStorage)
       try {
         if (typeof window !== "undefined") {
-          const raw = window.localStorage.getItem("business:filters");
+          const raw = window.localStorage.getItem("business:filters:establishments");
           if (raw) {
             const filters = JSON.parse(raw) as any;
             if (!draftAppliedRef.current) {
@@ -355,7 +355,7 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
           draftAppliedRef.current = false;
           try {
             if (typeof window !== "undefined") {
-              const raw = window.localStorage.getItem("business:filters");
+              const raw = window.localStorage.getItem("business:filters:establishments");
               if (raw) {
                 const filters = JSON.parse(raw) as any;
                 if (Array.isArray(filters.areas) && filters.areas.length > 0) {

@@ -11,7 +11,8 @@ import {
 interface UseBusinessFilteredListsOptions {
   establishments: EstablishmentWithDetails[];
   householders: HouseholderWithDetails[];
-  filters: BusinessFiltersState;
+  filtersEstablishments: BusinessFiltersState;
+  filtersHouseholders: BusinessFiltersState;
   userVisitedEstablishments: Set<string>;
   userVisitedHouseholders: Set<string>;
   userId?: string | null;
@@ -20,12 +21,14 @@ interface UseBusinessFilteredListsOptions {
 export function useBusinessFilteredLists({
   establishments,
   householders,
-  filters,
+  filtersEstablishments,
+  filtersHouseholders,
   userVisitedEstablishments,
   userVisitedHouseholders,
   userId
 }: UseBusinessFilteredListsOptions) {
   const filteredEstablishments = useMemo(() => {
+    const filters = filtersEstablishments;
     const base = establishments.filter((establishment) => {
       if (filters.search && filters.search.trim() !== "") {
         const searchTerm = filters.search.toLowerCase().trim();
@@ -142,9 +145,10 @@ export function useBusinessFilteredLists({
     }
 
     return sorted;
-  }, [establishments, filters, userVisitedEstablishments]);
+  }, [establishments, filtersEstablishments, userVisitedEstablishments]);
 
   const filteredHouseholders = useMemo(() => {
+    const filters = filtersHouseholders;
     const establishmentsById = new Map(establishments.map((e) => [e.id, e] as const));
 
     const base = householders.filter((householder) => {
@@ -295,7 +299,7 @@ export function useBusinessFilteredLists({
     }
 
     return sorted;
-  }, [establishments, householders, filters, userVisitedHouseholders, userId]);
+  }, [establishments, householders, filtersHouseholders, userVisitedHouseholders, userId]);
 
   return { filteredEstablishments, filteredHouseholders };
 }
