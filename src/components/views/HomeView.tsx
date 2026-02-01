@@ -10,10 +10,11 @@ interface HomeViewProps {
   userId: string;
   onVisitClick?: (visit: any) => Promise<void>;
   onNavigateToCongregation?: () => void;
+  onNavigateToBusinessWithStatus?: (tab: 'establishments' | 'householders', status: string) => void;
   homeTab?: 'summary' | 'events';
 }
 
-export function HomeView({ userId, onVisitClick, onNavigateToCongregation, homeTab = 'summary' }: HomeViewProps) {
+export function HomeView({ userId, onVisitClick, onNavigateToCongregation, onNavigateToBusinessWithStatus, homeTab = 'summary' }: HomeViewProps) {
   const [dateRanges, setDateRanges] = useState({
     monthStart: "",
     nextMonthStart: "",
@@ -67,6 +68,7 @@ export function HomeView({ userId, onVisitClick, onNavigateToCongregation, homeT
             <VisitHistory 
               userId={userId} 
               onVisitClick={onVisitClick}
+              onNavigateToBusinessWithStatus={onNavigateToBusinessWithStatus}
             />
             
           </div>

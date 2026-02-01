@@ -15,6 +15,7 @@ interface HomeSectionProps {
   userId: string;
   homeTab: HomeTab;
   onNavigateToCongregation: () => void;
+  onNavigateToBusinessWithStatus?: (tab: "establishments" | "householders", status: string) => void;
   onSectionChange: (section: string) => void;
   currentSection: string;
   pushNavigation: (section: string) => void;
@@ -30,6 +31,7 @@ export function HomeSection({
   userId,
   homeTab,
   onNavigateToCongregation,
+  onNavigateToBusinessWithStatus,
   onSectionChange,
   currentSection,
   pushNavigation,
@@ -120,6 +122,7 @@ export function HomeSection({
         userId={userId}
         onVisitClick={handleVisitClick}
         onNavigateToCongregation={onNavigateToCongregation}
+        onNavigateToBusinessWithStatus={onNavigateToBusinessWithStatus}
         homeTab={homeTab}
       />
       </SectionShell>

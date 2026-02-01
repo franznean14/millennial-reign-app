@@ -766,6 +766,20 @@ export function AppClient() {
     setFilters((prev) => ({ ...prev, search: "" }));
   };
 
+  const onNavigateToBusinessWithStatus = useCallback(
+    (tab: "establishments" | "householders", status: string) => {
+      setBusinessTab(tab);
+      if (tab === "establishments") {
+        setFiltersEstablishments((prev) => ({ ...prev, statuses: [status] }));
+      } else {
+        setFiltersHouseholders((prev) => ({ ...prev, statuses: [status] }));
+      }
+      pushNavigation(currentSection);
+      onSectionChange("business");
+    },
+    [currentSection, onSectionChange, pushNavigation]
+  );
+
   const handleClearMyEstablishments = () => {
     setFilters((prev) => ({ ...prev, myEstablishments: false }));
   };
@@ -1013,6 +1027,7 @@ export function AppClient() {
             setCongregationInitialTab('ministry');
             onSectionChange('congregation');
           }}
+          onNavigateToBusinessWithStatus={onNavigateToBusinessWithStatus}
           onSectionChange={onSectionChange}
           currentSection={currentSection}
           pushNavigation={pushNavigation}
