@@ -425,46 +425,90 @@ export function DesktopHomeSummary({
     loadRecords();
   }, [recordsDrawerOpen, uid]);
 
-  // Aggregate daily records by month
+  // Cache for householder names (visit/householder IDs → name) so BS = unique householder names
+  const [householderNamesCache, setHouseholderNamesCache] = useState<Map<string, string>>(new Map());
+  const cacheRef = useRef<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    if (!uid || !recordsDrawerOpen) return;
+    const visitIds = new Set<string>();
+    const householderIds = new Set<string>();
+    dailyRecords.forEach(r => {
+      if (Array.isArray(r.bible_studies)) {
+        r.bible_studies.forEach(bs => {
+          if (bs && bs.trim()) {
+            if (bs.startsWith("visit:")) visitIds.add(bs.replace("visit:", ""));
+            else if (bs.startsWith("householder:")) householderIds.add(bs.replace("householder:", ""));
+          }
+        });
+      }
+    });
+    const fetchNames = async () => {
+      try {
+        const supabase = createSupabaseBrowserClient();
+        await supabase.auth.getSession();
+        const newCache = new Map(cacheRef.current);
+        if (visitIds.size > 0) {
+          const toFetch = Array.from(visitIds).filter(id => !cacheRef.current.has(`visit:${id}`));
+          if (toFetch.length > 0) {
+            const { data: visits } = await supabase
+              .from("calls")
+              .select("id, householders:calls_householder_id_fkey(id, name)")
+              .in("id", toFetch);
+            (visits ?? []).forEach((v: any) => {
+              if (v.householders?.name) newCache.set(`visit:${v.id}`, v.householders.name);
+            });
+          }
+        }
+        if (householderIds.size > 0) {
+          const toFetch = Array.from(householderIds).filter(id => !cacheRef.current.has(`householder:${id}`));
+          if (toFetch.length > 0) {
+            const { listHouseholders } = await import("@/lib/db/business");
+            const householders = await listHouseholders();
+            householders.forEach(hh => {
+              if (hh.id && householderIds.has(hh.id)) newCache.set(`householder:${hh.id}`, hh.name);
+            });
+          }
+        }
+        cacheRef.current = newCache;
+        setHouseholderNamesCache(newCache);
+      } catch (e) {
+        console.error("Error fetching householder names:", e);
+      }
+    };
+    if (visitIds.size > 0 || householderIds.size > 0) fetchNames();
+  }, [recordsDrawerOpen, dailyRecords, uid]);
+
+  // Aggregate daily records by month — BS = unique householder names
   const monthlyAggregates = useMemo(() => {
+    const resolveToName = (key: string) => cacheRef.current.get(key) ?? key;
     const monthMap = new Map<string, {
       month: string;
       hours: number;
       uniqueBS: Set<string>;
       notes: string[];
     }>();
-
     dailyRecords.forEach(record => {
-      const month = record.date.slice(0, 7); // YYYY-MM
+      const month = record.date.slice(0, 7);
       if (!monthMap.has(month)) {
-        monthMap.set(month, {
-          month,
-          hours: 0,
-          uniqueBS: new Set<string>(),
-          notes: [],
-        });
+        monthMap.set(month, { month, hours: 0, uniqueBS: new Set<string>(), notes: [] });
       }
       const agg = monthMap.get(month)!;
       agg.hours += Number(record.hours) || 0;
       if (Array.isArray(record.bible_studies)) {
         record.bible_studies.forEach(bs => {
-          if (bs && bs.trim()) {
-            agg.uniqueBS.add(bs.trim());
-          }
+          if (bs && bs.trim()) agg.uniqueBS.add(resolveToName(bs.trim()));
         });
       }
-      if (record.note && record.note.trim()) {
-        agg.notes.push(record.note.trim());
-      }
+      if (record.note && record.note.trim()) agg.notes.push(record.note.trim());
     });
-
     return Array.from(monthMap.values()).map(agg => ({
       month: agg.month,
       hours: agg.hours,
       bsCount: agg.uniqueBS.size,
       notes: agg.notes,
     }));
-  }, [dailyRecords]);
+  }, [dailyRecords, householderNamesCache]);
 
   // Get service years from records (September to August)
   const serviceYears = useMemo(() => {
@@ -510,26 +554,20 @@ export function DesktopHomeSummary({
     return `${monthShort} ${yearShort}`;
   };
 
-  // Get month detail data
+  // Get month detail data — BS displayed as unique householder names
   const monthDetailData = useMemo(() => {
     if (!selectedMonth) return null;
-    
+    const resolveToName = (key: string) => cacheRef.current.get(key) ?? key;
     const monthRecords = dailyRecords.filter(r => r.date.startsWith(selectedMonth));
     const totalHours = monthRecords.reduce((sum, r) => sum + (Number(r.hours) || 0), 0);
-    
-    // Collect unique Bible Study names
     const uniqueBS = new Set<string>();
     monthRecords.forEach(r => {
       if (Array.isArray(r.bible_studies)) {
         r.bible_studies.forEach(bs => {
-          if (bs && bs.trim()) {
-            uniqueBS.add(bs.trim());
-          }
+          if (bs && bs.trim()) uniqueBS.add(resolveToName(bs.trim()));
         });
       }
     });
-    
-    // Collect notes with dates
     const notes = monthRecords
       .filter(r => r.note && r.note.trim())
       .map(r => ({
@@ -544,21 +582,18 @@ export function DesktopHomeSummary({
       bibleStudies: Array.from(uniqueBS).sort(),
       notes,
     };
-  }, [selectedMonth, dailyRecords]);
+  }, [selectedMonth, dailyRecords, householderNamesCache]);
 
-  // Copy month data to clipboard
+  // Copy month data to clipboard — BS = unique householder names
   const copyMonthToClipboard = async (month: string) => {
+    const resolveToName = (key: string) => cacheRef.current.get(key) ?? key;
     const monthRecords = dailyRecords.filter(r => r.date.startsWith(month));
     const totalHours = monthRecords.reduce((sum, r) => sum + (Number(r.hours) || 0), 0);
-    
-    // Collect unique Bible Study names
     const uniqueBS = new Set<string>();
     monthRecords.forEach(r => {
       if (Array.isArray(r.bible_studies)) {
         r.bible_studies.forEach(bs => {
-          if (bs && bs.trim()) {
-            uniqueBS.add(bs.trim());
-          }
+          if (bs && bs.trim()) uniqueBS.add(resolveToName(bs.trim()));
         });
       }
     });
@@ -596,18 +631,15 @@ export function DesktopHomeSummary({
     }
   };
 
-  // Calculate service year totals
+  // Calculate service year totals — BS = unique householder names
   const serviceYearTotals = useMemo(() => {
     if (filteredRecords.length === 0) {
       return { totalHours: 0, totalBS: 0, totalNotes: 0 };
     }
-    
-    // Collect all unique BS names across all months in this service year
+    const resolveToName = (key: string) => cacheRef.current.get(key) ?? key;
     const allUniqueBS = new Set<string>();
     let totalHours = 0;
     let totalNotes = 0;
-    
-    // We need to go back to daily records to get unique BS names across the service year
     const year = activeServiceYear ? parseInt(activeServiceYear) : null;
     if (year) {
       dailyRecords.forEach(record => {
@@ -615,26 +647,17 @@ export function DesktopHomeSummary({
         const recordServiceYear = recordMonth >= 9 ? recordYear : recordYear - 1;
         if (recordServiceYear === year) {
           totalHours += Number(record.hours) || 0;
-          if (record.note && record.note.trim()) {
-            totalNotes++;
-          }
+          if (record.note && record.note.trim()) totalNotes++;
           if (Array.isArray(record.bible_studies)) {
             record.bible_studies.forEach(bs => {
-              if (bs && bs.trim()) {
-                allUniqueBS.add(bs.trim());
-              }
+              if (bs && bs.trim()) allUniqueBS.add(resolveToName(bs.trim()));
             });
           }
         }
       });
     }
-    
-    return {
-      totalHours,
-      totalBS: allUniqueBS.size,
-      totalNotes,
-    };
-  }, [filteredRecords, dailyRecords, activeServiceYear]);
+    return { totalHours, totalBS: allUniqueBS.size, totalNotes };
+  }, [filteredRecords, dailyRecords, activeServiceYear, householderNamesCache]);
 
   return (
     <>
