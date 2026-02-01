@@ -906,12 +906,22 @@ export function AppClient() {
   };
 
   const onNavigateToBusinessWithStatus = useCallback(
-    (tab: "establishments" | "householders", status: string) => {
+    (tab: "establishments" | "householders", status: string, area?: string) => {
+      const normalizedArea = area?.trim() || "";
+      const nextAreas = normalizedArea ? [normalizedArea] : [];
       setBusinessTab(tab);
       if (tab === "establishments") {
-        setFiltersEstablishments((prev) => ({ ...prev, statuses: [status] }));
+        setFiltersEstablishments((prev) => ({
+          ...prev,
+          statuses: [status],
+          areas: nextAreas,
+        }));
       } else {
-        setFiltersHouseholders((prev) => ({ ...prev, statuses: [status] }));
+        setFiltersHouseholders((prev) => ({
+          ...prev,
+          statuses: [status],
+          areas: nextAreas,
+        }));
       }
       pushNavigation(currentSection);
       onSectionChange("business");

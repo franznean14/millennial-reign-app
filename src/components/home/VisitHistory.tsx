@@ -28,7 +28,11 @@ import { cacheGet, cacheSet } from "@/lib/offline/store";
 interface VisitHistoryProps {
   userId: string;
   onVisitClick?: (visit: VisitRecord) => void;
-  onNavigateToBusinessWithStatus?: (tab: "establishments" | "householders", status: string) => void;
+  onNavigateToBusinessWithStatus?: (
+    tab: "establishments" | "householders",
+    status: string,
+    area?: string
+  ) => void;
 }
 
 function BwiStatusCell({
@@ -307,6 +311,12 @@ export function VisitHistory({ userId, onVisitClick, onNavigateToBusinessWithSta
 
   const formatVisitDate = formatVisitDateLong;
 
+  const navigateWithBwiArea = (tab: "establishments" | "householders", status: string) => {
+    if (!onNavigateToBusinessWithStatus) return;
+    const area = bwiAreaFilter !== "all" ? bwiAreaFilter.trim() : undefined;
+    onNavigateToBusinessWithStatus(tab, status, area || undefined);
+  };
+
   const filterForm = (
     <VisitFiltersForm
       filters={filters}
@@ -517,13 +527,13 @@ export function VisitHistory({ userId, onVisitClick, onNavigateToBusinessWithSta
                 {/* Establishment Status Section */}
                 <div>
                   <div className="grid grid-cols-2 gap-4 items-end">
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => onNavigateToBusinessWithStatus("establishments", "for_replenishment") : undefined}>
+                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("establishments", "for_replenishment") : undefined}>
                       <div className={cn("text-5xl font-semibold leading-tight", getStatusTextColorClass("for_replenishment"))}>
                         <NumberFlow value={establishmentStatusCounts.for_replenishment} locales="en-US" format={{ useGrouping: false }} />
                       </div>
                       <div className="mt-1 text-sm opacity-70">For Replenishment</div>
                     </BwiStatusCell>
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => onNavigateToBusinessWithStatus("establishments", "accepted_rack") : undefined}>
+                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("establishments", "accepted_rack") : undefined}>
                       <div className={cn("text-2xl font-semibold", getStatusTextColorClass("accepted_rack"))}>
                         <NumberFlow value={establishmentStatusCounts.accepted_rack} locales="en-US" format={{ useGrouping: false }} />
                       </div>
@@ -532,13 +542,13 @@ export function VisitHistory({ userId, onVisitClick, onNavigateToBusinessWithSta
                   </div>
                   
                   <div className="grid grid-cols-2 gap-4 mt-4">
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => onNavigateToBusinessWithStatus("establishments", "for_follow_up") : undefined}>
+                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("establishments", "for_follow_up") : undefined}>
                       <div className={cn("text-2xl font-semibold", getStatusTextColorClass("for_follow_up"))}>
                         <NumberFlow value={establishmentStatusCounts.for_follow_up} locales="en-US" format={{ useGrouping: false }} />
                       </div>
                       <div className="text-sm opacity-70 mt-0.5">For Follow Up</div>
                     </BwiStatusCell>
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => onNavigateToBusinessWithStatus("establishments", "for_scouting") : undefined}>
+                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("establishments", "for_scouting") : undefined}>
                       <div className={cn("text-2xl font-semibold", getStatusTextColorClass("for_scouting"))}>
                         <NumberFlow value={establishmentStatusCounts.for_scouting} locales="en-US" format={{ useGrouping: false }} />
                       </div>
@@ -552,25 +562,25 @@ export function VisitHistory({ userId, onVisitClick, onNavigateToBusinessWithSta
                   <div className="text-xs text-muted-foreground mb-4">Householder status</div>
                   
                   <div className="grid grid-cols-2 gap-4 items-end">
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => onNavigateToBusinessWithStatus("householders", "bible_study") : undefined}>
+                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "bible_study") : undefined}>
                       <div className={cn("text-5xl font-semibold leading-tight", getStatusTextColorClass("bible_study"))}>
                         <NumberFlow value={householderStatusCounts.bible_study} locales="en-US" format={{ useGrouping: false }} />
                       </div>
                       <div className="mt-1 text-sm opacity-70">Bible Study</div>
                     </BwiStatusCell>
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => onNavigateToBusinessWithStatus("householders", "return_visit") : undefined}>
+                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "return_visit") : undefined}>
                       <div className={cn("text-2xl font-semibold", getStatusTextColorClass("return_visit"))}>
                         <NumberFlow value={householderStatusCounts.return_visit} locales="en-US" format={{ useGrouping: false }} />
                       </div>
                       <div className="text-sm opacity-70 mt-0.5">Return Visit</div>
                     </BwiStatusCell>
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => onNavigateToBusinessWithStatus("householders", "interested") : undefined}>
+                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "interested") : undefined}>
                       <div className={cn("text-2xl font-semibold", getStatusTextColorClass("interested"))}>
                         <NumberFlow value={householderStatusCounts.interested} locales="en-US" format={{ useGrouping: false }} />
                       </div>
                       <div className="text-sm opacity-70 mt-0.5">Interested</div>
                     </BwiStatusCell>
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => onNavigateToBusinessWithStatus("householders", "potential") : undefined}>
+                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "potential") : undefined}>
                       <div className={cn("text-2xl font-semibold", getStatusTextColorClass("potential"))}>
                         <NumberFlow value={householderStatusCounts.potential} locales="en-US" format={{ useGrouping: false }} />
                       </div>
@@ -651,13 +661,13 @@ export function VisitHistory({ userId, onVisitClick, onNavigateToBusinessWithSta
                 {/* Establishment Status Section */}
                 <div>
                   <div className="grid grid-cols-2 gap-4 items-end">
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => onNavigateToBusinessWithStatus("establishments", "for_replenishment") : undefined}>
+                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("establishments", "for_replenishment") : undefined}>
                       <div className={cn("text-5xl font-semibold leading-tight", getStatusTextColorClass("for_replenishment"))}>
                         <NumberFlow value={establishmentStatusCounts.for_replenishment} locales="en-US" format={{ useGrouping: false }} />
                       </div>
                       <div className="mt-1 text-sm opacity-70">For Replenishment</div>
                     </BwiStatusCell>
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => onNavigateToBusinessWithStatus("establishments", "accepted_rack") : undefined}>
+                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("establishments", "accepted_rack") : undefined}>
                       <div className={cn("text-2xl font-semibold", getStatusTextColorClass("accepted_rack"))}>
                         <NumberFlow value={establishmentStatusCounts.accepted_rack} locales="en-US" format={{ useGrouping: false }} />
                       </div>
@@ -666,13 +676,13 @@ export function VisitHistory({ userId, onVisitClick, onNavigateToBusinessWithSta
                   </div>
                   
                   <div className="grid grid-cols-2 gap-4 mt-4">
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => onNavigateToBusinessWithStatus("establishments", "for_follow_up") : undefined}>
+                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("establishments", "for_follow_up") : undefined}>
                       <div className={cn("text-2xl font-semibold", getStatusTextColorClass("for_follow_up"))}>
                         <NumberFlow value={establishmentStatusCounts.for_follow_up} locales="en-US" format={{ useGrouping: false }} />
                       </div>
                       <div className="text-sm opacity-70 mt-0.5">For Follow Up</div>
                     </BwiStatusCell>
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => onNavigateToBusinessWithStatus("establishments", "for_scouting") : undefined}>
+                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("establishments", "for_scouting") : undefined}>
                       <div className={cn("text-2xl font-semibold", getStatusTextColorClass("for_scouting"))}>
                         <NumberFlow value={establishmentStatusCounts.for_scouting} locales="en-US" format={{ useGrouping: false }} />
                       </div>
@@ -686,25 +696,25 @@ export function VisitHistory({ userId, onVisitClick, onNavigateToBusinessWithSta
                   <div className="text-xs text-muted-foreground mb-4">Householder status</div>
                   
                   <div className="grid grid-cols-2 gap-4 items-end">
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => onNavigateToBusinessWithStatus("householders", "bible_study") : undefined}>
+                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "bible_study") : undefined}>
                       <div className={cn("text-5xl font-semibold leading-tight", getStatusTextColorClass("bible_study"))}>
                         <NumberFlow value={householderStatusCounts.bible_study} locales="en-US" format={{ useGrouping: false }} />
                       </div>
                       <div className="mt-1 text-sm opacity-70">Bible Study</div>
                     </BwiStatusCell>
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => onNavigateToBusinessWithStatus("householders", "return_visit") : undefined}>
+                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "return_visit") : undefined}>
                       <div className={cn("text-2xl font-semibold", getStatusTextColorClass("return_visit"))}>
                         <NumberFlow value={householderStatusCounts.return_visit} locales="en-US" format={{ useGrouping: false }} />
                       </div>
                       <div className="text-sm opacity-70 mt-0.5">Return Visit</div>
                     </BwiStatusCell>
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => onNavigateToBusinessWithStatus("householders", "interested") : undefined}>
+                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "interested") : undefined}>
                       <div className={cn("text-2xl font-semibold", getStatusTextColorClass("interested"))}>
                         <NumberFlow value={householderStatusCounts.interested} locales="en-US" format={{ useGrouping: false }} />
                       </div>
                       <div className="text-sm opacity-70 mt-0.5">Interested</div>
                     </BwiStatusCell>
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => onNavigateToBusinessWithStatus("householders", "potential") : undefined}>
+                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "potential") : undefined}>
                       <div className={cn("text-2xl font-semibold", getStatusTextColorClass("potential"))}>
                         <NumberFlow value={householderStatusCounts.potential} locales="en-US" format={{ useGrouping: false }} />
                       </div>

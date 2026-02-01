@@ -10,7 +10,11 @@ interface HomeViewProps {
   userId: string;
   onVisitClick?: (visit: any) => Promise<void>;
   onNavigateToCongregation?: () => void;
-  onNavigateToBusinessWithStatus?: (tab: 'establishments' | 'householders', status: string) => void;
+  onNavigateToBusinessWithStatus?: (
+    tab: "establishments" | "householders",
+    status: string,
+    area?: string
+  ) => void;
   homeTab?: 'summary' | 'events';
 }
 

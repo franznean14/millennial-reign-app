@@ -15,7 +15,11 @@ interface HomeSectionProps {
   userId: string;
   homeTab: HomeTab;
   onNavigateToCongregation: () => void;
-  onNavigateToBusinessWithStatus?: (tab: "establishments" | "householders", status: string) => void;
+  onNavigateToBusinessWithStatus?: (
+    tab: "establishments" | "householders",
+    status: string,
+    area?: string
+  ) => void;
   onSectionChange: (section: string) => void;
   currentSection: string;
   pushNavigation: (section: string) => void;
