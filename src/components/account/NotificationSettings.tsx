@@ -3,7 +3,7 @@
 import { usePushNotifications } from "@/lib/hooks/usePushNotifications";
 import { Button } from "@/components/ui/button";
 import { Bell, BellOff, Send } from "lucide-react";
-import { toast } from "sonner";
+import { toast } from "@/components/ui/sonner";
 import { useState } from "react";
 
 export function NotificationSettings() {

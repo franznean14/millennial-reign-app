@@ -3,7 +3,6 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AppChrome } from "@/components/AppChrome";
 import ThemeInit from "@/components/ThemeInit";
-import { Toaster } from "@/components/ui/sonner";
 import { SPAProvider } from "@/components/SPAProvider";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
@@ -62,8 +61,7 @@ export default function RootLayout({
         <SPAProvider>
           <AppChrome>{children}</AppChrome>
         </SPAProvider>
-        {/* Toast notifications (auto dark/light) */}
-        <Toaster position="top-center" richColors closeButton theme="system" />
+        {/* Toasts show in header via UnifiedPortaledControls (no floating Toaster) */}
         {/* Vercel Speed Insights for performance monitoring */}
         <SpeedInsights />
       </body>

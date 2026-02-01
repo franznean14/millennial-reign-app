@@ -13,6 +13,11 @@ import { buildFilterBadges } from "@/lib/utils/filter-badges";
 import { cn } from "@/lib/utils";
 import { LayoutGrid, List, Table as TableIcon, X, Crosshair, ChevronLeft, Edit } from "lucide-react";
 import type { BusinessFiltersState, EstablishmentWithDetails, HouseholderWithDetails } from "@/lib/db/business";
+import {
+  getHeaderToastState,
+  subscribeHeaderToast,
+  type HeaderToastVariant,
+} from "@/lib/header-toast-store";
 
 interface UnifiedPortaledControlsProps {
   currentSection: string;
@@ -51,6 +56,8 @@ interface UnifiedPortaledControlsProps {
   onAccountTabChange?: (tab: 'profile' | 'account') => void;
 }
 
+type HeaderToastProp = { message: string; variant: HeaderToastVariant } | null;
+
 function BusinessControlsContent({
   businessTab,
   onBusinessTabChange,
@@ -70,7 +77,8 @@ function BusinessControlsContent({
   selectedEstablishment,
   selectedHouseholder,
   onBackClick,
-  onEditClick
+  onEditClick,
+  headerToast = null
 }: {
   businessTab: 'establishments' | 'householders' | 'map';
   onBusinessTabChange: (tab: 'establishments' | 'householders' | 'map') => void;
@@ -91,6 +99,7 @@ function BusinessControlsContent({
   selectedHouseholder?: HouseholderWithDetails | null;
   onBackClick: () => void;
   onEditClick: () => void;
+  headerToast?: HeaderToastProp;
 }) {
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
@@ -163,36 +172,84 @@ function BusinessControlsContent({
       }}
     >
       {typeof window !== "undefined" && window.innerWidth < 1024 && (
-        <div className="w-full h-[52px]">
-          <BusinessTabToggle
-            value={businessTab}
-            onValueChange={(value) => {
-              if (!isDetailsView) {
-                onBusinessTabChange(value);
-              }
-            }}
-            onClearStatusFilters={() => onFiltersChange({ ...filters, statuses: [] })}
-            className="w-full h-full"
-            isDetailsView={isDetailsView}
-            detailsName={detailsName}
-            onBackClick={onBackClick}
-            onEditClick={onEditClick}
-          />
+        <div className="w-full h-[52px] overflow-hidden">
+          <AnimatePresence mode="wait">
+            {headerToast?.message ? (
+              <motion.div
+                key="toast"
+                initial={headerToastInitial}
+                animate={headerToastAnimate}
+                exit={headerToastExit}
+                transition={headerToastTransition}
+                className={cn("w-full h-full flex items-center justify-center rounded-lg border px-4 text-center", TOAST_VARIANT_STYLES[headerToast.variant])}
+              >
+                <span className="text-sm font-medium line-clamp-2">{headerToast.message}</span>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="normal"
+                initial={headerToastInitial}
+                animate={headerToastAnimate}
+                exit={headerToastExit}
+                transition={headerToastTransition}
+                className="w-full h-full"
+              >
+                <BusinessTabToggle
+                  value={businessTab}
+                  onValueChange={(value) => {
+                    if (!isDetailsView) {
+                      onBusinessTabChange(value);
+                    }
+                  }}
+                  onClearStatusFilters={() => onFiltersChange({ ...filters, statuses: [] })}
+                  className="w-full h-full"
+                  isDetailsView={isDetailsView}
+                  detailsName={detailsName}
+                  onBackClick={onBackClick}
+                  onEditClick={onEditClick}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
 
       {typeof window !== "undefined" && window.innerWidth >= 1024 && !isDetailsView && (
-        <div className="w-full h-[52px] mb-2">
-          <BusinessTabToggle
-            value={businessTab}
-            onValueChange={(value) => {
-              onBusinessTabChange(value);
-            }}
-            onClearStatusFilters={() => onFiltersChange({ ...filters, statuses: [] })}
-            className="w-full h-full"
-            isDetailsView={false}
-            detailsName=""
-          />
+        <div className="w-full h-[52px] mb-2 overflow-hidden">
+          <AnimatePresence mode="wait">
+            {headerToast?.message ? (
+              <motion.div
+                key="toast"
+                initial={headerToastInitial}
+                animate={headerToastAnimate}
+                exit={headerToastExit}
+                transition={headerToastTransition}
+                className={cn("w-full h-full flex items-center justify-center rounded-lg border px-4 text-center", TOAST_VARIANT_STYLES[headerToast.variant])}
+              >
+                <span className="text-sm font-medium line-clamp-2">{headerToast.message}</span>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="normal"
+                initial={headerToastInitial}
+                animate={headerToastAnimate}
+                exit={headerToastExit}
+                transition={headerToastTransition}
+                className="w-full h-full"
+              >
+                <BusinessTabToggle
+                  value={businessTab}
+                  onValueChange={(value) => {
+                    onBusinessTabChange(value);
+                  }}
+                  onClearStatusFilters={() => onFiltersChange({ ...filters, statuses: [] })}
+                  className="w-full h-full"
+                  isDetailsView={false}
+                  detailsName=""
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
 
@@ -369,7 +426,8 @@ function CongregationControlsContent({
   isElder,
   selectedHouseholder,
   onBackClick,
-  onEditClick
+  onEditClick,
+  headerToast = null
 }: {
   congregationTab: 'meetings' | 'ministry' | 'admin';
   onCongregationTabChange: (tab: 'meetings' | 'ministry' | 'admin') => void;
@@ -377,6 +435,7 @@ function CongregationControlsContent({
   selectedHouseholder?: HouseholderWithDetails | null;
   onBackClick?: () => void;
   onEditClick?: () => void;
+  headerToast?: HeaderToastProp;
 }) {
   const isDetailsView = !!selectedHouseholder;
   const detailsName = selectedHouseholder?.name || "";
@@ -393,17 +452,41 @@ function CongregationControlsContent({
       }}
     >
       {typeof window !== "undefined" && window.innerWidth < 1024 && (
-        <div className="w-full h-[52px]">
-          <CongregationTabToggle
-            value={congregationTab}
-            onValueChange={onCongregationTabChange}
-            className="w-full h-full"
-            isElder={isElder}
-            isDetailsView={isDetailsView}
-            detailsName={detailsName}
-            onBackClick={onBackClick}
-            onEditClick={onEditClick}
-          />
+        <div className="w-full h-[52px] overflow-hidden">
+          <AnimatePresence mode="wait">
+            {headerToast?.message ? (
+              <motion.div
+                key="toast"
+                initial={headerToastInitial}
+                animate={headerToastAnimate}
+                exit={headerToastExit}
+                transition={headerToastTransition}
+                className={cn("w-full h-full flex items-center justify-center rounded-lg border px-4 text-center", TOAST_VARIANT_STYLES[headerToast.variant])}
+              >
+                <span className="text-sm font-medium line-clamp-2">{headerToast.message}</span>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="normal"
+                initial={headerToastInitial}
+                animate={headerToastAnimate}
+                exit={headerToastExit}
+                transition={headerToastTransition}
+                className="w-full h-full"
+              >
+                <CongregationTabToggle
+                  value={congregationTab}
+                  onValueChange={onCongregationTabChange}
+                  className="w-full h-full"
+                  isElder={isElder}
+                  isDetailsView={isDetailsView}
+                  detailsName={detailsName}
+                  onBackClick={onBackClick}
+                  onEditClick={onEditClick}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
 
@@ -431,13 +514,37 @@ function CongregationControlsContent({
       )}
 
       {typeof window !== "undefined" && window.innerWidth >= 1024 && !isDetailsView && (
-        <div className="w-full h-[52px]">
-          <CongregationTabToggle
-            value={congregationTab}
-            onValueChange={onCongregationTabChange}
-            className="w-full h-full"
-            isElder={isElder}
-          />
+        <div className="w-full h-[52px] overflow-hidden">
+          <AnimatePresence mode="wait">
+            {headerToast?.message ? (
+              <motion.div
+                key="toast"
+                initial={headerToastInitial}
+                animate={headerToastAnimate}
+                exit={headerToastExit}
+                transition={headerToastTransition}
+                className={cn("w-full h-full flex items-center justify-center rounded-lg border px-4 text-center", TOAST_VARIANT_STYLES[headerToast.variant])}
+              >
+                <span className="text-sm font-medium line-clamp-2">{headerToast.message}</span>
+              </motion.div>
+            ) : (
+              <motion.div
+                key="normal"
+                initial={headerToastInitial}
+                animate={headerToastAnimate}
+                exit={headerToastExit}
+                transition={headerToastTransition}
+                className="w-full h-full"
+              >
+                <CongregationTabToggle
+                  value={congregationTab}
+                  onValueChange={onCongregationTabChange}
+                  className="w-full h-full"
+                  isElder={isElder}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
     </div>
@@ -446,10 +553,12 @@ function CongregationControlsContent({
 
 function HomeControlsContent({
   homeTab,
-  onHomeTabChange
+  onHomeTabChange,
+  headerToast = null
 }: {
   homeTab: 'summary' | 'events';
   onHomeTabChange: (tab: 'summary' | 'events') => void;
+  headerToast?: HeaderToastProp;
 }) {
   return (
     <div
@@ -462,8 +571,32 @@ function HomeControlsContent({
           : "calc(var(--device-safe-top, 0px) + 10px)"
       }}
     >
-      <div className="w-full h-[52px]">
-        <HomeTabToggle value={homeTab} onValueChange={onHomeTabChange} className="w-full h-full" />
+      <div className="w-full h-[52px] overflow-hidden">
+        <AnimatePresence mode="wait">
+          {headerToast?.message ? (
+            <motion.div
+              key="toast"
+              initial={headerToastInitial}
+              animate={headerToastAnimate}
+              exit={headerToastExit}
+              transition={headerToastTransition}
+              className={cn("w-full h-full flex items-center justify-center rounded-lg border px-4 text-center", TOAST_VARIANT_STYLES[headerToast.variant])}
+            >
+              <span className="text-sm font-medium line-clamp-2">{headerToast.message}</span>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="normal"
+              initial={headerToastInitial}
+              animate={headerToastAnimate}
+              exit={headerToastExit}
+              transition={headerToastTransition}
+              className="w-full h-full"
+            >
+              <HomeTabToggle value={homeTab} onValueChange={onHomeTabChange} className="w-full h-full" />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
@@ -471,10 +604,12 @@ function HomeControlsContent({
 
 function AccountControlsContent({
   accountTab,
-  onAccountTabChange
+  onAccountTabChange,
+  headerToast = null
 }: {
   accountTab: 'profile' | 'account';
   onAccountTabChange: (tab: 'profile' | 'account') => void;
+  headerToast?: HeaderToastProp;
 }) {
   return (
     <div
@@ -487,16 +622,70 @@ function AccountControlsContent({
           : "calc(var(--device-safe-top, 0px) + 10px)"
       }}
     >
-      <div className="w-full h-[52px]">
-        <AccountTabToggle value={accountTab} onValueChange={onAccountTabChange} className="w-full h-full" />
+      <div className="w-full h-[52px] overflow-hidden">
+        <AnimatePresence mode="wait">
+          {headerToast?.message ? (
+            <motion.div
+              key="toast"
+              initial={headerToastInitial}
+              animate={headerToastAnimate}
+              exit={headerToastExit}
+              transition={headerToastTransition}
+              className={cn("w-full h-full flex items-center justify-center rounded-lg border px-4 text-center", TOAST_VARIANT_STYLES[headerToast.variant])}
+            >
+              <span className="text-sm font-medium line-clamp-2">{headerToast.message}</span>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="normal"
+              initial={headerToastInitial}
+              animate={headerToastAnimate}
+              exit={headerToastExit}
+              transition={headerToastTransition}
+              className="w-full h-full"
+            >
+              <AccountTabToggle value={accountTab} onValueChange={onAccountTabChange} className="w-full h-full" />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
 }
 
+/** Shared animation for toast ↔ header swap (spring + slide + scale) */
+const headerToastTransition = { type: "spring" as const, stiffness: 700, damping: 38 };
+const headerToastInitial = { opacity: 0, y: 6, scale: 0.97 };
+const headerToastAnimate = { opacity: 1, y: 0, scale: 1 };
+const headerToastExit = { opacity: 0, y: -6, scale: 0.97 };
+
+/** Toast variant styles (original sonner-style colors) applied to the header row when toast is active */
+/** Original sonner-style: light mode + dark mode (darker low-opacity bg, brighter border) */
+const TOAST_VARIANT_STYLES: Record<HeaderToastVariant, string> = {
+  success:
+    "bg-green-600 text-white border-green-700 dark:bg-green-950/80 dark:border-green-600 dark:text-white",
+  error:
+    "bg-destructive text-destructive-foreground border-destructive/80 dark:bg-red-950/80 dark:border-red-500 dark:text-red-50",
+  info:
+    "bg-blue-600 text-white border-blue-700 dark:bg-blue-950/80 dark:border-blue-500 dark:text-white",
+  warning:
+    "bg-amber-600 text-white border-amber-700 dark:bg-amber-950/80 dark:border-amber-500 dark:text-white",
+  default:
+    "bg-primary text-primary-foreground border-primary/80 dark:bg-primary/20 dark:border-primary dark:text-primary-foreground",
+};
+
+function useHeaderToastState() {
+  const [state, setState] = useState(getHeaderToastState);
+  useEffect(() => {
+    return subscribeHeaderToast(() => setState(getHeaderToastState()));
+  }, []);
+  return state;
+}
+
 export function UnifiedPortaledControls(props: UnifiedPortaledControlsProps) {
   const { currentSection } = props;
   const [mounted, setMounted] = useState(false);
+  const headerToast = useHeaderToastState();
   const showBusinessControls = currentSection === 'business' || currentSection.startsWith('business-');
   const showCongregationControls = currentSection === 'congregation';
   const showHomeControls = currentSection === 'home';
@@ -507,6 +696,8 @@ export function UnifiedPortaledControls(props: UnifiedPortaledControlsProps) {
   }, []);
 
   if (!mounted) return null;
+
+  const headerToastProp = headerToast.message ? { message: headerToast.message, variant: headerToast.variant } : null;
 
   const content = showBusinessControls && props.businessTab !== undefined ? (
     <BusinessControlsContent
@@ -529,6 +720,7 @@ export function UnifiedPortaledControls(props: UnifiedPortaledControlsProps) {
         selectedHouseholder={props.selectedHouseholder}
         onBackClick={props.onBackClick!}
         onEditClick={props.onEditClick!}
+        headerToast={headerToastProp}
       />
   ) : showCongregationControls && props.congregationTab !== undefined ? (
     <CongregationControlsContent
@@ -538,11 +730,12 @@ export function UnifiedPortaledControls(props: UnifiedPortaledControlsProps) {
       selectedHouseholder={props.congregationSelectedHouseholder}
       onBackClick={props.onCongregationBackClick}
       onEditClick={props.onCongregationEditClick}
+      headerToast={headerToastProp}
     />
   ) : showHomeControls && props.homeTab !== undefined ? (
-    <HomeControlsContent homeTab={props.homeTab} onHomeTabChange={props.onHomeTabChange!} />
+    <HomeControlsContent homeTab={props.homeTab} onHomeTabChange={props.onHomeTabChange!} headerToast={headerToastProp} />
   ) : showAccountControls && props.accountTab !== undefined ? (
-    <AccountControlsContent accountTab={props.accountTab} onAccountTabChange={props.onAccountTabChange!} />
+    <AccountControlsContent accountTab={props.accountTab} onAccountTabChange={props.onAccountTabChange!} headerToast={headerToastProp} />
   ) : null;
 
   if (!content) return null;
@@ -552,9 +745,9 @@ export function UnifiedPortaledControls(props: UnifiedPortaledControlsProps) {
       <AnimatePresence mode="wait">
         <motion.div
           key={currentSection}
-          initial={{ opacity: 0, filter: "blur(6px)" }}
+          initial={{ opacity: 0, filter: "blur(4px)" }}
           animate={{ opacity: 1, filter: "blur(0px)" }}
-          exit={{ opacity: 0, filter: "blur(6px)" }}
+          exit={{ opacity: 0, filter: "blur(4px)" }}
           transition={{ duration: 0.2 }}
           className="fixed inset-0 pointer-events-none z-[200]"
         >
