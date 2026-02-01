@@ -69,6 +69,34 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
     visit_date?: string;
   } | null>(null);
   const [establishments, setEstablishments] = useState<any[]>([]);
+  const pendingKey = (d: string) => `fieldservice:pending:${userId}:${d}`;
+
+  const readPending = (d: string) => {
+    if (typeof window === "undefined") {
+      return { adds: new Set<string>(), deletes: new Set<string>() };
+    }
+    try {
+      const raw = localStorage.getItem(pendingKey(d));
+      if (!raw) return { adds: new Set<string>(), deletes: new Set<string>() };
+      const parsed = JSON.parse(raw) as { adds?: string[]; deletes?: string[] };
+      return {
+        adds: new Set(parsed.adds ?? []),
+        deletes: new Set(parsed.deletes ?? []),
+      };
+    } catch {
+      return { adds: new Set<string>(), deletes: new Set<string>() };
+    }
+  };
+
+  const writePending = (d: string, adds: Set<string>, deletes: Set<string>) => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(
+        pendingKey(d),
+        JSON.stringify({ adds: Array.from(adds), deletes: Array.from(deletes) })
+      );
+    } catch {}
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -116,35 +144,78 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
     } catch {}
   };
 
+  // Use refs to always get the latest state values
+  const studiesRef = useRef(studies);
+  const hoursRef = useRef(hours);
+  const noteRef = useRef(note);
+  const dateRef = useRef(date);
+  const dirtyRef = useRef(dirty);
+  const pendingAddsRef = useRef<Set<string>>(new Set());
+  const pendingDeletesRef = useRef<Set<string>>(new Set());
+
+  // Update refs when state changes
+  useEffect(() => {
+    studiesRef.current = studies;
+  }, [studies]);
+  useEffect(() => {
+    hoursRef.current = hours;
+  }, [hours]);
+  useEffect(() => {
+    noteRef.current = note;
+  }, [note]);
+  useEffect(() => {
+    dateRef.current = date;
+  }, [date]);
+  useEffect(() => {
+    dirtyRef.current = dirty;
+  }, [dirty]);
+
+  const loadPendingForDate = (d: string) => {
+    const { adds, deletes } = readPending(d);
+    pendingAddsRef.current = adds;
+    pendingDeletesRef.current = deletes;
+  };
+
+  const persistPendingForDate = (d: string) => {
+    writePending(d, pendingAddsRef.current, pendingDeletesRef.current);
+  };
+
+  const reconcilePendingStudies = (serverStudies: string[]) => {
+    const serverSet = new Set(serverStudies);
+    pendingAddsRef.current.forEach((entry) => {
+      if (serverSet.has(entry)) pendingAddsRef.current.delete(entry);
+    });
+    pendingDeletesRef.current.forEach((entry) => {
+      if (!serverSet.has(entry)) pendingDeletesRef.current.delete(entry);
+    });
+    persistPendingForDate(dateRef.current);
+  };
+
+  const applyPendingStudies = (serverStudies: string[]) => {
+    const next = serverStudies.filter((entry) => !pendingDeletesRef.current.has(entry));
+    pendingAddsRef.current.forEach((entry) => {
+      if (!next.includes(entry)) next.push(entry);
+    });
+    return next;
+  };
+
   const load = async (d: string) => {
     try {
+      loadPendingForDate(d);
       const rec = await getDailyRecord(userId, d);
+      // Don't overwrite form state if user switched day or has unsaved changes (avoids stutter after add/delete)
+      if (dateRef.current !== d) return;
+      if (dirtyRef.current) return;
+      const serverStudies = rec?.bible_studies ?? [];
+      reconcilePendingStudies(serverStudies);
+      const mergedStudies = applyPendingStudies(serverStudies);
       setHours(rec ? String(rec.hours) : "");
-      setStudies(rec?.bible_studies ?? []);
+      setStudies(mergedStudies);
       setNote(rec?.note ?? "");
       setBibleStudiesInputValue("");
       setDirty(false);
     } catch {}
   };
-
-  // Use refs to always get the latest state values
-  const studiesRef = useRef(studies);
-  const hoursRef = useRef(hours);
-  const noteRef = useRef(note);
-  
-  // Update refs when state changes
-  useEffect(() => {
-    studiesRef.current = studies;
-  }, [studies]);
-  
-  useEffect(() => {
-    hoursRef.current = hours;
-  }, [hours]);
-  
-  useEffect(() => {
-    noteRef.current = note;
-  }, [note]);
-
   const scheduleSave = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(async () => {
@@ -163,8 +234,6 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
         bible_studies: currentStudies,
         note: currentNote.trim() || null,
       };
-      console.log('Saving daily record with payload:', payload);
-      console.log('Bible studies array:', payload.bible_studies);
       try {
         if (isDailyEmpty(payload)) {
           await deleteDailyRecord(userId, date);
@@ -176,8 +245,7 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
           // Reload month marks to update bible study indicators
           loadMonthMarks();
         } else {
-          const result = await upsertDailyRecord(payload);
-          console.log('Daily record saved successfully:', result);
+          await upsertDailyRecord(payload);
           // Update month marks to reflect hours, notes, and bible studies
           const hours = Number(currentHours || 0);
           const hasBibleStudies = currentStudies.length > 0;
@@ -479,6 +547,9 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
               if (filtered.includes(trimmed)) return filtered;
               return [...filtered, trimmed];
             });
+            pendingDeletesRef.current.delete(trimmed);
+            pendingAddsRef.current.add(trimmed);
+            persistPendingForDate(dateRef.current);
             setDirty(true);
             toast.error("Failed to create householder. Using name only.");
             return;
@@ -491,6 +562,9 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
             if (filtered.includes(trimmed)) return filtered;
             return [...filtered, trimmed];
           });
+          pendingDeletesRef.current.delete(trimmed);
+          pendingAddsRef.current.add(trimmed);
+          persistPendingForDate(dateRef.current);
           setDirty(true);
           toast.error(error?.message || "Failed to create householder. Using name only.");
           return;
@@ -588,8 +662,6 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
             return;
           }
 
-          console.log('Visit created successfully:', visitId);
-
           // Replace temp placeholder with visit:ID
           const studyEntry = `visit:${visitId}`;
           
@@ -616,6 +688,10 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
             }
             return [...filtered, studyEntry];
           });
+
+          pendingDeletesRef.current.delete(studyEntry);
+          pendingAddsRef.current.add(studyEntry);
+          persistPendingForDate(dateRef.current);
           
           // Load the visit name and householder ID into cache immediately
           setVisitNamesCache(prev => {
@@ -662,6 +738,9 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
           if (filtered.includes(trimmed)) return filtered;
           return [...filtered, trimmed];
         });
+        pendingDeletesRef.current.delete(trimmed);
+        pendingAddsRef.current.add(trimmed);
+        persistPendingForDate(dateRef.current);
         setDirty(true);
       }
     } catch (error: any) {
@@ -683,6 +762,9 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
     // If it's a visit ID, delete the visit entry
     const visitId = getVisitId(studyEntry);
     if (visitId) {
+      pendingAddsRef.current.delete(studyEntry);
+      pendingDeletesRef.current.add(studyEntry);
+      persistPendingForDate(dateRef.current);
       // Optimistically remove from UI and emit event immediately
       setStudies((s) => s.filter((n) => n !== studyEntry));
       setDirty(true);
@@ -730,6 +812,9 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
         // Note: We don't revert the optimistic update - the visit is already removed from UI
       }
     } else {
+      pendingAddsRef.current.delete(studyEntry);
+      pendingDeletesRef.current.add(studyEntry);
+      persistPendingForDate(dateRef.current);
       // Not a visit ID, just remove from studies array
       setStudies((s) => s.filter((n) => n !== studyEntry));
       setDirty(true);
@@ -812,12 +897,17 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
     loadVisit();
   }, [editVisitId]);
 
-  // When calendar view (month) changes, reload current date only if form has no unsaved changes.
-  // Otherwise we'd overwrite optimistic deletes with stale cache and the deleted study would "stick" back.
+  // Reload month marks when calendar view (month) changes (dots on calendar).
   useEffect(() => {
     loadMonthMarks();
-    if (!dirty) load(date);
-  }, [view, dirty, date]);
+  }, [view]);
+
+  // Load selected date only when the user switches day — do NOT reload when dirty flips to false
+  // after save, or we overwrite optimistic add/delete with cache and cause stutter (add disappears,
+  // deleted study reappears as loading chip).
+  useEffect(() => {
+    load(date);
+  }, [date]);
 
   useEffect(() => {
     if (dirty) {
