@@ -812,10 +812,12 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
     loadVisit();
   }, [editVisitId]);
 
+  // When calendar view (month) changes, reload current date only if form has no unsaved changes.
+  // Otherwise we'd overwrite optimistic deletes with stale cache and the deleted study would "stick" back.
   useEffect(() => {
     loadMonthMarks();
-    load(date);
-  }, [view]);
+    if (!dirty) load(date);
+  }, [view, dirty, date]);
 
   useEffect(() => {
     if (dirty) {
