@@ -329,6 +329,10 @@ export function BusinessSection({
                     onBackClick={() => {
                       setSelectedHouseholder(null);
                       setSelectedHouseholderDetails(null);
+                      if (selectedEstablishment) {
+                        // Came from establishment details → stay; view will show establishment details
+                        return;
+                      }
                       navigateBack("business-householders");
                     }}
                   />

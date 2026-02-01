@@ -916,7 +916,28 @@ export function AppClient() {
       selectedEstablishment={selectedEstablishment}
       selectedHouseholder={selectedHouseholder}
       onBackClick={() => {
-        if (selectedEstablishment) {
+        // When both are set we're on householder details (opened from establishment); handle householder first
+        if (selectedHouseholder) {
+          setSelectedHouseholder(null);
+          setSelectedHouseholderDetails(null);
+          if (selectedEstablishment) {
+            // Came from establishment details → stay there (view will show establishment details)
+            return;
+          }
+          const previousSection = popNavigation();
+          if (previousSection) {
+            const targetSection = previousSection.startsWith('business-') ? previousSection : 'business-householders';
+            setCurrentSection(targetSection);
+            const url = new URL(window.location.href);
+            url.pathname = targetSection === 'home' ? '/' : '/business';
+            window.history.pushState({}, '', url.toString());
+          } else {
+            setCurrentSection('business-householders');
+            const url = new URL(window.location.href);
+            url.pathname = '/business';
+            window.history.pushState({}, '', url.toString());
+          }
+        } else if (selectedEstablishment) {
           setSelectedEstablishment(null);
           setSelectedEstablishmentDetails(null);
           const previousSection = popNavigation();
@@ -928,22 +949,6 @@ export function AppClient() {
             window.history.pushState({}, '', url.toString());
           } else {
             setCurrentSection('business-establishments');
-            const url = new URL(window.location.href);
-            url.pathname = '/business';
-            window.history.pushState({}, '', url.toString());
-          }
-        } else if (selectedHouseholder) {
-          setSelectedHouseholder(null);
-          setSelectedHouseholderDetails(null);
-          const previousSection = popNavigation();
-          if (previousSection) {
-            const targetSection = previousSection.startsWith('business-') ? previousSection : 'business-householders';
-            setCurrentSection(targetSection);
-            const url = new URL(window.location.href);
-            url.pathname = targetSection === 'home' ? '/' : '/business';
-            window.history.pushState({}, '', url.toString());
-          } else {
-            setCurrentSection('business-householders');
             const url = new URL(window.location.href);
             url.pathname = '/business';
             window.history.pushState({}, '', url.toString());

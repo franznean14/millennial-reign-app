@@ -144,7 +144,8 @@ function BusinessControlsContent({
     formatStatusLabel
   });
   const isDetailsView = !!selectedEstablishment || !!selectedHouseholder;
-  const detailsName = selectedEstablishment?.name || selectedHouseholder?.name || "";
+  // When both are set we're on householder details (opened from establishment); show householder name
+  const detailsName = selectedHouseholder?.name || selectedEstablishment?.name || "";
 
   return (
     <div
