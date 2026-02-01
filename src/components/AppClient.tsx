@@ -166,32 +166,28 @@ export function AppClient() {
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationWatchId, setLocationWatchId] = useState<number | null>(null);
 
-  // Load persisted business filters (including sort + direction) from localStorage on mount
+  // Load persisted business filters (including sort + direction) from localStorage on mount.
+  // Always set filtersHydrated(true) after attempting load so persist effect can run (even when no saved data).
   useEffect(() => {
     let isMounted = true;
     try {
       if (typeof window === "undefined") return;
       const raw = window.localStorage.getItem("business:filters");
-      if (!raw) return;
-      const saved = JSON.parse(raw) as BusinessFiltersState;
-      if (!saved || !isMounted) return;
-      setFilters((prev) => ({
-        ...prev,
-        ...saved,
-        sort: saved.sort ?? prev.sort ?? "last_visit_desc"
-      }));
-      if (isMounted) {
-        setFiltersHydrated(true);
+      if (raw) {
+        const saved = JSON.parse(raw) as BusinessFiltersState;
+        if (saved && isMounted) {
+          setFilters((prev) => ({
+            ...prev,
+            ...saved,
+            sort: saved.sort ?? prev.sort ?? "last_visit_desc"
+          }));
+        }
       }
     } catch {
       // Ignore JSON / storage errors and keep defaults
-      if (isMounted) {
-        setFiltersHydrated(true);
-      }
     }
-    return () => {
-      isMounted = false;
-    };
+    if (isMounted) setFiltersHydrated(true);
+    return () => { isMounted = false; };
   }, []);
 
   // Persist business filters globally for form auto-population + sort persistence (localStorage)
