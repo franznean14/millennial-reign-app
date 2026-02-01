@@ -365,7 +365,13 @@ export function HouseholderList({
         <table className="w-full text-sm table-fixed">
           <tbody>
             {householders.map((householder, index) => (
-              <tr key={householder.id || index} className="border-b hover:bg-muted/30 cursor-pointer" onClick={() => onHouseholderClick(householder)}>
+              <motion.tr
+                key={householder.id || index}
+                layout
+                transition={{ duration: 0.2, ease: "easeOut" }}
+                className="border-b hover:bg-muted/30 cursor-pointer"
+                onClick={() => onHouseholderClick(householder)}
+              >
                 <td className="p-3 min-w-0 w-[40%]">
                   <NameWithAvatarsCell name={householder.name} visitors={householder.top_visitors} />
                 </td>
@@ -384,7 +390,7 @@ export function HouseholderList({
                     <EstablishmentNameCell name={householder.establishment_name} />
                   ) : null}
                 </td>
-              </tr>
+              </motion.tr>
             ))}
           </tbody>
         </table>
@@ -415,11 +421,9 @@ export function HouseholderList({
         {viewMode === 'table' ? (
           <motion.div
             key="table"
-            initial={{ opacity: 0, filter: "blur(6px)" }}
-            animate={{ opacity: 1, filter: "blur(0px)" }}
-            exit={{ opacity: 0, filter: "blur(6px)" }}
-            transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
             className="w-full h-full flex-1 min-h-0"
+            layout
+            transition={{ duration: 0.2, ease: "easeOut" }}
           >
             {renderTableView()}
           </motion.div>

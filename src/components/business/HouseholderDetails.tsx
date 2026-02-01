@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -294,15 +295,25 @@ export function HouseholderDetails({
     };
   }, [showMinusButton]);
 
+  const detailTransition = { duration: 0.2, ease: "easeOut" } as const;
+  const itemVariants = {
+    hidden: { opacity: 0, y: 8 },
+    visible: (i: number) => ({
+      opacity: 1,
+      y: 0,
+      transition: { delay: i * 0.05, ...detailTransition },
+    }),
+  };
+
   return (
     <div className="space-y-6 w-full max-w-full -mt-2">
-      <div className="w-full">
+      <motion.div className="w-full" layout transition={detailTransition}>
         <Card className={cn("w-full", getHouseholderCardColor(householder.status))}>
           <CardHeader>
             <CardTitle className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <User2 className="h-5 w-5 flex-shrink-0" />
-                Householder Details
+                Details
               </div>
               {/* User+ button or Avatar on the same row */}
               <div className="flex-shrink-0">
@@ -431,49 +442,68 @@ export function HouseholderDetails({
               <>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <div className="h-3 bg-muted/60 rounded w-16 mb-2 blur-[2px] animate-pulse" />
-                    <div className="h-6 bg-muted/60 rounded w-20 blur-[2px] animate-pulse" />
+                    <div className="h-3 bg-muted/60 rounded w-16 mb-2 animate-pulse" />
+                    <div className="h-6 bg-muted/60 rounded w-20 animate-pulse" />
                   </div>
                   {showEstablishment && (
                     <div>
-                      <div className="h-3 bg-muted/60 rounded w-24 mb-2 blur-[2px] animate-pulse" />
-                      <div className="h-4 bg-muted/60 rounded w-32 blur-[2px] animate-pulse" />
+                      <div className="h-3 bg-muted/60 rounded w-24 mb-2 animate-pulse" />
+                      <div className="h-4 bg-muted/60 rounded w-32 animate-pulse" />
                     </div>
                   )}
                 </div>
                 <div>
-                  <div className="h-3 bg-muted/60 rounded w-16 mb-2 blur-[2px] animate-pulse" />
-                  <div className="h-4 bg-muted/60 rounded w-full max-w-[300px] blur-[2px] animate-pulse" />
-                  <div className="h-4 bg-muted/60 rounded w-full max-w-[200px] mt-2 blur-[2px] animate-pulse" />
+                  <div className="h-3 bg-muted/60 rounded w-16 mb-2 animate-pulse" />
+                  <div className="h-4 bg-muted/60 rounded w-full max-w-[300px] animate-pulse" />
+                  <div className="h-4 bg-muted/60 rounded w-full max-w-[200px] mt-2 animate-pulse" />
                 </div>
               </>
             ) : (
               <>
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Status</p>
-                    <Badge variant="outline" className={cn("text-xs capitalize", getHouseholderStatusColorClass(householder.status))}>
-                      {formatStatusText(householder.status)}
-                    </Badge>
-                  </div>
-                  {showEstablishment && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Establishment</p>
-                    <p className="truncate">{establishment?.name || 'Not specified'}</p>
-                  </div>
+                  {householder.status?.trim() && (
+                    <motion.div
+                      custom={0}
+                      initial="hidden"
+                      animate="visible"
+                      variants={itemVariants}
+                    >
+                      <p className="text-sm font-medium text-muted-foreground">Status</p>
+                      <Badge variant="outline" className={cn("text-xs capitalize", getHouseholderStatusColorClass(householder.status))}>
+                        {formatStatusText(householder.status)}
+                      </Badge>
+                    </motion.div>
+                  )}
+                  {showEstablishment && establishment?.name?.trim() && (
+                    <motion.div
+                      custom={1}
+                      initial="hidden"
+                      animate="visible"
+                      variants={itemVariants}
+                    >
+                      <p className="text-sm font-medium text-muted-foreground">Establishment</p>
+                      <p className="truncate">{establishment.name.trim()}</p>
+                    </motion.div>
                   )}
                 </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Note</p>
-                  <p className="text-sm break-words">{householder.note || 'No notes added'}</p>
-                </div>
+                {householder.note?.trim() && (
+                  <motion.div
+                    initial="hidden"
+                    animate="visible"
+                    variants={itemVariants}
+                    custom={2}
+                  >
+                    <p className="text-sm font-medium text-muted-foreground">Note</p>
+                    <p className="text-sm break-words">{householder.note.trim()}</p>
+                  </motion.div>
+                )}
               </>
             )}
           </CardContent>
         </Card>
-      </div>
+      </motion.div>
 
-      <div className="w-full">
+      <motion.div className="w-full" layout transition={detailTransition}>
         <VisitUpdatesSection 
           visits={visits} 
           isHouseholderContext={true}
@@ -487,9 +517,7 @@ export function HouseholderDetails({
             // Visit updates will be handled by the parent component's data refresh
           }}
         />
-        
-      </div>
-
+      </motion.div>
 
       <FormModal
         open={newVisitOpen}

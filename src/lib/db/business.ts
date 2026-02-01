@@ -1,7 +1,7 @@
 "use client";
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { cacheGet, cacheSet } from "@/lib/offline/store";
+import { cacheDelete, cacheGet, cacheSet } from "@/lib/offline/store";
 import { getBestStatus } from "@/lib/utils/status-hierarchy";
 import { getEstablishmentVisitsWithUsers, getHouseholderVisitsWithUsers } from "@/lib/db/visit-history";
 
@@ -956,14 +956,22 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
       return cached ?? null;
     }
   
-  // Get establishment details
+  // Get establishment details — exclude soft-deleted/archived (same filter as list so details detect delete)
   const { data: establishment } = await supabase
     .from('business_establishments')
     .select('*')
     .eq('id', establishmentId)
+    .eq('is_deleted', false)
+    .eq('is_archived', false)
     .single();
   
-  if (!establishment) return null;
+  if (!establishment) {
+    // Row not found (e.g. soft-deleted by another user) — clear cache and return null so UI can show list + toast
+    if (typeof navigator !== 'undefined' && navigator.onLine) {
+      await cacheDelete(cacheKey);
+    }
+    return null;
+  }
   
   const transformedVisits = await getEstablishmentVisitsWithUsers(establishmentId);
   
@@ -1027,6 +1035,8 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
   return result;
   } catch (error) {
     console.error('Error fetching establishment details:', error);
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+    if (!isOffline) return null;
     const cached = await cacheGet<{
       establishment: EstablishmentWithDetails;
       visits: VisitWithUser[];
@@ -1060,16 +1070,22 @@ export async function getHouseholderDetails(householderId: string): Promise<{
   // Fetch visits first to ensure they're always loaded, even if householder query fails
   const transformedVisits = await getHouseholderVisitsWithUsers(householderId);
   
-  // Fetch householder without publisher join (more reliable)
+  // Fetch householder without publisher join (more reliable). Exclude soft-deleted (deleted_at / is_deleted).
   const { data: hh, error: hhError } = await supabase
     .from('householders')
     .select('id,name,status,note,establishment_id,publisher_id,lat,lng,created_at, establishment:business_establishments(id,name,statuses)')
     .eq('id', householderId)
+    .eq('is_deleted', false)
+    .eq('is_archived', false)
     .single();
 
   if (hhError || !hh) {
-    console.error('Error fetching householder:', hhError);
-    // Return cached data if available, otherwise return null
+    // Row not found (e.g. soft-deleted by another user) — return null so UI can show list + toast
+    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
+    if (!isOffline) {
+      await cacheDelete(cacheKey);
+      return null;
+    }
     const cached = await cacheGet<{
       householder: HouseholderWithDetails;
       visits: VisitWithUser[];

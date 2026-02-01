@@ -560,21 +560,23 @@ export function AppClient() {
   // Refetch-only (no event bus). Used when Supabase Realtime detects changes so views re-render with latest data.
   const refetchBusinessData = useCallback(async () => {
     try {
-      const [establishmentsData, householdersData] = await Promise.all([
-        getEstablishmentsWithDetails(),
-        listHouseholders()
-      ]);
-      setEstablishments(establishmentsData);
-      setHouseholders(householdersData.filter((householder) => !!householder.establishment_id));
       const estId = selectedEstablishmentIdRef.current;
       const hhId = selectedHouseholderIdRef.current;
       const congHhId = congregationSelectedHouseholderIdRef.current;
-      // Invalidate detail caches so getEstablishmentDetails/getHouseholderDetails return fresh data (note, area, householders list)
+      // Invalidate detail caches first so detail fetches never see stale cache (list and details both get fresh data)
       await Promise.all([
+        cacheDelete("establishments:with-details"),
+        cacheDelete("householders:list"),
         estId ? cacheDelete(`establishment:details:${estId}`) : Promise.resolve(),
         hhId ? cacheDelete(`householder:details:${hhId}`) : Promise.resolve(),
         congHhId ? cacheDelete(`householder:details:${congHhId}`) : Promise.resolve(),
       ]);
+      const [establishmentsData, householdersData] = await Promise.all([
+        getEstablishmentsWithDetails(),
+        listHouseholders(),
+      ]);
+      setEstablishments(establishmentsData);
+      setHouseholders(householdersData.filter((householder) => !!householder.establishment_id));
       const [estDetails, hhDetails, congHhDetails] = await Promise.all([
         estId ? getEstablishmentDetails(estId) : Promise.resolve(null),
         hhId ? getHouseholderDetails(hhId) : Promise.resolve(null),
@@ -586,11 +588,32 @@ export function AppClient() {
         setSelectedEstablishment((prev) =>
           prev?.id === estDetails.establishment.id ? { ...prev, ...estDetails.establishment } : prev
         );
+      } else if (estId) {
+        // Establishment was deleted by another user — clear detail view and show list
+        setSelectedEstablishmentDetails(null);
+        setSelectedEstablishment(null);
+        toast.info("Establishment was deleted.");
       }
-      if (hhDetails) setSelectedHouseholderDetails(hhDetails);
+      if (hhDetails) {
+        setSelectedHouseholderDetails(hhDetails);
+        // Keep selected householder (name, status, note, etc.) in sync so details view updates on property changes
+        setSelectedHouseholder((prev) =>
+          prev?.id === hhDetails.householder.id ? { ...prev, ...hhDetails.householder } : prev
+        );
+      } else if (hhId) {
+        // Open householder was soft-deleted (getHouseholderDetails returned null) — clear detail view
+        setSelectedHouseholderDetails(null);
+        setSelectedHouseholder(null);
+        toast.info("Householder was deleted.");
+      }
       if (congHhDetails) {
         setCongregationSelectedHouseholderDetails(congHhDetails);
         setCongregationSelectedHouseholder(congHhDetails.householder);
+      } else if (congHhId) {
+        // Open congregation householder was soft-deleted — clear detail view
+        setCongregationSelectedHouseholderDetails(null);
+        setCongregationSelectedHouseholder(null);
+        toast.info("Householder was deleted.");
       }
     } catch (error) {
       console.error('Failed to refetch business data:', error);
@@ -625,6 +648,15 @@ export function AppClient() {
     };
   }, [userId, congregationId, refetchBusinessData]);
 
+  // Periodic refetch while on business section — Realtime may not deliver householders UPDATE when row no longer passes RLS (e.g. soft-delete), so refetch so lists and details stay in sync
+  const isBusinessSection = currentSection === "business" || currentSection.startsWith("business-");
+  useEffect(() => {
+    if (!isBusinessSection || !userId || !congregationId || (typeof navigator !== "undefined" && !navigator.onLine)) return;
+    const REFETCH_INTERVAL_MS = 6000; // 6s so householder/establishment list and details detect deletes sooner
+    const interval = setInterval(() => refetchBusinessData(), REFETCH_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [isBusinessSection, userId, congregationId, refetchBusinessData]);
+
   // When current user soft-deletes a householder, refetch establishment details so householders list and establishment fields stay in sync
   useEffect(() => {
     const handler = () => {
@@ -647,11 +679,14 @@ export function AppClient() {
 
   const loadEstablishmentDetails = useCallback(async (establishmentId: string) => {
     try {
-      // Check if offline and load from cache if needed
-      const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
-      
       const details = await getEstablishmentDetails(establishmentId);
-      setSelectedEstablishmentDetails(details);
+      if (details) {
+        setSelectedEstablishmentDetails(details);
+      } else {
+        setSelectedEstablishmentDetails(null);
+        setSelectedEstablishment(null);
+        toast.info("Establishment was deleted.");
+      }
     } catch (error) {
       console.error('Failed to load establishment details:', error);
     }
@@ -683,11 +718,14 @@ export function AppClient() {
 
   const loadHouseholderDetails = useCallback(async (householderId: string) => {
     try {
-      // Check if offline and load from cache if needed
-      const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
-      
       const details = await getHouseholderDetails(householderId);
-      setSelectedHouseholderDetails(details);
+      if (details) {
+        setSelectedHouseholderDetails(details);
+      } else {
+        setSelectedHouseholderDetails(null);
+        setSelectedHouseholder(null);
+        toast.info("Householder was deleted.");
+      }
     } catch (error) {
       console.error('Failed to load householder details:', error);
     }
@@ -698,14 +736,16 @@ export function AppClient() {
       const details = await getHouseholderDetails(householderId);
       if (details) {
         setCongregationSelectedHouseholderDetails(details);
-        // Also update selectedHouseholder with the full details (including lat/lng)
         setCongregationSelectedHouseholder(details.householder);
       } else {
         setCongregationSelectedHouseholderDetails(null);
+        setCongregationSelectedHouseholder(null);
+        toast.info("Householder was deleted.");
       }
     } catch (error) {
       console.error("Failed to load congregation householder details:", error);
       setCongregationSelectedHouseholderDetails(null);
+      setCongregationSelectedHouseholder(null);
     }
   }, []);
 
