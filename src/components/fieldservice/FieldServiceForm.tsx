@@ -965,9 +965,9 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
           <Button variant="ghost" size="sm" onClick={() => changeStep(-1)}>
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <div className="text-sm font-medium flex items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => setMode("months")}>{monthLabel}</Button>
-            <Button variant="ghost" size="sm" onClick={() => setMode("years")}>{yearLabel}</Button>
+          <div className="text-base font-semibold flex items-center gap-2">
+            <Button variant="ghost" size="sm" className="text-base" onClick={() => setMode("months")}>{monthLabel}</Button>
+            <Button variant="ghost" size="sm" className="text-base" onClick={() => setMode("years")}>{yearLabel}</Button>
           </div>
           <Button variant="ghost" size="sm" onClick={() => changeStep(1)}>
             <ChevronRight className="h-5 w-5" />
@@ -1081,10 +1081,9 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
           </div>
         )}
       </div>
-        <div className="p-4 pb-10">
-        <div className="mt-0 grid gap-4">
-          <div className="grid gap-1 text-sm place-items-center">
-            <span className="opacity-70">Hours</span>
+        <div className="p-4 pt-6 pb-10">
+        <div className="mt-2 grid gap-3">
+          <div className="grid gap-2 text-sm place-items-center">
             <NumberFlowInput
               value={parseInt(hours) || 0}
               onChange={(newValue) => {
@@ -1096,6 +1095,7 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
               size="md"
               className="mx-auto"
             />
+            <span className="opacity-70 mt-1">Hours</span>
           </div>
           <div className="grid gap-1 text-sm">
             <span className="opacity-70">Bible Studies</span>
