@@ -546,6 +546,48 @@ export function AppClient() {
     }
   }, []);
 
+  // Refetch-only (no event bus). Used when other users change data via Supabase Realtime.
+  const refetchBusinessData = useCallback(async () => {
+    try {
+      const [establishmentsData, householdersData] = await Promise.all([
+        getEstablishmentsWithDetails(),
+        listHouseholders()
+      ]);
+      setEstablishments(establishmentsData);
+      setHouseholders(householdersData.filter((householder) => !!householder.establishment_id));
+    } catch (error) {
+      console.error('Failed to refetch business data:', error);
+    }
+  }, []);
+
+  // Realtime: refetch business data when other users in the same congregation change establishments, householders, or visits
+  const congregationId = (profile as any)?.congregation_id;
+  useEffect(() => {
+    if (!userId || !congregationId || (typeof navigator !== "undefined" && !navigator.onLine)) return;
+    const supabase = createSupabaseBrowserClient();
+    const channel = supabase
+      .channel("business-data-changes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "business_establishments", filter: `congregation_id=eq.${congregationId}` },
+        () => { refetchBusinessData(); }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "householders" },
+        () => { refetchBusinessData(); }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "calls" },
+        () => { refetchBusinessData(); }
+      )
+      .subscribe();
+    return () => {
+      try { supabase.removeChannel(channel); } catch {}
+    };
+  }, [userId, congregationId, refetchBusinessData]);
+
   const loadEstablishmentDetails = useCallback(async (establishmentId: string) => {
     try {
       // Check if offline and load from cache if needed
