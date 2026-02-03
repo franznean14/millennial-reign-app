@@ -102,7 +102,6 @@ function BusinessControlsContent({
   headerToast?: HeaderToastProp;
 }) {
   const [isSearchActive, setIsSearchActive] = useState(false);
-  const [isExiting, setIsExiting] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -136,12 +135,7 @@ function BusinessControlsContent({
 
   const handleClearSearchAndRestore = () => {
     onClearSearch();
-    setIsExiting(true);
-    // Delay the state change to allow exit animation to complete
-    setTimeout(() => {
-      setIsSearchActive(false);
-      setIsExiting(false);
-    }, 300);
+    setIsSearchActive(false);
   };
 
   const hasFilterOptions = filters.statuses.length > 0 || filters.areas.length > 0 || filters.floors.length > 0;
@@ -302,11 +296,7 @@ function BusinessControlsContent({
               onSearchClear={handleClearSearchAndRestore}
               onSearchBlur={() => {
                 if (!filters.search || filters.search.trim() === "") {
-                  setIsExiting(true);
-                  setTimeout(() => {
-                    setIsSearchActive(false);
-                    setIsExiting(false);
-                  }, 300);
+                  setIsSearchActive(false);
                 }
               }}
               myActive={filters.myEstablishments}
@@ -332,8 +322,8 @@ function BusinessControlsContent({
                   onRemoveFloor(badge.value);
                 }
               }}
-              containerClassName={(isSearchActive && !isExiting) ? "w-full !max-w-none !px-0" : "justify-center"}
-              maxWidthClassName={(isSearchActive && !isExiting) ? "" : "mx-4"}
+              containerClassName={isSearchActive ? "w-full !max-w-none !px-0" : "justify-center"}
+              maxWidthClassName={isSearchActive ? "" : "mx-4"}
             />
           </motion.div>
 
