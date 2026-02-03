@@ -287,6 +287,45 @@ export function AppClient() {
     setContentLoading(false);
   }, [setContentLoading]);
 
+  const ensurePublicAvatarUrl = useCallback(
+    async (supabase: import("@supabase/supabase-js").SupabaseClient, userId: string, avatarUrl?: string | null) => {
+      if (!avatarUrl) return;
+      if (avatarUrl.includes("/storage/v1/object/public/avatars/")) return;
+      if (typeof navigator !== "undefined" && !navigator.onLine) return;
+      try {
+        const res = await fetch(avatarUrl, { mode: "cors" });
+        if (!res.ok) return;
+        const contentType = res.headers.get("content-type") || "image/jpeg";
+        const ext =
+          contentType.includes("png") ? "png" :
+          contentType.includes("webp") ? "webp" :
+          contentType.includes("gif") ? "gif" :
+          "jpg";
+        const blob = await res.blob();
+        const path = `${userId}.${ext}`;
+        const { error: uploadError } = await supabase.storage.from("avatars").upload(path, blob, {
+          upsert: true,
+          contentType,
+          cacheControl: "3600",
+        });
+        if (uploadError) return;
+        const { data: publicUrlData } = supabase.storage.from("avatars").getPublicUrl(path);
+        const publicUrl = publicUrlData?.publicUrl;
+        if (!publicUrl) return;
+        const { data: updated, error: updateError } = await supabase
+          .from("profiles")
+          .update({ avatar_url: publicUrl, updated_at: new Date().toISOString() })
+          .eq("id", userId)
+          .select()
+          .single();
+        if (!updateError && updated) {
+          setProfile((prev: any) => (prev ? { ...prev, avatar_url: publicUrl } : prev));
+        }
+      } catch {}
+    },
+    []
+  );
+
   useEffect(() => {
     const handleSafeArea = () => applyDeviceSafeAreaTop();
     handleSafeArea();
@@ -324,6 +363,9 @@ export function AppClient() {
         setCong(congregationData);
         setBwiEnabled(!!bwiEnabledData.data);
         setIsBwiParticipant(!!bwiParticipantData.data);
+        if (profileWithEmail?.avatar_url) {
+          void ensurePublicAvatarUrl(supabase, id, profileWithEmail.avatar_url);
+        }
         
         // Auto-open create modal if no congregation exists and user can create
         if (!congregationData?.id && adminStatus) {
