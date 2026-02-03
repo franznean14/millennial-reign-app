@@ -33,6 +33,8 @@ interface VisitHistoryProps {
     status: string,
     area?: string
   ) => void;
+  bwiAreaFilter: "all" | string;
+  onBwiAreaChange: (area: "all" | string) => void;
 }
 
 function BwiStatusCell({
@@ -58,7 +60,13 @@ function BwiStatusCell({
   return <div className={className}>{children}</div>;
 }
 
-export function VisitHistory({ userId, onVisitClick, onNavigateToBusinessWithStatus }: VisitHistoryProps) {
+export function VisitHistory({
+  userId,
+  onVisitClick,
+  onNavigateToBusinessWithStatus,
+  bwiAreaFilter,
+  onBwiAreaChange,
+}: VisitHistoryProps) {
   const [showDrawer, setShowDrawer] = useState(false);
   const [activePanel, setActivePanel] = useState<"list" | "filters">("list");
   const [isSearchActive, setIsSearchActive] = useState(false);
@@ -69,7 +77,6 @@ export function VisitHistory({ userId, onVisitClick, onNavigateToBusinessWithSta
   const visitHistoryPointerDownTabRef = useRef<"bwi" | "visit-history">("bwi");
   const bwiPointerDownTabRef = useRef<"bwi" | "visit-history">("bwi");
   const [bwiLabelFlash, setBwiLabelFlash] = useState(true);
-  const [bwiAreaFilter, setBwiAreaFilter] = useState<"all" | string>("all");
   const [bwiEstablishments, setBwiEstablishments] = useState<EstablishmentWithDetails[]>([]);
   const [bwiHouseholders, setBwiHouseholders] = useState<HouseholderWithDetails[]>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -145,7 +152,7 @@ export function VisitHistory({ userId, onVisitClick, onNavigateToBusinessWithSta
     activeTabRef.current = activeTab;
   }, [activeTab]);
 
-  // Flash "BWI (All)" on load, then show "BWI"
+  // Flash "BWI" on load, then show "All"
   useEffect(() => {
     if (activeTab !== "bwi") return;
     const t = setTimeout(() => setBwiLabelFlash(false), 2000);
@@ -188,12 +195,12 @@ export function VisitHistory({ userId, onVisitClick, onNavigateToBusinessWithSta
     e.preventDefault();
     e.stopPropagation();
     // Cycle area: All -> first area -> ... -> last area -> All
-    setBwiAreaFilter((prev) => {
-      if (prev === "all") return bwiAreasSorted[0] ?? "all";
-      const i = bwiAreasSorted.indexOf(prev);
+    onBwiAreaChange((() => {
+      if (bwiAreaFilter === "all") return bwiAreasSorted[0] ?? "all";
+      const i = bwiAreasSorted.indexOf(bwiAreaFilter);
       if (i < 0 || i === bwiAreasSorted.length - 1) return "all";
       return bwiAreasSorted[i + 1] ?? "all";
-    });
+    })());
   };
 
   useEffect(() => {
@@ -494,7 +501,7 @@ export function VisitHistory({ userId, onVisitClick, onNavigateToBusinessWithSta
               >
                 <Building2 className="h-4 w-4 shrink-0" />
                 <span>
-                  {bwiLabelFlash ? "BWI (All)" : bwiAreaFilter === "all" ? "BWI" : `BWI (${bwiAreaFilter})`}
+                  {bwiLabelFlash ? "BWI" : bwiAreaFilter === "all" ? "All" : bwiAreaFilter}
                 </span>
               </motion.div>
             </TabsTrigger>
@@ -627,7 +634,7 @@ export function VisitHistory({ userId, onVisitClick, onNavigateToBusinessWithSta
               >
                 <Building2 className="h-4 w-4 shrink-0" />
                 <span>
-                  {bwiLabelFlash ? "BWI (All)" : bwiAreaFilter === "all" ? "BWI" : `BWI (${bwiAreaFilter})`}
+                  {bwiLabelFlash ? "BWI" : bwiAreaFilter === "all" ? "All" : bwiAreaFilter}
                 </span>
               </motion.div>
             </TabsTrigger>

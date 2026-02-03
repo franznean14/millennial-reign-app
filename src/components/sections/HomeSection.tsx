@@ -14,6 +14,8 @@ interface HomeSectionProps {
   portaledControls: React.ReactNode;
   userId: string;
   homeTab: HomeTab;
+  bwiAreaFilter: "all" | string;
+  onBwiAreaChange: (area: "all" | string) => void;
   onNavigateToCongregation: () => void;
   onNavigateToBusinessWithStatus?: (
     tab: "establishments" | "householders",
@@ -34,6 +36,8 @@ export function HomeSection({
   portaledControls,
   userId,
   homeTab,
+  bwiAreaFilter,
+  onBwiAreaChange,
   onNavigateToCongregation,
   onNavigateToBusinessWithStatus,
   onSectionChange,
@@ -128,6 +132,8 @@ export function HomeSection({
         onNavigateToCongregation={onNavigateToCongregation}
         onNavigateToBusinessWithStatus={onNavigateToBusinessWithStatus}
         homeTab={homeTab}
+        bwiAreaFilter={bwiAreaFilter}
+        onBwiAreaChange={onBwiAreaChange}
       />
       </SectionShell>
     </>

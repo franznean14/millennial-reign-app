@@ -16,9 +16,19 @@ interface HomeViewProps {
     area?: string
   ) => void;
   homeTab?: 'summary' | 'events';
+  bwiAreaFilter: "all" | string;
+  onBwiAreaChange: (area: "all" | string) => void;
 }
 
-export function HomeView({ userId, onVisitClick, onNavigateToCongregation, onNavigateToBusinessWithStatus, homeTab = 'summary' }: HomeViewProps) {
+export function HomeView({
+  userId,
+  onVisitClick,
+  onNavigateToCongregation,
+  onNavigateToBusinessWithStatus,
+  homeTab = 'summary',
+  bwiAreaFilter,
+  onBwiAreaChange,
+}: HomeViewProps) {
   const [dateRanges, setDateRanges] = useState({
     monthStart: "",
     nextMonthStart: "",
@@ -73,6 +83,8 @@ export function HomeView({ userId, onVisitClick, onNavigateToCongregation, onNav
               userId={userId} 
               onVisitClick={onVisitClick}
               onNavigateToBusinessWithStatus={onNavigateToBusinessWithStatus}
+              bwiAreaFilter={bwiAreaFilter}
+              onBwiAreaChange={onBwiAreaChange}
             />
             
           </div>
