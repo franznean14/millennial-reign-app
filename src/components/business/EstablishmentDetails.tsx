@@ -166,34 +166,8 @@ export function EstablishmentDetails({
             )}
           </CardHeader>
           <CardContent className="space-y-4">
-            {isLoading ? (
-              <>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="h-3 bg-muted/60 rounded w-16 mb-2 animate-pulse" />
-                    <div className="flex items-center gap-2">
-                      <div className="h-6 bg-muted/60 rounded w-20 animate-pulse" />
-                      <div className="w-2 h-2 bg-muted/60 rounded-full animate-pulse" />
-                    </div>
-                  </div>
-                  <div>
-                    <div className="h-3 bg-muted/60 rounded w-16 mb-2 animate-pulse" />
-                    <div className="h-4 bg-muted/60 rounded w-24 animate-pulse" />
-                  </div>
-                </div>
-                <div>
-                  <div className="h-3 bg-muted/60 rounded w-20 mb-2 animate-pulse" />
-                  <div className="h-4 bg-muted/60 rounded w-full max-w-[200px] animate-pulse" />
-                </div>
-                <div>
-                  <div className="h-3 bg-muted/60 rounded w-16 mb-2 animate-pulse" />
-                  <div className="h-4 bg-muted/60 rounded w-full max-w-[300px] animate-pulse" />
-                  <div className="h-4 bg-muted/60 rounded w-full max-w-[250px] mt-2 animate-pulse" />
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="grid grid-cols-2 gap-4">
+            {/* Details card uses list data (establishment) so we always have it — no skeleton */}
+            <div className="grid grid-cols-2 gap-4">
                   {/* Row 1: Status | Area */}
                   {establishment.statuses && establishment.statuses.length > 0 && (
                     <div>
@@ -299,8 +273,6 @@ export function EstablishmentDetails({
                     </div>
                   )}
                 </div>
-              </>
-            )}
           </CardContent>
         </Card>
       </motion.div>

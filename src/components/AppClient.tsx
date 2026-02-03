@@ -29,7 +29,7 @@ import { useBusinessFilterOptions } from "@/lib/hooks/use-business-filter-option
 import { useAccountState } from "@/lib/hooks/use-account-state";
 import { getMyCongregation, saveCongregation, isAdmin, type Congregation } from "@/lib/db/congregations";
 import { getProfile } from "@/lib/db/profiles";
-import { cacheDelete } from "@/lib/offline/store";
+import { cacheDelete, cacheGet } from "@/lib/offline/store";
 import { archiveEstablishment, deleteEstablishment } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { formatStatusText } from "@/lib/utils/formatters";
@@ -670,7 +670,17 @@ export function AppClient() {
   }, []);
 
   const loadEstablishmentDetails = useCallback(async (establishmentId: string) => {
+    const cacheKey = `establishment:details:${establishmentId}`;
     try {
+      // Show cached details immediately when available (e.g. from a previous open)
+      const cached = await cacheGet<{
+        establishment: EstablishmentWithDetails;
+        visits: VisitWithUser[];
+        householders: HouseholderWithDetails[];
+      }>(cacheKey);
+      if (cached) {
+        setSelectedEstablishmentDetails(cached);
+      }
       const details = await getEstablishmentDetails(establishmentId);
       if (details) {
         setSelectedEstablishmentDetails(details);
