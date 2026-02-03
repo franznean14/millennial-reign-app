@@ -135,7 +135,18 @@ export function EstablishmentDetails({
     <div className="space-y-6 w-full max-w-full -mt-2">
       {/* Basic Establishment Info with Direction Button */}
       <motion.div className="w-full" layout transition={{ duration: 0.2, ease: "easeOut" }}>
-        <Card className={cn("w-full", getStatusColor(primaryStatus))}>
+        <Card
+          role="button"
+          tabIndex={0}
+          onClick={() => setIsEditing(true)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setIsEditing(true);
+            }
+          }}
+          className={cn("w-full cursor-pointer transition-colors hover:bg-muted/30", getStatusColor(primaryStatus))}
+        >
           <CardHeader className="flex flex-row items-center justify-between gap-2">
             <CardTitle className="flex items-center gap-2">
               <Building2 className="h-5 w-5 flex-shrink-0" />
@@ -147,6 +158,7 @@ export function EstablishmentDetails({
                 href={`https://www.google.com/maps/dir/?api=1&destination=${establishment.lat},${establishment.lng}`}
                 target="_blank"
                 rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
               >
                 <MapPinned className="h-3.5 w-3.5" />
                 Directions

@@ -308,7 +308,18 @@ export function HouseholderDetails({
   return (
     <div className="space-y-6 w-full max-w-full -mt-2">
       <motion.div className="w-full" layout transition={detailTransition}>
-        <Card className={cn("w-full", getHouseholderCardColor(householder.status))}>
+        <Card
+          role="button"
+          tabIndex={0}
+          onClick={() => setIsEditing(true)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setIsEditing(true);
+            }
+          }}
+          className={cn("w-full cursor-pointer transition-colors hover:bg-muted/30", getHouseholderCardColor(householder.status))}
+        >
           <CardHeader>
             <CardTitle className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
@@ -337,6 +348,7 @@ export function HouseholderDetails({
                         size="icon"
                         className="h-8 w-8 rounded-full"
                         onClick={() => setShowRemoveConfirm(true)}
+                        onClickCapture={(e) => e.stopPropagation()}
                       >
                         <Minus className="h-4 w-4" />
                       </Button>
@@ -377,6 +389,7 @@ export function HouseholderDetails({
                     size="icon"
                     className="h-8 w-8 rounded-full p-0"
                     onClick={() => setShowMinusButton(true)}
+                    onClickCapture={(e) => e.stopPropagation()}
                   >
                     <Avatar className="h-8 w-8">
                       <AvatarImage src={assignedUser.avatar_url || undefined} alt={`${assignedUser.first_name} ${assignedUser.last_name}`} />
@@ -404,6 +417,7 @@ export function HouseholderDetails({
                       size="icon"
                       className="h-8 w-8 rounded-full"
                       disabled={!effectivePublisherId || updatingPublisher}
+                      onClickCapture={(e) => e.stopPropagation()}
                     >
                       <UserPlus className="h-4 w-4" />
                     </Button>
