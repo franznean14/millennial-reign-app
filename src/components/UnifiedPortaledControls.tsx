@@ -280,14 +280,17 @@ function BusinessControlsContent({
         <motion.div
           key="buttons-row"
           className="flex items-center gap-3 w-full"
+          layout="position"
+          initial={false}
           style={{
             justifyContent: isSearchActive ? "flex-start" : "center",
           }}
-          transition={{ type: "spring", stiffness: 300, damping: 30 }}
+          transition={{ type: "spring", stiffness: 300, damping: 30, bounce: 0 }}
         >
           <motion.div 
-            layout
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            layout="position"
+            initial={false}
+            transition={{ type: "spring", stiffness: 300, damping: 30, bounce: 0 }}
             className={isSearchActive ? "flex-1 min-w-0" : "flex-shrink-0"}
           >
             <FilterControls
