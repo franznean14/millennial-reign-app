@@ -648,15 +648,6 @@ export function AppClient() {
     };
   }, [userId, congregationId, refetchBusinessData]);
 
-  // Periodic refetch while on business section — Realtime may not deliver householders UPDATE when row no longer passes RLS (e.g. soft-delete), so refetch so lists and details stay in sync
-  const isBusinessSection = currentSection === "business" || currentSection.startsWith("business-");
-  useEffect(() => {
-    if (!isBusinessSection || !userId || !congregationId || (typeof navigator !== "undefined" && !navigator.onLine)) return;
-    const REFETCH_INTERVAL_MS = 6000; // 6s so householder/establishment list and details detect deletes sooner
-    const interval = setInterval(() => refetchBusinessData(), REFETCH_INTERVAL_MS);
-    return () => clearInterval(interval);
-  }, [isBusinessSection, userId, congregationId, refetchBusinessData]);
-
   // When current user soft-deletes a householder, refetch establishment details so householders list and establishment fields stay in sync
   useEffect(() => {
     const handler = () => {

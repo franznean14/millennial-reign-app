@@ -67,6 +67,20 @@ export function FormModal({
   desktopQuery = "(min-width: 1280px)"
 }: FormModalProps) {
   const isDesktop = useMediaQuery(desktopQuery);
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const fabRoot = document.getElementById("fab-root");
+    if (!fabRoot) return;
+    if (open) {
+      const active = document.activeElement as HTMLElement | null;
+      if (active && fabRoot.contains(active)) {
+        active.blur();
+      }
+      fabRoot.setAttribute("inert", "");
+    } else {
+      fabRoot.removeAttribute("inert");
+    }
+  }, [open]);
 
   if (isDesktop) {
     return (
