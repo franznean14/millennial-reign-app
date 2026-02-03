@@ -256,8 +256,8 @@ export async function listHouseholders(): Promise<HouseholderWithDetails[]> {
           visit_date,
           publisher_id,
           partner_id,
-          publisher:profiles!calls_publisher_id_fkey(first_name, last_name, avatar_url),
-          partner:profiles!calls_partner_id_fkey(first_name, last_name, avatar_url)
+          publisher:profiles!calls_publisher_id_fkey(id, first_name, last_name, avatar_url),
+          partner:profiles!calls_partner_id_fkey(id, first_name, last_name, avatar_url)
         )
       `)
       .eq('is_deleted', false)

@@ -307,7 +307,7 @@ function BusinessControlsContent({
                 }
               }}
               myActive={filters.myEstablishments}
-              myLabel="My Establishments"
+              myLabel={businessTab === 'householders' ? 'My Householders' : 'My Establishments'}
               onMyActivate={() => onFiltersChange({ ...filters, myEstablishments: true })}
               onMyClear={onClearMyEstablishments}
               filterBadges={badges}

@@ -56,6 +56,7 @@ async function fetchEstablishmentVisits(limit: number, offset: number) {
         created_at,
         establishment_id,
         publisher_id,
+        partner_id,
         business_establishments(name, statuses, area),
         publisher:profiles!calls_publisher_id_fkey(first_name, last_name, avatar_url),
         partner:profiles!calls_partner_id_fkey(first_name, last_name, avatar_url)
@@ -84,6 +85,7 @@ async function fetchHouseholderVisits(limit: number, offset: number) {
         establishment_id,
         householder_id,
         publisher_id,
+        partner_id,
         householders(name, establishment_id, publisher_id, business_establishments(name, statuses, area)),
         business_establishments(name, statuses, area),
         publisher:profiles!calls_publisher_id_fkey(first_name, last_name, avatar_url),

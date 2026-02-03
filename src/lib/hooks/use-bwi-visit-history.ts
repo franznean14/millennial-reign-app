@@ -224,7 +224,9 @@ export function useBwiVisitHistory({
   const filteredVisits = useMemo(() => {
     let filtered = [...allVisitsRaw];
     if (filters.myUpdatesOnly) {
-      filtered = filtered.filter((visit) => visit.publisher_id === userId);
+      filtered = filtered.filter(
+        (visit) => visit.publisher_id === userId || visit.partner_id === userId
+      );
     }
     if (filters.bwiOnly) {
       filtered = filtered.filter((visit) => visit.establishment_id != null);

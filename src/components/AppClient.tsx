@@ -403,7 +403,7 @@ export function AppClient() {
           const { data: visits } = await supabase
             .from('calls')
             .select('establishment_id, householder_id')
-            .eq('publisher_id', userId);
+            .or(`publisher_id.eq.${userId},partner_id.eq.${userId}`);
           
           if (visits) {
             const visitedEstablishmentIds = new Set(visits.map(v => v.establishment_id).filter(Boolean));
