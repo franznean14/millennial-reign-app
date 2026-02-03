@@ -64,6 +64,7 @@ async function fetchEstablishmentVisits(limit: number, offset: number) {
     .is("householder_id", null)
     .not("establishment_id", "is", null)
     .order("visit_date", { ascending: false })
+    .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
   if (error) throw error;
@@ -91,6 +92,7 @@ async function fetchHouseholderVisits(limit: number, offset: number) {
     )
     .not("householder_id", "is", null)
     .order("visit_date", { ascending: false })
+    .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
 
   if (error) throw error;
