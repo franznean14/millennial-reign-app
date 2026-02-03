@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -124,6 +124,10 @@ export function EstablishmentList({
     itemsLength: establishments.length,
     viewMode
   });
+  const visibleEstablishments = useMemo(
+    () => establishments.slice(0, visibleCount),
+    [establishments, visibleCount]
+  );
 
   const hasActiveFilters = !!filters && (
     !!filters.search || (filters.statuses?.length ?? 0) > 0 || (filters.areas?.length ?? 0) > 0 || !!filters.myEstablishments
@@ -457,7 +461,7 @@ export function EstablishmentList({
       >
         <table className="w-full text-sm table-fixed">
           <tbody>
-            {establishments.map((establishment, index) => (
+            {visibleEstablishments.map((establishment, index) => (
               <motion.tr
                 key={establishment.id || index}
                 layout
@@ -498,6 +502,9 @@ export function EstablishmentList({
             ))}
           </tbody>
         </table>
+        {visibleCount < establishments.length && (
+          <div ref={sentinelRef} className="h-16 w-full" aria-label="Load more trigger" />
+        )}
       </div>
     </div>
   );
@@ -540,7 +547,7 @@ export function EstablishmentList({
             transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
           >
             <div className="grid gap-4 mt-10 w-full">
-              {establishments.slice(0, visibleCount).map((establishment, index) =>
+              {visibleEstablishments.map((establishment, index) =>
                 viewMode === 'detailed'
                   ? renderDetailedView(establishment, index)
                   : renderCompactView(establishment, index)

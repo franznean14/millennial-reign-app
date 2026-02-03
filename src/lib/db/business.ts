@@ -250,15 +250,16 @@ export async function listHouseholders(): Promise<HouseholderWithDetails[]> {
     const { data, error } = await supabase
       .from('householders')
       .select(`
-        *,
-        establishment:business_establishments(name, statuses),
-        visits:calls(
-          visit_date,
-          publisher_id,
-          partner_id,
-          publisher:profiles!calls_publisher_id_fkey(id, first_name, last_name, avatar_url),
-          partner:profiles!calls_partner_id_fkey(id, first_name, last_name, avatar_url)
-        )
+        id,
+        name,
+        status,
+        note,
+        establishment_id,
+        publisher_id,
+        lat,
+        lng,
+        created_at,
+        establishment:business_establishments(name, statuses)
       `)
       .eq('is_deleted', false)
       .eq('is_archived', false)
@@ -270,35 +271,77 @@ export async function listHouseholders(): Promise<HouseholderWithDetails[]> {
     }
     if (!data) return [];
 
+    const householderIds = (data ?? []).map((hh: any) => hh.id).filter(Boolean);
+    type HouseholderVisitRow = {
+      householder_id?: string | null;
+      visit_date?: string | null;
+      publisher?:
+        | { id: string; first_name: string; last_name: string; avatar_url?: string | null }
+        | Array<{ id: string; first_name: string; last_name: string; avatar_url?: string | null }>
+        | null;
+      partner?:
+        | { id: string; first_name: string; last_name: string; avatar_url?: string | null }
+        | Array<{ id: string; first_name: string; last_name: string; avatar_url?: string | null }>
+        | null;
+    };
+    const { data: visits, error: visitsError } = householderIds.length
+      ? await supabase
+          .from('calls')
+          .select(
+            `
+              householder_id,
+              visit_date,
+              publisher:profiles!calls_publisher_id_fkey(id, first_name, last_name, avatar_url),
+              partner:profiles!calls_partner_id_fkey(id, first_name, last_name, avatar_url)
+            `
+          )
+          .in('householder_id', householderIds)
+      : { data: [] as HouseholderVisitRow[], error: null };
+    if (visitsError) {
+      console.error('Error fetching householder visits for list:', visitsError);
+    }
+
+    const visitsByHouseholder = new Map<string, HouseholderVisitRow[]>();
+    (visits ?? []).forEach((visit) => {
+      const householderId = visit.householder_id;
+      if (!householderId) return;
+      const bucket = visitsByHouseholder.get(householderId) || [];
+      bucket.push(visit);
+      visitsByHouseholder.set(householderId, bucket);
+    });
+
     // Transform the data to match HouseholderWithDetails interface
-    const householders: HouseholderWithDetails[] = data.map((hh: any) => {
+    const householders: HouseholderWithDetails[] = (data ?? []).map((hh: any) => {
       // Get establishment name
       const establishment = Array.isArray(hh.establishment) ? hh.establishment[0] : hh.establishment;
       
       // Get unique visitors with visit counts
       const visitors = new Map();
-      hh.visits?.forEach((visit: any) => {
-        if (visit.publisher) {
-          const key = visit.publisher.id;
+      const hhVisits = visitsByHouseholder.get(hh.id) || [];
+      hhVisits.forEach((visit: HouseholderVisitRow) => {
+        const publisher = Array.isArray(visit.publisher) ? visit.publisher[0] : visit.publisher;
+        const partner = Array.isArray(visit.partner) ? visit.partner[0] : visit.partner;
+        if (publisher) {
+          const key = publisher.id;
           if (!visitors.has(key)) {
             visitors.set(key, {
-              user_id: visit.publisher.id,
-              first_name: visit.publisher.first_name,
-              last_name: visit.publisher.last_name,
-              avatar_url: visit.publisher.avatar_url,
+              user_id: publisher.id,
+              first_name: publisher.first_name,
+              last_name: publisher.last_name,
+              avatar_url: publisher.avatar_url,
               visit_count: 0
             });
           }
           visitors.get(key).visit_count++;
         }
-        if (visit.partner) {
-          const key = visit.partner.id;
+        if (partner) {
+          const key = partner.id;
           if (!visitors.has(key)) {
             visitors.set(key, {
-              user_id: visit.partner.id,
-              first_name: visit.partner.first_name,
-              last_name: visit.partner.last_name,
-              avatar_url: visit.partner.avatar_url,
+              user_id: partner.id,
+              first_name: partner.first_name,
+              last_name: partner.last_name,
+              avatar_url: partner.avatar_url,
               visit_count: 0
             });
           }
@@ -307,7 +350,7 @@ export async function listHouseholders(): Promise<HouseholderWithDetails[]> {
       });
 
       // Calculate last_visit_at from visits
-      const last_visit_at = (hh.visits || [])
+      const last_visit_at = hhVisits
         .map((v: any) => v?.visit_date)
         .filter(Boolean)
         .sort((a: string, b: string) => (a < b ? 1 : a > b ? -1 : 0))[0] || null;
@@ -836,30 +879,21 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
     }
 
 
-    // Get establishments with visit and householder counts
+    // Get establishments with only fields used in list views
     const { data, error } = await supabase
       .from('business_establishments')
       .select(`
-        *,
-        visits:calls!calls_establishment_id_fkey(
-          id,
-          visit_date,
-          publisher:profiles!calls_publisher_id_fkey(
-            id,
-            first_name,
-            last_name,
-            avatar_url
-          ),
-          partner:profiles!calls_partner_id_fkey(
-            id,
-            first_name,
-            last_name,
-            avatar_url
-          )
-        ),
-        householders:householders!householders_establishment_id_fkey(
-          id
-        )
+        id,
+        name,
+        statuses,
+        area,
+        floor,
+        description,
+        note,
+        lat,
+        lng,
+        created_at,
+        updated_at
       `)
       .eq('congregation_id', profile.congregation_id)
       .eq('is_deleted', false)
@@ -873,40 +907,116 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
     }
 
 
+    const establishmentIds = (data ?? []).map((row) => row.id).filter(Boolean);
+
+    type VisitRow = {
+      establishment_id?: string | null;
+      visit_date?: string | null;
+      publisher?:
+        | { id: string; first_name: string; last_name: string; avatar_url?: string | null }
+        | Array<{ id: string; first_name: string; last_name: string; avatar_url?: string | null }>
+        | null;
+      partner?:
+        | { id: string; first_name: string; last_name: string; avatar_url?: string | null }
+        | Array<{ id: string; first_name: string; last_name: string; avatar_url?: string | null }>
+        | null;
+    };
+
+    const [visitsResult, householdersResult] = await Promise.all([
+      establishmentIds.length
+        ? supabase
+            .from('calls')
+            .select(
+              `
+                establishment_id,
+                visit_date,
+                publisher:profiles!calls_publisher_id_fkey(id, first_name, last_name, avatar_url),
+                partner:profiles!calls_partner_id_fkey(id, first_name, last_name, avatar_url)
+              `
+            )
+            .in('establishment_id', establishmentIds)
+        : Promise.resolve({ data: [] as VisitRow[] }),
+      establishmentIds.length
+        ? supabase
+            .from('householders')
+            .select('id, establishment_id')
+            .in('establishment_id', establishmentIds)
+            .eq('is_deleted', false)
+            .eq('is_archived', false)
+        : Promise.resolve({ data: [] as { id: string; establishment_id?: string | null }[] })
+    ]);
+
+    const visitsError = (visitsResult as any)?.error;
+    if (visitsError) {
+      console.error('Error fetching establishment visits for list:', visitsError);
+    }
+    const householdersError = (householdersResult as any)?.error;
+    if (householdersError) {
+      console.error('Error fetching householders for list:', householdersError);
+    }
+
+    const visits = (visitsResult as any)?.data as VisitRow[] | undefined;
+    const householders = (householdersResult as any)?.data as { id: string; establishment_id?: string | null }[] | undefined;
+
+    const visitStats = new Map<
+      string,
+      {
+        visit_count: number;
+        last_visit_at: string | null;
+        visitorCounts: Map<string, { count: number; profile: any }>;
+      }
+    >();
+
+    (visits ?? []).forEach((visit) => {
+      const establishmentId = visit.establishment_id;
+      if (!establishmentId) return;
+      if (!visitStats.has(establishmentId)) {
+        visitStats.set(establishmentId, {
+          visit_count: 0,
+          last_visit_at: null,
+          visitorCounts: new Map()
+        });
+      }
+      const stats = visitStats.get(establishmentId)!;
+      stats.visit_count += 1;
+      if (visit.visit_date) {
+        if (!stats.last_visit_at || visit.visit_date > stats.last_visit_at) {
+          stats.last_visit_at = visit.visit_date;
+        }
+      }
+      const publisher = Array.isArray(visit.publisher) ? visit.publisher[0] : visit.publisher;
+      const partner = Array.isArray(visit.partner) ? visit.partner[0] : visit.partner;
+      if (publisher) {
+        const existing = stats.visitorCounts.get(publisher.id);
+        stats.visitorCounts.set(publisher.id, {
+          count: (existing?.count || 0) + 1,
+          profile: publisher
+        });
+      }
+      if (partner) {
+        const existing = stats.visitorCounts.get(partner.id);
+        stats.visitorCounts.set(partner.id, {
+          count: (existing?.count || 0) + 1,
+          profile: partner
+        });
+      }
+    });
+
+    const householdersByEstablishment = new Map<string, number>();
+    (householders ?? []).forEach((householder) => {
+      const establishmentId = householder.establishment_id;
+      if (!establishmentId) return;
+      householdersByEstablishment.set(establishmentId, (householdersByEstablishment.get(establishmentId) || 0) + 1);
+    });
+
     // Transform the data to include counts and top visitors
-    const establishments = data?.map(establishment => {
-      // Count visits and householders
-      const visit_count = establishment.visits?.length || 0;
-      const householder_count = establishment.householders?.length || 0;
-      const last_visit_at = (establishment.visits || [])
-        .map((v: any) => v?.visit_date)
-        .filter(Boolean)
-        .sort((a: string, b: string) => (a < b ? 1 : a > b ? -1 : 0))[0] || null;
-      
-      // Get top visitors (publishers and partners who visited most)
-      const visitorCounts = new Map<string, { count: number; profile: any }>();
-      
-      establishment.visits?.forEach((visit: any) => {
-        // Count publisher
-        if (visit.publisher) {
-          const existing = visitorCounts.get(visit.publisher.id);
-          visitorCounts.set(visit.publisher.id, {
-            count: (existing?.count || 0) + 1,
-            profile: visit.publisher
-          });
-        }
-        
-        // Count partner
-        if (visit.partner) {
-          const existing = visitorCounts.get(visit.partner.id);
-          visitorCounts.set(visit.partner.id, {
-            count: (existing?.count || 0) + 1,
-            profile: visit.partner
-          });
-        }
-      });
-      
-      const top_visitors = Array.from(visitorCounts.entries())
+    const establishments = (data ?? []).map((establishment) => {
+      const stats = visitStats.get(establishment.id) || {
+        visit_count: 0,
+        last_visit_at: null,
+        visitorCounts: new Map<string, { count: number; profile: any }>()
+      };
+      const top_visitors = Array.from(stats.visitorCounts.entries())
         .map(([user_id, data]) => ({
           user_id,
           first_name: data.profile.first_name,
@@ -919,12 +1029,12 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
 
       return {
         ...establishment,
-        visit_count,
-        householder_count,
-        last_visit_at,
+        visit_count: stats.visit_count,
+        householder_count: householdersByEstablishment.get(establishment.id) || 0,
+        last_visit_at: stats.last_visit_at,
         top_visitors
-      };
-    }) || [];
+      } as EstablishmentWithDetails;
+    });
 
     // Cache the results and return fresh data so refetches (e.g. from Realtime) show latest immediately
     await cacheSet(cacheKey, establishments);

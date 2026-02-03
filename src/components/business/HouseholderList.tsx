@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -121,6 +121,10 @@ export function HouseholderList({
     itemsLength: householders.length,
     viewMode
   });
+  const visibleHouseholders = useMemo(
+    () => householders.slice(0, visibleCount),
+    [householders, visibleCount]
+  );
 
   const hasActiveFilters = !!filters && (
     !!filters.search || (filters.statuses?.length ?? 0) > 0 || (filters.areas?.length ?? 0) > 0 || !!filters.myEstablishments
@@ -364,7 +368,7 @@ export function HouseholderList({
       >
         <table className="w-full text-sm table-fixed">
           <tbody>
-            {householders.map((householder, index) => (
+            {visibleHouseholders.map((householder, index) => (
               <motion.tr
                 key={householder.id || index}
                 layout
@@ -394,6 +398,9 @@ export function HouseholderList({
             ))}
           </tbody>
         </table>
+        {visibleCount < householders.length && (
+          <div ref={sentinelRef} className="h-16 w-full" aria-label="Load more trigger" />
+        )}
       </div>
     </div>
   );
@@ -436,7 +443,7 @@ export function HouseholderList({
             transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
           >
             <div className="grid gap-4 mt-10 w-full">
-              {householders.slice(0, visibleCount).map((householder, index) =>
+              {visibleHouseholders.map((householder, index) =>
                 viewMode === 'detailed'
                   ? renderDetailedView(householder, index)
                   : renderCompactView(householder, index)
