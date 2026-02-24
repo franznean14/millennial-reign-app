@@ -54,6 +54,37 @@ export const getStatusColor = (status: string) => {
   }
 };
 
+/** Text color only for header/title use (no border/bg) */
+export const getStatusTitleColor = (status: string): string => {
+  switch (status) {
+    case 'inappropriate':
+      return 'text-white';
+    case 'declined_rack':
+    case 'do_not_call':
+      return 'text-red-500';
+    case 'for_scouting':
+    case 'potential':
+      return 'text-cyan-500';
+    case 'for_follow_up':
+    case 'return_visit':
+      return 'text-orange-500';
+    case 'accepted_rack':
+    case 'interested':
+      return 'text-blue-500';
+    case 'for_replenishment':
+      return 'text-purple-500';
+    case 'rack_pulled_out':
+      return 'text-amber-600';
+    case 'has_bible_studies':
+    case 'bible_study':
+      return 'text-emerald-500';
+    case 'closed':
+      return 'text-slate-500';
+    default:
+      return 'text-foreground';
+  }
+};
+
 export const getStatusTextColor = (status: string) => {
   switch (status) {
     // Establishment statuses

@@ -109,6 +109,7 @@ export function HouseholderDetails({
   const [showMinusButton, setShowMinusButton] = useState(false);
   const [updatingPublisher, setUpdatingPublisher] = useState(false);
   const avatarButtonRef = useRef<HTMLDivElement>(null);
+  const minusActiveOnPointerDownRef = useRef(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(publisherId || null);
 
   // Get current user ID if not provided
@@ -318,11 +319,21 @@ export function HouseholderDetails({
         <Card
           role="button"
           tabIndex={0}
-          onClick={() => setIsEditing(true)}
+          onPointerDownCapture={() => {
+            // Guard against tap timing: if tap starts while minus is visible,
+            // do not open edit drawer on the ensuing click.
+            minusActiveOnPointerDownRef.current = showMinusButton;
+          }}
+          onClick={() => {
+            const wasMinusVisibleAtTapStart = minusActiveOnPointerDownRef.current;
+            minusActiveOnPointerDownRef.current = false;
+            if (wasMinusVisibleAtTapStart) return;
+            if (!showMinusButton) setIsEditing(true);
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              setIsEditing(true);
+              if (!showMinusButton) setIsEditing(true);
             }
           }}
           className={cn("w-full cursor-pointer transition-colors hover:bg-muted/30", getHouseholderCardColor(householder.status))}
@@ -342,7 +353,7 @@ export function HouseholderDetails({
                 // Show avatar that animates to minus button on tap; tap outside animates back; minus opens remove confirmation
                 <div
                   ref={avatarButtonRef}
-                  className="flex-shrink-0 cursor-pointer"
+                  className="flex-shrink-0 cursor-pointer h-8 w-8 flex items-center justify-center"
                   onClick={(e) => {
                     e.stopPropagation();
                     e.preventDefault();
@@ -357,21 +368,21 @@ export function HouseholderDetails({
                         animate={{ scale: 1, opacity: 1 }}
                         exit={{ scale: 0.8, opacity: 0 }}
                         transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="inline-block"
+                        className="h-8 w-8 flex items-center justify-center"
                       >
                         <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8 rounded-full"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              e.preventDefault();
-                              setShowRemoveConfirm(true);
-                            }}
-                          >
-                            <Minus className="h-4 w-4" />
-                          </Button>
+                          type="button"
+                          variant="destructive"
+                          size="icon"
+                          className="h-8 w-8 min-h-8 min-w-8 rounded-full p-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            setShowRemoveConfirm(true);
+                          }}
+                        >
+                          <Minus className="h-4 w-4" />
+                        </Button>
                       </motion.div>
                     ) : (
                       <motion.div
@@ -380,25 +391,25 @@ export function HouseholderDetails({
                         animate={{ scale: 1, opacity: 1 }}
                         exit={{ scale: 0.8, opacity: 0 }}
                         transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="inline-block"
+                        className="h-8 w-8 flex items-center justify-center"
                       >
                         <Button
-                        type="button"
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8 rounded-full p-0"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          e.preventDefault();
-                          setShowMinusButton(true);
-                        }}
-                      >
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={assignedUser.avatar_url || undefined} alt={`${assignedUser.first_name} ${assignedUser.last_name}`} />
-                          <AvatarFallback className="text-xs">
-                            {getInitials(`${assignedUser.first_name} ${assignedUser.last_name}`)}
-                          </AvatarFallback>
-                        </Avatar>
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8 min-h-8 min-w-8 rounded-full p-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            setShowMinusButton(true);
+                          }}
+                        >
+                          <Avatar className="h-8 w-8">
+                            <AvatarImage src={assignedUser.avatar_url || undefined} alt={`${assignedUser.first_name} ${assignedUser.last_name}`} />
+                            <AvatarFallback className="text-xs">
+                              {getInitials(`${assignedUser.first_name} ${assignedUser.last_name}`)}
+                            </AvatarFallback>
+                          </Avatar>
                         </Button>
                       </motion.div>
                     )}

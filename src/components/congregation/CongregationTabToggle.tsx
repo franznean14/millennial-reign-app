@@ -3,6 +3,7 @@
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { BookOpen, Briefcase, Settings, ChevronLeft, Edit } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getStatusTitleColor } from "@/lib/utils/status-hierarchy";
 import { Button } from "@/components/ui/button";
 import { AnimatePresence, motion } from "motion/react";
 
@@ -13,6 +14,8 @@ interface CongregationTabToggleProps {
   isElder?: boolean;
   isDetailsView?: boolean;
   detailsName?: string;
+  /** Householder status; used to color-code the title */
+  detailsStatus?: string;
   onBackClick?: () => void;
   onEditClick?: () => void;
 }
@@ -24,9 +27,11 @@ export function CongregationTabToggle({
   isElder = false,
   isDetailsView = false,
   detailsName = "",
+  detailsStatus,
   onBackClick,
   onEditClick
 }: CongregationTabToggleProps) {
+  const titleColorClass = detailsStatus ? getStatusTitleColor(detailsStatus) : "text-foreground";
   return (
     <div className={cn("bg-background/95 backdrop-blur-sm border p-0.1 rounded-lg shadow-lg w-full relative overflow-hidden", className)}>
       <AnimatePresence mode="wait">
@@ -48,7 +53,7 @@ export function CongregationTabToggle({
               <ChevronLeft className="h-4 w-4 flex-shrink-0" />
             </Button>
             <div className="flex-[2] min-w-0 px-3 py-6 flex items-center justify-center bg-transparent border-none">
-              <span className="text-sm font-semibold text-foreground truncate w-full text-center pointer-events-none">
+              <span className={cn("text-lg font-bold truncate w-full text-center pointer-events-none", titleColorClass)}>
                 {detailsName}
               </span>
             </div>

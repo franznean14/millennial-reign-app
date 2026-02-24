@@ -3,6 +3,7 @@
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Building2, Users, MapPin, ChevronLeft, Edit } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getStatusTitleColor } from "@/lib/utils/status-hierarchy";
 import { Button } from "@/components/ui/button";
 import { AnimatePresence, motion } from "motion/react";
 
@@ -13,6 +14,8 @@ interface BusinessTabToggleProps {
   className?: string;
   isDetailsView?: boolean;
   detailsName?: string;
+  /** Status for householder or establishment; used to color-code the title */
+  detailsStatus?: string;
   onBackClick?: () => void;
   onEditClick?: () => void;
 }
@@ -24,9 +27,11 @@ export function BusinessTabToggle({
   className,
   isDetailsView = false,
   detailsName = '',
+  detailsStatus,
   onBackClick,
   onEditClick
 }: BusinessTabToggleProps) {
+  const titleColorClass = detailsStatus ? getStatusTitleColor(detailsStatus) : "text-foreground";
   return (
     <div className={cn("bg-background/95 backdrop-blur-sm border p-0.1 rounded-lg shadow-lg w-full relative overflow-hidden", className)}>
       <AnimatePresence mode="wait">
@@ -51,7 +56,7 @@ export function BusinessTabToggle({
             
             {/* Name - Middle (wider, plain text, no button feel) */}
             <div className="flex-[2] min-w-0 px-3 py-6 flex items-center justify-center bg-transparent border-none">
-              <span className="text-sm font-semibold text-foreground truncate w-full text-center pointer-events-none">
+              <span className={cn("text-lg font-bold truncate w-full text-center pointer-events-none", titleColorClass)}>
                 {detailsName}
               </span>
             </div>

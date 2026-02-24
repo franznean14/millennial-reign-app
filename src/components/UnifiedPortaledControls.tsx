@@ -13,9 +13,11 @@ import { buildFilterBadges } from "@/lib/utils/filter-badges";
 import { cn } from "@/lib/utils";
 import { LayoutGrid, List, Table as TableIcon, X, Crosshair, ChevronLeft, Edit } from "lucide-react";
 import type { BusinessFiltersState, EstablishmentWithDetails, HouseholderWithDetails } from "@/lib/db/business";
+import { getBestStatus, getStatusTitleColor } from "@/lib/utils/status-hierarchy";
 import {
   getHeaderToastState,
   subscribeHeaderToast,
+  dismissHeaderToast,
   type HeaderToastVariant,
 } from "@/lib/header-toast-store";
 
@@ -149,6 +151,7 @@ function BusinessControlsContent({
   const isDetailsView = !!selectedEstablishment || !!selectedHouseholder;
   // When both are set we're on householder details (opened from establishment); show householder name
   const detailsName = selectedHouseholder?.name || selectedEstablishment?.name || "";
+  const detailsStatus = selectedHouseholder?.status ?? (selectedEstablishment ? getBestStatus(selectedEstablishment.statuses || []) : undefined);
 
   return (
     <div
@@ -169,16 +172,7 @@ function BusinessControlsContent({
         <div className="w-full h-[52px] overflow-hidden">
           <AnimatePresence mode="wait">
             {headerToast?.message ? (
-              <motion.div
-                key="toast"
-                initial={headerToastInitial}
-                animate={headerToastAnimate}
-                exit={headerToastExit}
-                transition={headerToastTransition}
-                className={cn("w-full h-full flex items-center justify-center rounded-lg border px-4 text-center", TOAST_VARIANT_STYLES[headerToast.variant])}
-              >
-                <span className="text-sm font-medium line-clamp-2">{headerToast.message}</span>
-              </motion.div>
+              <HeaderToastRow message={headerToast.message} variant={headerToast.variant} />
             ) : (
               <motion.div
                 key="normal"
@@ -199,6 +193,7 @@ function BusinessControlsContent({
                   className="w-full h-full"
                   isDetailsView={isDetailsView}
                   detailsName={detailsName}
+                  detailsStatus={detailsStatus}
                   onBackClick={onBackClick}
                   onEditClick={onEditClick}
                 />
@@ -212,16 +207,7 @@ function BusinessControlsContent({
         <div className="w-full h-[52px] mb-2 overflow-hidden">
           <AnimatePresence mode="wait">
             {headerToast?.message ? (
-              <motion.div
-                key="toast"
-                initial={headerToastInitial}
-                animate={headerToastAnimate}
-                exit={headerToastExit}
-                transition={headerToastTransition}
-                className={cn("w-full h-full flex items-center justify-center rounded-lg border px-4 text-center", TOAST_VARIANT_STYLES[headerToast.variant])}
-              >
-                <span className="text-sm font-medium line-clamp-2">{headerToast.message}</span>
-              </motion.div>
+              <HeaderToastRow message={headerToast.message} variant={headerToast.variant} />
             ) : (
               <motion.div
                 key="normal"
@@ -261,7 +247,7 @@ function BusinessControlsContent({
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <div className="flex-[2] min-w-0 px-3 flex items-center justify-center">
-              <span className="text-base font-semibold text-foreground truncate w-full text-center">{detailsName}</span>
+              <span className={cn("text-xl font-bold truncate w-full text-center", detailsStatus ? getStatusTitleColor(detailsStatus) : "text-foreground")}>{detailsName}</span>
             </div>
             <Button variant="outline" size="sm" onClick={onEditClick} className="flex-shrink-0 px-3 py-2 h-9">
               <Edit className="h-4 w-4" />
@@ -432,6 +418,7 @@ function CongregationControlsContent({
 }) {
   const isDetailsView = !!selectedHouseholder;
   const detailsName = selectedHouseholder?.name || "";
+  const detailsStatus = selectedHouseholder?.status;
 
   return (
     <div
@@ -448,16 +435,7 @@ function CongregationControlsContent({
         <div className="w-full h-[52px] overflow-hidden">
           <AnimatePresence mode="wait">
             {headerToast?.message ? (
-              <motion.div
-                key="toast"
-                initial={headerToastInitial}
-                animate={headerToastAnimate}
-                exit={headerToastExit}
-                transition={headerToastTransition}
-                className={cn("w-full h-full flex items-center justify-center rounded-lg border px-4 text-center", TOAST_VARIANT_STYLES[headerToast.variant])}
-              >
-                <span className="text-sm font-medium line-clamp-2">{headerToast.message}</span>
-              </motion.div>
+              <HeaderToastRow message={headerToast.message} variant={headerToast.variant} />
             ) : (
               <motion.div
                 key="normal"
@@ -474,6 +452,7 @@ function CongregationControlsContent({
                   isElder={isElder}
                   isDetailsView={isDetailsView}
                   detailsName={detailsName}
+                  detailsStatus={detailsStatus}
                   onBackClick={onBackClick}
                   onEditClick={onEditClick}
                 />
@@ -497,7 +476,7 @@ function CongregationControlsContent({
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <div className="flex-[2] min-w-0 px-3 flex items-center justify-center">
-              <span className="text-base font-semibold text-foreground truncate w-full text-center">{detailsName}</span>
+              <span className={cn("text-xl font-bold truncate w-full text-center", detailsStatus ? getStatusTitleColor(detailsStatus) : "text-foreground")}>{detailsName}</span>
             </div>
             <Button variant="outline" size="sm" onClick={onEditClick} className="flex-shrink-0 px-3 py-2 h-9">
               <Edit className="h-4 w-4" />
@@ -510,16 +489,7 @@ function CongregationControlsContent({
         <div className="w-full h-[52px] overflow-hidden">
           <AnimatePresence mode="wait">
             {headerToast?.message ? (
-              <motion.div
-                key="toast"
-                initial={headerToastInitial}
-                animate={headerToastAnimate}
-                exit={headerToastExit}
-                transition={headerToastTransition}
-                className={cn("w-full h-full flex items-center justify-center rounded-lg border px-4 text-center", TOAST_VARIANT_STYLES[headerToast.variant])}
-              >
-                <span className="text-sm font-medium line-clamp-2">{headerToast.message}</span>
-              </motion.div>
+              <HeaderToastRow message={headerToast.message} variant={headerToast.variant} />
             ) : (
               <motion.div
                 key="normal"
@@ -567,16 +537,7 @@ function HomeControlsContent({
       <div className="w-full h-[52px] overflow-hidden">
         <AnimatePresence mode="wait">
           {headerToast?.message ? (
-            <motion.div
-              key="toast"
-              initial={headerToastInitial}
-              animate={headerToastAnimate}
-              exit={headerToastExit}
-              transition={headerToastTransition}
-              className={cn("w-full h-full flex items-center justify-center rounded-lg border px-4 text-center", TOAST_VARIANT_STYLES[headerToast.variant])}
-            >
-              <span className="text-sm font-medium line-clamp-2">{headerToast.message}</span>
-            </motion.div>
+            <HeaderToastRow message={headerToast.message} variant={headerToast.variant} />
           ) : (
             <motion.div
               key="normal"
@@ -618,16 +579,7 @@ function AccountControlsContent({
       <div className="w-full h-[52px] overflow-hidden">
         <AnimatePresence mode="wait">
           {headerToast?.message ? (
-            <motion.div
-              key="toast"
-              initial={headerToastInitial}
-              animate={headerToastAnimate}
-              exit={headerToastExit}
-              transition={headerToastTransition}
-              className={cn("w-full h-full flex items-center justify-center rounded-lg border px-4 text-center", TOAST_VARIANT_STYLES[headerToast.variant])}
-            >
-              <span className="text-sm font-medium line-clamp-2">{headerToast.message}</span>
-            </motion.div>
+            <HeaderToastRow message={headerToast.message} variant={headerToast.variant} />
           ) : (
             <motion.div
               key="normal"
@@ -666,6 +618,34 @@ const TOAST_VARIANT_STYLES: Record<HeaderToastVariant, string> = {
   default:
     "bg-primary text-primary-foreground border-primary/80 dark:bg-primary/20 dark:border-primary dark:text-primary-foreground",
 };
+
+function HeaderToastRow({ message, variant }: { message: string; variant: HeaderToastVariant }) {
+  return (
+    <motion.div
+      key="toast"
+      initial={headerToastInitial}
+      animate={headerToastAnimate}
+      exit={headerToastExit}
+      transition={headerToastTransition}
+      className={cn(
+        "w-full h-full flex items-center gap-2 rounded-lg border px-4 pr-2",
+        TOAST_VARIANT_STYLES[variant]
+      )}
+    >
+      <span className="flex-1 min-w-0 text-sm font-medium line-clamp-2 text-center">{message}</span>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        className="h-8 w-8 flex-shrink-0 text-current opacity-80 hover:opacity-100 hover:bg-black/10 dark:hover:bg-white/10"
+        onClick={() => dismissHeaderToast()}
+        aria-label="Dismiss"
+      >
+        <X className="h-4 w-4" />
+      </Button>
+    </motion.div>
+  );
+}
 
 function useHeaderToastState() {
   const [state, setState] = useState(getHeaderToastState);
