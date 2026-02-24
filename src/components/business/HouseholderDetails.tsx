@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -17,7 +17,13 @@ import { deleteHouseholder, archiveHouseholder } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { cn } from "@/lib/utils";
 import { formatStatusText } from "@/lib/utils/formatters";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerFooter,
+} from "@/components/ui/drawer";
 import { getInitials } from "@/lib/utils/visit-history-ui";
 import { getProfile } from "@/lib/db/profiles";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -102,7 +108,7 @@ export function HouseholderDetails({
   const [showAddConfirm, setShowAddConfirm] = useState(false);
   const [showMinusButton, setShowMinusButton] = useState(false);
   const [updatingPublisher, setUpdatingPublisher] = useState(false);
-  const avatarButtonRef = useRef<HTMLButtonElement>(null);
+  const avatarButtonRef = useRef<HTMLDivElement>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(publisherId || null);
 
   // Get current user ID if not provided
@@ -277,23 +283,24 @@ export function HouseholderDetails({
   const isCurrentUserPublisher = effectivePublisherId && householder.publisher_id === effectivePublisherId;
   const assignedUser = householder.assigned_user;
 
-  // Handle click outside to restore avatar when minus button is shown
+  // Handle click outside to restore avatar when minus button is shown (don't close when remove-confirm popover is open)
   useEffect(() => {
     if (!showMinusButton) return;
-    
+
     const handleClickOutside = (event: Event) => {
+      if (showRemoveConfirm) return;
       if (avatarButtonRef.current && !avatarButtonRef.current.contains(event.target as Node)) {
         setShowMinusButton(false);
       }
     };
-    
+
     document.addEventListener('mousedown', handleClickOutside as EventListener);
     document.addEventListener('touchstart', handleClickOutside as EventListener);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside as EventListener);
       document.removeEventListener('touchstart', handleClickOutside as EventListener);
     };
-  }, [showMinusButton]);
+  }, [showMinusButton, showRemoveConfirm]);
 
   const detailTransition = { duration: 0.2, ease: "easeOut" } as const;
   const itemVariants = {
@@ -332,73 +339,71 @@ export function HouseholderDetails({
                   // Skeleton loading for user+ button/avatar
                   <div className="h-8 w-8 rounded-full bg-muted/60 blur-[2px] animate-pulse" />
                 ) : assignedUser && isCurrentUserPublisher ? (
-                // Show avatar that changes to minus button on tap, then shows remove confirmation
-                showMinusButton ? (
-                  <Popover open={showRemoveConfirm} onOpenChange={(open) => {
-                    setShowRemoveConfirm(open);
-                    if (!open) {
-                      setShowMinusButton(false);
-                    }
-                  }}>
-                    <PopoverTrigger asChild>
-                      <Button
-                        ref={avatarButtonRef}
+                // Show avatar that animates to minus button on tap; tap outside animates back; minus opens remove confirmation
+                <div
+                  ref={avatarButtonRef}
+                  className="flex-shrink-0 cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    if (!showMinusButton) setShowMinusButton(true);
+                  }}
+                >
+                  <AnimatePresence mode="wait">
+                    {showMinusButton ? (
+                      <motion.div
+                        key="minus"
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.8, opacity: 0 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        className="inline-block"
+                      >
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8 rounded-full"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              setShowRemoveConfirm(true);
+                            }}
+                          >
+                            <Minus className="h-4 w-4" />
+                          </Button>
+                      </motion.div>
+                    ) : (
+                      <motion.div
+                        key="avatar"
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.8, opacity: 0 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        className="inline-block"
+                      >
+                        <Button
                         type="button"
                         variant="outline"
                         size="icon"
-                        className="h-8 w-8 rounded-full"
-                        onClick={() => setShowRemoveConfirm(true)}
-                        onClickCapture={(e) => e.stopPropagation()}
+                        className="h-8 w-8 rounded-full p-0"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          setShowMinusButton(true);
+                        }}
                       >
-                        <Minus className="h-4 w-4" />
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-56" align="end">
-                      <div className="space-y-3">
-                        <p className="text-sm">Remove as Personal Contact?</p>
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setShowRemoveConfirm(false);
-                              setShowMinusButton(false);
-                            }}
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            disabled={updatingPublisher}
-                            onClick={handleRemoveAsPersonalContact}
-                          >
-                            {updatingPublisher ? "Removing..." : "Remove"}
-                          </Button>
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                ) : (
-                  <Button
-                    ref={avatarButtonRef}
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8 rounded-full p-0"
-                    onClick={() => setShowMinusButton(true)}
-                    onClickCapture={(e) => e.stopPropagation()}
-                  >
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={assignedUser.avatar_url || undefined} alt={`${assignedUser.first_name} ${assignedUser.last_name}`} />
-                      <AvatarFallback className="text-xs">
-                        {getInitials(`${assignedUser.first_name} ${assignedUser.last_name}`)}
-                      </AvatarFallback>
-                    </Avatar>
-                  </Button>
-                )
+                        <Avatar className="h-8 w-8">
+                          <AvatarImage src={assignedUser.avatar_url || undefined} alt={`${assignedUser.first_name} ${assignedUser.last_name}`} />
+                          <AvatarFallback className="text-xs">
+                            {getInitials(`${assignedUser.first_name} ${assignedUser.last_name}`)}
+                          </AvatarFallback>
+                        </Avatar>
+                        </Button>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               ) : assignedUser ? (
                 // Show avatar if someone else is the publisher (not clickable)
                 <Avatar className="h-8 w-8">
@@ -409,44 +414,21 @@ export function HouseholderDetails({
                 </Avatar>
               ) : (
                 // Show user+ button if no publisher
-                <Popover open={showAddConfirm} onOpenChange={setShowAddConfirm}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-8 w-8 rounded-full"
-                      disabled={!effectivePublisherId || updatingPublisher}
-                      onClickCapture={(e) => e.stopPropagation()}
-                    >
-                      <UserPlus className="h-4 w-4" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-56" align="end">
-                    <div className="space-y-3">
-                      <p className="text-sm">Take as Personal Contact?</p>
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setShowAddConfirm(false)}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="default"
-                          size="sm"
-                          disabled={updatingPublisher || !effectivePublisherId}
-                          onClick={handleAddAsPersonalContact}
-                        >
-                          {updatingPublisher ? "Adding..." : "Add"}
-                        </Button>
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
+                <div onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    className="h-8 w-8 rounded-full"
+                    disabled={!effectivePublisherId || updatingPublisher}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowAddConfirm(true);
+                    }}
+                  >
+                    <UserPlus className="h-4 w-4" />
+                  </Button>
+                </div>
                 )}
               </div>
             </CardTitle>
@@ -516,6 +498,84 @@ export function HouseholderDetails({
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* Remove as Personal Contact - bottom drawer, 50% height */}
+      <Drawer
+        open={showRemoveConfirm}
+        onOpenChange={(open) => {
+          setShowRemoveConfirm(open);
+          if (!open) setShowMinusButton(false);
+        }}
+      >
+        <DrawerContent
+          className="flex flex-col"
+          style={{ maxHeight: "50vh", height: "50vh" }}
+        >
+          <div className="flex flex-1 flex-col justify-center px-4 min-h-0">
+            <DrawerHeader className="pt-6 px-4 pb-2 text-center">
+              <DrawerTitle className="text-center">Remove as Personal Contact?</DrawerTitle>
+            </DrawerHeader>
+            <DrawerFooter className="flex flex-col gap-3 p-0 pt-4 pb-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                className="w-full h-12"
+                onClick={() => {
+                  setShowRemoveConfirm(false);
+                  setShowMinusButton(false);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                size="lg"
+                className="w-full h-12"
+                disabled={updatingPublisher}
+                onClick={handleRemoveAsPersonalContact}
+              >
+                {updatingPublisher ? "Removing..." : "Remove"}
+              </Button>
+            </DrawerFooter>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Take as Personal Contact - bottom drawer, 50% height */}
+      <Drawer open={showAddConfirm} onOpenChange={setShowAddConfirm}>
+        <DrawerContent
+          className="flex flex-col"
+          style={{ maxHeight: "50vh", height: "50vh" }}
+        >
+          <div className="flex flex-1 flex-col justify-center px-4 min-h-0">
+            <DrawerHeader className="pt-6 px-4 pb-2 text-center">
+              <DrawerTitle className="text-center">Take as Personal Contact?</DrawerTitle>
+            </DrawerHeader>
+            <DrawerFooter className="flex flex-col gap-3 p-0 pt-4 pb-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                className="w-full h-12"
+                onClick={() => setShowAddConfirm(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="lg"
+                className="w-full h-12 bg-green-600 hover:bg-green-700 text-white"
+                disabled={updatingPublisher || !effectivePublisherId}
+                onClick={handleAddAsPersonalContact}
+              >
+                {updatingPublisher ? "Adding..." : "Add"}
+              </Button>
+            </DrawerFooter>
+          </div>
+        </DrawerContent>
+      </Drawer>
 
       <motion.div className="w-full" layout transition={detailTransition}>
         <VisitUpdatesSection 
