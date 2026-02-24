@@ -88,6 +88,15 @@ export interface EstablishmentWithDetails {
   updated_at?: string;
   created_by?: string;
   updated_by?: string;
+  /** Publisher who has taken this establishment as personal territory */
+  publisher_id?: string | null;
+  /** Resolved profile when publisher_id is set */
+  assigned_user?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    avatar_url?: string;
+  } | null;
   visit_count?: number;
   householder_count?: number;
   last_visit_at?: string | null;
@@ -481,6 +490,55 @@ export async function upsertEstablishment(establishment: {
     console.error('Error upserting establishment:', error);
     throw error;
   }
+}
+
+/** Set or clear the publisher who has taken this establishment as personal territory. */
+export async function updateEstablishmentPublisherId(
+  establishmentId: string,
+  publisherId: string | null
+): Promise<EstablishmentWithDetails | null> {
+  const supabase = createSupabaseBrowserClient();
+  await supabase.auth.getSession().catch(() => {});
+
+  const { data, error } = await supabase
+    .from('business_establishments')
+    .update({
+      publisher_id: publisherId,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', establishmentId)
+    .eq('is_deleted', false)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Error updating establishment publisher_id:', error);
+    return null;
+  }
+
+  const establishment = data as any;
+  if (establishment?.publisher_id) {
+    try {
+      const profileModule = await import('@/lib/db/profiles');
+      const profile = await profileModule.getProfile(establishment.publisher_id);
+      if (profile) {
+        establishment.assigned_user = {
+          id: profile.id,
+          first_name: profile.first_name,
+          last_name: profile.last_name,
+          avatar_url: profile.avatar_url ?? undefined
+        };
+      }
+    } catch (e) {
+      // optional
+    }
+  } else {
+    establishment.assigned_user = null;
+  }
+
+  const cacheKey = `establishment:details:${establishmentId}`;
+  await cacheDelete(cacheKey);
+  return establishment as EstablishmentWithDetails;
 }
 
 // Find potential duplicates for a name within the same area (prefix match)
@@ -893,7 +951,8 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
         lat,
         lng,
         created_at,
-        updated_at
+        updated_at,
+        publisher_id
       `)
       .eq('congregation_id', profile.congregation_id)
       .eq('is_deleted', false)
@@ -1130,10 +1189,30 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
     }))
     .sort((a, b) => b.visit_count - a.visit_count)
     .slice(0, 2);
+
+  let assigned_user: EstablishmentWithDetails['assigned_user'] = null;
+  if (establishment.publisher_id) {
+    try {
+      const profileModule = await import('@/lib/db/profiles');
+      const profile = await profileModule.getProfile(establishment.publisher_id);
+      if (profile) {
+        assigned_user = {
+          id: profile.id,
+          first_name: profile.first_name,
+          last_name: profile.last_name,
+          avatar_url: profile.avatar_url ?? undefined
+        };
+      }
+    } catch (e) {
+      // optional
+    }
+  }
   
   const result = {
     establishment: {
       ...establishment,
+      publisher_id: establishment.publisher_id ?? null,
+      assigned_user,
       top_visitors: topVisitorsList
     },
     visits: transformedVisits,

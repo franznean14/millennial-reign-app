@@ -1,19 +1,29 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, MapPinned, Calendar, Users } from "lucide-react";
+import { Building2, MapPinned, Calendar, Users, UserPlus, Minus } from "lucide-react";
 import { FormModal } from "@/components/shared/FormModal";
 import { toast } from "@/components/ui/sonner";
-import { deleteEstablishment, archiveEstablishment } from "@/lib/db/business";
+import { deleteEstablishment, archiveEstablishment, updateEstablishmentPublisherId } from "@/lib/db/business";
 import { type EstablishmentWithDetails, type VisitWithUser, type HouseholderWithDetails } from "@/lib/db/business";
 import { cn } from "@/lib/utils";
 import { formatStatusText } from "@/lib/utils/formatters";
 import { getBestStatus, getStatusColor, getStatusTextColor } from "@/lib/utils/status-hierarchy";
+import { getInitials } from "@/lib/utils/visit-history-ui";
+import { businessEventBus } from "@/lib/events/business-events";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerFooter,
+} from "@/components/ui/drawer";
 import { EstablishmentForm } from "@/components/business/EstablishmentForm";
 import { VisitForm } from "@/components/business/VisitForm";
 import { getBwiParticipants } from "@/lib/db/business";
@@ -26,6 +36,7 @@ interface EstablishmentDetailsProps {
   onBackClick: () => void;
   onEstablishmentUpdated?: (establishment: EstablishmentWithDetails) => void;
   onHouseholderClick?: (householder: HouseholderWithDetails) => void;
+  publisherId?: string | null;
   isLoading?: boolean;
 }
 
@@ -54,6 +65,7 @@ export function EstablishmentDetails({
   onBackClick,
   onEstablishmentUpdated,
   onHouseholderClick,
+  publisherId,
   isLoading = false
 }: EstablishmentDetailsProps) {
   
@@ -71,6 +83,30 @@ export function EstablishmentDetails({
   const [deleting, setDeleting] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [editVisit, setEditVisit] = useState<{ id: string; establishment_id?: string | null; householder_id?: string | null; note?: string | null; publisher_id?: string | null; partner_id?: string | null; visit_date?: string } | null>(null);
+  const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
+  const [showAddConfirm, setShowAddConfirm] = useState(false);
+  const [showMinusButton, setShowMinusButton] = useState(false);
+  const [updatingPublisher, setUpdatingPublisher] = useState(false);
+  const avatarButtonRef = useRef<HTMLDivElement>(null);
+  const minusActiveOnPointerDownRef = useRef(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(publisherId ?? null);
+
+  useEffect(() => {
+    if (!publisherId) {
+      const getCurrentUserId = async () => {
+        try {
+          const supabase = createSupabaseBrowserClient();
+          const { data: { session } } = await supabase.auth.getSession();
+          setCurrentUserId(session?.user?.id || null);
+        } catch (e) {
+          console.error('Error getting current user ID:', e);
+        }
+      };
+      getCurrentUserId();
+    }
+  }, [publisherId]);
+
+  const effectivePublisherId = publisherId ?? currentUserId;
 
   // Listen for edit trigger from header
   useEffect(() => {
@@ -85,6 +121,66 @@ export function EstablishmentDetails({
 
   // Primary status by hierarchy for consistent coloring
   const primaryStatus = getBestStatus(establishment.statuses || []);
+
+  const handleAddAsPersonalTerritory = async () => {
+    if (!establishment?.id || !effectivePublisherId) return;
+    setUpdatingPublisher(true);
+    try {
+      const updated = await updateEstablishmentPublisherId(establishment.id, effectivePublisherId);
+      if (updated) {
+        if (onEstablishmentUpdated) onEstablishmentUpdated(updated);
+        businessEventBus.emit('establishment-updated', updated);
+        toast.success("Taken as personal territory");
+        setShowAddConfirm(false);
+      } else {
+        toast.error("Failed to take as personal territory");
+      }
+    } catch (e) {
+      toast.error("Error taking as personal territory");
+    } finally {
+      setUpdatingPublisher(false);
+    }
+  };
+
+  const handleRemoveAsPersonalTerritory = async () => {
+    if (!establishment?.id) return;
+    setUpdatingPublisher(true);
+    try {
+      const updated = await updateEstablishmentPublisherId(establishment.id, null);
+      if (updated) {
+        if (onEstablishmentUpdated) onEstablishmentUpdated(updated);
+        businessEventBus.emit('establishment-updated', updated);
+        toast.success("Removed as personal territory");
+        setShowRemoveConfirm(false);
+        setShowMinusButton(false);
+      } else {
+        toast.error("Failed to remove as personal territory");
+      }
+    } catch (e) {
+      toast.error("Error removing as personal territory");
+    } finally {
+      setUpdatingPublisher(false);
+    }
+  };
+
+  const isCurrentUserPublisher = effectivePublisherId && establishment.publisher_id === effectivePublisherId;
+  const assignedUser = establishment.assigned_user;
+
+  useEffect(() => {
+    if (!showMinusButton) return;
+    const handleClickOutside = (event: Event) => {
+      if (showRemoveConfirm) return;
+      if (avatarButtonRef.current && !avatarButtonRef.current.contains(event.target as Node)) {
+        setShowMinusButton(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside as EventListener);
+    document.addEventListener('touchstart', handleClickOutside as EventListener);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside as EventListener);
+      document.removeEventListener('touchstart', handleClickOutside as EventListener);
+    };
+  }, [showMinusButton, showRemoveConfirm]);
 
   const handleEditSaved = (updatedEstablishment: any) => {
     setIsEditing(false);
@@ -138,32 +234,136 @@ export function EstablishmentDetails({
         <Card
           role="button"
           tabIndex={0}
-          onClick={() => setIsEditing(true)}
+          onPointerDownCapture={() => {
+            minusActiveOnPointerDownRef.current = showMinusButton;
+          }}
+          onClick={() => {
+            const wasMinusVisibleAtTapStart = minusActiveOnPointerDownRef.current;
+            minusActiveOnPointerDownRef.current = false;
+            if (wasMinusVisibleAtTapStart) return;
+            if (!showMinusButton) setIsEditing(true);
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              setIsEditing(true);
+              if (!showMinusButton) setIsEditing(true);
             }
           }}
           className={cn("w-full cursor-pointer transition-colors hover:bg-muted/30", getStatusColor(primaryStatus))}
         >
           <CardHeader className="flex flex-row items-center justify-between gap-2">
-            <CardTitle className="flex items-center gap-2">
-              <Building2 className="h-5 w-5 flex-shrink-0" />
-              Details
+            <CardTitle className="flex items-center justify-between gap-2 w-full">
+              <div className="flex items-center gap-2">
+                <Building2 className="h-5 w-5 flex-shrink-0" />
+                Details
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {!!establishment.lat && !!establishment.lng && (
+                  <a
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border hover:bg-muted"
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${establishment.lat},${establishment.lng}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label="Directions"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <MapPinned className="h-4 w-4" />
+                  </a>
+                )}
+                {/* Personal Territory: avatar / minus / UserPlus */}
+                {isLoading ? (
+                  <div className="h-8 w-8 rounded-full bg-muted/60 blur-[2px] animate-pulse" />
+                ) : assignedUser && isCurrentUserPublisher ? (
+                  <div
+                    ref={avatarButtonRef}
+                    className="flex-shrink-0 cursor-pointer h-8 w-8 flex items-center justify-center"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                      if (!showMinusButton) setShowMinusButton(true);
+                    }}
+                  >
+                    <AnimatePresence mode="wait">
+                      {showMinusButton ? (
+                        <motion.div
+                          key="minus"
+                          initial={{ scale: 0.8, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0.8, opacity: 0 }}
+                          transition={{ duration: 0.2, ease: "easeOut" }}
+                          className="h-8 w-8 flex items-center justify-center"
+                        >
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="h-8 w-8 min-h-8 min-w-8 rounded-full p-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              setShowRemoveConfirm(true);
+                            }}
+                          >
+                            <Minus className="h-4 w-4" />
+                          </Button>
+                        </motion.div>
+                      ) : (
+                        <motion.div
+                          key="avatar"
+                          initial={{ scale: 0.8, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0.8, opacity: 0 }}
+                          transition={{ duration: 0.2, ease: "easeOut" }}
+                          className="h-8 w-8 flex items-center justify-center"
+                        >
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8 min-h-8 min-w-8 rounded-full p-0"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              e.preventDefault();
+                              setShowMinusButton(true);
+                            }}
+                          >
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage src={assignedUser.avatar_url || undefined} alt={`${assignedUser.first_name} ${assignedUser.last_name}`} />
+                              <AvatarFallback className="text-xs">
+                                {getInitials(`${assignedUser.first_name} ${assignedUser.last_name}`)}
+                              </AvatarFallback>
+                            </Avatar>
+                          </Button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                ) : assignedUser ? (
+                  <Avatar className="h-8 w-8">
+                    <AvatarImage src={assignedUser.avatar_url || undefined} alt={`${assignedUser.first_name} ${assignedUser.last_name}`} />
+                    <AvatarFallback className="text-xs">
+                      {getInitials(`${assignedUser.first_name} ${assignedUser.last_name}`)}
+                    </AvatarFallback>
+                  </Avatar>
+                ) : (
+                  <div onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-8 w-8 rounded-full"
+                      disabled={!effectivePublisherId || updatingPublisher}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowAddConfirm(true);
+                      }}
+                    >
+                      <UserPlus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
             </CardTitle>
-            {!!establishment.lat && !!establishment.lng && (
-              <a
-                className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs whitespace-nowrap hover:bg-muted"
-                href={`https://www.google.com/maps/dir/?api=1&destination=${establishment.lat},${establishment.lng}`}
-                target="_blank"
-                rel="noreferrer"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <MapPinned className="h-3.5 w-3.5" />
-                Directions
-              </a>
-            )}
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Details card uses list data (establishment) so we always have it — no skeleton */}
@@ -276,6 +476,84 @@ export function EstablishmentDetails({
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* Remove as Personal Territory - bottom drawer, 50% height (same design as contact) */}
+      <Drawer
+        open={showRemoveConfirm}
+        onOpenChange={(open) => {
+          setShowRemoveConfirm(open);
+          if (!open) setShowMinusButton(false);
+        }}
+      >
+        <DrawerContent
+          className="flex flex-col"
+          style={{ maxHeight: "50vh", height: "50vh" }}
+        >
+          <div className="flex flex-1 flex-col justify-center px-4 min-h-0">
+            <DrawerHeader className="pt-6 px-4 pb-2 text-center">
+              <DrawerTitle className="text-center">Remove as Personal Territory?</DrawerTitle>
+            </DrawerHeader>
+            <DrawerFooter className="flex flex-col gap-3 p-0 pt-4 pb-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                className="w-full h-12"
+                onClick={() => {
+                  setShowRemoveConfirm(false);
+                  setShowMinusButton(false);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                size="lg"
+                className="w-full h-12"
+                disabled={updatingPublisher}
+                onClick={handleRemoveAsPersonalTerritory}
+              >
+                {updatingPublisher ? "Removing..." : "Remove"}
+              </Button>
+            </DrawerFooter>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      {/* Take as Personal Territory - bottom drawer, 50% height (same design as contact) */}
+      <Drawer open={showAddConfirm} onOpenChange={setShowAddConfirm}>
+        <DrawerContent
+          className="flex flex-col"
+          style={{ maxHeight: "50vh", height: "50vh" }}
+        >
+          <div className="flex flex-1 flex-col justify-center px-4 min-h-0">
+            <DrawerHeader className="pt-6 px-4 pb-2 text-center">
+              <DrawerTitle className="text-center">Take as Personal Territory?</DrawerTitle>
+            </DrawerHeader>
+            <DrawerFooter className="flex flex-col gap-3 p-0 pt-4 pb-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                className="w-full h-12"
+                onClick={() => setShowAddConfirm(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="lg"
+                className="w-full h-12 bg-green-600 hover:bg-green-700 text-white"
+                disabled={updatingPublisher || !effectivePublisherId}
+                onClick={handleAddAsPersonalTerritory}
+              >
+                {updatingPublisher ? "Adding..." : "Add"}
+              </Button>
+            </DrawerFooter>
+          </div>
+        </DrawerContent>
+      </Drawer>
 
       {/* Visit Updates Section */}
       <motion.div className="w-full" layout transition={{ duration: 0.2, ease: "easeOut" }}>

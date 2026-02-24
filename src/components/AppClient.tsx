@@ -773,6 +773,8 @@ export function AppClient() {
         statuses: (updated as any).statuses as any,
         note: updated.note as any,
         updated_at: (updated as any).updated_at as any,
+        publisher_id: (updated as any).publisher_id as any,
+        assigned_user: (updated as any).assigned_user as any,
       };
       const merged = { ...target, ...Object.fromEntries(Object.entries(fields).filter(([_, v]) => v !== undefined)) } as EstablishmentWithDetails;
       return merged;
