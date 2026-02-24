@@ -179,7 +179,7 @@ export function BusinessFiltersForm({
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="last_visit">Last Visit</SelectItem>
+                      <SelectItem value="last_visit">Last Call</SelectItem>
                       <SelectItem value="name">Name</SelectItem>
                       <SelectItem value="area">Area</SelectItem>
                       <SelectItem value="date_added">Date Added</SelectItem>

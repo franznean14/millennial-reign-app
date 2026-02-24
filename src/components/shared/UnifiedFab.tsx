@@ -79,14 +79,14 @@ export function UnifiedFab({
       if (showExpandableButtons) {
         items.push(
           { key: "business-householder", label: "New Householder", icon: <UserPlus className="h-4 w-4" />, variant: "outline" },
-          { key: "business-visit", label: "New Visit", icon: <FilePlus2 className="h-4 w-4" /> }
+          { key: "business-visit", label: "New Call", icon: <FilePlus2 className="h-4 w-4" /> }
         );
       } else if (showEstablishmentForm) {
         items.push({ key: "business-establishment", label: "New Establishment", icon: <Building2 className="h-4 w-4" /> });
       } else if (showHouseholderForm) {
         items.push({ key: "business-householder", label: "New Householder", icon: <UserPlus className="h-4 w-4" />, variant: "outline" });
       } else if (showVisitForm) {
-        items.push({ key: "business-visit", label: "New Visit", icon: <FilePlus2 className="h-4 w-4" /> });
+        items.push({ key: "business-visit", label: "New Call", icon: <FilePlus2 className="h-4 w-4" /> });
       }
     }
 
@@ -94,7 +94,7 @@ export function UnifiedFab({
       if (isCongregationAdminTab) {
         items.push({ key: "congregation-schedule", label: "New Schedule", icon: <Calendar className="h-4 w-4" /> });
       } else if (isCongregationMinistryTab && isCongregationDetails) {
-        items.push({ key: "congregation-visit", label: "New Visit", icon: <FilePlus2 className="h-4 w-4" /> });
+        items.push({ key: "congregation-visit", label: "New Call", icon: <FilePlus2 className="h-4 w-4" /> });
       } else if (isCongregationMinistryTab) {
         items.push({ key: "congregation-householder", label: "Add Householder", icon: <UserPlus className="h-4 w-4" /> });
       } else {
@@ -171,8 +171,7 @@ export function UnifiedFab({
       <FormModal
         open={openKey === "business-visit"}
         onOpenChange={(open) => setOpenKey(open ? "business-visit" : null)}
-        title="Visit Update"
-        description="Record a visit note."
+        title="New Call"
         headerClassName="text-center"
       >
         <VisitForm
@@ -225,8 +224,7 @@ export function UnifiedFab({
       <FormModal
         open={openKey === "congregation-visit"}
         onOpenChange={(open) => setOpenKey(open ? "congregation-visit" : null)}
-        title="New Visit"
-        description="Record a visit update"
+        title="New Call"
         headerClassName="text-center"
       >
         <VisitForm

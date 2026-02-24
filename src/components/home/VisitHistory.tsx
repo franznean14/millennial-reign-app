@@ -523,7 +523,7 @@ export function VisitHistory({
               )}
             >
               <History className="h-4 w-4" />
-              <span>Visit History</span>
+              <span>Calls</span>
               {activeTab === "visit-history" ? (
                 <ChevronRight className="h-4 w-4 opacity-70" />
               ) : null}
@@ -656,7 +656,7 @@ export function VisitHistory({
               )}
             >
               <History className="h-4 w-4" />
-              <span>Visit History</span>
+              <span>Calls</span>
               {activeTab === "visit-history" ? (
                 <ChevronRight className="h-4 w-4 opacity-70" />
               ) : null}
@@ -754,7 +754,7 @@ export function VisitHistory({
                 renderItem={(visit, index, total) => renderVisitRow(visit, index, total, false)}
                 className="space-y-6"
                 isEmpty={visits.length === 0}
-                emptyText="No visits recorded yet."
+                emptyText="No calls recorded yet."
               />
             </div>
           </TabsContent>
@@ -768,8 +768,8 @@ export function VisitHistory({
           setShowDrawer(open);
           if (!open) setActivePanel("list");
         }}
-        title={activePanel === "filters" ? "Filter Visits" : "Visit History"}
-        description={activePanel === "filters" ? "Filter by status and area" : "Complete visit history with infinite scroll"}
+        title={activePanel === "filters" ? "Filter Calls" : "Calls"}
+        description={activePanel === "filters" ? "Filter by status and area" : undefined}
       >
         {activePanel === "filters" ? (
           <div className="pb-[calc(max(env(safe-area-inset-bottom),0px)+40px)]">

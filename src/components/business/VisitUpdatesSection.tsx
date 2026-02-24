@@ -108,7 +108,7 @@ export function VisitUpdatesSection({
         onClick={() => setDrawerOpen(true)}
         className="flex items-center gap-2 text-base font-bold text-foreground hover:opacity-80 transition-opacity mb-4"
       >
-        Visit Updates
+        Calls
         <ChevronRight className="h-4 w-4" />
       </button>
 
@@ -144,14 +144,14 @@ export function VisitUpdatesSection({
           items={mainVisits}
           getKey={(visit) => visit.id}
           renderItem={(visit, index, total) => renderVisitEntry(visit, index, false, total)}
-          emptyText="No visit updates found."
+          emptyText="No calls found."
         />
       )}
 
       <FormModal
         open={drawerOpen}
         onOpenChange={setDrawerOpen}
-        title="All Visit Updates"
+        title="Calls"
       >
         <div className="flex-1 overflow-y-auto p-4 pb-20">
           {isLoading ? (
@@ -186,7 +186,7 @@ export function VisitUpdatesSection({
               items={visits}
               getKey={(visit) => visit.id}
               renderItem={(visit, index, total) => renderVisitEntry(visit, index, true, total)}
-              emptyText="No visit updates found."
+              emptyText="No calls found."
             />
           )}
         </div>
@@ -199,8 +199,7 @@ export function VisitUpdatesSection({
                     setEditVisit(null);
           }
         }}
-        title="Edit Visit"
-        description="Update visit details"
+        title="Edit Call"
         headerClassName="text-center"
       >
               {editVisit && (

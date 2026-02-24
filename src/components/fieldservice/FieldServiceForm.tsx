@@ -933,8 +933,7 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
             <ChevronLeft className="h-5 w-5" />
           </Button>
           <div className="text-center">
-            <h2 className="text-lg font-semibold">Edit Visit</h2>
-            <p className="text-sm text-muted-foreground">Update visit details</p>
+            <h2 className="text-lg font-semibold">Edit Call</h2>
           </div>
         </div>
         <VisitForm

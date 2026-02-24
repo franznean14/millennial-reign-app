@@ -236,7 +236,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
         // Edit mode: update visit
         const ok = await updateVisit({ id: initialVisit.id, ...payload });
         if (ok) {
-          toast.success("Visit updated.");
+          toast.success("Call updated.");
           onSaved({ id: initialVisit.id, ...payload });
           const publisherId = payload.publisher_id;
           const partnerId = payload.partner_id;
@@ -259,7 +259,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
             } : undefined,
           });
         } else {
-          toast.error("Failed to update visit");
+          toast.error("Failed to update call");
         }
       } else {
         // Create mode: background add
@@ -307,18 +307,18 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
               } as any;
               
               businessEventBus.emit('visit-added', newVisit);
-              toast.success("Visit recorded successfully!");
+              toast.success("Call recorded successfully!");
             } else {
-              toast.error("Failed to record visit");
+              toast.error("Failed to record call");
             }
           })
           .catch((e) => {
             console.error('addVisit error', e);
-            toast.error("Error recording visit");
+            toast.error("Error recording call");
           });
       }
     } catch (error) {
-      toast.error("Error saving visit");
+      toast.error("Error saving call");
       console.error('Error saving visit:', error);
     } finally {
       setSaving(false);
@@ -378,7 +378,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
         <DatePicker
           date={visitDate}
           onSelect={(date) => setVisitDate(date || new Date())}
-          placeholder="Select visit date"
+          placeholder="Select call date"
         />
       </div>
 
@@ -453,7 +453,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
             </PopoverTrigger>
             <PopoverContent className="w-56" align="start">
               <div className="space-y-3">
-                <p className="text-sm">Delete this visit update?</p>
+                <p className="text-sm">Delete this call?</p>
                 <div className="flex justify-end gap-2">
                   <Button type="button" variant="outline" size="sm" onClick={() => setConfirmOpen(false)}>Cancel</Button>
                   <Button

@@ -16,7 +16,7 @@ export function VisitList<T>({
   items,
   getKey,
   renderItem,
-  emptyText = "No visits recorded yet.",
+  emptyText = "No calls recorded yet.",
   className = "space-y-4",
   emptyClassName = "text-muted-foreground",
   isEmpty

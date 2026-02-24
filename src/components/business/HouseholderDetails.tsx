@@ -536,8 +536,7 @@ export function HouseholderDetails({
       <FormModal
         open={newVisitOpen}
         onOpenChange={setNewVisitOpen}
-        title="New Visit"
-        description="Record a visit update"
+        title="New Call"
         headerClassName="text-center"
       >
         <VisitForm
@@ -589,8 +588,7 @@ export function HouseholderDetails({
             setEditVisit(null);
           }
         }}
-        title="Edit Visit"
-        description="Update visit details"
+        title="Edit Call"
         headerClassName="text-center"
       >
               <VisitForm

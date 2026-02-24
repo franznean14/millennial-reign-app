@@ -368,8 +368,7 @@ export function EstablishmentDetails({
             setEditVisit(null);
           }
         }}
-        title="Edit Visit"
-        description="Update visit details"
+        title="Edit Call"
         headerClassName="text-center"
       >
               {editVisit && (
