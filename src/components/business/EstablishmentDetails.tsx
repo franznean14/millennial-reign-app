@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, MapPinned, Calendar, Users, UserPlus, Minus } from "lucide-react";
+import { Building2, MapPinned, Calendar, BookOpen, UserPlus, Minus } from "lucide-react";
 import { FormModal } from "@/components/shared/FormModal";
 import { toast } from "@/components/ui/sonner";
 import { deleteEstablishment, archiveEstablishment, updateEstablishmentPublisherId } from "@/lib/db/business";
@@ -597,54 +597,73 @@ export function EstablishmentDetails({
         <HomeTodoCard establishmentId={establishment.id} onTodoTap={handleTodoTapOpenCall} />
       </motion.div>
 
-      {/* Householders Section */}
+      {/* Contacts Section (householders styled like congregation Contacts card) */}
       <motion.div className="w-full" layout transition={{ duration: 0.2, ease: "easeOut" }}>
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5 flex-shrink-0" />
-              Householders ({householders.length})
+              <BookOpen className="h-5 w-5 flex-shrink-0" />
+              <span>Contacts{householders.length ? ` (${householders.length})` : ""}</span>
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-0">
             {householders.length > 0 ? (
-              <div className="space-y-3">
+              <div className="px-4 py-2 space-y-2">
                 {householders
-                  .filter((householder, index, self) => 
+                  .filter((householder, index, self) =>
                     // Remove duplicates based on householder ID
-                    index === self.findIndex(h => h.id === householder.id)
+                    index === self.findIndex((h) => h.id === householder.id)
                   )
-                  .map((householder) => (
-                    <button onClick={() => onHouseholderClick && onHouseholderClick(householder)} key={householder.id} className="flex items-start gap-3 p-3 border rounded-lg w-full text-left hover:bg-muted/50">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm font-medium">{householder.name}</span>
-                          <Badge variant="outline" className={cn("text-xs", getHouseholderStatusColorClass(householder.status))}>
-                            {formatStatusText(householder.status)}
-                          </Badge>
-                          {householder.assigned_user && (
-                            <div className="flex items-center gap-1">
-                              <Avatar className="h-4 w-4">
-                                <AvatarImage src={householder.assigned_user.avatar_url} />
-                                <AvatarFallback className="text-xs">
-                                  {`${householder.assigned_user.first_name} ${householder.assigned_user.last_name}`.charAt(0)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span className="text-xs text-muted-foreground">
-                                {householder.assigned_user.first_name} {householder.assigned_user.last_name}
-                              </span>
-                            </div>
+                  .map((householder) => {
+                    const initials = householder.name
+                      .split(" ")
+                      .filter(Boolean)
+                      .slice(0, 2)
+                      .map((part) => part[0]?.toUpperCase())
+                      .join("");
+
+                    return (
+                      <button
+                        key={householder.id}
+                        type="button"
+                        className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-muted/50 transition-colors flex items-center gap-3"
+                        onClick={() => onHouseholderClick && onHouseholderClick(householder)}
+                      >
+                        <Avatar className="h-9 w-9">
+                          <AvatarImage src={undefined} alt={householder.name} />
+                          <AvatarFallback className="text-[11px] font-semibold">
+                            {initials || "HH"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm font-medium truncate">{householder.name}</p>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "text-xs px-2 py-0.5 h-5 leading-none",
+                                getHouseholderStatusColorClass(householder.status)
+                              )}
+                            >
+                              {formatStatusText(householder.status)}
+                            </Badge>
+                          </div>
+                          {householder.note && (
+                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                              {householder.note}
+                            </p>
                           )}
                         </div>
-                        {householder.note && (
-                          <p className="text-sm text-muted-foreground">{householder.note}</p>
-                        )}
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    );
+                  })}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">No householders recorded yet</p>
+              <div className="text-center py-8 text-muted-foreground px-4">
+                <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No contacts yet</p>
+                <p className="text-sm">Contacts will appear here when calls are added</p>
+              </div>
             )}
           </CardContent>
         </Card>
