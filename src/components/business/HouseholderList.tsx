@@ -5,11 +5,9 @@ import { motion, AnimatePresence } from "motion/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { List, LayoutGrid, Table as TableIcon, Filter, User, UserCheck, X, Building2 } from "lucide-react";
+import { Building2 } from "lucide-react";
 import { type HouseholderWithDetails, type BusinessFiltersState } from "@/lib/db/business";
 import { cn } from "@/lib/utils";
-import { toast } from "@/components/ui/sonner";
-import { Button } from "@/components/ui/button";
 import { useListViewMode } from "@/lib/hooks/use-list-view-mode";
 import { useInfiniteList } from "@/lib/hooks/use-infinite-list";
 import { formatHouseholderStatusCompactText, formatStatusText } from "@/lib/utils/formatters";
@@ -125,6 +123,48 @@ export function HouseholderList({
     () => householders.slice(0, visibleCount),
     [householders, visibleCount]
   );
+  const TABLE_ROW_HEIGHT = 56;
+  const TABLE_OVERSCAN = 8;
+  const tableScrollRef = useRef<HTMLDivElement | null>(null);
+  const [tableScrollTop, setTableScrollTop] = useState(0);
+  const [tableViewportHeight, setTableViewportHeight] = useState(0);
+
+  useEffect(() => {
+    if (viewMode !== "table") return;
+    const el = tableScrollRef.current;
+    if (!el) return;
+    const updateSize = () => setTableViewportHeight(el.clientHeight);
+    updateSize();
+    window.addEventListener("resize", updateSize);
+    return () => window.removeEventListener("resize", updateSize);
+  }, [viewMode, householders.length]);
+
+  const virtualTable = useMemo(() => {
+    if (viewMode !== "table") {
+      return {
+        start: 0,
+        end: visibleHouseholders.length,
+        topPadding: 0,
+        bottomPadding: 0,
+        rows: visibleHouseholders,
+      };
+    }
+    const total = householders.length;
+    if (total === 0) {
+      return { start: 0, end: 0, topPadding: 0, bottomPadding: 0, rows: [] as HouseholderWithDetails[] };
+    }
+    const viewport = Math.max(tableViewportHeight, TABLE_ROW_HEIGHT);
+    const start = Math.max(0, Math.floor(tableScrollTop / TABLE_ROW_HEIGHT) - TABLE_OVERSCAN);
+    const visible = Math.ceil(viewport / TABLE_ROW_HEIGHT) + TABLE_OVERSCAN * 2;
+    const end = Math.min(total, start + visible);
+    return {
+      start,
+      end,
+      topPadding: start * TABLE_ROW_HEIGHT,
+      bottomPadding: (total - end) * TABLE_ROW_HEIGHT,
+      rows: householders.slice(start, end),
+    };
+  }, [viewMode, householders, visibleHouseholders, tableScrollTop, tableViewportHeight]);
 
   const hasActiveFilters = !!filters && (
     !!filters.search || (filters.statuses?.length ?? 0) > 0 || (filters.areas?.length ?? 0) > 0 || !!filters.myEstablishments
@@ -363,16 +403,21 @@ export function HouseholderList({
       
       {/* Scrollable Table Body */}
       <div
+        ref={tableScrollRef}
+        onScroll={(e) => setTableScrollTop((e.currentTarget as HTMLDivElement).scrollTop)}
         className="flex-1 overflow-y-auto no-scrollbar overscroll-none pb-[calc(max(env(safe-area-inset-bottom),0px)+5px)]"
         style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
       >
         <table className="w-full text-sm table-fixed">
           <tbody>
-            {visibleHouseholders.map((householder, index) => (
-              <motion.tr
-                key={householder.id || index}
-                layout
-                transition={{ duration: 0.2, ease: "easeOut" }}
+            {virtualTable.topPadding > 0 && (
+              <tr aria-hidden>
+                <td colSpan={3} style={{ height: virtualTable.topPadding }} />
+              </tr>
+            )}
+            {virtualTable.rows.map((householder, index) => (
+              <tr
+                key={householder.id || `${virtualTable.start}-${index}`}
                 className="border-b hover:bg-muted/30 cursor-pointer"
                 onClick={() => onHouseholderClick(householder)}
               >
@@ -394,13 +439,15 @@ export function HouseholderList({
                     <EstablishmentNameCell name={householder.establishment_name} />
                   ) : null}
                 </td>
-              </motion.tr>
+              </tr>
             ))}
+            {virtualTable.bottomPadding > 0 && (
+              <tr aria-hidden>
+                <td colSpan={3} style={{ height: virtualTable.bottomPadding }} />
+              </tr>
+            )}
           </tbody>
         </table>
-        {visibleCount < householders.length && (
-          <div ref={sentinelRef} className="h-16 w-full" aria-label="Load more trigger" />
-        )}
       </div>
     </div>
   );

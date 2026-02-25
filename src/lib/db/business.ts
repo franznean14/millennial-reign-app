@@ -310,26 +310,11 @@ export async function listHouseholders(): Promise<HouseholderWithDetails[]> {
     type HouseholderVisitRow = {
       householder_id?: string | null;
       visit_date?: string | null;
-      publisher?:
-        | { id: string; first_name: string; last_name: string; avatar_url?: string | null }
-        | Array<{ id: string; first_name: string; last_name: string; avatar_url?: string | null }>
-        | null;
-      partner?:
-        | { id: string; first_name: string; last_name: string; avatar_url?: string | null }
-        | Array<{ id: string; first_name: string; last_name: string; avatar_url?: string | null }>
-        | null;
     };
     const { data: visits, error: visitsError } = householderIds.length
       ? await supabase
           .from('calls')
-          .select(
-            `
-              householder_id,
-              visit_date,
-              publisher:profiles!calls_publisher_id_fkey(id, first_name, last_name, avatar_url),
-              partner:profiles!calls_partner_id_fkey(id, first_name, last_name, avatar_url)
-            `
-          )
+          .select('householder_id, visit_date')
           .in('householder_id', householderIds)
       : { data: [] as HouseholderVisitRow[], error: null };
     if (visitsError) {
@@ -350,39 +335,7 @@ export async function listHouseholders(): Promise<HouseholderWithDetails[]> {
       // Get establishment name
       const establishment = Array.isArray(hh.establishment) ? hh.establishment[0] : hh.establishment;
       
-      // Get unique visitors with visit counts
-      const visitors = new Map();
       const hhVisits = visitsByHouseholder.get(hh.id) || [];
-      hhVisits.forEach((visit: HouseholderVisitRow) => {
-        const publisher = Array.isArray(visit.publisher) ? visit.publisher[0] : visit.publisher;
-        const partner = Array.isArray(visit.partner) ? visit.partner[0] : visit.partner;
-        if (publisher) {
-          const key = publisher.id;
-          if (!visitors.has(key)) {
-            visitors.set(key, {
-              user_id: publisher.id,
-              first_name: publisher.first_name,
-              last_name: publisher.last_name,
-              avatar_url: publisher.avatar_url,
-              visit_count: 0
-            });
-          }
-          visitors.get(key).visit_count++;
-        }
-        if (partner) {
-          const key = partner.id;
-          if (!visitors.has(key)) {
-            visitors.set(key, {
-              user_id: partner.id,
-              first_name: partner.first_name,
-              last_name: partner.last_name,
-              avatar_url: partner.avatar_url,
-              visit_count: 0
-            });
-          }
-          visitors.get(key).visit_count++;
-        }
-      });
 
       // Calculate last_visit_at from visits
       const last_visit_at = hhVisits
@@ -402,7 +355,7 @@ export async function listHouseholders(): Promise<HouseholderWithDetails[]> {
         lng: hh.lng ?? null,
         created_at: hh.created_at,
         last_visit_at,
-        top_visitors: Array.from(visitors.values()).sort((a, b) => b.visit_count - a.visit_count)
+        top_visitors: []
       };
     });
 
@@ -1349,28 +1302,13 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
     type VisitRow = {
       establishment_id?: string | null;
       visit_date?: string | null;
-      publisher?:
-        | { id: string; first_name: string; last_name: string; avatar_url?: string | null }
-        | Array<{ id: string; first_name: string; last_name: string; avatar_url?: string | null }>
-        | null;
-      partner?:
-        | { id: string; first_name: string; last_name: string; avatar_url?: string | null }
-        | Array<{ id: string; first_name: string; last_name: string; avatar_url?: string | null }>
-        | null;
     };
 
     const [visitsResult, householdersResult] = await Promise.all([
       establishmentIds.length
         ? supabase
             .from('calls')
-            .select(
-              `
-                establishment_id,
-                visit_date,
-                publisher:profiles!calls_publisher_id_fkey(id, first_name, last_name, avatar_url),
-                partner:profiles!calls_partner_id_fkey(id, first_name, last_name, avatar_url)
-              `
-            )
+            .select('establishment_id, visit_date')
             .in('establishment_id', establishmentIds)
         : Promise.resolve({ data: [] as VisitRow[] }),
       establishmentIds.length
@@ -1400,7 +1338,6 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
       {
         visit_count: number;
         last_visit_at: string | null;
-        visitorCounts: Map<string, { count: number; profile: any }>;
       }
     >();
 
@@ -1411,7 +1348,6 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
         visitStats.set(establishmentId, {
           visit_count: 0,
           last_visit_at: null,
-          visitorCounts: new Map()
         });
       }
       const stats = visitStats.get(establishmentId)!;
@@ -1420,22 +1356,6 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
         if (!stats.last_visit_at || visit.visit_date > stats.last_visit_at) {
           stats.last_visit_at = visit.visit_date;
         }
-      }
-      const publisher = Array.isArray(visit.publisher) ? visit.publisher[0] : visit.publisher;
-      const partner = Array.isArray(visit.partner) ? visit.partner[0] : visit.partner;
-      if (publisher) {
-        const existing = stats.visitorCounts.get(publisher.id);
-        stats.visitorCounts.set(publisher.id, {
-          count: (existing?.count || 0) + 1,
-          profile: publisher
-        });
-      }
-      if (partner) {
-        const existing = stats.visitorCounts.get(partner.id);
-        stats.visitorCounts.set(partner.id, {
-          count: (existing?.count || 0) + 1,
-          profile: partner
-        });
       }
     });
 
@@ -1451,18 +1371,8 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
       const stats = visitStats.get(establishment.id) || {
         visit_count: 0,
         last_visit_at: null,
-        visitorCounts: new Map<string, { count: number; profile: any }>()
       };
-      const top_visitors = Array.from(stats.visitorCounts.entries())
-        .map(([user_id, data]) => ({
-          user_id,
-          first_name: data.profile.first_name,
-          last_name: data.profile.last_name,
-          avatar_url: data.profile.avatar_url,
-          visit_count: data.count
-        }))
-        .sort((a, b) => b.visit_count - a.visit_count)
-        .slice(0, 5);
+      const top_visitors: EstablishmentWithDetails["top_visitors"] = [];
 
       return {
         ...establishment,

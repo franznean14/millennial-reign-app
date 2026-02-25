@@ -5,13 +5,10 @@ import { motion, AnimatePresence } from "motion/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { List, LayoutGrid, Table as TableIcon, Filter, User, UserCheck, X } from "lucide-react";
 import { type EstablishmentWithDetails, type BusinessFiltersState } from "@/lib/db/business";
 import { cn } from "@/lib/utils";
-import { toast } from "@/components/ui/sonner";
-import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { getStatusColor, getStatusTextColor, getBestStatus } from "@/lib/utils/status-hierarchy";
+import { getStatusTextColor, getBestStatus } from "@/lib/utils/status-hierarchy";
 import { useListViewMode } from "@/lib/hooks/use-list-view-mode";
 import { useInfiniteList } from "@/lib/hooks/use-infinite-list";
 import { formatEstablishmentStatusCompactText, formatStatusText } from "@/lib/utils/formatters";
@@ -128,6 +125,48 @@ export function EstablishmentList({
     () => establishments.slice(0, visibleCount),
     [establishments, visibleCount]
   );
+  const TABLE_ROW_HEIGHT = 56;
+  const TABLE_OVERSCAN = 8;
+  const tableScrollRef = useRef<HTMLDivElement | null>(null);
+  const [tableScrollTop, setTableScrollTop] = useState(0);
+  const [tableViewportHeight, setTableViewportHeight] = useState(0);
+
+  useEffect(() => {
+    if (viewMode !== "table") return;
+    const el = tableScrollRef.current;
+    if (!el) return;
+    const updateSize = () => setTableViewportHeight(el.clientHeight);
+    updateSize();
+    window.addEventListener("resize", updateSize);
+    return () => window.removeEventListener("resize", updateSize);
+  }, [viewMode, establishments.length]);
+
+  const virtualTable = useMemo(() => {
+    if (viewMode !== "table") {
+      return {
+        start: 0,
+        end: visibleEstablishments.length,
+        topPadding: 0,
+        bottomPadding: 0,
+        rows: visibleEstablishments,
+      };
+    }
+    const total = establishments.length;
+    if (total === 0) {
+      return { start: 0, end: 0, topPadding: 0, bottomPadding: 0, rows: [] as EstablishmentWithDetails[] };
+    }
+    const viewport = Math.max(tableViewportHeight, TABLE_ROW_HEIGHT);
+    const start = Math.max(0, Math.floor(tableScrollTop / TABLE_ROW_HEIGHT) - TABLE_OVERSCAN);
+    const visible = Math.ceil(viewport / TABLE_ROW_HEIGHT) + TABLE_OVERSCAN * 2;
+    const end = Math.min(total, start + visible);
+    return {
+      start,
+      end,
+      topPadding: start * TABLE_ROW_HEIGHT,
+      bottomPadding: (total - end) * TABLE_ROW_HEIGHT,
+      rows: establishments.slice(start, end),
+    };
+  }, [viewMode, establishments, visibleEstablishments, tableScrollTop, tableViewportHeight]);
 
   const hasActiveFilters = !!filters && (
     !!filters.search || (filters.statuses?.length ?? 0) > 0 || (filters.areas?.length ?? 0) > 0 || !!filters.myEstablishments || !!filters.excludePersonalTerritory
@@ -479,16 +518,21 @@ export function EstablishmentList({
       
       {/* Scrollable Table Body */}
       <div
+        ref={tableScrollRef}
+        onScroll={(e) => setTableScrollTop((e.currentTarget as HTMLDivElement).scrollTop)}
         className="flex-1 overflow-y-auto no-scrollbar overscroll-none pb-[calc(max(env(safe-area-inset-bottom),0px)+175px)]"
         style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
       >
         <table className="w-full text-sm table-fixed">
           <tbody>
-            {visibleEstablishments.map((establishment, index) => (
-              <motion.tr
-                key={establishment.id || index}
-                layout
-                transition={{ duration: 0.2, ease: "easeOut" }}
+            {virtualTable.topPadding > 0 && (
+              <tr aria-hidden>
+                <td colSpan={3} style={{ height: virtualTable.topPadding }} />
+              </tr>
+            )}
+            {virtualTable.rows.map((establishment, index) => (
+              <tr
+                key={establishment.id || `${virtualTable.start}-${index}`}
                 className="border-b hover:bg-muted/30 cursor-pointer"
                 onClick={() => onEstablishmentClick(establishment)}
               >
@@ -520,13 +564,15 @@ export function EstablishmentList({
                 <td className="p-3 min-w-0 w-[27%]">
                   <MarqueeCell text={establishment.area || '-'} />
                 </td>
-              </motion.tr>
+              </tr>
             ))}
+            {virtualTable.bottomPadding > 0 && (
+              <tr aria-hidden>
+                <td colSpan={3} style={{ height: virtualTable.bottomPadding }} />
+              </tr>
+            )}
           </tbody>
         </table>
-        {visibleCount < establishments.length && (
-          <div ref={sentinelRef} className="h-16 w-full" aria-label="Load more trigger" />
-        )}
       </div>
     </div>
   );
