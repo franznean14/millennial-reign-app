@@ -120,11 +120,11 @@ export function BusinessFiltersForm({
             {scope !== "householders" && (
               <Button
                 type="button"
-                variant="outline"
+                variant={localFilters.excludePersonalTerritory ? "default" : "outline"}
                 size="sm"
                 onClick={toggleExcludePersonalTerritory}
                 className={cn(
-                  "h-8 rounded-full",
+                  "h-8 border rounded-full",
                   localFilters.excludePersonalTerritory
                     ? getSelectedStatusColor("exclude_personal_territory")
                     : getFadedStatusColor("exclude_personal_territory")
