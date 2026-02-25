@@ -140,12 +140,13 @@ function BusinessControlsContent({
     setIsSearchActive(false);
   };
 
-  const hasFilterOptions = filters.statuses.length > 0 || filters.areas.length > 0 || filters.floors.length > 0;
+  const hasFilterOptions = filters.statuses.length > 0 || filters.areas.length > 0 || filters.floors.length > 0 || !!filters.excludePersonalTerritory;
   const showOtherButtons = !hasFilterOptions && !filters.myEstablishments && !isSearchActive;
   const badges: FilterBadge[] = buildFilterBadges({
     statuses: filters.statuses,
     areas: filters.areas,
     floors: filters.floors,
+    excludePersonalTerritory: filters.excludePersonalTerritory,
     formatStatusLabel
   });
   const isDetailsView = !!selectedEstablishment || !!selectedHouseholder;
@@ -296,7 +297,8 @@ function BusinessControlsContent({
                   ...filters,
                   statuses: [],
                   areas: [],
-                  floors: []
+                  floors: [],
+                  excludePersonalTerritory: false
                 })
               }
               onRemoveBadge={(badge) => {
@@ -306,6 +308,8 @@ function BusinessControlsContent({
                   onRemoveArea(badge.value);
                 } else if (badge.type === "floor") {
                   onRemoveFloor(badge.value);
+                } else if (badge.type === "exclude_personal_territory") {
+                  onFiltersChange({ ...filters, excludePersonalTerritory: false });
                 }
               }}
               containerClassName={isSearchActive ? "w-full !max-w-none !px-0" : "justify-center"}

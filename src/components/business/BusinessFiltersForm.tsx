@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { ArrowDownAZ, ArrowUpAZ, ArrowDownWideNarrow, ArrowUpWideNarrow } from "lucide-react";
 import { Label } from "@/components/ui/label";
-import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
 import { StatusFilterButtons } from "@/components/filters/StatusFilterButtons";
+import { getFadedStatusColor, getSelectedStatusColor } from "@/lib/utils/status-filter-styles";
 import { cn } from "@/lib/utils";
 import type { BusinessFiltersState } from "@/lib/db/business";
 
@@ -57,8 +57,18 @@ export function BusinessFiltersForm({
       floors: [],
       myEstablishments: false,
       nearMe: false,
+      excludePersonalTerritory: false,
       userLocation: null
     });
+  };
+
+  const toggleExcludePersonalTerritory = () => {
+    const newFilters = {
+      ...localFilters,
+      excludePersonalTerritory: !localFilters.excludePersonalTerritory
+    };
+    setLocalFilters(newFilters);
+    applyFiltersImmediately(newFilters);
   };
 
   const toggleStatus = (status: string) => {
@@ -101,11 +111,29 @@ export function BusinessFiltersForm({
       <div className="space-y-4">
         <div className="space-y-2">
           <Label>Status</Label>
-          <StatusFilterButtons
-            options={statusOptions}
-            selected={localFilters.statuses}
-            onToggle={toggleStatus}
-          />
+          <div className="flex flex-wrap gap-2">
+            <StatusFilterButtons
+              options={statusOptions}
+              selected={localFilters.statuses}
+              onToggle={toggleStatus}
+            />
+            {scope !== "householders" && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={toggleExcludePersonalTerritory}
+                className={cn(
+                  "h-8 rounded-full",
+                  localFilters.excludePersonalTerritory
+                    ? getSelectedStatusColor("exclude_personal_territory")
+                    : getFadedStatusColor("exclude_personal_territory")
+                )}
+              >
+                Exclude Personal Territory
+              </Button>
+            )}
+          </div>
         </div>
 
         <div className="space-y-2">

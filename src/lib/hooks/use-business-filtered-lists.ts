@@ -62,6 +62,10 @@ export function useBusinessFilteredLists({
         if (!visitedByUser) return false;
       }
 
+      if (filters.excludePersonalTerritory && establishment.publisher_id) {
+        return false;
+      }
+
       if (filters.nearMe) {
         if (!filters.userLocation || establishment.lat == null || establishment.lng == null) {
           return false;

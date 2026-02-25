@@ -158,6 +158,7 @@ export function AppClient() {
     floors: [],
     myEstablishments: false,
     nearMe: false,
+    excludePersonalTerritory: false,
     userLocation: null,
     sort: "last_visit_desc",
   };
@@ -204,6 +205,7 @@ export function AppClient() {
             floors: Array.isArray(saved.floors) ? saved.floors : prev.floors,
             myEstablishments: typeof saved.myEstablishments === "boolean" ? saved.myEstablishments : prev.myEstablishments,
             nearMe: typeof saved.nearMe === "boolean" ? saved.nearMe : prev.nearMe,
+            excludePersonalTerritory: typeof saved.excludePersonalTerritory === "boolean" ? saved.excludePersonalTerritory : prev.excludePersonalTerritory ?? false,
             userLocation: saved.userLocation != null ? saved.userLocation : prev.userLocation,
             sort: saved.sort ?? prev.sort ?? "last_visit_desc",
           };

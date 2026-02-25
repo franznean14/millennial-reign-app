@@ -130,7 +130,7 @@ export function EstablishmentList({
   );
 
   const hasActiveFilters = !!filters && (
-    !!filters.search || (filters.statuses?.length ?? 0) > 0 || (filters.areas?.length ?? 0) > 0 || !!filters.myEstablishments
+    !!filters.search || (filters.statuses?.length ?? 0) > 0 || (filters.areas?.length ?? 0) > 0 || !!filters.myEstablishments || !!filters.excludePersonalTerritory
   );
 
   const formatStatusCompactText = formatEstablishmentStatusCompactText;
@@ -160,6 +160,37 @@ export function EstablishmentList({
       default:
         return 'bg-gray-500';
     }
+  };
+
+  const PERSONAL_TERRITORY_LABEL = "Personal Territory";
+  const PERSONAL_TERRITORY_BADGE_CLASS = "text-pink-400 border-pink-400/60";
+
+  const isPersonalTerritory = (establishment: EstablishmentWithDetails) =>
+    !!establishment.publisher_id;
+
+  const getPrimaryStatusLabel = (establishment: EstablishmentWithDetails) => {
+    if (isPersonalTerritory(establishment)) return PERSONAL_TERRITORY_LABEL;
+    if (establishment.statuses?.length) return formatStatusText(getBestStatus(establishment.statuses));
+    return "Unknown";
+  };
+
+  const getPrimaryStatusLabelCompact = (establishment: EstablishmentWithDetails) => {
+    if (isPersonalTerritory(establishment)) return "Personal";
+    if (establishment.statuses?.length) return formatStatusCompactText(getBestStatus(establishment.statuses));
+    return "—";
+  };
+
+  const getPrimaryStatusClass = (establishment: EstablishmentWithDetails) =>
+    isPersonalTerritory(establishment)
+      ? PERSONAL_TERRITORY_BADGE_CLASS
+      : getStatusTextColor(getBestStatus(establishment.statuses || []));
+
+  const getSecondaryStatusesForDots = (establishment: EstablishmentWithDetails) => {
+    const statuses = establishment.statuses || [];
+    if (!statuses.length) return [];
+    if (isPersonalTerritory(establishment)) return statuses;
+    const best = getBestStatus(statuses);
+    return statuses.filter((s) => s !== best);
   };
 
   const renderDetailedView = (establishment: EstablishmentWithDetails, index: number) => (
@@ -197,23 +228,19 @@ export function EstablishmentList({
                     <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-card via-card/50 to-transparent pointer-events-none"></div>
                   </div>
                   
-                  {/* Status Badge with Hierarchy */}
+                  {/* Status Badge with Hierarchy / Personal Territory */}
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <Badge 
                       variant="outline" 
-                      className={cn(getStatusTextColor(getBestStatus(establishment.statuses || [])))}
+                      className={cn(getPrimaryStatusClass(establishment))}
                     >
-                      {establishment.statuses && establishment.statuses.length > 0 
-                        ? formatStatusText(getBestStatus(establishment.statuses))
-                        : 'Unknown'}
+                      {getPrimaryStatusLabel(establishment)}
                     </Badge>
                     
-                    {/* Additional status dots - Fixed color logic */}
-                    {establishment.statuses && establishment.statuses.length > 1 && (
+                    {/* Additional status dots */}
+                    {getSecondaryStatusesForDots(establishment).length > 0 && (
                       <div className="flex gap-1">
-                        {establishment.statuses
-                          .filter(status => status !== getBestStatus(establishment.statuses))
-                          .map((status, index) => {
+                        {getSecondaryStatusesForDots(establishment).map((status) => {
                             // Get the solid color for the dot
                             let dotColor = '';
                             switch (status) {
@@ -343,23 +370,19 @@ export function EstablishmentList({
               <div className="flex items-center gap-2 mb-1 flex-wrap min-w-0">
                 <h3 className="font-semibold text-sm truncate" title={establishment.name}>{truncateEstablishmentName(establishment.name)}</h3>
                 
-                {/* Status Badge with Hierarchy */}
+                {/* Status Badge with Hierarchy / Personal Territory */}
                 <div className="flex items-center gap-1">
                   <Badge 
                     variant="outline" 
-                    className={cn("text-xs px-1.5 py-0.5", getStatusTextColor(getBestStatus(establishment.statuses || [])))}
+                    className={cn("text-xs px-1.5 py-0.5", getPrimaryStatusClass(establishment))}
                   >
-                    {establishment.statuses && establishment.statuses.length > 0 
-                      ? formatStatusText(getBestStatus(establishment.statuses))
-                      : 'Unknown'}
+                    {getPrimaryStatusLabel(establishment)}
                   </Badge>
                   
-                  {/* Additional status dots - Fixed color logic */}
-                  {establishment.statuses && establishment.statuses.length > 1 && (
+                  {/* Additional status dots */}
+                  {getSecondaryStatusesForDots(establishment).length > 0 && (
                     <div className="flex gap-1">
-                      {establishment.statuses
-                        .filter(status => status !== getBestStatus(establishment.statuses))
-                        .map((status, index) => {
+                      {getSecondaryStatusesForDots(establishment).map((status) => {
                           // Get the solid color for the dot
                           let dotColor = '';
                           switch (status) {
@@ -476,20 +499,19 @@ export function EstablishmentList({
                   <div className="flex items-center gap-1 min-w-0">
                     <Badge 
                       variant="outline" 
-                      className={cn("text-[10px] leading-4 px-1.5 py-0.5 rounded-sm", getStatusTextColor(getBestStatus(establishment.statuses || [])))}
+                      className={cn("text-[10px] leading-4 px-1.5 py-0.5 rounded-sm", getPrimaryStatusClass(establishment))}
                     >
-                      {formatStatusCompactText(getBestStatus(establishment.statuses || []))}
+                      {getPrimaryStatusLabelCompact(establishment)}
                     </Badge>
-                    {(establishment.statuses && establishment.statuses.length > 1) && (
+                    {getSecondaryStatusesForDots(establishment).length > 0 && (
                       <div className="flex items-center gap-0.5">
-                        {establishment.statuses
-                          ?.filter(s => s !== getBestStatus(establishment.statuses || []))
+                        {getSecondaryStatusesForDots(establishment)
                           .slice(0, 3)
                           .map((status) => (
                             <div key={status} className={cn("w-1.5 h-1.5 rounded-full", getStatusDotColorClass(status))} title={formatStatusText(status)} />
                           ))}
-                        {establishment.statuses.filter(s => s !== getBestStatus(establishment.statuses || [])).length > 3 && (
-                          <span className="text-[10px] text-muted-foreground">+{establishment.statuses.filter(s => s !== getBestStatus(establishment.statuses || [])).length - 3}</span>
+                        {getSecondaryStatusesForDots(establishment).length > 3 && (
+                          <span className="text-[10px] text-muted-foreground">+{getSecondaryStatusesForDots(establishment).length - 3}</span>
                         )}
                       </div>
                     )}

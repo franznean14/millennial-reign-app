@@ -149,6 +149,7 @@ export function BusinessSection({
     filters.areas.length > 0 ||
     filters.floors.length > 0 ||
     filters.myEstablishments ||
+    !!filters.excludePersonalTerritory ||
     !!filters.sort;
 
   const defaultFilters = useMemo<BusinessFiltersState>(
@@ -159,6 +160,7 @@ export function BusinessSection({
       floors: [],
       myEstablishments: false,
       nearMe: false,
+      excludePersonalTerritory: false,
       userLocation: null,
       sort: "last_visit_desc"
     }),
