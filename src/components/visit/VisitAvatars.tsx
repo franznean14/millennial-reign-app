@@ -41,10 +41,11 @@ export function VisitAvatars({
   const guestFallbackClass =
     "bg-amber-500/25 text-amber-800 dark:bg-amber-500/30 dark:text-amber-200 ring-1 ring-amber-500/50 dark:ring-amber-400/40";
   const defaultFallbackClass = "bg-muted text-muted-foreground";
+  const avatarSizeClass = sizeClassName;
 
   return (
     <>
-      <Avatar className={cn("rounded-full shrink-0", sizeClassName)}>
+      <Avatar className={cn("rounded-full shrink-0", avatarSizeClass)}>
         {publisher?.avatar_url && (
           <AvatarImage src={publisher.avatar_url} alt={firstDisplayName} className="object-cover" />
         )}
@@ -55,7 +56,12 @@ export function VisitAvatars({
         </AvatarFallback>
       </Avatar>
       {hasSecond && (
-        <Avatar className={cn("rounded-full shrink-0 -ml-2 border-2 border-background", sizeClassName)}>
+        <Avatar
+          className={cn(
+            "rounded-full shrink-0 -ml-2 ring-2 ring-background",
+            avatarSizeClass
+          )}
+        >
           {partner?.avatar_url && (
             <AvatarImage src={partner.avatar_url} alt={secondDisplayName} className="object-cover" />
           )}
