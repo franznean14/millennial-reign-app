@@ -139,6 +139,8 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
   const [todoInput, setTodoInput] = useState("");
   const [showTodoInput, setShowTodoInput] = useState(false);
   const [todosLoaded, setTodosLoaded] = useState(false);
+  const [editingTodoKey, setEditingTodoKey] = useState<string | null>(null);
+  const [editingTodoDraft, setEditingTodoDraft] = useState("");
   const [addPublisherDrawerOpen, setAddPublisherDrawerOpen] = useState(false);
   const [existingGuests, setExistingGuests] = useState<string[]>([]);
   const [newGuestName, setNewGuestName] = useState("");
@@ -416,6 +418,8 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
   }, []);
 
   const handleRemoveTodo = useCallback(async (item: TodoItem) => {
+    setEditingTodoKey(null);
+    setEditingTodoDraft("");
     if (item.id) {
       const ok = await deleteCallTodo(item.id);
       if (ok) setTodos((prev) => prev.filter((t) => t.id !== item.id));
@@ -423,6 +427,38 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
     } else {
       setTodos((prev) => prev.filter((t) => t !== item));
     }
+  }, []);
+
+  const getTodoKey = (item: TodoItem, index: number) => item.id ?? `draft-${index}`;
+
+  const handleStartEditTodo = useCallback((item: TodoItem, index: number) => {
+    setEditingTodoKey(getTodoKey(item, index));
+    setEditingTodoDraft(item.body);
+  }, []);
+
+  const handleCommitEditTodo = useCallback(
+    async (item: TodoItem, index: number) => {
+      const key = getTodoKey(item, index);
+      if (editingTodoKey !== key) return;
+      const trimmed = editingTodoDraft.trim();
+      setEditingTodoKey(null);
+      setEditingTodoDraft("");
+      if (trimmed === item.body) return;
+      if (!trimmed) return;
+      if (item.id) {
+        const ok = await updateCallTodo(item.id, { body: trimmed });
+        if (ok) setTodos((prev) => prev.map((t) => (t.id === item.id ? { ...t, body: trimmed } : t)));
+        else toast.error("Failed to update to-do");
+      } else {
+        setTodos((prev) => prev.map((t, i) => (i === index ? { ...t, body: trimmed } : t)));
+      }
+    },
+    [editingTodoKey, editingTodoDraft]
+  );
+
+  const handleCancelEditTodo = useCallback(() => {
+    setEditingTodoKey(null);
+    setEditingTodoDraft("");
   }, []);
 
   return (
@@ -600,36 +636,75 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
         <Textarea value={note} onChange={e=>setNote(e.target.value)} className="min-h-[120px]" />
       </div>
 
-      <div className="grid gap-1">
+      <div className="grid gap-1 min-w-0 overflow-hidden">
         <Label>To-Do</Label>
         {todosLoaded && (
           <>
-            <ul className="space-y-2">
-              {todos.map((item, index) => (
-                <li key={item.id ?? `draft-${index}`} className="flex items-center gap-2">
-                  <Checkbox
-                    checked={item.is_done}
-                    onCheckedChange={() => handleToggleTodo(item)}
-                    aria-label={item.is_done ? "Mark not done" : "Mark done"}
-                  />
-                  <span className={cn("flex-1 text-sm min-w-0 truncate", item.is_done && "text-muted-foreground line-through")}>
-                    {item.body}
-                  </span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 shrink-0"
-                    onClick={() => handleRemoveTodo(item)}
-                    aria-label="Remove to-do"
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </li>
-              ))}
+            <ul className="space-y-2 min-w-0">
+              {todos.map((item, index) => {
+                const todoKey = getTodoKey(item, index);
+                const isEditing = editingTodoKey === todoKey;
+                return (
+                  <li key={todoKey} className="flex items-center gap-2 min-w-0">
+                    <Checkbox
+                      checked={item.is_done}
+                      onCheckedChange={() => handleToggleTodo(item)}
+                      aria-label={item.is_done ? "Mark not done" : "Mark done"}
+                      className="shrink-0"
+                    />
+                    {isEditing ? (
+                      <Input
+                        value={editingTodoDraft}
+                        onChange={(e) => setEditingTodoDraft(e.target.value)}
+                        onBlur={() => {
+                          const t = editingTodoDraft.trim();
+                          if (t) handleCommitEditTodo(item, index);
+                          else handleCancelEditTodo();
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            const t = editingTodoDraft.trim();
+                            if (t) handleCommitEditTodo(item, index);
+                            else handleCancelEditTodo();
+                          }
+                          if (e.key === "Escape") {
+                            e.preventDefault();
+                            handleCancelEditTodo();
+                          }
+                        }}
+                        className="flex-1 min-w-0 h-8 text-sm"
+                        autoFocus
+                        aria-label="Edit to-do"
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleStartEditTodo(item, index)}
+                        className={cn(
+                          "flex-1 text-sm min-w-0 truncate text-left py-1 rounded hover:bg-muted/50 active:bg-muted transition-colors",
+                          item.is_done && "text-muted-foreground line-through"
+                        )}
+                      >
+                        {item.body}
+                      </button>
+                    )}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 shrink-0"
+                      onClick={() => handleRemoveTodo(item)}
+                      aria-label="Remove to-do"
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </li>
+                );
+              })}
             </ul>
             {showTodoInput ? (
-              <div className="flex gap-2 mt-2">
+              <div className="flex gap-2 mt-2 min-w-0">
                 <Input
                   value={todoInput}
                   onChange={(e) => setTodoInput(e.target.value)}
@@ -638,13 +713,13 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
                     if (e.key === "Escape") { setShowTodoInput(false); setTodoInput(""); }
                   }}
                   placeholder="To-do..."
-                  className="flex-1"
+                  className="flex-1 min-w-0"
                   autoFocus
                 />
-                <Button type="button" variant="secondary" size="sm" onClick={handleAddTodo} disabled={!todoInput.trim()}>
+                <Button type="button" variant="secondary" size="sm" onClick={handleAddTodo} disabled={!todoInput.trim()} className="shrink-0">
                   Add
                 </Button>
-                <Button type="button" variant="ghost" size="sm" onClick={() => { setShowTodoInput(false); setTodoInput(""); }}>
+                <Button type="button" variant="ghost" size="sm" onClick={() => { setShowTodoInput(false); setTodoInput(""); }} className="shrink-0">
                   Cancel
                 </Button>
               </div>
@@ -653,7 +728,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
                 type="button"
                 variant="outline"
                 size="sm"
-                className="mt-2 gap-1"
+                className="mt-2 gap-1 w-fit"
                 onClick={() => setShowTodoInput(true)}
               >
                 <Plus className="h-4 w-4" />

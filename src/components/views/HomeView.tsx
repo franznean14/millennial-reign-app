@@ -3,6 +3,7 @@
 import { HomeSummary } from "@/components/home/HomeSummary";
 import { DesktopHomeSummary } from "@/components/home/DesktopHomeSummary";
 import { VisitHistory } from "@/components/home/VisitHistory";
+import { HomeTodoCard } from "@/components/home/HomeTodoCard";
 import { UpcomingEvents } from "@/components/home/UpcomingEvents";
 import { useEffect, useState } from "react";
 
@@ -15,6 +16,8 @@ interface HomeViewProps {
     status: string,
     area?: string
   ) => void;
+  onNavigateToBusiness?: () => void;
+  onNavigateToTodoCall?: (params: { establishmentId?: string; householderId?: string }) => void;
   homeTab?: 'summary' | 'events';
   bwiAreaFilter: "all" | string;
   onBwiAreaChange: (area: "all" | string) => void;
@@ -25,6 +28,8 @@ export function HomeView({
   onVisitClick,
   onNavigateToCongregation,
   onNavigateToBusinessWithStatus,
+  onNavigateToBusiness,
+  onNavigateToTodoCall,
   homeTab = 'summary',
   bwiAreaFilter,
   onBwiAreaChange,
@@ -65,8 +70,8 @@ export function HomeView({
     <div className="space-y-6 w-full max-w-full overflow-x-hidden">
       {homeTab === 'summary' ? (
         <>
-          {/* Mobile: Simple Home Summary */}
-          <div className="lg:hidden">
+          {/* Mobile: Hours card, BWI summary card, To-Do card — consistent gap between all three */}
+          <div className="lg:hidden space-y-6">
             <HomeSummary
               userId={userId}
               monthStart={dateRanges.monthStart}
@@ -75,10 +80,6 @@ export function HomeView({
               serviceYearEnd={dateRanges.serviceYearEnd}
               onNavigateToCongregation={onNavigateToCongregation}
             />
-            
-            {/* Gap between cards */}
-            <div className="h-6" />
-            
             <VisitHistory 
               userId={userId} 
               onVisitClick={onVisitClick}
@@ -86,7 +87,7 @@ export function HomeView({
               bwiAreaFilter={bwiAreaFilter}
               onBwiAreaChange={onBwiAreaChange}
             />
-            
+            <HomeTodoCard userId={userId} onNavigateToTodoCall={onNavigateToTodoCall} />
           </div>
 
           {/* Desktop: Desktop Home Summary with Calendar and Form */}

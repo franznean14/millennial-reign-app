@@ -36,7 +36,7 @@ function FormModalBody({ children, className }: FormModalBodyProps) {
   return (
     <div
       ref={bodyRef}
-      className={cn("px-4", isScrollable ? "pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]" : "", className)}
+      className={cn("px-4 min-w-0 overflow-x-hidden", isScrollable ? "pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]" : "", className)}
     >
       {children}
     </div>

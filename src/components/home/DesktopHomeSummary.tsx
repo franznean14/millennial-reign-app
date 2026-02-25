@@ -5,13 +5,14 @@ import NumberFlow from "@number-flow/react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatDateHuman } from "@/lib/utils";
 import { cacheGet, cacheSet } from "@/lib/offline/store";
-import { Plus, ChevronLeft, ChevronRight, Eye, Copy } from "lucide-react";
+import { Plus, ChevronLeft, ChevronRight, Eye, Copy, ListTodo } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getDailyRecord, listDailyByMonth, upsertDailyRecord, isDailyEmpty, deleteDailyRecord } from "@/lib/db/dailyRecords";
+import { getMyOpenCallTodos, type MyOpenCallTodoItem } from "@/lib/db/business";
 import { NumberFlowInput } from "@/components/ui/number-flow-input";
 import { FormModal } from "@/components/shared/FormModal";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -59,6 +60,7 @@ export function DesktopHomeSummary({
   serviceYearStart,
   serviceYearEnd,
   onNavigateToCongregation,
+  onNavigateToBusiness,
 }: DesktopHomeSummaryProps) {
   // Home summary state
   const [monthHours, setMonthHours] = useState(0);
@@ -69,6 +71,7 @@ export function DesktopHomeSummary({
   const [timeZone, setTimeZone] = useState<string | null>(null);
   const [uid, setUid] = useState<string | null>(null);
   const [isOffline, setIsOffline] = useState(false);
+  const [openTodos, setOpenTodos] = useState<MyOpenCallTodoItem[]>([]);
   const [range, setRange] = useState({
     mStart: monthStart,
     mNext: nextMonthStart,
@@ -393,7 +396,14 @@ export function DesktopHomeSummary({
       setStudies([]);
       setLocalPioneer(false);
       setDataLoaded(false);
+      setOpenTodos([]);
     }
+  }, [uid]);
+
+  // Load open call to-dos for home card
+  useEffect(() => {
+    if (!uid) return;
+    getMyOpenCallTodos(uid, 10).then(setOpenTodos);
   }, [uid]);
 
   // Load daily records when drawer opens
@@ -661,7 +671,7 @@ export function DesktopHomeSummary({
 
   return (
     <>
-      <div className="w-1/3">
+      <div className="w-1/3 space-y-4">
         <Card 
           className="cursor-pointer hover:bg-muted/50 transition-colors"
           onClick={() => setRecordsDrawerOpen(true)}
@@ -852,6 +862,33 @@ export function DesktopHomeSummary({
           </div>
         </CardContent>
       </Card>
+
+        {/* To-Do card — same design as BWI summary card */}
+        <div className="rounded-lg border overflow-hidden bg-background">
+          <div className="p-4">
+            <div className="text-xs text-muted-foreground mb-4 flex items-center gap-1.5">
+              <ListTodo className="h-4 w-4 shrink-0" />
+              <span>To-Do</span>
+            </div>
+            <ul className="space-y-3">
+              {openTodos.length === 0 ? (
+                <li className="text-sm text-muted-foreground py-1">No open to-dos from your calls</li>
+              ) : (
+                openTodos.slice(0, 5).map((todo) => (
+                  <li key={todo.id} className="text-sm flex items-start gap-2">
+                    <span className="rounded border border-border bg-muted/50 w-4 h-4 mt-0.5 shrink-0" aria-hidden />
+                    <span className="min-w-0 flex-1 line-clamp-2">{todo.body}</span>
+                    {todo.visit_date ? (
+                      <span className="text-xs text-muted-foreground shrink-0">
+                        {formatDateHuman(todo.visit_date, timeZone || undefined)}
+                      </span>
+                    ) : null}
+                  </li>
+                ))
+              )}
+            </ul>
+          </div>
+        </div>
       </div>
 
       <FormModal

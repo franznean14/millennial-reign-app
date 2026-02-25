@@ -10,7 +10,7 @@ import { Building2, MapPinned, Calendar, Users, UserPlus, Minus } from "lucide-r
 import { FormModal } from "@/components/shared/FormModal";
 import { toast } from "@/components/ui/sonner";
 import { deleteEstablishment, archiveEstablishment, updateEstablishmentPublisherId } from "@/lib/db/business";
-import { type EstablishmentWithDetails, type VisitWithUser, type HouseholderWithDetails } from "@/lib/db/business";
+import { type EstablishmentWithDetails, type VisitWithUser, type HouseholderWithDetails, type MyOpenCallTodoItem } from "@/lib/db/business";
 import { cn } from "@/lib/utils";
 import { formatStatusText } from "@/lib/utils/formatters";
 import { getBestStatus, getStatusColor, getStatusTextColor } from "@/lib/utils/status-hierarchy";
@@ -28,6 +28,7 @@ import { EstablishmentForm } from "@/components/business/EstablishmentForm";
 import { VisitForm } from "@/components/business/VisitForm";
 import { getBwiParticipants } from "@/lib/db/business";
 import { VisitUpdatesSection } from "@/components/business/VisitUpdatesSection";
+import { HomeTodoCard } from "@/components/home/HomeTodoCard";
 
 interface EstablishmentDetailsProps {
   establishment: EstablishmentWithDetails;
@@ -227,8 +228,30 @@ export function EstablishmentDetails({
     }
   };
 
+  const handleTodoTapOpenCall = (todo: MyOpenCallTodoItem) => {
+    const matchedVisit = visits.find((v) => v.id === todo.call_id);
+    if (matchedVisit) {
+      setEditVisit({
+        id: matchedVisit.id,
+        establishment_id: matchedVisit.establishment_id ?? establishment.id ?? null,
+        householder_id: matchedVisit.householder_id ?? null,
+        note: matchedVisit.note ?? null,
+        publisher_id: matchedVisit.publisher_id ?? null,
+        partner_id: matchedVisit.partner_id ?? null,
+        visit_date: matchedVisit.visit_date,
+      });
+      return;
+    }
+    setEditVisit({
+      id: todo.call_id,
+      establishment_id: todo.establishment_id ?? establishment.id ?? null,
+      householder_id: todo.householder_id ?? null,
+      visit_date: todo.visit_date ?? undefined,
+    });
+  };
+
   return (
-    <div className="space-y-6 w-full max-w-full -mt-2">
+    <div className="space-y-6 w-full max-w-full -mt-2 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
       {/* Basic Establishment Info with Direction Button */}
       <motion.div className="w-full" layout transition={{ duration: 0.2, ease: "easeOut" }}>
         <Card
@@ -567,6 +590,11 @@ export function EstablishmentDetails({
             // Visit updates will be handled by the parent component's data refresh
           }}
         />
+      </motion.div>
+
+      {/* To-Do scoped to this establishment only */}
+      <motion.div className="w-full" layout transition={{ duration: 0.2, ease: "easeOut" }}>
+        <HomeTodoCard establishmentId={establishment.id} onTodoTap={handleTodoTapOpenCall} />
       </motion.div>
 
       {/* Householders Section */}

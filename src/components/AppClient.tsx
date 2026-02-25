@@ -682,10 +682,12 @@ export function AppClient() {
       }>(cacheKey);
       if (cached) {
         setSelectedEstablishmentDetails(cached);
+        setSelectedEstablishment(cached.establishment);
       }
       const details = await getEstablishmentDetails(establishmentId);
       if (details) {
         setSelectedEstablishmentDetails(details);
+        setSelectedEstablishment(details.establishment);
       } else {
         setSelectedEstablishmentDetails(null);
         setSelectedEstablishment(null);
@@ -725,6 +727,7 @@ export function AppClient() {
       const details = await getHouseholderDetails(householderId);
       if (details) {
         setSelectedHouseholderDetails(details);
+        setSelectedHouseholder(details.householder);
       } else {
         setSelectedHouseholderDetails(null);
         setSelectedHouseholder(null);
@@ -1185,6 +1188,7 @@ export function AppClient() {
             onSectionChange('congregation');
           }}
           onNavigateToBusinessWithStatus={onNavigateToBusinessWithStatus}
+          onNavigateToBusiness={() => onSectionChange('business')}
           onSectionChange={onSectionChange}
           currentSection={currentSection}
           pushNavigation={pushNavigation}

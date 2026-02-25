@@ -22,6 +22,8 @@ interface HomeSectionProps {
     status: string,
     area?: string
   ) => void;
+  /** Simple navigate to BWI (business) section — e.g. for home Quick actions. */
+  onNavigateToBusiness?: () => void;
   onSectionChange: (section: string) => void;
   currentSection: string;
   pushNavigation: (section: string) => void;
@@ -40,6 +42,7 @@ export function HomeSection({
   onBwiAreaChange,
   onNavigateToCongregation,
   onNavigateToBusinessWithStatus,
+  onNavigateToBusiness,
   onSectionChange,
   currentSection,
   pushNavigation,
@@ -49,6 +52,30 @@ export function HomeSection({
   loadEstablishmentDetails,
   loadHouseholderDetails
 }: HomeSectionProps) {
+  const handleNavigateToTodoCall = useCallback(
+    async (params: { establishmentId?: string; householderId?: string }) => {
+      if (params.establishmentId) {
+        setBusinessTab("establishments");
+        pushNavigation(currentSection);
+        await loadEstablishmentDetails(params.establishmentId);
+        onSectionChange("business");
+      } else if (params.householderId) {
+        setBusinessTab("householders");
+        pushNavigation(currentSection);
+        await loadHouseholderDetails(params.householderId);
+        onSectionChange("business");
+      }
+    },
+    [
+      currentSection,
+      loadEstablishmentDetails,
+      loadHouseholderDetails,
+      onSectionChange,
+      pushNavigation,
+      setBusinessTab,
+    ]
+  );
+
   const handleVisitClick = useCallback(
     async (visit: VisitRecord) => {
       if (visit.visit_type === "establishment" && visit.establishment_id) {
@@ -124,13 +151,15 @@ export function HomeSection({
       {portaledControls}
       <SectionShell
         motionKey="home"
-        className="relative h-[calc(100vh-80px)] overflow-y-auto overscroll-none pb-4 pt-[80px] w-full max-w-full overflow-x-hidden"
+        className="relative h-[calc(100vh-80px)] overflow-y-auto overscroll-none scrollbar-hide pt-[80px] w-full max-w-full overflow-x-hidden pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]"
       >
       <HomeView
         userId={userId}
         onVisitClick={handleVisitClick}
         onNavigateToCongregation={onNavigateToCongregation}
         onNavigateToBusinessWithStatus={onNavigateToBusinessWithStatus}
+        onNavigateToBusiness={onNavigateToBusiness}
+        onNavigateToTodoCall={handleNavigateToTodoCall}
         homeTab={homeTab}
         bwiAreaFilter={bwiAreaFilter}
         onBwiAreaChange={onBwiAreaChange}

@@ -12,7 +12,7 @@ import { toast } from "@/components/ui/sonner";
 import { HouseholderForm } from "@/components/business/HouseholderForm";
 import { VisitForm } from "@/components/business/VisitForm";
 import { VisitUpdatesSection } from "@/components/business/VisitUpdatesSection";
-import { type HouseholderWithDetails, type VisitWithUser, upsertHouseholder } from "@/lib/db/business";
+import { type HouseholderWithDetails, type VisitWithUser, type MyOpenCallTodoItem, upsertHouseholder } from "@/lib/db/business";
 import { deleteHouseholder, archiveHouseholder } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { cn } from "@/lib/utils";
@@ -28,6 +28,7 @@ import { getInitials } from "@/lib/utils/visit-history-ui";
 import { getProfile } from "@/lib/db/profiles";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cacheDelete } from "@/lib/offline/store";
+import { HomeTodoCard } from "@/components/home/HomeTodoCard";
 
 interface HouseholderDetailsProps {
   householder: HouseholderWithDetails;
@@ -313,8 +314,30 @@ export function HouseholderDetails({
     }),
   };
 
+  const handleTodoTapOpenCall = (todo: MyOpenCallTodoItem) => {
+    const matchedVisit = visits.find((v) => v.id === todo.call_id);
+    if (matchedVisit) {
+      setEditVisit({
+        id: matchedVisit.id,
+        establishment_id: matchedVisit.establishment_id ?? establishment?.id ?? null,
+        householder_id: matchedVisit.householder_id ?? householder.id ?? null,
+        note: matchedVisit.note ?? null,
+        publisher_id: matchedVisit.publisher_id ?? null,
+        partner_id: matchedVisit.partner_id ?? null,
+        visit_date: matchedVisit.visit_date,
+      });
+      return;
+    }
+    setEditVisit({
+      id: todo.call_id,
+      establishment_id: todo.establishment_id ?? establishment?.id ?? null,
+      householder_id: todo.householder_id ?? householder.id ?? null,
+      visit_date: todo.visit_date ?? undefined,
+    });
+  };
+
   return (
-    <div className="space-y-6 w-full max-w-full -mt-2">
+    <div className="space-y-6 w-full max-w-full -mt-2 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
       <motion.div className="w-full" layout transition={detailTransition}>
         <Card
           role="button"
@@ -602,6 +625,11 @@ export function HouseholderDetails({
             // Visit updates will be handled by the parent component's data refresh
           }}
         />
+      </motion.div>
+
+      {/* To-Do scoped to this householder only */}
+      <motion.div className="w-full" layout transition={detailTransition}>
+        <HomeTodoCard householderId={householder.id} onTodoTap={handleTodoTapOpenCall} />
       </motion.div>
 
       <FormModal
