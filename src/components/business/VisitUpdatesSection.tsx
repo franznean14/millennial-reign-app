@@ -5,7 +5,7 @@ import { ChevronRight, Calendar } from 'lucide-react';
 import { FormModal } from '@/components/shared/FormModal';
 import { type VisitWithUser } from '@/lib/db/business';
 import { VisitForm } from './VisitForm';
-import { formatVisitDateShort, getPublisherName } from '@/lib/utils/visit-history-ui';
+import { formatVisitDateShort, getVisitParticipantsDisplayName } from '@/lib/utils/visit-history-ui';
 import { getStatusDotColor, getTimelineDotSize, getTimelineLineClassWithPosition } from '@/lib/utils/visit-timeline';
 import { VisitTimelineRow } from '@/components/visit/VisitTimelineRow';
 import { VisitList } from '@/components/visit/VisitList';
@@ -43,7 +43,7 @@ export function VisitUpdatesSection({
   const mainVisits = visits.slice(0, 3);
 
   const renderVisitEntry = (visit: VisitWithUser, index: number, isDrawer: boolean, total: number) => {
-    const publisherName = getPublisherName(visit.publisher || null);
+    const participantsName = getVisitParticipantsDisplayName(visit);
 
     const lineLengthClass = getTimelineLineClassWithPosition(isDrawer);
     const dotSizeClass = getTimelineDotSize();
@@ -72,6 +72,8 @@ export function VisitUpdatesSection({
           <VisitAvatars
             publisher={visit.publisher ?? null}
             partner={visit.partner ?? null}
+            publisherGuestName={visit.publisher_guest_name ?? null}
+            partnerGuestName={visit.partner_guest_name ?? null}
             sizeClassName={avatarSizeClass}
             textClassName="text-[10px]"
           />
@@ -93,7 +95,7 @@ export function VisitUpdatesSection({
             ) : undefined
           }
           metaIcon={<Calendar className="h-3 w-3" />}
-          metaText={publisherName}
+          metaText={participantsName}
           metaClassName="mb-2"
           notes={visit.note}
           notesClassName={!isDrawer ? "leading-relaxed line-clamp-1" : "leading-relaxed"}

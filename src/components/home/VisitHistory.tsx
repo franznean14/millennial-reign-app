@@ -353,6 +353,8 @@ export function VisitHistory({
           <VisitAvatars
             publisher={visit.publisher ?? null}
             partner={visit.partner ?? null}
+            publisherGuestName={visit.publisher_guest_name ?? null}
+            partnerGuestName={visit.partner_guest_name ?? null}
             sizeClassName="w-6 h-6"
             textClassName="text-[10px]"
           />

@@ -15,6 +15,9 @@ type VisitQueryResult = {
   establishment_id?: string | null;
   householder_id?: string | null;
   publisher_id?: string | null;
+  partner_id?: string | null;
+  publisher_guest_name?: string | null;
+  partner_guest_name?: string | null;
   business_establishments?: { name?: string | null; statuses?: string[] | null; area?: string | null } | null;
   householders?: {
     name?: string | null;
@@ -32,6 +35,8 @@ type VisitWithUserRaw = {
   visit_date: string;
   publisher_id?: string | null;
   partner_id?: string | null;
+  publisher_guest_name?: string | null;
+  partner_guest_name?: string | null;
   householder_id?: string | null;
   establishment_id?: string | null;
   publisher?: any;
@@ -57,6 +62,8 @@ async function fetchEstablishmentVisits(limit: number, offset: number) {
         establishment_id,
         publisher_id,
         partner_id,
+        publisher_guest_name,
+        partner_guest_name,
         business_establishments(name, statuses, area),
         publisher:profiles!calls_publisher_id_fkey(first_name, last_name, avatar_url),
         partner:profiles!calls_partner_id_fkey(first_name, last_name, avatar_url)
@@ -86,6 +93,8 @@ async function fetchHouseholderVisits(limit: number, offset: number) {
         householder_id,
         publisher_id,
         partner_id,
+        publisher_guest_name,
+        partner_guest_name,
         householders(name, establishment_id, publisher_id, business_establishments(name, statuses, area)),
         business_establishments(name, statuses, area),
         publisher:profiles!calls_publisher_id_fkey(first_name, last_name, avatar_url),
@@ -200,6 +209,8 @@ function normalizeVisitWithUser(visit: VisitWithUserRaw): VisitWithUser {
     partner_id:
       visit.partner_id ??
       (Array.isArray(visit.partner) ? (visit.partner[0]?.id ?? null) : (visit.partner?.id ?? null)),
+    publisher_guest_name: visit.publisher_guest_name ?? null,
+    partner_guest_name: visit.partner_guest_name ?? null,
     householder_id: visit.householder_id ?? null,
     establishment_id: visit.establishment_id ?? null,
     publisher: Array.isArray(visit.publisher) ? visit.publisher[0] || null : visit.publisher || null,
@@ -232,6 +243,8 @@ export async function getEstablishmentVisitsWithUsers(establishmentId: string): 
         visit_date,
         publisher_id,
         partner_id,
+        publisher_guest_name,
+        partner_guest_name,
         householder_id,
         establishment_id,
         publisher:profiles!calls_publisher_id_fkey(id, first_name, last_name, avatar_url),
@@ -257,6 +270,8 @@ export async function getHouseholderVisitsWithUsers(householderId: string): Prom
         visit_date,
         publisher_id,
         partner_id,
+        publisher_guest_name,
+        partner_guest_name,
         establishment_id,
         householder_id,
         publisher:profiles!calls_publisher_id_fkey(id, first_name, last_name, avatar_url),

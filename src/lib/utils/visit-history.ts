@@ -18,6 +18,8 @@ export interface VisitRecord {
   updated_at?: string | null;
   publisher_id?: string;
   partner_id?: string;
+  publisher_guest_name?: string | null;
+  partner_guest_name?: string | null;
   publisher?: {
     first_name: string;
     last_name: string;
@@ -44,6 +46,8 @@ export function buildVisitRecords(establishmentVisits: any[] = [], householderVi
     updated_at: (v as any).updated_at ?? v.created_at,
     publisher_id: (v as any).publisher_id,
     partner_id: (v as any).partner_id,
+    publisher_guest_name: (v as any).publisher_guest_name ?? undefined,
+    partner_guest_name: (v as any).partner_guest_name ?? undefined,
     publisher: (v.publisher as any) || undefined,
     partner: (v.partner as any) || undefined
   }));
@@ -77,6 +81,8 @@ export function buildVisitRecords(establishmentVisits: any[] = [], householderVi
     updated_at: (v as any).updated_at ?? v.created_at,
     publisher_id: (v as any).publisher_id,
     partner_id: (v as any).partner_id,
+    publisher_guest_name: (v as any).publisher_guest_name ?? undefined,
+    partner_guest_name: (v as any).partner_guest_name ?? undefined,
     publisher: (v.publisher as any) || undefined,
     partner: (v.partner as any) || undefined
     };

@@ -226,7 +226,7 @@ export function HouseholderDetails({
         };
         // Clear cache to force fresh fetch on next load
         if (updated.id) {
-          await cacheDelete(`householder:details:${updated.id}`);
+          await cacheDelete(`householder:details:v2:${updated.id}`);
         }
         toast.success("Added as personal contact");
         businessEventBus.emit('householder-updated', updatedWithUser);
@@ -265,7 +265,7 @@ export function HouseholderDetails({
         };
         // Clear cache to force fresh fetch on next load
         if (updated.id) {
-          await cacheDelete(`householder:details:${updated.id}`);
+          await cacheDelete(`householder:details:v2:${updated.id}`);
         }
         toast.success("Removed as personal contact");
         businessEventBus.emit('householder-updated', updatedWithUser);

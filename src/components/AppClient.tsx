@@ -571,8 +571,8 @@ export function AppClient() {
         cacheDelete("establishments:with-details"),
         cacheDelete("householders:list"),
         estId ? cacheDelete(`establishment:details:${estId}`) : Promise.resolve(),
-        hhId ? cacheDelete(`householder:details:${hhId}`) : Promise.resolve(),
-        congHhId ? cacheDelete(`householder:details:${congHhId}`) : Promise.resolve(),
+        hhId ? cacheDelete(`householder:details:v2:${hhId}`) : Promise.resolve(),
+        congHhId ? cacheDelete(`householder:details:v2:${congHhId}`) : Promise.resolve(),
       ]);
       const [establishmentsData, householdersData] = await Promise.all([
         getEstablishmentsWithDetails(),

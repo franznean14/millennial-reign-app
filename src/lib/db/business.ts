@@ -76,6 +76,15 @@ export interface VisitUpdate {
   visit_date?: string; // YYYY-MM-DD
 }
 
+/** To-do item associated with a call (establishment or householder call). */
+export interface CallTodo {
+  id: string;
+  call_id: string;
+  body: string;
+  is_done: boolean;
+  created_at?: string;
+}
+
 export interface EstablishmentWithDetails {
   id?: string;
   name: string;
@@ -116,6 +125,8 @@ export interface VisitWithUser {
   visit_date: string;
   publisher_id?: string | null;
   partner_id?: string | null;
+  publisher_guest_name?: string | null;
+  partner_guest_name?: string | null;
   householder_id?: string | null;
   establishment_id?: string | null;
   publisher?: {
@@ -664,6 +675,8 @@ export async function addVisit(visit: {
   note?: string | null;
   publisher_id?: string;
   partner_id?: string;
+  publisher_guest_name?: string | null;
+  partner_guest_name?: string | null;
   visit_date?: string;
 }): Promise<{
   id: string;
@@ -672,6 +685,8 @@ export async function addVisit(visit: {
   note?: string | null;
   publisher_id?: string | null;
   partner_id?: string | null;
+  publisher_guest_name?: string | null;
+  partner_guest_name?: string | null;
   visit_date: string;
 } | null> {
   const supabase = createSupabaseBrowserClient();
@@ -714,9 +729,11 @@ export async function addVisit(visit: {
         note: visit.note,
         publisher_id: visit.publisher_id || null,
         partner_id: visit.partner_id || null,
+        publisher_guest_name: visit.publisher_guest_name ?? null,
+        partner_guest_name: visit.partner_guest_name ?? null,
         visit_date: visit.visit_date || new Date().toISOString().split('T')[0]
       })
-      .select('id, establishment_id, householder_id, note, publisher_id, partner_id, visit_date')
+      .select('id, establishment_id, householder_id, note, publisher_id, partner_id, publisher_guest_name, partner_guest_name, visit_date')
       .single();
 
     if (error) {
@@ -739,6 +756,8 @@ export async function updateVisit(visit: {
   note?: string | null;
   publisher_id?: string | null;
   partner_id?: string | null;
+  publisher_guest_name?: string | null;
+  partner_guest_name?: string | null;
   visit_date?: string;
 }): Promise<boolean> {
   const supabase = createSupabaseBrowserClient();
@@ -752,6 +771,8 @@ export async function updateVisit(visit: {
         note: visit.note ?? null,
         publisher_id: visit.publisher_id ?? null,
         partner_id: visit.partner_id ?? null,
+        publisher_guest_name: visit.publisher_guest_name ?? null,
+        partner_guest_name: visit.partner_guest_name ?? null,
         visit_date: visit.visit_date ?? undefined
       })
       .eq('id', visit.id);
@@ -870,6 +891,120 @@ export async function deleteVisit(visitId: string, _establishmentId?: string | n
   } catch (error) {
     console.error('Unexpected error in deleteVisit:', error);
     return false;
+  }
+}
+
+// --- Call to-dos (for establishment and householder calls) ---
+
+export async function getCallTodos(callId: string): Promise<CallTodo[]> {
+  const supabase = createSupabaseBrowserClient();
+  try {
+    await supabase.auth.getSession().catch(() => {});
+    const { data, error } = await supabase
+      .from('call_todos')
+      .select('id, call_id, body, is_done, created_at')
+      .eq('call_id', callId)
+      .order('created_at', { ascending: true });
+    if (error) {
+      console.error('Error fetching call todos:', error);
+      return [];
+    }
+    return (data ?? []) as CallTodo[];
+  } catch (e) {
+    console.error('getCallTodos:', e);
+    return [];
+  }
+}
+
+export async function addCallTodo(callId: string, body: string, isDone = false): Promise<CallTodo | null> {
+  const supabase = createSupabaseBrowserClient();
+  try {
+    await supabase.auth.getSession().catch(() => {});
+    const { data, error } = await supabase
+      .from('call_todos')
+      .insert({ call_id: callId, body: body.trim(), is_done: isDone })
+      .select('id, call_id, body, is_done, created_at')
+      .single();
+    if (error) {
+      console.error('Error adding call todo:', error);
+      return null;
+    }
+    return data as CallTodo;
+  } catch (e) {
+    console.error('addCallTodo:', e);
+    return null;
+  }
+}
+
+export async function updateCallTodo(
+  id: string,
+  updates: { body?: string; is_done?: boolean }
+): Promise<boolean> {
+  const supabase = createSupabaseBrowserClient();
+  try {
+    await supabase.auth.getSession().catch(() => {});
+    const payload: { body?: string; is_done?: boolean } = {};
+    if (updates.body !== undefined) payload.body = updates.body.trim();
+    if (updates.is_done !== undefined) payload.is_done = updates.is_done;
+    if (Object.keys(payload).length === 0) return true;
+    const { error } = await supabase.from('call_todos').update(payload).eq('id', id);
+    if (error) {
+      console.error('Error updating call todo:', error);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error('updateCallTodo:', e);
+    return false;
+  }
+}
+
+export async function deleteCallTodo(id: string): Promise<boolean> {
+  const supabase = createSupabaseBrowserClient();
+  try {
+    await supabase.auth.getSession().catch(() => {});
+    const { error } = await supabase.from('call_todos').delete().eq('id', id);
+    if (error) {
+      console.error('Error deleting call todo:', error);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error('deleteCallTodo:', e);
+    return false;
+  }
+}
+
+/** Distinct guest names used in calls for the current user's congregation (for "Guest" dropdown). */
+export async function getDistinctCallGuestNames(): Promise<string[]> {
+  const supabase = createSupabaseBrowserClient();
+  try {
+    await supabase.auth.getSession().catch(() => {});
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('congregation_id')
+      .eq('id', (await supabase.auth.getUser()).data.user?.id)
+      .single();
+    if (!profile?.congregation_id) return [];
+    const { data, error } = await supabase
+      .from('calls')
+      .select('publisher_guest_name, partner_guest_name')
+      .eq('congregation_id', profile.congregation_id);
+    if (error) {
+      console.error('getDistinctCallGuestNames:', error);
+      return [];
+    }
+    const names = new Set<string>();
+    (data ?? []).forEach((row: any) => {
+      const a = row?.publisher_guest_name?.trim();
+      const b = row?.partner_guest_name?.trim();
+      if (a) names.add(a);
+      if (b) names.add(b);
+    });
+    return Array.from(names).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  } catch (e) {
+    console.error('getDistinctCallGuestNames:', e);
+    return [];
   }
 }
 
@@ -1244,7 +1379,7 @@ export async function getHouseholderDetails(householderId: string): Promise<{
 } | null> {
   const supabase = createSupabaseBrowserClient();
   await supabase.auth.getSession().catch(() => {});
-  const cacheKey = `householder:details:${householderId}`;
+  const cacheKey = `householder:details:v2:${householderId}`;
   
   try {
     // If offline, serve from cache

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,13 +8,23 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { X } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { X, Plus } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import { toast } from "@/components/ui/sonner";
-import { addVisit, getBwiParticipants, updateVisit, deleteVisit } from "@/lib/db/business";
+import { addVisit, getBwiParticipants, updateVisit, deleteVisit, getCallTodos, addCallTodo, updateCallTodo, deleteCallTodo, getDistinctCallGuestNames } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getBestStatus } from "@/lib/utils/status-hierarchy";
+import { getInitialsFromName } from "@/lib/utils/visit-history-ui";
+import { cn } from "@/lib/utils";
 import { useMobile } from "@/lib/hooks/use-mobile";
 
 interface VisitFormProps {
@@ -28,6 +38,8 @@ interface VisitFormProps {
     note?: string | null;
     publisher_id?: string | null;
     partner_id?: string | null;
+    publisher_guest_name?: string | null;
+    partner_guest_name?: string | null;
     visit_date?: string;
   };
   // Householder context
@@ -110,23 +122,9 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
     setEstId("none");
   }, [selectedEstablishmentId, initialVisit?.establishment_id, householderEstablishmentId, householderId, initialVisit?.householder_id, establishments]);
   
-  // Ensure partner shows immediately even if participants have not loaded yet
-  useEffect(() => {
-    if (!initialVisit?.id) return;
-    const next: string[] = [];
-    if (initialVisit.publisher_id) next.push(initialVisit.publisher_id);
-    if (initialVisit.partner_id && initialVisit.partner_id !== initialVisit.publisher_id) next.push(initialVisit.partner_id);
-    setPublishers(next);
-  }, [initialVisit?.id, initialVisit?.publisher_id, initialVisit?.partner_id]);
   const [note, setNote] = useState(initialVisit?.note || "");
   const [visitDate, setVisitDate] = useState<Date>(initialVisit?.visit_date ? new Date(initialVisit.visit_date) : new Date());
   const [saving, setSaving] = useState(false);
-  const [publishers, setPublishers] = useState<string[]>(() => {
-    const initial: string[] = [];
-    if (initialVisit?.publisher_id) initial.push(initialVisit.publisher_id);
-    if (initialVisit?.partner_id && initialVisit.partner_id !== initialVisit.publisher_id) initial.push(initialVisit.partner_id);
-    return initial;
-  });
   const [participants, setParticipants] = useState<Array<{
     id: string;
     first_name: string;
@@ -134,6 +132,28 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
     avatar_url?: string;
   }>>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
+
+  // To-dos: for new call they're local until save; for edit they're loaded and synced to server
+  type TodoItem = { id?: string; body: string; is_done: boolean };
+  const [todos, setTodos] = useState<TodoItem[]>([]);
+  const [todoInput, setTodoInput] = useState("");
+  const [showTodoInput, setShowTodoInput] = useState(false);
+  const [todosLoaded, setTodosLoaded] = useState(false);
+  const [addPublisherDrawerOpen, setAddPublisherDrawerOpen] = useState(false);
+  const [existingGuests, setExistingGuests] = useState<string[]>([]);
+  const [newGuestName, setNewGuestName] = useState("");
+
+  type PublisherSlot = { type: "publisher"; id: string } | { type: "guest"; name: string };
+  const [slots, setSlots] = useState<PublisherSlot[]>(() => {
+    const from = initialVisit;
+    if (!from) return [];
+    const result: PublisherSlot[] = [];
+    if (from.publisher_id) result.push({ type: "publisher", id: from.publisher_id });
+    else if (from.publisher_guest_name?.trim()) result.push({ type: "guest", name: from.publisher_guest_name.trim() });
+    if (from.partner_id) result.push({ type: "publisher", id: from.partner_id });
+    else if (from.partner_guest_name?.trim()) result.push({ type: "guest", name: from.partner_guest_name.trim() });
+    return result;
+  });
   
   // (Removed duplicate sync effect; handled by the prioritized effect above)
   // Prefill note when creating a visit with a provided prefill
@@ -168,29 +188,42 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
         setParticipants(participantsList);
         const supabase = createSupabaseBrowserClient();
         const { data: profile } = await supabase.rpc('get_my_profile');
-        if (profile && (!initialVisit || publishers.length === 0)) {
-          const currentUserData = participantsList.find(p => p.id === profile.id);
-          if (currentUserData) {
-            setPublishers([currentUserData.id]);
-          }
+        if (profile && !initialVisit?.id) {
+          setSlots((prev) => (prev.length === 0 ? [{ type: 'publisher' as const, id: profile.id }] : prev));
         }
       } catch (error) {
         console.error('[VisitForm] Error loading participants:', error);
       }
     };
-    
     loadParticipants();
   }, []);
 
-  // Sync publishers when editing a specific visit (ensures partner pre-fills)
   useEffect(() => {
-    if (initialVisit?.id) {
-      const next: string[] = [];
-      if (initialVisit.publisher_id) next.push(initialVisit.publisher_id);
-      if (initialVisit.partner_id && initialVisit.partner_id !== initialVisit.publisher_id) next.push(initialVisit.partner_id);
-      setPublishers(next);
+    if (!initialVisit?.id) return;
+    const next: PublisherSlot[] = [];
+    if (initialVisit.publisher_id) next.push({ type: 'publisher', id: initialVisit.publisher_id });
+    else if (initialVisit.publisher_guest_name?.trim()) next.push({ type: 'guest', name: initialVisit.publisher_guest_name.trim() });
+    if (initialVisit.partner_id) next.push({ type: 'publisher', id: initialVisit.partner_id });
+    else if (initialVisit.partner_guest_name?.trim()) next.push({ type: 'guest', name: initialVisit.partner_guest_name.trim() });
+    setSlots(next);
+  }, [initialVisit?.id, initialVisit?.publisher_id, initialVisit?.partner_id, initialVisit?.publisher_guest_name, initialVisit?.partner_guest_name]);
+
+  // Load to-dos when editing an existing call
+  useEffect(() => {
+    if (!initialVisit?.id) {
+      setTodos([]);
+      setTodosLoaded(true);
+      return;
     }
-  }, [initialVisit?.id, initialVisit?.publisher_id, initialVisit?.partner_id]);
+    let cancelled = false;
+    getCallTodos(initialVisit.id).then((list) => {
+      if (!cancelled) {
+        setTodos(list.map((t) => ({ id: t.id, body: t.body, is_done: t.is_done })));
+        setTodosLoaded(true);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [initialVisit?.id]);
 
   // Helper to format date as YYYY-MM-DD in local timezone (not UTC)
   const formatLocalDate = (date: Date): string => {
@@ -217,12 +250,16 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
         finalEstablishmentId = estId === "none" ? undefined : estId || undefined;
       }
 
+      const slot0 = slots[0];
+      const slot1 = slots[1];
       const payload = { 
         establishment_id: finalEstablishmentId, 
         note: note?.trim() || null,
         visit_date: formatLocalDate(visitDate),
-        publisher_id: publishers[0] || undefined,
-        partner_id: publishers[1] || undefined,
+        publisher_id: slot0?.type === 'publisher' ? slot0.id : undefined,
+        partner_id: slot1?.type === 'publisher' ? slot1.id : undefined,
+        publisher_guest_name: slot0?.type === 'guest' ? slot0.name : null,
+        partner_guest_name: slot1?.type === 'guest' ? slot1.name : null,
         householder_id: householderId || initialVisit?.householder_id || undefined,
       };
 
@@ -238,25 +275,13 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
         if (ok) {
           toast.success("Call updated.");
           onSaved({ id: initialVisit.id, ...payload });
-          const publisherId = payload.publisher_id;
-          const partnerId = payload.partner_id;
-          const publisher = publisherId ? participants.find(p => p.id === publisherId) : undefined;
-          const partner = partnerId ? participants.find(p => p.id === partnerId) : undefined;
+          const publisher = payload.publisher_id ? participants.find(p => p.id === payload.publisher_id) : undefined;
+          const partner = payload.partner_id ? participants.find(p => p.id === payload.partner_id) : undefined;
           businessEventBus.emit('visit-updated', {
             id: initialVisit.id,
             ...payload,
-            publisher: publisher ? {
-              id: publisher.id,
-              first_name: publisher.first_name,
-              last_name: publisher.last_name,
-              avatar_url: publisher.avatar_url,
-            } : undefined,
-            partner: partner ? {
-              id: partner.id,
-              first_name: partner.first_name,
-              last_name: partner.last_name,
-              avatar_url: partner.avatar_url,
-            } : undefined,
+            publisher: publisher ? { id: publisher.id, first_name: publisher.first_name, last_name: publisher.last_name, avatar_url: publisher.avatar_url } : undefined,
+            partner: partner ? { id: partner.id, first_name: partner.first_name, last_name: partner.last_name, avatar_url: partner.avatar_url } : undefined,
           });
         } else {
           toast.error("Failed to update call");
@@ -265,12 +290,13 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
         // Create mode: background add
         onSaved();
         addVisit(payload)
-          .then((created) => {
+          .then(async (created) => {
             if (created && created.id) {
-              const publisherId = created.publisher_id || (publishers[0] || undefined);
-              const partnerId = created.partner_id || (publishers[1] || undefined);
-              const publisher = publisherId ? participants.find(p => p.id === publisherId) : undefined;
-              const partner = partnerId ? participants.find(p => p.id === partnerId) : undefined;
+              for (const t of todos) {
+                await addCallTodo(created.id, t.body, t.is_done);
+              }
+              const publisher = created.publisher_id ? participants.find(p => p.id === created.publisher_id) : undefined;
+              const partner = created.partner_id ? participants.find(p => p.id === created.partner_id) : undefined;
 
               const newVisit = {
                 id: created.id,
@@ -278,8 +304,10 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
                 householder_id: created.householder_id || householderId,
                 note: created.note || null,
                 visit_date: created.visit_date!,
-                publisher_id: publisherId,
-                partner_id: partnerId,
+                publisher_id: created.publisher_id ?? undefined,
+                partner_id: created.partner_id ?? undefined,
+                publisher_guest_name: created.publisher_guest_name ?? undefined,
+                partner_guest_name: created.partner_guest_name ?? undefined,
                 publisher: publisher ? {
                   id: publisher.id,
                   first_name: publisher.first_name,
@@ -333,18 +361,70 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
     return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
   };
 
-  const addPublisher = (userId: string) => {
-    if (publishers.length < 2 && !publishers.includes(userId)) {
-      setPublishers([...publishers, userId]);
+  const addSlot = useCallback((slot: PublisherSlot) => {
+    if (slots.length >= 2) return;
+    if (slot.type === 'publisher' && slots.some(s => s.type === 'publisher' && s.id === slot.id)) return;
+    if (slot.type === 'guest' && slots.some(s => s.type === 'guest' && s.name === slot.name)) return;
+    setSlots((prev) => [...prev, slot]);
+    setAddPublisherDrawerOpen(false);
+    setNewGuestName("");
+  }, [slots]);
+
+  const removeSlot = useCallback((index: number) => {
+    setSlots((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
+  const availableParticipants = participants.filter(p => !slots.some(s => s.type === 'publisher' && s.id === p.id));
+  const availableGuestNames = existingGuests.filter(name => !slots.some(s => s.type === 'guest' && s.name === name));
+
+  useEffect(() => {
+    if (!addPublisherDrawerOpen) return;
+    getDistinctCallGuestNames().then(setExistingGuests);
+  }, [addPublisherDrawerOpen]);
+
+  const getSlotDisplayName = (slot: PublisherSlot) => {
+    if (slot.type === 'publisher') {
+      const user = participants.find(p => p.id === slot.id);
+      return user ? `${user.first_name} ${user.last_name}` : 'Publisher';
     }
+    return slot.name;
   };
 
-  const removePublisher = (userId: string) => {
-    setPublishers(publishers.filter(id => id !== userId));
-  };
+  const handleAddTodo = useCallback(async () => {
+    const body = todoInput.trim();
+    if (!body) return;
+    setTodoInput("");
+    setShowTodoInput(false);
+    if (initialVisit?.id) {
+      const created = await addCallTodo(initialVisit.id, body, false);
+      if (created) setTodos((prev) => [...prev, { id: created.id, body: created.body, is_done: created.is_done }]);
+      else toast.error("Failed to add to-do");
+    } else {
+      setTodos((prev) => [...prev, { body, is_done: false }]);
+    }
+  }, [initialVisit?.id, todoInput]);
 
-  const availableParticipants = participants.filter(p => !publishers.includes(p.id));
-  
+  const handleToggleTodo = useCallback(async (item: TodoItem) => {
+    const next = !item.is_done;
+    if (item.id) {
+      const ok = await updateCallTodo(item.id, { is_done: next });
+      if (ok) setTodos((prev) => prev.map((t) => (t.id === item.id ? { ...t, is_done: next } : t)));
+      else toast.error("Failed to update to-do");
+    } else {
+      setTodos((prev) => prev.map((t) => (t === item ? { ...t, is_done: next } : t)));
+    }
+  }, []);
+
+  const handleRemoveTodo = useCallback(async (item: TodoItem) => {
+    if (item.id) {
+      const ok = await deleteCallTodo(item.id);
+      if (ok) setTodos((prev) => prev.filter((t) => t.id !== item.id));
+      else toast.error("Failed to remove to-do");
+    } else {
+      setTodos((prev) => prev.filter((t) => t !== item));
+    }
+  }, []);
+
   return (
     <form className="grid gap-3 pb-10" onSubmit={handleSubmit}>
       {householderId ? (
@@ -383,68 +463,207 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
       </div>
 
       <div className="grid gap-1">
-        <Label>Publishers ({publishers.length}/2)</Label>
-        
-        <div className="flex flex-wrap gap-2 mb-2">
-          {publishers.map((publisherId, index) => {
-            const user = getSelectedUser(publisherId);
-            return (
-              <div key={publisherId || index} className="flex items-center gap-2 bg-muted px-2 py-1 rounded-md">
-                <Avatar className="h-6 w-6">
-                  {user?.avatar_url && <AvatarImage src={user.avatar_url} />}
-                  <AvatarFallback className="text-xs">
-                    {user ? getInitials(user.first_name, user.last_name) : 'U'}
-                  </AvatarFallback>
-                </Avatar>
-                <span className="text-sm">
-                  {user ? `${user.first_name} ${user.last_name}` : 'Publisher'}
-                </span>
+        <Label>Publishers</Label>
+        <div className="flex flex-wrap items-center gap-2">
+          {slots.map((slot, index) => (
+            <div key={index} className="flex items-center gap-2 bg-muted px-2 py-1.5 rounded-md">
+              <Avatar className="h-6 w-6 shrink-0">
+                {slot.type === "publisher" && getSelectedUser(slot.id)?.avatar_url && (
+                  <AvatarImage src={getSelectedUser(slot.id)!.avatar_url} alt={getSlotDisplayName(slot)} />
+                )}
+                <AvatarFallback
+                  className={
+                    slot.type === "guest"
+                      ? "text-xs bg-amber-500/25 text-amber-800 dark:bg-amber-500/30 dark:text-amber-200 ring-1 ring-amber-500/50 dark:ring-amber-400/40"
+                      : "text-xs"
+                  }
+                >
+                  {slot.type === "publisher" && getSelectedUser(slot.id)
+                    ? getInitials(getSelectedUser(slot.id)!.first_name, getSelectedUser(slot.id)!.last_name)
+                    : getInitialsFromName(slot.type === "guest" ? slot.name : "?")}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-sm">{getSlotDisplayName(slot)}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-6 w-6 p-0 shrink-0"
+                onClick={() => removeSlot(index)}
+                aria-label="Remove"
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          ))}
+          {slots.length < 2 && (
+            <Drawer open={addPublisherDrawerOpen} onOpenChange={(open) => { setAddPublisherDrawerOpen(open); if (!open) setNewGuestName(""); }}>
+              <DrawerTrigger asChild>
                 <Button
                   type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-4 w-4 p-0"
-                  onClick={() => removePublisher(publisherId)}
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 rounded-full shrink-0"
+                  aria-label="Add publisher or guest"
                 >
-                  <X className="h-3 w-3" />
+                  <Plus className="h-4 w-4" />
                 </Button>
-              </div>
-            );
-          })}
-        </div>
-
-        {publishers.length < 2 && (
-          <Select onValueChange={addPublisher}>
-            <SelectTrigger className="w-full"><SelectValue placeholder="Add publisher" /></SelectTrigger>
-            <SelectContent>
-              {availableParticipants.length > 0 ? (
-                availableParticipants.map((participant) => (
-                  <SelectItem key={participant.id} value={participant.id}>
-                    <div className="flex items-center gap-2">
-                      <Avatar className="h-6 w-6">
-                        <AvatarImage src={participant.avatar_url} />
-                        <AvatarFallback className="text-xs">
-                          {getInitials(participant.first_name, participant.last_name)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span>{participant.first_name} {participant.last_name}</span>
+              </DrawerTrigger>
+              <DrawerContent className="max-h-[70vh]">
+                <DrawerHeader className="text-center">
+                  <DrawerTitle>Select publisher or guest</DrawerTitle>
+                </DrawerHeader>
+                <div className="overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+24px)] space-y-6">
+                  <section>
+                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Publishers</h3>
+                    {availableParticipants.length > 0 ? (
+                      <ul className="space-y-1">
+                        {availableParticipants.map((participant) => (
+                          <li key={participant.id}>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              className="w-full justify-start gap-2 h-12 px-3"
+                              onClick={() => addSlot({ type: "publisher", id: participant.id })}
+                            >
+                              <Avatar className="h-8 w-8">
+                                <AvatarImage src={participant.avatar_url} />
+                                <AvatarFallback className="text-xs">
+                                  {getInitials(participant.first_name, participant.last_name)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span>{participant.first_name} {participant.last_name}</span>
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-sm text-muted-foreground py-2">No other publishers available</p>
+                    )}
+                  </section>
+                  <section>
+                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Guest</h3>
+                    <div className="space-y-2">
+                      {availableGuestNames.map((name) => (
+                        <Button
+                          key={name}
+                          type="button"
+                          variant="ghost"
+                          className="w-full justify-start gap-2 h-12 px-3"
+                          onClick={() => addSlot({ type: "guest", name })}
+                        >
+                          <Avatar className="h-8 w-8 shrink-0">
+                            <AvatarFallback className="text-xs bg-amber-500/25 text-amber-800 dark:bg-amber-500/30 dark:text-amber-200 ring-1 ring-amber-500/50 dark:ring-amber-400/40">
+                              {getInitialsFromName(name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span>{name}</span>
+                        </Button>
+                      ))}
+                      <div className="flex gap-2 pt-1">
+                        <Input
+                          placeholder="New guest name"
+                          value={newGuestName}
+                          onChange={(e) => setNewGuestName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              const name = newGuestName.trim();
+                              if (name) addSlot({ type: "guest", name });
+                            }
+                          }}
+                          className="flex-1"
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => {
+                            const name = newGuestName.trim();
+                            if (name) addSlot({ type: "guest", name });
+                          }}
+                          disabled={!newGuestName.trim()}
+                        >
+                          Add
+                        </Button>
+                      </div>
                     </div>
-                  </SelectItem>
-                ))
-              ) : (
-                <SelectItem value="no-participants" disabled>
-                  No participants available
-                </SelectItem>
-              )}
-            </SelectContent>
-          </Select>
-        )}
+                  </section>
+                </div>
+              </DrawerContent>
+            </Drawer>
+          )}
+        </div>
       </div>
       
       <div className="grid gap-1">
         <Label>Update Note</Label>
         <Textarea value={note} onChange={e=>setNote(e.target.value)} className="min-h-[120px]" />
       </div>
+
+      <div className="grid gap-1">
+        <Label>To-Do</Label>
+        {todosLoaded && (
+          <>
+            <ul className="space-y-2">
+              {todos.map((item, index) => (
+                <li key={item.id ?? `draft-${index}`} className="flex items-center gap-2">
+                  <Checkbox
+                    checked={item.is_done}
+                    onCheckedChange={() => handleToggleTodo(item)}
+                    aria-label={item.is_done ? "Mark not done" : "Mark done"}
+                  />
+                  <span className={cn("flex-1 text-sm min-w-0 truncate", item.is_done && "text-muted-foreground line-through")}>
+                    {item.body}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 shrink-0"
+                    onClick={() => handleRemoveTodo(item)}
+                    aria-label="Remove to-do"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </li>
+              ))}
+            </ul>
+            {showTodoInput ? (
+              <div className="flex gap-2 mt-2">
+                <Input
+                  value={todoInput}
+                  onChange={(e) => setTodoInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") { e.preventDefault(); handleAddTodo(); }
+                    if (e.key === "Escape") { setShowTodoInput(false); setTodoInput(""); }
+                  }}
+                  placeholder="To-do..."
+                  className="flex-1"
+                  autoFocus
+                />
+                <Button type="button" variant="secondary" size="sm" onClick={handleAddTodo} disabled={!todoInput.trim()}>
+                  Add
+                </Button>
+                <Button type="button" variant="ghost" size="sm" onClick={() => { setShowTodoInput(false); setTodoInput(""); }}>
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-2 gap-1"
+                onClick={() => setShowTodoInput(true)}
+              >
+                <Plus className="h-4 w-4" />
+                Add to-do
+              </Button>
+            )}
+          </>
+        )}
+      </div>
+
       <div className="flex justify-between py-4">
         {initialVisit?.id ? (
           <Popover open={confirmOpen} onOpenChange={setConfirmOpen}>

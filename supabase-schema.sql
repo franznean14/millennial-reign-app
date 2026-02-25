@@ -395,9 +395,32 @@ CREATE TABLE IF NOT EXISTS public.calls (
   note text,
   publisher_id uuid REFERENCES public.profiles(id),
   partner_id uuid REFERENCES public.profiles(id),
+  publisher_guest_name text,
+  partner_guest_name text,
   visit_date date NOT NULL DEFAULT CURRENT_DATE,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Call to-dos (one call can have many to-dos; applies to establishment and householder calls)
+CREATE TABLE IF NOT EXISTS public.call_todos (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  call_id uuid NOT NULL REFERENCES public.calls(id) ON DELETE CASCADE,
+  body text NOT NULL,
+  is_done boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS call_todos_call_id_idx ON public.call_todos(call_id);
+
+-- Call guest names (for participants without a profile)
+DO $$ BEGIN
+  ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS publisher_guest_name text;
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS partner_guest_name text;
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
 
 -- Event schedules
 CREATE TABLE IF NOT EXISTS public.event_schedules (
@@ -623,6 +646,7 @@ ALTER TABLE public.business_participants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.business_establishments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.householders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.calls ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.call_todos ENABLE ROW LEVEL SECURITY;
 
 -- ==============================================
 -- RLS Policies
@@ -818,6 +842,48 @@ CREATE POLICY "Business: visit delete" ON public.calls FOR DELETE USING (
     WHERE bp.user_id = auth.uid() AND me.id = auth.uid()
     AND me.congregation_id = bp.congregation_id AND bp.active = true
     AND bp.congregation_id = public.calls.congregation_id
+  )
+);
+
+-- Call to-dos: same access as calls (read/write if user can read/write the call)
+DROP POLICY IF EXISTS "Call todos: read" ON public.call_todos;
+CREATE POLICY "Call todos: read" ON public.call_todos FOR SELECT USING (
+  EXISTS (
+    SELECT 1 FROM public.calls c, public.profiles me
+    WHERE c.id = public.call_todos.call_id AND me.id = auth.uid() AND me.congregation_id = c.congregation_id
+  )
+);
+
+DROP POLICY IF EXISTS "Call todos: insert" ON public.call_todos;
+CREATE POLICY "Call todos: insert" ON public.call_todos FOR INSERT WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.calls c, public.business_participants bp, public.profiles me
+    WHERE c.id = public.call_todos.call_id AND bp.user_id = auth.uid() AND me.id = auth.uid()
+    AND me.congregation_id = bp.congregation_id AND bp.active = true AND bp.congregation_id = c.congregation_id
+  )
+);
+
+DROP POLICY IF EXISTS "Call todos: update" ON public.call_todos;
+CREATE POLICY "Call todos: update" ON public.call_todos FOR UPDATE USING (
+  EXISTS (
+    SELECT 1 FROM public.calls c, public.business_participants bp, public.profiles me
+    WHERE c.id = public.call_todos.call_id AND bp.user_id = auth.uid() AND me.id = auth.uid()
+    AND me.congregation_id = bp.congregation_id AND bp.active = true AND bp.congregation_id = c.congregation_id
+  )
+) WITH CHECK (
+  EXISTS (
+    SELECT 1 FROM public.calls c, public.business_participants bp, public.profiles me
+    WHERE c.id = public.call_todos.call_id AND bp.user_id = auth.uid() AND me.id = auth.uid()
+    AND me.congregation_id = bp.congregation_id AND bp.active = true AND bp.congregation_id = c.congregation_id
+  )
+);
+
+DROP POLICY IF EXISTS "Call todos: delete" ON public.call_todos;
+CREATE POLICY "Call todos: delete" ON public.call_todos FOR DELETE USING (
+  EXISTS (
+    SELECT 1 FROM public.calls c, public.business_participants bp, public.profiles me
+    WHERE c.id = public.call_todos.call_id AND bp.user_id = auth.uid() AND me.id = auth.uid()
+    AND me.congregation_id = bp.congregation_id AND bp.active = true AND bp.congregation_id = c.congregation_id
   )
 );
 
