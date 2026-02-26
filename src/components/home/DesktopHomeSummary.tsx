@@ -51,6 +51,8 @@ interface DesktopHomeSummaryProps {
   serviceYearStart: string;
   serviceYearEnd: string;
   onNavigateToCongregation?: () => void;
+  /** Simple navigate to BWI (business) section — e.g. for desktop quick actions. */
+  onNavigateToBusiness?: () => void;
 }
 
 export function DesktopHomeSummary({
