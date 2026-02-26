@@ -119,7 +119,9 @@ export function HouseholderList({
   }, [viewMode]);
   const { visibleCount, sentinelRef } = useInfiniteList({
     itemsLength: householders.length,
-    viewMode
+    viewMode,
+    initialCounts: { detailed: 7, compact: 10, table: 40 },
+    stepCounts: { detailed: 5, compact: 10, table: 40 },
   });
   const visibleHouseholders = useMemo(
     () => householders.slice(0, visibleCount),
@@ -369,10 +371,8 @@ export function HouseholderList({
         <table className="w-full text-sm table-fixed">
           <tbody>
             {visibleHouseholders.map((householder, index) => (
-              <motion.tr
+              <tr
                 key={householder.id || index}
-                layout
-                transition={{ duration: 0.2, ease: "easeOut" }}
                 className="border-b hover:bg-muted/30 cursor-pointer"
                 onClick={() => onHouseholderClick(householder)}
               >
@@ -394,7 +394,7 @@ export function HouseholderList({
                     <EstablishmentNameCell name={householder.establishment_name} />
                   ) : null}
                 </td>
-              </motion.tr>
+              </tr>
             ))}
           </tbody>
         </table>

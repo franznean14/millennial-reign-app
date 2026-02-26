@@ -122,7 +122,9 @@ export function EstablishmentList({
   }, [viewMode]);
   const { visibleCount, sentinelRef } = useInfiniteList({
     itemsLength: establishments.length,
-    viewMode
+    viewMode,
+    initialCounts: { detailed: 7, compact: 10, table: 40 },
+    stepCounts: { detailed: 5, compact: 10, table: 40 },
   });
   const visibleEstablishments = useMemo(
     () => establishments.slice(0, visibleCount),
@@ -485,10 +487,8 @@ export function EstablishmentList({
         <table className="w-full text-sm table-fixed">
           <tbody>
             {visibleEstablishments.map((establishment, index) => (
-              <motion.tr
+              <tr
                 key={establishment.id || index}
-                layout
-                transition={{ duration: 0.2, ease: "easeOut" }}
                 className="border-b hover:bg-muted/30 cursor-pointer"
                 onClick={() => onEstablishmentClick(establishment)}
               >
@@ -520,7 +520,7 @@ export function EstablishmentList({
                 <td className="p-3 min-w-0 w-[27%]">
                   <MarqueeCell text={establishment.area || '-'} />
                 </td>
-              </motion.tr>
+              </tr>
             ))}
           </tbody>
         </table>
