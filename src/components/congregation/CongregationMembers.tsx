@@ -220,10 +220,10 @@ export function CongregationMembers({ congregationId, currentUserId }: Congregat
                     <ToggleGroupItem
                       key={g}
                       value={g}
-                      className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm min-w-0 px-3 h-12 flex items-center justify-center transition-colors"
+                      className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm min-w-0 max-w-[100px] px-3 min-h-12 py-2 flex items-center justify-center transition-colors"
                       title={g}
                     >
-                      <span className="text-[11px] font-medium text-center truncate w-full">{g}</span>
+                      <span className="text-[11px] font-medium text-center whitespace-normal break-words w-full">{g}</span>
                     </ToggleGroupItem>
                   ))}
                 </ToggleGroup>
