@@ -92,8 +92,12 @@ export interface MyOpenCallTodoItem extends CallTodo {
   householder_id?: string | null;
   /** Display name for badge: establishment name or householder name */
   context_name?: string | null;
+  /** Establishment name when call is for a householder (for second badge) */
+  context_establishment_name?: string | null;
   /** Status for badge color: establishment best status or householder status */
   context_status?: string | null;
+  /** Establishment status for its own badge color */
+  context_establishment_status?: string | null;
   /** Call created_at for ordering and age-based styling */
   call_created_at?: string | null;
    /** Establishment area for area filters */
@@ -990,7 +994,7 @@ export async function deleteCallTodo(id: string): Promise<boolean> {
   }
 }
 
-function buildCallMetaById(calls: any[]): Map<string, { visit_date: string | null; establishment_id: string | null; householder_id: string | null; context_name: string | null; context_status: string | null; call_created_at: string | null; context_area: string | null }> {
+function buildCallMetaById(calls: any[]): Map<string, { visit_date: string | null; establishment_id: string | null; householder_id: string | null; context_name: string | null; context_establishment_name: string | null; context_status: string | null; context_establishment_status: string | null; call_created_at: string | null; context_area: string | null }> {
   return new Map(
     calls.map((c) => {
       const establishment = Array.isArray((c as any).establishment)
@@ -1002,9 +1006,13 @@ function buildCallMetaById(calls: any[]): Map<string, { visit_date: string | nul
       const context_name = (c.householder_id && householder?.name
         ? householder.name
         : establishment?.name ?? null) as string | null;
+      const context_establishment_name = (establishment?.name ?? null) as string | null;
+      const establishment_status = establishment?.statuses
+        ? getBestStatus(establishment.statuses as string[])
+        : null;
       const context_status = c.householder_id && householder?.status
         ? householder.status
-        : (establishment?.statuses ? getBestStatus(establishment.statuses as string[]) : null);
+        : establishment_status;
       return [
         c.id,
         {
@@ -1012,7 +1020,9 @@ function buildCallMetaById(calls: any[]): Map<string, { visit_date: string | nul
           establishment_id: c.establishment_id ?? null,
           householder_id: c.householder_id ?? null,
           context_name: context_name ?? null,
+          context_establishment_name: context_establishment_name ?? null,
           context_status: context_status ?? null,
+          context_establishment_status: establishment_status ?? null,
           call_created_at: c.created_at ?? null,
           context_area: establishment?.area ?? null,
         },
@@ -1050,7 +1060,9 @@ export async function getMyOpenCallTodos(userId: string, limit = 15): Promise<My
         establishment_id: null,
         householder_id: null,
         context_name: null,
+        context_establishment_name: null,
         context_status: null,
+        context_establishment_status: null,
         call_created_at: null,
         context_area: null,
       };
@@ -1060,7 +1072,9 @@ export async function getMyOpenCallTodos(userId: string, limit = 15): Promise<My
         establishment_id: meta.establishment_id,
         householder_id: meta.householder_id,
         context_name: meta.context_name,
+        context_establishment_name: meta.context_establishment_name,
         context_status: meta.context_status,
+        context_establishment_status: meta.context_establishment_status,
         call_created_at: meta.call_created_at,
         context_area: meta.context_area,
       } as MyOpenCallTodoItem;
@@ -1106,7 +1120,9 @@ export async function getMyCompletedCallTodos(userId: string, limit = 20): Promi
         establishment_id: null,
         householder_id: null,
         context_name: null,
+        context_establishment_name: null,
         context_status: null,
+        context_establishment_status: null,
         call_created_at: null,
         context_area: null,
       };
@@ -1116,7 +1132,9 @@ export async function getMyCompletedCallTodos(userId: string, limit = 20): Promi
         establishment_id: meta.establishment_id,
         householder_id: meta.householder_id,
         context_name: meta.context_name,
+        context_establishment_name: meta.context_establishment_name,
         context_status: meta.context_status,
+        context_establishment_status: meta.context_establishment_status,
         call_created_at: meta.call_created_at,
         context_area: meta.context_area,
       } as MyOpenCallTodoItem;
@@ -1180,7 +1198,9 @@ async function getScopedCallTodos(options: {
         establishment_id: null,
         householder_id: null,
         context_name: null,
+        context_establishment_name: null,
         context_status: null,
+        context_establishment_status: null,
         call_created_at: null,
         context_area: null,
       };
@@ -1190,7 +1210,9 @@ async function getScopedCallTodos(options: {
         establishment_id: meta.establishment_id,
         householder_id: meta.householder_id,
         context_name: meta.context_name,
+        context_establishment_name: meta.context_establishment_name,
         context_status: meta.context_status,
+        context_establishment_status: meta.context_establishment_status,
         call_created_at: meta.call_created_at,
         context_area: meta.context_area,
       } as MyOpenCallTodoItem;

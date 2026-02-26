@@ -2,8 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { motion } from "motion/react";
-import { ListTodo, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
-import { formatDateHuman } from "@/lib/utils";
+import { ListTodo, ChevronRight, ChevronDown, ChevronUp, User, Building2 } from "lucide-react";
 import {
   getMyOpenCallTodos,
   getMyCompletedCallTodos,
@@ -41,13 +40,30 @@ const TODOS_FRESH_MS = 30_000;
 
 const TODOS_CACHE_KEY = (scopeKey: string) => `home-todos:${scopeKey}`;
 
-/** Age-based row styling: <7 days green, 7+ yellow, 14+ orange, 21+ red (oldest on top). */
-function getTodoAgeBorderClass(callCreatedAt: string | null | undefined): string {
-  if (!callCreatedAt) return "";
-  const created = new Date(callCreatedAt).getTime();
+function truncateLabel(label: string | null | undefined, max = 28): string {
+  if (!label) return "";
+  const trimmed = label.trim();
+  if (trimmed.length <= max) return trimmed;
+  return `${trimmed.slice(0, max - 1)}…`;
+}
+
+function formatTodoDate(dateStr: string | null | undefined): string {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  if (Number.isNaN(d.getTime())) return dateStr;
+  const month = d.toLocaleDateString("en-US", { month: "short" });
+  const day = d.getDate();
+  const yearShort = String(d.getFullYear()).slice(-2);
+  return `${month} ${day}, '${yearShort}`;
+}
+
+/** Age-based row styling using visit_date: <7 days green, 7+ yellow, 14+ orange, 21+ red (oldest on top). */
+function getTodoAgeBorderClass(visitDate: string | null | undefined): string {
+  if (!visitDate) return "";
+  const visit = new Date(visitDate).getTime();
   const now = Date.now();
   const daysMs = 24 * 60 * 60 * 1000;
-  const daysOld = (now - created) / daysMs;
+  const daysOld = (now - visit) / daysMs;
   if (daysOld >= 21) return "border-l-4 border-l-red-500 dark:border-l-red-600";
   if (daysOld >= 14) return "border-l-4 border-l-orange-500 dark:border-l-orange-600";
   if (daysOld >= 7) return "border-l-4 border-l-yellow-500 dark:border-l-yellow-600";
@@ -341,11 +357,11 @@ export function HomeTodoCard({
             )}
             <ChevronRight className="h-3.5 w-3.5 ml-auto opacity-70" />
           </button>
-          <ul className="space-y-3">
+          <ul className="space-y-4">
             {filteredOpenTodos.length === 0 ? (
               <li className="text-sm text-muted-foreground py-1">{emptyText}</li>
             ) : (
-              displayTodos.map((todo) => (
+              displayTodos.map((todo, index) => (
                 <TodoRow
                   key={todo.id}
                   todo={todo}
@@ -353,6 +369,7 @@ export function HomeTodoCard({
                   onMarkDone={handleMarkDone}
                   onTap={hasNavigation ? handleTodoTap : undefined}
                   showCheckbox
+                  rowIndex={index}
                   layoutId={`card-${todo.id}`}
                   layoutTransition={todoLayoutTransition}
                 />
@@ -362,8 +379,8 @@ export function HomeTodoCard({
           {filteredCompletedTodos.length > 0 && (
             <>
               <div className="text-xs text-muted-foreground mt-4 mb-2 font-medium">Done</div>
-              <ul className="space-y-3">
-                {filteredCompletedTodos.slice(0, 3).map((todo) => (
+              <ul className="space-y-4">
+                {filteredCompletedTodos.slice(0, 3).map((todo, index) => (
                   <TodoRow
                     key={todo.id}
                     todo={{ ...todo, is_done: true }}
@@ -371,6 +388,7 @@ export function HomeTodoCard({
                     onMarkDone={handleMarkDone}
                     onTap={hasNavigation ? handleTodoTap : undefined}
                     showCheckbox
+                    rowIndex={index}
                     layoutId={`card-${todo.id}`}
                     layoutTransition={todoLayoutTransition}
                   />
@@ -498,8 +516,8 @@ export function HomeTodoCard({
               ) : (
                 <>
                   {filteredOpenTodos.length > 0 && (
-                    <ul className="space-y-1 pb-2">
-                      {filteredOpenTodos.map((todo) => (
+                    <ul className="space-y-3 pb-2">
+                      {filteredOpenTodos.map((todo, index) => (
                         <TodoRow
                           key={todo.id}
                           todo={todo}
@@ -507,6 +525,7 @@ export function HomeTodoCard({
                           onMarkDone={handleMarkDone}
                           onTap={hasNavigation ? handleTodoTap : undefined}
                           showCheckbox
+                          rowIndex={index}
                           layoutId={`drawer-${todo.id}`}
                           layoutTransition={todoLayoutTransition}
                         />
@@ -515,14 +534,14 @@ export function HomeTodoCard({
                   )}
                   {filteredCompletedTodos.length > 0 && (
                     <>
-                      <div className="text-xs text-muted-foreground mt-4 mb-2 font-medium">
+                      <div className="text-xs text-muted-foreground mt-5 mb-2 font-medium">
                         Done
                       </div>
-                      <ul className="space-y-1">
+                      <ul className="space-y-3">
                         {(drawerDoneExpanded
                           ? filteredCompletedTodos
                           : filteredCompletedTodos.slice(0, 3)
-                        ).map((todo) => (
+                        ).map((todo, index) => (
                           <TodoRow
                             key={todo.id}
                             todo={{ ...todo, is_done: true }}
@@ -530,6 +549,7 @@ export function HomeTodoCard({
                             onMarkDone={handleMarkDone}
                             onTap={hasNavigation ? handleTodoTap : undefined}
                             showCheckbox
+                            rowIndex={index}
                             layoutId={`drawer-${todo.id}`}
                             layoutTransition={todoLayoutTransition}
                           />
@@ -576,6 +596,7 @@ function TodoRow({
   showCheckbox = false,
   layoutId,
   layoutTransition,
+  rowIndex,
 }: {
   todo: MyOpenCallTodoItem;
   timeZone: string | null;
@@ -584,11 +605,15 @@ function TodoRow({
   showCheckbox?: boolean;
   layoutId?: string;
   layoutTransition?: { type: "spring"; stiffness: number; damping: number };
+  rowIndex?: number;
 }) {
   const canNavigate = !!onTap && (!!todo.call_id || !!todo.establishment_id || !!todo.householder_id);
-  const status = todo.context_status || "for_scouting";
+  const householderStatus = todo.context_status || "for_scouting";
+  const establishmentStatus = todo.context_establishment_status || "for_scouting";
   const isDone = !!todo.is_done;
-  const ageBorderClass = isDone ? "" : getTodoAgeBorderClass(todo.call_created_at);
+  const ageBorderClass = isDone ? "" : getTodoAgeBorderClass(todo.visit_date);
+  const isHouseholder = !!todo.householder_id;
+  const isEvenRow = typeof rowIndex === "number" && rowIndex % 2 === 1;
   const content = (
     <>
       {showCheckbox ? (
@@ -604,7 +629,44 @@ function TodoRow({
           aria-hidden
         />
       )}
-      <div className="min-w-0 flex-1 flex flex-col gap-1">
+      <div className="min-w-0 flex-1 flex flex-col gap-0.5">
+        <div className="flex items-center gap-1.5 overflow-hidden">
+          {todo.context_name ? (
+            <>
+              {isHouseholder ? (
+                <span className="inline-flex items-center gap-1 w-fit max-w-[55%] min-w-0 shrink">
+                  <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                  <VisitStatusBadge
+                    status={householderStatus}
+                    label={truncateLabel(todo.context_name, 28)}
+                    className={cn("truncate max-w-full whitespace-nowrap", isDone && "opacity-70")}
+                  />
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 w-fit max-w-[55%] min-w-0 shrink">
+                  <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                  <VisitStatusBadge
+                    status={establishmentStatus}
+                    label={truncateLabel(todo.context_name, 28)}
+                    className={cn("truncate max-w-full whitespace-nowrap", isDone && "opacity-70")}
+                  />
+                </span>
+              )}
+              {isHouseholder && todo.context_establishment_name ? (
+                <VisitStatusBadge
+                  status={establishmentStatus}
+                  label={truncateLabel(todo.context_establishment_name, 24)}
+                  className={cn("truncate max-w-[45%] whitespace-nowrap border-muted bg-muted/50", isDone && "opacity-70")}
+                />
+              ) : null}
+            </>
+          ) : null}
+          {todo.visit_date ? (
+            <span className="text-xs text-muted-foreground shrink-0 ml-auto pl-2 pr-1">
+              {formatTodoDate(todo.visit_date)}
+            </span>
+          ) : null}
+        </div>
         <button
           type="button"
           onClick={() => onTap?.(todo)}
@@ -617,23 +679,12 @@ function TodoRow({
         >
           {todo.body}
         </button>
-        {todo.context_name ? (
-          <VisitStatusBadge
-            status={status}
-            label={todo.context_name}
-            className={cn("w-fit truncate max-w-full", isDone && "opacity-70")}
-          />
-        ) : null}
       </div>
-      {todo.visit_date ? (
-        <span className="text-xs text-muted-foreground shrink-0 pt-0.5">
-          {formatDateHuman(todo.visit_date, timeZone || undefined)}
-        </span>
-      ) : null}
     </>
   );
   const finalClassName = cn(
-    "flex items-center gap-2 text-sm group",
+    "flex items-center gap-2 text-sm group rounded-md",
+    isEvenRow && "bg-muted/30",
     ageBorderClass && "pl-2",
     ageBorderClass
   );
