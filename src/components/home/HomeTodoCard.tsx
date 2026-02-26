@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { motion } from "motion/react";
 import { ListTodo, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
 import { formatDateHuman } from "@/lib/utils";
@@ -16,6 +16,9 @@ import {
 } from "@/lib/db/business";
 import { cacheGet, cacheSet } from "@/lib/offline/store";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { FilterControls, type FilterBadge } from "@/components/shared/FilterControls";
+import { VisitFiltersForm, type VisitFilters, type VisitFilterOption } from "@/components/visit/VisitFiltersForm";
+import { buildFilterBadges } from "@/lib/utils/filter-badges";
 import {
   Drawer,
   DrawerContent,
@@ -26,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { VisitStatusBadge } from "@/components/visit/VisitStatusBadge";
 import { cn } from "@/lib/utils";
+import { formatStatusText } from "@/lib/utils/formatters";
 
 const todoLayoutTransition = {
   type: "spring",
@@ -75,6 +79,18 @@ export function HomeTodoCard({
   const hasLoadedRef = useRef(false);
   const lastSyncedAtRef = useRef(0);
   const inFlightRef = useRef(false);
+  const [filters, setFilters] = useState<VisitFilters>({
+    search: "",
+    statuses: [],
+    areas: [],
+    myUpdatesOnly: false,
+    bwiOnly: false,
+    householderOnly: false,
+  });
+  const [activePanel, setActivePanel] = useState<"list" | "filters">("list");
+  const [isSearchActive, setIsSearchActive] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
   const scopeKey = establishmentId
     ? `establishment:${establishmentId}`
     : householderId
@@ -144,6 +160,45 @@ export function HomeTodoCard({
     cacheSet(TODOS_CACHE_KEY(scopeKey), { open: openTodos, completed: completedTodos });
   }, [scopeKey, openTodos, completedTodos]);
 
+  const allTodos = useMemo(
+    () => [...openTodos, ...completedTodos],
+    [openTodos, completedTodos]
+  );
+
+  const statusOptions: VisitFilterOption[] = useMemo(() => {
+    const values = new Set<string>();
+    allTodos.forEach((t) => {
+      if (t.context_status) values.add(t.context_status);
+    });
+    return Array.from(values).map((value) => ({
+      value,
+      label: formatStatusText(value),
+    }));
+  }, [allTodos]);
+
+  const areaOptions: VisitFilterOption[] = useMemo(() => {
+    const values = new Set<string>();
+    allTodos.forEach((t) => {
+      const area = t.context_area?.trim();
+      if (area) values.add(area);
+    });
+    return Array.from(values).map((value) => ({ value, label: value }));
+  }, [allTodos]);
+
+  const filterBadges: FilterBadge[] = useMemo(
+    () =>
+      buildFilterBadges({
+        statuses: filters.statuses,
+        areas: filters.areas,
+        formatStatusLabel: formatStatusText,
+      }),
+    [filters.statuses, filters.areas]
+  );
+
+  const clearFilters = useCallback(() => {
+    setFilters((prev) => ({ ...prev, statuses: [], areas: [] }));
+  }, []);
+
   // Live update for both card and drawer
   useEffect(() => {
     if (!scopeKey) return;
@@ -202,7 +257,59 @@ export function HomeTodoCard({
     setDrawerOpen(false);
   };
 
-  const displayTodos = openTodos.slice(0, 5);
+  const applyFilters = useCallback(
+    (items: MyOpenCallTodoItem[]): MyOpenCallTodoItem[] => {
+      // Only apply filters/search/BWI/contacts for the main home card (user scope)
+      if (!userId || establishmentId || householderId) return items;
+
+      return items.filter((todo) => {
+        // Search (body + context name)
+        if (searchValue.trim()) {
+          const term = searchValue.trim().toLowerCase();
+          const haystack =
+            `${todo.body ?? ""} ${todo.context_name ?? ""}`.toLowerCase();
+          if (!haystack.includes(term)) return false;
+        }
+
+        // Status filter
+        if (filters.statuses.length > 0) {
+          if (!todo.context_status || !filters.statuses.includes(todo.context_status)) {
+            return false;
+          }
+        }
+
+        // Area filter
+        if (filters.areas.length > 0) {
+          const area = todo.context_area?.trim();
+          if (!area || !filters.areas.includes(area)) {
+            return false;
+          }
+        }
+
+        // Establishments Only / Contacts Only
+        if (filters.bwiOnly && (!todo.establishment_id || !!todo.householder_id)) {
+          return false;
+        }
+        if (filters.householderOnly && !todo.householder_id) {
+          return false;
+        }
+
+        return true;
+      });
+    },
+    [userId, establishmentId, householderId, filters, searchValue]
+  );
+
+  const filteredOpenTodos = useMemo(
+    () => applyFilters(openTodos),
+    [applyFilters, openTodos]
+  );
+  const filteredCompletedTodos = useMemo(
+    () => applyFilters(completedTodos),
+    [applyFilters, completedTodos]
+  );
+
+  const displayTodos = filteredOpenTodos.slice(0, 5);
   const hasNavigation = !!(onNavigateToTodoCall || onTodoTap);
   const emptyText = userId
     ? "No open to-dos from your calls"
@@ -225,7 +332,7 @@ export function HomeTodoCard({
             <ChevronRight className="h-3.5 w-3.5 ml-auto opacity-70" />
           </button>
           <ul className="space-y-3">
-            {openTodos.length === 0 ? (
+            {filteredOpenTodos.length === 0 ? (
               <li className="text-sm text-muted-foreground py-1">{emptyText}</li>
             ) : (
               displayTodos.map((todo) => (
@@ -242,11 +349,11 @@ export function HomeTodoCard({
               ))
             )}
           </ul>
-          {completedTodos.length > 0 && (
+          {filteredCompletedTodos.length > 0 && (
             <>
               <div className="text-xs text-muted-foreground mt-4 mb-2 font-medium">Done</div>
               <ul className="space-y-3">
-                {completedTodos.slice(0, 3).map((todo) => (
+                {filteredCompletedTodos.slice(0, 3).map((todo) => (
                   <TodoRow
                     key={todo.id}
                     todo={{ ...todo, is_done: true }}
@@ -272,39 +379,132 @@ export function HomeTodoCard({
         }}
       >
         <DrawerContent className="max-h-[85vh]">
-          <DrawerHeader className="px-4 pt-4 pb-2">
-            <DrawerTitle className="text-left flex items-center gap-1.5">
+          <DrawerHeader className="px-4 pt-4 pb-2 items-center">
+            <DrawerTitle className="flex w-full items-center justify-center gap-2 text-center text-lg font-bold">
               <ListTodo className="h-4 w-4 shrink-0" />
-              To-Do
+              {activePanel === "filters" ? "Filter To-Dos" : "To-Do"}
             </DrawerTitle>
           </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+24px)]">
-            {openTodos.length === 0 && completedTodos.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4">{emptyDrawerText}</p>
-            ) : (
-              <>
-                {openTodos.length > 0 && (
-                  <ul className="space-y-1 pb-2">
-                    {openTodos.map((todo) => (
-                      <TodoRow
-                        key={todo.id}
-                        todo={todo}
-                        timeZone={timeZone}
-                        onMarkDone={handleMarkDone}
-                        onTap={hasNavigation ? handleTodoTap : undefined}
-                        showCheckbox
-                        layoutId={`drawer-${todo.id}`}
-                        layoutTransition={todoLayoutTransition}
-                      />
-                    ))}
-                  </ul>
-                )}
-                {completedTodos.length > 0 && (
-                  <>
-                    <div className="text-xs text-muted-foreground mt-4 mb-2 font-medium">Done</div>
-                    <ul className="space-y-1">
-                      {(drawerDoneExpanded ? completedTodos : completedTodos.slice(0, 3)).map(
-                        (todo) => (
+          {activePanel === "filters" ? (
+            <div className="overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+24px)]">
+              <VisitFiltersForm
+                filters={filters}
+                statusOptions={statusOptions}
+                areaOptions={areaOptions}
+                onFiltersChange={setFilters}
+                onClearFilters={clearFilters}
+              />
+              <div className="flex justify-end pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setActivePanel("list")}
+                >
+                  Done
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+24px)]">
+              {userId && !establishmentId && !householderId && (
+                <div className="mb-4 w-full flex justify-center">
+                  <FilterControls
+                    isSearchActive={isSearchActive}
+                    searchValue={searchValue}
+                    searchInputRef={searchInputRef}
+                    onSearchActivate={() => setIsSearchActive(true)}
+                    onSearchChange={(value) => setSearchValue(value)}
+                    onSearchClear={() => {
+                      setSearchValue("");
+                      setIsSearchActive(false);
+                    }}
+                    onSearchBlur={() => {
+                      if (!searchValue.trim()) setIsSearchActive(false);
+                    }}
+                    showMyFilter={false}
+                    bwiActive={filters.bwiOnly}
+                    bwiLabel="Establishments Only"
+                    onBwiActivate={() =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        bwiOnly: true,
+                        householderOnly: false,
+                      }))
+                    }
+                    onBwiClear={() =>
+                      setFilters((prev) => ({ ...prev, bwiOnly: false }))
+                    }
+                    householderActive={filters.householderOnly}
+                    householderLabel="Contacts Only"
+                    onHouseholderActivate={() =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        householderOnly: true,
+                        bwiOnly: false,
+                      }))
+                    }
+                    onHouseholderClear={() =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        householderOnly: false,
+                      }))
+                    }
+                    filterBadges={filterBadges}
+                    onOpenFilters={() => setActivePanel("filters")}
+                    onClearFilters={clearFilters}
+                    onRemoveBadge={(badge) => {
+                      if (badge.type === "status") {
+                        setFilters((prev) => ({
+                          ...prev,
+                          statuses: prev.statuses.filter(
+                            (s) => s !== badge.value
+                          ),
+                        }));
+                      } else if (badge.type === "area") {
+                        setFilters((prev) => ({
+                          ...prev,
+                          areas: prev.areas.filter((a) => a !== badge.value),
+                        }));
+                      }
+                    }}
+                    containerClassName={
+                      isSearchActive ? "w-full !max-w-none !px-0" : "justify-center"
+                    }
+                    maxWidthClassName={isSearchActive ? "" : "mx-4"}
+                  />
+                </div>
+              )}
+
+              {filteredOpenTodos.length === 0 && filteredCompletedTodos.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-4">{emptyDrawerText}</p>
+              ) : (
+                <>
+                  {filteredOpenTodos.length > 0 && (
+                    <ul className="space-y-1 pb-2">
+                      {filteredOpenTodos.map((todo) => (
+                        <TodoRow
+                          key={todo.id}
+                          todo={todo}
+                          timeZone={timeZone}
+                          onMarkDone={handleMarkDone}
+                          onTap={hasNavigation ? handleTodoTap : undefined}
+                          showCheckbox
+                          layoutId={`drawer-${todo.id}`}
+                          layoutTransition={todoLayoutTransition}
+                        />
+                      ))}
+                    </ul>
+                  )}
+                  {filteredCompletedTodos.length > 0 && (
+                    <>
+                      <div className="text-xs text-muted-foreground mt-4 mb-2 font-medium">
+                        Done
+                      </div>
+                      <ul className="space-y-1">
+                        {(drawerDoneExpanded
+                          ? filteredCompletedTodos
+                          : filteredCompletedTodos.slice(0, 3)
+                        ).map((todo) => (
                           <TodoRow
                             key={todo.id}
                             todo={{ ...todo, is_done: true }}
@@ -315,34 +515,35 @@ export function HomeTodoCard({
                             layoutId={`drawer-${todo.id}`}
                             layoutTransition={todoLayoutTransition}
                           />
-                        )
+                        ))}
+                      </ul>
+                      {filteredCompletedTodos.length > 3 && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="mt-2 w-full text-muted-foreground hover:text-foreground"
+                          onClick={() => setDrawerDoneExpanded((prev) => !prev)}
+                        >
+                          {drawerDoneExpanded ? (
+                            <>
+                              <ChevronUp className="h-4 w-4 mr-1" />
+                              Show less
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDown className="h-4 w-4 mr-1" />
+                              Show more (
+                              {filteredCompletedTodos.length - 3} more)
+                            </>
+                          )}
+                        </Button>
                       )}
-                    </ul>
-                    {completedTodos.length > 3 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="mt-2 w-full text-muted-foreground hover:text-foreground"
-                        onClick={() => setDrawerDoneExpanded((prev) => !prev)}
-                      >
-                        {drawerDoneExpanded ? (
-                          <>
-                            <ChevronUp className="h-4 w-4 mr-1" />
-                            Show less
-                          </>
-                        ) : (
-                          <>
-                            <ChevronDown className="h-4 w-4 mr-1" />
-                            Show more ({completedTodos.length - 3} more)
-                          </>
-                        )}
-                      </Button>
-                    )}
-                  </>
-                )}
-              </>
-            )}
-          </div>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </DrawerContent>
       </Drawer>
     </>

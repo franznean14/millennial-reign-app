@@ -46,7 +46,7 @@ function FormModalBody({ children, className }: FormModalBodyProps) {
 interface FormModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  title: string;
+  title: ReactNode;
   description?: string;
   children: ReactNode;
   className?: string;

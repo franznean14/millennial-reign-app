@@ -96,6 +96,8 @@ export interface MyOpenCallTodoItem extends CallTodo {
   context_status?: string | null;
   /** Call created_at for ordering and age-based styling */
   call_created_at?: string | null;
+   /** Establishment area for area filters */
+  context_area?: string | null;
 }
 
 export interface EstablishmentWithDetails {
@@ -941,7 +943,7 @@ export async function deleteCallTodo(id: string): Promise<boolean> {
   }
 }
 
-function buildCallMetaById(calls: any[]): Map<string, { visit_date: string | null; establishment_id: string | null; householder_id: string | null; context_name: string | null; context_status: string | null; call_created_at: string | null }> {
+function buildCallMetaById(calls: any[]): Map<string, { visit_date: string | null; establishment_id: string | null; householder_id: string | null; context_name: string | null; context_status: string | null; call_created_at: string | null; context_area: string | null }> {
   return new Map(
     calls.map((c) => {
       const establishment = Array.isArray((c as any).establishment)
@@ -965,6 +967,7 @@ function buildCallMetaById(calls: any[]): Map<string, { visit_date: string | nul
           context_name: context_name ?? null,
           context_status: context_status ?? null,
           call_created_at: c.created_at ?? null,
+          context_area: establishment?.area ?? null,
         },
       ];
     })
@@ -979,7 +982,7 @@ export async function getMyOpenCallTodos(userId: string, limit = 15): Promise<My
     const { data: calls, error: callsError } = await supabase
       .from('calls')
       .select(
-        'id, created_at, visit_date, establishment_id, householder_id, establishment:business_establishments!calls_establishment_id_fkey(name, statuses), householder:householders!calls_householder_id_fkey(name, status)'
+        'id, created_at, visit_date, establishment_id, householder_id, establishment:business_establishments!calls_establishment_id_fkey(name, statuses, area), householder:householders!calls_householder_id_fkey(name, status)'
       )
       .or(`publisher_id.eq.${userId},partner_id.eq.${userId}`)
       .order('visit_date', { ascending: false })
@@ -1002,6 +1005,7 @@ export async function getMyOpenCallTodos(userId: string, limit = 15): Promise<My
         context_name: null,
         context_status: null,
         call_created_at: null,
+        context_area: null,
       };
       return {
         ...(t as CallTodo),
@@ -1011,6 +1015,7 @@ export async function getMyOpenCallTodos(userId: string, limit = 15): Promise<My
         context_name: meta.context_name,
         context_status: meta.context_status,
         call_created_at: meta.call_created_at,
+        context_area: meta.context_area,
       } as MyOpenCallTodoItem;
     });
     items.sort((a, b) => {
@@ -1033,7 +1038,7 @@ export async function getMyCompletedCallTodos(userId: string, limit = 20): Promi
     const { data: calls, error: callsError } = await supabase
       .from('calls')
       .select(
-        'id, created_at, visit_date, establishment_id, householder_id, establishment:business_establishments!calls_establishment_id_fkey(name, statuses), householder:householders!calls_householder_id_fkey(name, status)'
+        'id, created_at, visit_date, establishment_id, householder_id, establishment:business_establishments!calls_establishment_id_fkey(name, statuses, area), householder:householders!calls_householder_id_fkey(name, status)'
       )
       .or(`publisher_id.eq.${userId},partner_id.eq.${userId}`)
       .order('visit_date', { ascending: false })
@@ -1056,6 +1061,7 @@ export async function getMyCompletedCallTodos(userId: string, limit = 20): Promi
         context_name: null,
         context_status: null,
         call_created_at: null,
+        context_area: null,
       };
       return {
         ...(t as CallTodo),
@@ -1065,6 +1071,7 @@ export async function getMyCompletedCallTodos(userId: string, limit = 20): Promi
         context_name: meta.context_name,
         context_status: meta.context_status,
         call_created_at: meta.call_created_at,
+        context_area: meta.context_area,
       } as MyOpenCallTodoItem;
     });
     items.sort((a, b) => {
@@ -1094,7 +1101,7 @@ async function getScopedCallTodos(options: {
     let callsQuery = supabase
       .from("calls")
       .select(
-        "id, created_at, visit_date, establishment_id, householder_id, establishment:business_establishments!calls_establishment_id_fkey(name, statuses), householder:householders!calls_householder_id_fkey(name, status)"
+        "id, created_at, visit_date, establishment_id, householder_id, establishment:business_establishments!calls_establishment_id_fkey(name, statuses, area), householder:householders!calls_householder_id_fkey(name, status)"
       )
       .order("visit_date", { ascending: false })
       .limit(200);
@@ -1128,6 +1135,7 @@ async function getScopedCallTodos(options: {
         context_name: null,
         context_status: null,
         call_created_at: null,
+        context_area: null,
       };
       return {
         ...(t as CallTodo),
@@ -1137,6 +1145,7 @@ async function getScopedCallTodos(options: {
         context_name: meta.context_name,
         context_status: meta.context_status,
         call_created_at: meta.call_created_at,
+        context_area: meta.context_area,
       } as MyOpenCallTodoItem;
     });
 

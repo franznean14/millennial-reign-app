@@ -4,7 +4,7 @@ import { useEffect, useLayoutEffect, useState, useRef } from "react";
 import { formatVisitDateLong, getVisitDisplayName } from "@/lib/utils/visit-history-ui";
 import { Button } from "@/components/ui/button";
 import { FormModal } from "@/components/shared/FormModal";
-import { Building2, Calendar, ChevronRight, History } from "lucide-react";
+import { Building2, Calendar, ChevronRight, DoorOpen, UserRound } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { getTimelineDotSize, getTimelineLineStyle, getVisitTypeDotColor } from "@/lib/utils/visit-timeline";
 import type { VisitRecord } from "@/lib/utils/visit-history";
@@ -35,6 +35,15 @@ interface VisitHistoryProps {
   ) => void;
   bwiAreaFilter: "all" | string;
   onBwiAreaChange: (area: "all" | string) => void;
+}
+
+function KnockingDoorIcon() {
+  return (
+    <span className="inline-flex items-center gap-0.5 shrink-0" aria-hidden>
+      <UserRound className="h-3.5 w-3.5" />
+      <DoorOpen className="h-3.5 w-3.5" />
+    </span>
+  );
 }
 
 function BwiStatusCell({
@@ -524,7 +533,7 @@ export function VisitHistory({
                 "after:hidden"
               )}
             >
-              <History className="h-4 w-4" />
+              <KnockingDoorIcon />
               <span>Calls</span>
               {activeTab === "visit-history" ? (
                 <ChevronRight className="h-4 w-4 opacity-70" />
@@ -657,7 +666,7 @@ export function VisitHistory({
                 "after:hidden"
               )}
             >
-              <History className="h-4 w-4" />
+              <KnockingDoorIcon />
               <span>Calls</span>
               {activeTab === "visit-history" ? (
                 <ChevronRight className="h-4 w-4 opacity-70" />
@@ -770,7 +779,13 @@ export function VisitHistory({
           setShowDrawer(open);
           if (!open) setActivePanel("list");
         }}
-        title={activePanel === "filters" ? "Filter Calls" : "Calls"}
+        title={
+          <span className="flex w-full items-center justify-center gap-2 text-center text-lg font-bold">
+            <KnockingDoorIcon />
+            {activePanel === "filters" ? "Filter Calls" : "Calls"}
+          </span>
+        }
+        headerClassName="px-4 pt-4 pb-2 items-center text-center"
         description={activePanel === "filters" ? "Filter by status and area" : undefined}
       >
         {activePanel === "filters" ? (

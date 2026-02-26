@@ -4,7 +4,7 @@ import React, { type RefObject } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Filter as FilterIcon, Search, User, UserCheck, X, Building2, Home } from "lucide-react";
+import { Filter as FilterIcon, Search, User, UserCheck, X, Building2 } from "lucide-react";
 import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
 import { getExcludeFilterBadgeClass } from "@/lib/utils/status-filter-styles";
 import { cn } from "@/lib/utils";
@@ -20,10 +20,11 @@ interface FilterControlsProps {
   onSearchChange: (value: string) => void;
   onSearchClear: () => void;
   onSearchBlur: () => void;
-  myActive: boolean;
-  myLabel: string;
-  onMyActivate: () => void;
-  onMyClear: () => void;
+  myActive?: boolean;
+  myLabel?: string;
+  onMyActivate?: () => void;
+  onMyClear?: () => void;
+  showMyFilter?: boolean;
   bwiActive?: boolean;
   bwiLabel?: string;
   onBwiActivate?: () => void;
@@ -48,10 +49,11 @@ export function FilterControls({
   onSearchChange,
   onSearchClear,
   onSearchBlur,
-  myActive,
-  myLabel,
+  myActive = false,
+  myLabel = "My Items",
   onMyActivate,
   onMyClear,
+  showMyFilter = true,
   bwiActive = false,
   bwiLabel = "BWI Only",
   onBwiActivate,
@@ -191,11 +193,11 @@ export function FilterControls({
             </div>
           </Button>
         </div>
-      ) : myActive || bwiActive || householderActive ? (
+      ) : (showMyFilter && myActive) || bwiActive || householderActive ? (
         <div
           className={cn("flex items-center gap-1", containerClassName)}
         >
-          {myActive && (
+          {showMyFilter && myActive && onMyClear && (
             <Button
               type="button"
               variant="default"
@@ -243,7 +245,7 @@ export function FilterControls({
               aria-label={householderLabel}
               title={householderLabel}
             >
-              <Home className="h-4 w-4 text-foreground" />
+              <User className="h-4 w-4 text-foreground" />
             </Button>
           )}
           {householderActive && onHouseholderClear && (
@@ -255,7 +257,7 @@ export function FilterControls({
               onClick={onHouseholderClear}
               aria-label={householderLabel}
             >
-              <Home className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
+              <User className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
               <span className="text-sm whitespace-nowrap text-primary-foreground">{householderLabel}</span>
               <X className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
             </Button>
@@ -266,18 +268,20 @@ export function FilterControls({
           style={{ position: "relative" }}
           className={cn("flex items-center gap-3", containerClassName)}
         >
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            className="h-9 w-9 rounded-full flex-shrink-0"
-            onClick={onMyActivate}
-            aria-pressed={false}
-            aria-label={myLabel}
-            title={myLabel}
-          >
-            <User className="h-4 w-4 text-foreground" />
-          </Button>
+          {showMyFilter && onMyActivate && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 rounded-full flex-shrink-0"
+              onClick={onMyActivate}
+              aria-pressed={false}
+              aria-label={myLabel}
+              title={myLabel}
+            >
+              <User className="h-4 w-4 text-foreground" />
+            </Button>
+          )}
           {onBwiActivate && (
             <Button
               type="button"
