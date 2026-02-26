@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { updateUserProfile } from "@/lib/db/profiles";
 import type { Profile, Gender, Privilege } from "@/lib/db/types";
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,30 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
       congregation_id: user.congregation_id || null,
     });
   }, [user]);
+
+  const normalizePrivileges = (privileges: Privilege[]) =>
+    Array.from(new Set(privileges)).sort();
+
+  const hasFormChanges = useMemo(() => {
+    const currentPrivileges = normalizePrivileges(formData.privileges);
+    const initialPrivileges = normalizePrivileges(user.privileges || []);
+
+    const privilegesChanged =
+      currentPrivileges.length !== initialPrivileges.length ||
+      currentPrivileges.some((p, i) => p !== initialPrivileges[i]);
+
+    const currentGroup = formData.group_name || "";
+    const initialGroup = user.group_name || "";
+
+    const currentCongregationId = formData.congregation_id || null;
+    const initialCongregationId = user.congregation_id || null;
+
+    return (
+      privilegesChanged ||
+      currentGroup !== initialGroup ||
+      currentCongregationId !== initialCongregationId
+    );
+  }, [formData, user]);
 
   // Load existing group names from congregation
   useEffect(() => {
@@ -332,13 +356,15 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
         )}
 
         {/* Action Buttons */}
-        <div className="flex justify-between gap-2">
+        <div className={`flex gap-2 ${hasFormChanges ? "justify-between" : "justify-start"}`}>
           <Button type="button" variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={saving}>
-            {saving ? "Saving..." : "Save Changes"}
-          </Button>
+          {hasFormChanges && (
+            <Button type="submit" disabled={saving}>
+              {saving ? "Saving..." : "Save Changes"}
+            </Button>
+          )}
         </div>
       </form>
     </div>

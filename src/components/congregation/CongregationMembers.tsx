@@ -13,7 +13,7 @@ import type { Profile } from "@/lib/db/types";
 
 type CongregationMember = Pick<
   Profile,
-  "id" | "first_name" | "last_name" | "avatar_url" | "privileges" | "group_name" | "congregation_id" | "role"
+  "id" | "first_name" | "last_name" | "username" | "avatar_url" | "privileges" | "group_name" | "congregation_id" | "role"
 >;
 
 interface CongregationMembersProps {
@@ -35,7 +35,7 @@ export function CongregationMembers({ congregationId, currentUserId }: Congregat
     try {
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name, avatar_url, privileges, group_name, congregation_id, role')
+        .select('id, first_name, last_name, username, avatar_url, privileges, group_name, congregation_id, role')
         .eq('congregation_id', congregationId)
         .order('last_name')
         .order('first_name');
