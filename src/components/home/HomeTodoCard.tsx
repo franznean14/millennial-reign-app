@@ -30,6 +30,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { VisitStatusBadge } from "@/components/visit/VisitStatusBadge";
 import { cn } from "@/lib/utils";
 import { formatStatusText } from "@/lib/utils/formatters";
+import { Badge } from "@/components/ui/badge";
 
 const todoLayoutTransition = {
   type: "spring",
@@ -310,6 +311,7 @@ export function HomeTodoCard({
   );
 
   const displayTodos = filteredOpenTodos.slice(0, 5);
+  const openCount = openTodos.length;
   const hasNavigation = !!(onNavigateToTodoCall || onTodoTap);
   const emptyText = userId
     ? "No open to-dos from your calls"
@@ -329,6 +331,14 @@ export function HomeTodoCard({
           >
             <ListTodo className="h-4 w-4 shrink-0" />
             <span>To-Do</span>
+            {openCount > 0 && (
+              <Badge
+                variant="secondary"
+                className="ml-1 h-4 rounded-full px-1.5 text-[10px] leading-none"
+              >
+                {openCount}
+              </Badge>
+            )}
             <ChevronRight className="h-3.5 w-3.5 ml-auto opacity-70" />
           </button>
           <ul className="space-y-3">
@@ -383,6 +393,14 @@ export function HomeTodoCard({
             <DrawerTitle className="flex w-full items-center justify-center gap-2 text-center text-lg font-bold">
               <ListTodo className="h-4 w-4 shrink-0" />
               {activePanel === "filters" ? "Filter To-Dos" : "To-Do"}
+              {activePanel === "list" && openCount > 0 && (
+                <Badge
+                  variant="secondary"
+                  className="h-5 rounded-full px-2 text-[11px] leading-none"
+                >
+                  {openCount}
+                </Badge>
+              )}
             </DrawerTitle>
           </DrawerHeader>
           {activePanel === "filters" ? (
