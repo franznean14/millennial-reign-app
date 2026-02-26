@@ -9,23 +9,46 @@ const TABLE = "profiles";
 
 export async function getProfile(userId: string): Promise<Profile | null> {
   const supabase = createSupabaseBrowserClient();
-  // Offline-first: serve from cache when available or when offline
-  const cached = await cacheGet<Profile>(`profile:${userId}`);
-  if (cached) return cached;
-  // If offline, do not attempt network
-  if (typeof navigator !== "undefined" && !navigator.onLine) return null;
+  const cacheKey = `profile:${userId}`;
+
+  // Offline-first: try cache
+  const cached = await cacheGet<Profile>(cacheKey);
+  if (cached && cached.id === userId) {
+    return cached;
+  }
+
+  // If offline and cache is missing or clearly wrong, bail out
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    return null;
+  }
+
   // Ensure session is hydrated (avoids RLS errors during initial hydration)
   try {
     await supabase.auth.getSession();
   } catch {}
+
   try {
-    const { data } = await supabase.rpc("get_my_profile");
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select("*")
+      .eq("id", userId)
+      .single();
+
+    if (error) {
+      // Do not throw to keep callers simple; fall back to cache if any
+      console.error("getProfile: error fetching profile by id", { userId, error });
+      return cached && cached.id === userId ? cached : null;
+    }
+
     const prof = (data as Profile) ?? null;
-    if (prof) await cacheSet(`profile:${userId}`, prof);
+    if (prof) {
+      await cacheSet(cacheKey, prof);
+    }
     return prof;
-  } catch {
-    // As a last resort return null (prevents dev overlay noise offline)
-    return null;
+  } catch (e) {
+    console.error("getProfile: unexpected error", e);
+    // As a last resort return valid cached profile if it matches, else null
+    return cached && cached.id === userId ? cached : null;
   }
 }
 
