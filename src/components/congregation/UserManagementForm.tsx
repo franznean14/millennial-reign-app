@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { updateUserProfile } from "@/lib/db/profiles";
 import type { Profile, Gender, Privilege } from "@/lib/db/types";
 import { Button } from "@/components/ui/button";
@@ -179,29 +180,60 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
       } else {
         // Add privilege and handle conflicts
         newPrivileges = [...newPrivileges, privilege];
-        
-        // Elder and Ministerial Servant are mutually exclusive
-        if (privilege === 'Elder') {
-          newPrivileges = newPrivileges.filter(p => p !== 'Ministerial Servant');
-        } else if (privilege === 'Ministerial Servant') {
-          newPrivileges = newPrivileges.filter(p => p !== 'Elder');
-        }
-        
-        // Regular Pioneer and Auxiliary Pioneer are mutually exclusive
-        if (privilege === 'Regular Pioneer') {
-          newPrivileges = newPrivileges.filter(p => p !== 'Auxiliary Pioneer');
-        } else if (privilege === 'Auxiliary Pioneer') {
-          newPrivileges = newPrivileges.filter(p => p !== 'Regular Pioneer');
-        }
-        
-        // Group Overseer and Group Assistant are mutually exclusive
-        if (privilege === 'Group Overseer') {
-          newPrivileges = newPrivileges.filter(p => p !== 'Group Assistant');
-        } else if (privilege === 'Group Assistant') {
-          newPrivileges = newPrivileges.filter(p => p !== 'Group Overseer');
-        }
+      }
+
+      // Elder and Ministerial Servant are mutually exclusive
+      if (privilege === 'Elder') {
+        newPrivileges = newPrivileges.filter(p => p !== 'Ministerial Servant');
+      } else if (privilege === 'Ministerial Servant') {
+        newPrivileges = newPrivileges.filter(p => p !== 'Elder');
       }
       
+      // Regular Pioneer and Auxiliary Pioneer are mutually exclusive
+      if (privilege === 'Regular Pioneer') {
+        newPrivileges = newPrivileges.filter(p => p !== 'Auxiliary Pioneer');
+      } else if (privilege === 'Auxiliary Pioneer') {
+        newPrivileges = newPrivileges.filter(p => p !== 'Regular Pioneer');
+      }
+      
+      // Group Overseer and Group Assistant are mutually exclusive
+      if (privilege === 'Group Overseer') {
+        newPrivileges = newPrivileges.filter(p => p !== 'Group Assistant');
+      } else if (privilege === 'Group Assistant') {
+        newPrivileges = newPrivileges.filter(p => p !== 'Group Overseer');
+      }
+
+      // Secretary and Coordinator are mutually exclusive
+      if (privilege === 'Secretary') {
+        newPrivileges = newPrivileges.filter(p => p !== 'Coordinator');
+      } else if (privilege === 'Coordinator') {
+        newPrivileges = newPrivileges.filter(p => p !== 'Secretary');
+      }
+
+      // Enforce visibility rules on the stored list as well:
+      const isMale = user.gender === 'male';
+      const hasElder = newPrivileges.includes('Elder');
+
+      // Remove male-only privileges for non-male users
+      if (!isMale) {
+        newPrivileges = newPrivileges.filter(
+          (p) => p !== 'Elder' && p !== 'Ministerial Servant'
+        );
+      }
+
+      // Secretary / Coordinator / Group Overseer only valid when Elder is present
+      if (!hasElder) {
+        newPrivileges = newPrivileges.filter(
+          (p) => p !== 'Secretary' && p !== 'Coordinator' && p !== 'Group Overseer'
+        );
+      }
+
+      // Group Assistant only valid when Elder or Ministerial Servant is present
+      const hasElderOrMS = newPrivileges.includes('Elder') || newPrivileges.includes('Ministerial Servant');
+      if (!hasElderOrMS) {
+        newPrivileges = newPrivileges.filter((p) => p !== 'Group Assistant');
+      }
+
       return {
         ...prev,
         privileges: newPrivileges
@@ -211,7 +243,7 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
 
   const allPrivileges: Privilege[] = [
     "Elder",
-    "Ministerial Servant", 
+    "Ministerial Servant",
     "Regular Pioneer",
     "Auxiliary Pioneer",
     "Secretary",
@@ -219,6 +251,66 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
     "Group Overseer",
     "Group Assistant"
   ];
+
+  const visiblePrivileges = useMemo(() => {
+    const isMale = user.gender === "male";
+    const hasElder = formData.privileges.includes("Elder");
+    const hasMinisterialServant = formData.privileges.includes("Ministerial Servant");
+    const hasElderOrMS = hasElder || hasMinisterialServant;
+
+    return allPrivileges.filter((privilege) => {
+      // Elder / Ministerial Servant are only available for male publishers
+      if ((privilege === "Elder" || privilege === "Ministerial Servant") && !isMale) {
+        return false;
+      }
+
+      // When Elder is selected, hide Ministerial Servant (mutually exclusive)
+      if (privilege === "Ministerial Servant" && hasElder) {
+        return false;
+      }
+
+      // Regular Pioneer and Auxiliary Pioneer are mutually exclusive
+      if (privilege === "Auxiliary Pioneer" && formData.privileges.includes("Regular Pioneer")) {
+        return false;
+      }
+      if (privilege === "Regular Pioneer" && formData.privileges.includes("Auxiliary Pioneer")) {
+        return false;
+      }
+
+      // Group Overseer and Group Assistant are mutually exclusive
+      if (privilege === "Group Assistant" && formData.privileges.includes("Group Overseer")) {
+        return false;
+      }
+      if (privilege === "Group Overseer" && formData.privileges.includes("Group Assistant")) {
+        return false;
+      }
+
+      // Secretary and Coordinator are mutually exclusive
+      if (privilege === "Coordinator" && formData.privileges.includes("Secretary")) {
+        return false;
+      }
+      if (privilege === "Secretary" && formData.privileges.includes("Coordinator")) {
+        return false;
+      }
+
+      // Secretary / Coordinator / Group Overseer only when Elder is active
+      if (
+        (privilege === "Secretary" ||
+          privilege === "Coordinator" ||
+          privilege === "Group Overseer") &&
+        !hasElder
+      ) {
+        return false;
+      }
+
+      // Group Assistant only when Elder or Ministerial Servant is active
+      if (privilege === "Group Assistant" && !hasElderOrMS) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [allPrivileges, formData.privileges, user.gender]);
 
   return (
     <div className="space-y-6">
@@ -318,19 +410,29 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
         {/* Privileges */}
         <div className="space-y-2">
           <Label>Privileges</Label>
-          <div className="grid grid-cols-2 gap-2">
-            {allPrivileges.map((privilege) => (
-              <Button
-                key={privilege}
-                type="button"
-                variant={formData.privileges.includes(privilege) ? "default" : "outline"}
-                onClick={() => togglePrivilege(privilege)}
-                className="justify-start"
-              >
-                {formData.privileges.includes(privilege) ? "✓ " : ""}{privilege}
-              </Button>
-            ))}
-          </div>
+          <AnimatePresence initial={false}>
+            <div className="grid grid-cols-2 gap-2">
+              {visiblePrivileges.map((privilege) => (
+                <motion.div
+                  key={privilege}
+                  layout
+                  initial={{ opacity: 0, scale: 0.9, y: 4 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9, y: -4 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  <Button
+                    type="button"
+                    variant={formData.privileges.includes(privilege) ? "default" : "outline"}
+                    onClick={() => togglePrivilege(privilege)}
+                    className="justify-start w-full"
+                  >
+                    {formData.privileges.includes(privilege) ? "✓ " : ""}{privilege}
+                  </Button>
+                </motion.div>
+              ))}
+            </div>
+          </AnimatePresence>
         </div>
 
         {/* BWI Participation */}

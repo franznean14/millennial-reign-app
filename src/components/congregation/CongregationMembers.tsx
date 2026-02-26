@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { cacheGet, cacheSet } from "@/lib/offline/store";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +14,7 @@ import type { Profile } from "@/lib/db/types";
 
 type CongregationMember = Pick<
   Profile,
-  "id" | "first_name" | "last_name" | "username" | "avatar_url" | "privileges" | "group_name" | "congregation_id" | "role"
+  "id" | "first_name" | "last_name" | "username" | "avatar_url" | "privileges" | "group_name" | "congregation_id" | "role" | "gender"
 >;
 
 interface CongregationMembersProps {
@@ -29,22 +30,35 @@ export function CongregationMembers({ congregationId, currentUserId }: Congregat
   const [membersDrawerOpen, setMembersDrawerOpen] = useState(false);
   const [activeGroup, setActiveGroup] = useState<string>("All");
 
-  // Load congregation members
+  const MEMBERS_CACHE_KEY = `cong:members:${congregationId}`;
+
+  // Load congregation members: cache-first for offline, then network
   const loadMembers = async () => {
+    setLoading(true);
+    try {
+      const cached = await cacheGet<CongregationMember[]>(MEMBERS_CACHE_KEY);
+      if (cached?.length !== undefined) {
+        setMembers(cached);
+      }
+    } catch (_) {}
+
     const supabase = createSupabaseBrowserClient();
     try {
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name, username, avatar_url, privileges, group_name, congregation_id, role')
+        .select('id, first_name, last_name, username, avatar_url, privileges, group_name, congregation_id, role, gender')
         .eq('congregation_id', congregationId)
         .order('last_name')
         .order('first_name');
 
       if (profiles) {
-        setMembers(profiles as CongregationMember[]);
+        const list = profiles as CongregationMember[];
+        setMembers(list);
+        await cacheSet(MEMBERS_CACHE_KEY, list);
       }
     } catch (error) {
       console.error('Error loading congregation members:', error);
+      // Keep cached members if network failed
     } finally {
       setLoading(false);
     }
