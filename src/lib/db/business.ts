@@ -79,15 +79,23 @@ export interface VisitUpdate {
 /** To-do item associated with a call (establishment or householder call). */
 export interface CallTodo {
   id: string;
-  call_id: string;
+  call_id?: string | null;
   body: string;
   is_done: boolean;
+  congregation_id?: string | null;
+  establishment_id?: string | null;
+  householder_id?: string | null;
+  publisher_id?: string | null;
+  partner_id?: string | null;
+  deadline_date?: string | null;
   created_at?: string;
 }
 
 /** Open call to-do with minimal call context for home summary and navigation. */
 export interface MyOpenCallTodoItem extends CallTodo {
   visit_date?: string | null;
+  /** Prefer for display when set; else use visit_date from call */
+  deadline_date?: string | null;
   establishment_id?: string | null;
   householder_id?: string | null;
   /** Display name for badge: establishment name or householder name */
@@ -921,7 +929,7 @@ export async function getCallTodos(callId: string): Promise<CallTodo[]> {
     await supabase.auth.getSession().catch(() => {});
     const { data, error } = await supabase
       .from('call_todos')
-      .select('id, call_id, body, is_done, created_at')
+      .select('id, call_id, body, is_done, publisher_id, partner_id, deadline_date, created_at')
       .eq('call_id', callId)
       .order('created_at', { ascending: true });
     if (error) {
@@ -935,14 +943,23 @@ export async function getCallTodos(callId: string): Promise<CallTodo[]> {
   }
 }
 
-export async function addCallTodo(callId: string, body: string, isDone = false): Promise<CallTodo | null> {
+export async function addCallTodo(
+  callId: string,
+  body: string,
+  isDone = false,
+  extra?: { publisher_id?: string | null; partner_id?: string | null; deadline_date?: string | null }
+): Promise<CallTodo | null> {
   const supabase = createSupabaseBrowserClient();
   try {
     await supabase.auth.getSession().catch(() => {});
+    const payload: Record<string, unknown> = { call_id: callId, body: body.trim(), is_done: isDone };
+    if (extra?.publisher_id !== undefined) payload.publisher_id = extra.publisher_id;
+    if (extra?.partner_id !== undefined) payload.partner_id = extra.partner_id;
+    if (extra?.deadline_date !== undefined) payload.deadline_date = extra.deadline_date;
     const { data, error } = await supabase
       .from('call_todos')
-      .insert({ call_id: callId, body: body.trim(), is_done: isDone })
-      .select('id, call_id, body, is_done, created_at')
+      .insert(payload)
+      .select('id, call_id, body, is_done, publisher_id, partner_id, deadline_date, created_at')
       .single();
     if (error) {
       console.error('Error adding call todo:', error);
@@ -957,14 +974,15 @@ export async function addCallTodo(callId: string, body: string, isDone = false):
 
 export async function updateCallTodo(
   id: string,
-  updates: { body?: string; is_done?: boolean }
+  updates: { body?: string; is_done?: boolean; deadline_date?: string | null }
 ): Promise<boolean> {
   const supabase = createSupabaseBrowserClient();
   try {
     await supabase.auth.getSession().catch(() => {});
-    const payload: { body?: string; is_done?: boolean } = {};
+    const payload: { body?: string; is_done?: boolean; deadline_date?: string | null } = {};
     if (updates.body !== undefined) payload.body = updates.body.trim();
     if (updates.is_done !== undefined) payload.is_done = updates.is_done;
+    if (updates.deadline_date !== undefined) payload.deadline_date = updates.deadline_date;
     if (Object.keys(payload).length === 0) return true;
     const { error } = await supabase.from('call_todos').update(payload).eq('id', id);
     if (error) {
@@ -974,6 +992,32 @@ export async function updateCallTodo(
     return true;
   } catch (e) {
     console.error('updateCallTodo:', e);
+    return false;
+  }
+}
+
+/** Keep call-linked todo participant columns aligned with their parent call participants. */
+export async function syncCallTodoParticipantsForCall(
+  callId: string,
+  participants: { publisher_id?: string | null; partner_id?: string | null }
+): Promise<boolean> {
+  const supabase = createSupabaseBrowserClient();
+  try {
+    await supabase.auth.getSession().catch(() => {});
+    const { error } = await supabase
+      .from("call_todos")
+      .update({
+        publisher_id: participants.publisher_id ?? null,
+        partner_id: participants.partner_id ?? null,
+      })
+      .eq("call_id", callId);
+    if (error) {
+      console.error("syncCallTodoParticipantsForCall:", error);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error("syncCallTodoParticipantsForCall:", e);
     return false;
   }
 }
@@ -990,6 +1034,89 @@ export async function deleteCallTodo(id: string): Promise<boolean> {
     return true;
   } catch (e) {
     console.error('deleteCallTodo:', e);
+    return false;
+  }
+}
+
+/** Create a standalone to-do item (no call row is created). */
+export async function addStandaloneTodo(params: {
+  establishment_id?: string | null;
+  householder_id?: string | null;
+  body: string;
+  deadline_date?: string | null;
+  publisher_id?: string | null;
+  partner_id?: string | null;
+  publisher_guest_name?: string | null;
+  partner_guest_name?: string | null;
+}): Promise<CallTodo | null> {
+  const supabase = createSupabaseBrowserClient();
+  try {
+    await supabase.auth.getSession().catch(() => {});
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("congregation_id")
+      .eq("id", (await supabase.auth.getUser()).data.user?.id)
+      .single();
+    if (!profile?.congregation_id) return null;
+
+    const payload = {
+      call_id: null,
+      congregation_id: profile.congregation_id,
+      establishment_id: params.establishment_id ?? null,
+      householder_id: params.householder_id ?? null,
+      body: params.body.trim(),
+      is_done: false,
+      publisher_id: params.publisher_id ?? null,
+      partner_id: params.partner_id ?? null,
+      deadline_date: params.deadline_date?.trim() || null,
+    };
+    const { data, error } = await supabase
+      .from("call_todos")
+      .insert(payload)
+      .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, deadline_date, created_at")
+      .single();
+    if (error) {
+      console.error("Error adding standalone todo:", error);
+      return null;
+    }
+    return (data as CallTodo) ?? null;
+  } catch (e) {
+    console.error("addStandaloneTodo:", e);
+    return null;
+  }
+}
+
+export async function updateStandaloneTodo(
+  id: string,
+  updates: {
+    body?: string;
+    deadline_date?: string | null;
+    publisher_id?: string | null;
+    partner_id?: string | null;
+  }
+): Promise<boolean> {
+  const supabase = createSupabaseBrowserClient();
+  try {
+    await supabase.auth.getSession().catch(() => {});
+    const payload: {
+      body?: string;
+      deadline_date?: string | null;
+      publisher_id?: string | null;
+      partner_id?: string | null;
+    } = {};
+    if (updates.body !== undefined) payload.body = updates.body.trim();
+    if (updates.deadline_date !== undefined) payload.deadline_date = updates.deadline_date;
+    if (updates.publisher_id !== undefined) payload.publisher_id = updates.publisher_id;
+    if (updates.partner_id !== undefined) payload.partner_id = updates.partner_id;
+    if (Object.keys(payload).length === 0) return true;
+    const { error } = await supabase.from("call_todos").update(payload).eq("id", id);
+    if (error) {
+      console.error("updateStandaloneTodo:", error);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error("updateStandaloneTodo:", e);
     return false;
   }
 }
@@ -1031,120 +1158,193 @@ function buildCallMetaById(calls: any[]): Map<string, { visit_date: string | nul
   );
 }
 
-/** Open (incomplete) call to-dos for calls where the user is publisher or partner. For home summary card. */
+async function enrichTodoItems(
+  todos: CallTodo[]
+): Promise<MyOpenCallTodoItem[]> {
+  const supabase = createSupabaseBrowserClient();
+  const callIds = todos
+    .map((t) => t.call_id)
+    .filter((id): id is string => !!id);
+
+  let callMetaById = new Map<string, { visit_date: string | null; establishment_id: string | null; householder_id: string | null; context_name: string | null; context_establishment_name: string | null; context_status: string | null; context_establishment_status: string | null; call_created_at: string | null; context_area: string | null }>();
+  if (callIds.length > 0) {
+    const { data: calls } = await supabase
+      .from("calls")
+      .select(
+        "id, created_at, visit_date, establishment_id, householder_id, establishment:business_establishments!calls_establishment_id_fkey(name, statuses, area), householder:householders!calls_householder_id_fkey(name, status)"
+      )
+      .in("id", callIds);
+    if (calls?.length) {
+      callMetaById = buildCallMetaById(calls);
+    }
+  }
+
+  const establishmentIds = new Set<string>();
+  const householderIds = new Set<string>();
+  for (const t of todos) {
+    const callMeta = t.call_id ? callMetaById.get(t.call_id) : undefined;
+    const effectiveEstablishmentId = t.establishment_id ?? callMeta?.establishment_id ?? null;
+    const effectiveHouseholderId = t.householder_id ?? callMeta?.householder_id ?? null;
+    if (effectiveEstablishmentId) establishmentIds.add(effectiveEstablishmentId);
+    if (effectiveHouseholderId) householderIds.add(effectiveHouseholderId);
+  }
+
+  const [establishmentRows, householderRows] = await Promise.all([
+    establishmentIds.size
+      ? supabase
+          .from("business_establishments")
+          .select("id, name, statuses, area")
+          .in("id", Array.from(establishmentIds))
+      : Promise.resolve({ data: [], error: null } as any),
+    householderIds.size
+      ? supabase
+          .from("householders")
+          .select("id, name, status, establishment_id")
+          .in("id", Array.from(householderIds))
+      : Promise.resolve({ data: [], error: null } as any),
+  ]);
+
+  const establishmentById = new Map<string, { id: string; name: string; statuses?: string[] | null; area?: string | null }>();
+  for (const e of establishmentRows.data ?? []) {
+    establishmentById.set(e.id, e);
+  }
+  const householderById = new Map<string, { id: string; name: string; status?: string | null; establishment_id?: string | null }>();
+  for (const h of householderRows.data ?? []) {
+    householderById.set(h.id, h);
+  }
+
+  const items = todos.map((t) => {
+    const callMeta = t.call_id ? callMetaById.get(t.call_id) : undefined;
+    const effectiveEstablishmentId = t.establishment_id ?? callMeta?.establishment_id ?? null;
+    const effectiveHouseholderId = t.householder_id ?? callMeta?.householder_id ?? null;
+    const establishment = effectiveEstablishmentId ? establishmentById.get(effectiveEstablishmentId) : undefined;
+    const householder = effectiveHouseholderId ? householderById.get(effectiveHouseholderId) : undefined;
+    const householderEstablishment = householder?.establishment_id
+      ? establishmentById.get(householder.establishment_id)
+      : undefined;
+    const establishmentStatus = establishment?.statuses
+      ? getBestStatus(establishment.statuses)
+      : null;
+
+    const context_name = householder?.name ?? establishment?.name ?? callMeta?.context_name ?? null;
+    const context_status = householder?.status ?? establishmentStatus ?? callMeta?.context_status ?? null;
+    const context_establishment_name = householder
+      ? householderEstablishment?.name ?? establishment?.name ?? callMeta?.context_establishment_name ?? null
+      : establishment?.name ?? callMeta?.context_establishment_name ?? null;
+    const context_establishment_status = householder
+      ? (householderEstablishment?.statuses ? getBestStatus(householderEstablishment.statuses) : establishmentStatus ?? callMeta?.context_establishment_status ?? null)
+      : establishmentStatus ?? callMeta?.context_establishment_status ?? null;
+    const context_area = establishment?.area ?? callMeta?.context_area ?? null;
+
+    return {
+      ...(t as CallTodo),
+      visit_date: callMeta?.visit_date ?? null,
+      establishment_id: effectiveEstablishmentId,
+      householder_id: effectiveHouseholderId,
+      context_name,
+      context_establishment_name,
+      context_status,
+      context_establishment_status,
+      call_created_at: callMeta?.call_created_at ?? t.created_at ?? null,
+      context_area,
+    } as MyOpenCallTodoItem;
+  });
+
+  items.sort((a, b) => {
+    const aAt = a.call_created_at ?? "";
+    const bAt = b.call_created_at ?? "";
+    return aAt.localeCompare(bAt);
+  });
+
+  return items;
+}
+
+/** Open (incomplete) to-dos for todos where the user is publisher or partner. */
 export async function getMyOpenCallTodos(userId: string, limit = 15): Promise<MyOpenCallTodoItem[]> {
   const supabase = createSupabaseBrowserClient();
   try {
     await supabase.auth.getSession().catch(() => {});
     const { data: calls, error: callsError } = await supabase
-      .from('calls')
-      .select(
-        'id, created_at, visit_date, establishment_id, householder_id, establishment:business_establishments!calls_establishment_id_fkey(name, statuses, area), householder:householders!calls_householder_id_fkey(name, status)'
-      )
+      .from("calls")
+      .select("id")
       .or(`publisher_id.eq.${userId},partner_id.eq.${userId}`)
-      .order('visit_date', { ascending: false })
-      .limit(50);
-    if (callsError || !calls?.length) return [];
-    const callIds = calls.map((c) => c.id);
-    const callMetaById = buildCallMetaById(calls);
-    const { data: todos, error: todosError } = await supabase
-      .from('call_todos')
-      .select('id, call_id, body, is_done, created_at')
-      .eq('is_done', false)
-      .in('call_id', callIds)
+      .limit(200);
+    if (callsError) return [];
+    const callIds = (calls ?? []).map((c) => c.id);
+
+    const linkedPromise = callIds.length
+      ? supabase
+          .from("call_todos")
+          .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, deadline_date, created_at")
+          .eq("is_done", false)
+          .in("call_id", callIds)
+          .limit(limit)
+      : Promise.resolve({ data: [], error: null } as any);
+    const standalonePromise = supabase
+      .from("call_todos")
+      .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, deadline_date, created_at")
+      .eq("is_done", false)
+      .is("call_id", null)
+      .or(`publisher_id.eq.${userId},partner_id.eq.${userId}`)
       .limit(limit);
-    if (todosError) return [];
-    const items = (todos ?? []).map((t) => {
-      const meta = callMetaById.get(t.call_id) ?? {
-        visit_date: null,
-        establishment_id: null,
-        householder_id: null,
-        context_name: null,
-        context_establishment_name: null,
-        context_status: null,
-        context_establishment_status: null,
-        call_created_at: null,
-        context_area: null,
-      };
-      return {
-        ...(t as CallTodo),
-        visit_date: meta.visit_date,
-        establishment_id: meta.establishment_id,
-        householder_id: meta.householder_id,
-        context_name: meta.context_name,
-        context_establishment_name: meta.context_establishment_name,
-        context_status: meta.context_status,
-        context_establishment_status: meta.context_establishment_status,
-        call_created_at: meta.call_created_at,
-        context_area: meta.context_area,
-      } as MyOpenCallTodoItem;
-    });
-    items.sort((a, b) => {
-      const aAt = a.call_created_at ?? "";
-      const bAt = b.call_created_at ?? "";
-      return aAt.localeCompare(bAt);
-    });
-    return items;
+    const [{ data: linked, error: linkedError }, { data: standalone, error: standaloneError }] = await Promise.all([
+      linkedPromise,
+      standalonePromise,
+    ]);
+    if (linkedError || standaloneError) return [];
+
+    const byId = new Map<string, CallTodo>();
+    for (const t of (linked ?? []) as CallTodo[]) byId.set(t.id, t);
+    for (const t of (standalone ?? []) as CallTodo[]) byId.set(t.id, t);
+    const merged = Array.from(byId.values()).slice(0, limit);
+    if (merged.length === 0) return [];
+    return await enrichTodoItems(merged);
   } catch (e) {
     console.error('getMyOpenCallTodos:', e);
     return [];
   }
 }
 
-/** Completed (done) call to-dos for calls where the user is publisher or partner. For home To-Do "Done" section. */
+/** Completed (done) to-dos for todos where the user is publisher or partner. */
 export async function getMyCompletedCallTodos(userId: string, limit = 20): Promise<MyOpenCallTodoItem[]> {
   const supabase = createSupabaseBrowserClient();
   try {
     await supabase.auth.getSession().catch(() => {});
     const { data: calls, error: callsError } = await supabase
-      .from('calls')
-      .select(
-        'id, created_at, visit_date, establishment_id, householder_id, establishment:business_establishments!calls_establishment_id_fkey(name, statuses, area), householder:householders!calls_householder_id_fkey(name, status)'
-      )
+      .from("calls")
+      .select("id")
       .or(`publisher_id.eq.${userId},partner_id.eq.${userId}`)
-      .order('visit_date', { ascending: false })
-      .limit(50);
-    if (callsError || !calls?.length) return [];
-    const callIds = calls.map((c) => c.id);
-    const callMetaById = buildCallMetaById(calls);
-    const { data: todos, error: todosError } = await supabase
-      .from('call_todos')
-      .select('id, call_id, body, is_done, created_at')
-      .eq('is_done', true)
-      .in('call_id', callIds)
+      .limit(200);
+    if (callsError) return [];
+    const callIds = (calls ?? []).map((c) => c.id);
+
+    const linkedPromise = callIds.length
+      ? supabase
+          .from("call_todos")
+          .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, deadline_date, created_at")
+          .eq("is_done", true)
+          .in("call_id", callIds)
+          .limit(limit)
+      : Promise.resolve({ data: [], error: null } as any);
+    const standalonePromise = supabase
+      .from("call_todos")
+      .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, deadline_date, created_at")
+      .eq("is_done", true)
+      .is("call_id", null)
+      .or(`publisher_id.eq.${userId},partner_id.eq.${userId}`)
       .limit(limit);
-    if (todosError) return [];
-    const items = (todos ?? []).map((t) => {
-      const meta = callMetaById.get(t.call_id) ?? {
-        visit_date: null,
-        establishment_id: null,
-        householder_id: null,
-        context_name: null,
-        context_establishment_name: null,
-        context_status: null,
-        context_establishment_status: null,
-        call_created_at: null,
-        context_area: null,
-      };
-      return {
-        ...(t as CallTodo),
-        visit_date: meta.visit_date,
-        establishment_id: meta.establishment_id,
-        householder_id: meta.householder_id,
-        context_name: meta.context_name,
-        context_establishment_name: meta.context_establishment_name,
-        context_status: meta.context_status,
-        context_establishment_status: meta.context_establishment_status,
-        call_created_at: meta.call_created_at,
-        context_area: meta.context_area,
-      } as MyOpenCallTodoItem;
-    });
-    items.sort((a, b) => {
-      const aAt = a.call_created_at ?? "";
-      const bAt = b.call_created_at ?? "";
-      return aAt.localeCompare(bAt);
-    });
-    return items;
+    const [{ data: linked, error: linkedError }, { data: standalone, error: standaloneError }] = await Promise.all([
+      linkedPromise,
+      standalonePromise,
+    ]);
+    if (linkedError || standaloneError) return [];
+
+    const byId = new Map<string, CallTodo>();
+    for (const t of (linked ?? []) as CallTodo[]) byId.set(t.id, t);
+    for (const t of (standalone ?? []) as CallTodo[]) byId.set(t.id, t);
+    const merged = Array.from(byId.values()).slice(0, limit);
+    if (merged.length === 0) return [];
+    return await enrichTodoItems(merged);
   } catch (e) {
     console.error('getMyCompletedCallTodos:', e);
     return [];
@@ -1163,68 +1363,43 @@ async function getScopedCallTodos(options: {
   const supabase = createSupabaseBrowserClient();
   try {
     await supabase.auth.getSession().catch(() => {});
-    let callsQuery = supabase
-      .from("calls")
-      .select(
-        "id, created_at, visit_date, establishment_id, householder_id, establishment:business_establishments!calls_establishment_id_fkey(name, statuses, area), householder:householders!calls_householder_id_fkey(name, status)"
-      )
-      .order("visit_date", { ascending: false })
-      .limit(200);
-
-    if (establishmentId) {
-      callsQuery = callsQuery.eq("establishment_id", establishmentId);
-    }
-    if (householderId) {
-      callsQuery = callsQuery.eq("householder_id", householderId);
-    }
-
+    let callsQuery = supabase.from("calls").select("id").limit(300);
+    if (establishmentId) callsQuery = callsQuery.eq("establishment_id", establishmentId);
+    if (householderId) callsQuery = callsQuery.eq("householder_id", householderId);
     const { data: calls, error: callsError } = await callsQuery;
-    if (callsError || !calls?.length) return [];
+    if (callsError) return [];
+    const callIds = (calls ?? []).map((c) => c.id);
 
-    const callIds = calls.map((c) => c.id);
-    const callMetaById = buildCallMetaById(calls);
-    const { data: todos, error: todosError } = await supabase
+    const linkedPromise = callIds.length
+      ? supabase
+          .from("call_todos")
+          .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, deadline_date, created_at")
+          .eq("is_done", isDone)
+          .in("call_id", callIds)
+          .limit(limit)
+      : Promise.resolve({ data: [], error: null } as any);
+
+    let standaloneQuery = supabase
       .from("call_todos")
-      .select("id, call_id, body, is_done, created_at")
+      .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, deadline_date, created_at")
       .eq("is_done", isDone)
-      .in("call_id", callIds)
+      .is("call_id", null)
       .limit(limit);
+    if (establishmentId) standaloneQuery = standaloneQuery.eq("establishment_id", establishmentId);
+    if (householderId) standaloneQuery = standaloneQuery.eq("householder_id", householderId);
 
-    if (todosError) return [];
+    const [{ data: linked, error: linkedError }, { data: standalone, error: standaloneError }] = await Promise.all([
+      linkedPromise,
+      standaloneQuery,
+    ]);
+    if (linkedError || standaloneError) return [];
 
-    const items = (todos ?? []).map((t) => {
-      const meta = callMetaById.get(t.call_id) ?? {
-        visit_date: null,
-        establishment_id: null,
-        householder_id: null,
-        context_name: null,
-        context_establishment_name: null,
-        context_status: null,
-        context_establishment_status: null,
-        call_created_at: null,
-        context_area: null,
-      };
-      return {
-        ...(t as CallTodo),
-        visit_date: meta.visit_date,
-        establishment_id: meta.establishment_id,
-        householder_id: meta.householder_id,
-        context_name: meta.context_name,
-        context_establishment_name: meta.context_establishment_name,
-        context_status: meta.context_status,
-        context_establishment_status: meta.context_establishment_status,
-        call_created_at: meta.call_created_at,
-        context_area: meta.context_area,
-      } as MyOpenCallTodoItem;
-    });
-
-    items.sort((a, b) => {
-      const aAt = a.call_created_at ?? "";
-      const bAt = b.call_created_at ?? "";
-      return aAt.localeCompare(bAt);
-    });
-
-    return items;
+    const byId = new Map<string, CallTodo>();
+    for (const t of (linked ?? []) as CallTodo[]) byId.set(t.id, t);
+    for (const t of (standalone ?? []) as CallTodo[]) byId.set(t.id, t);
+    const merged = Array.from(byId.values()).slice(0, limit);
+    if (merged.length === 0) return [];
+    return await enrichTodoItems(merged);
   } catch (e) {
     console.error("getScopedCallTodos:", e);
     return [];

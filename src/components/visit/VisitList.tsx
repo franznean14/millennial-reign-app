@@ -28,7 +28,7 @@ export function VisitList<T>({
   return (
     <div className={className}>
       {items.map((item, index) => (
-        <React.Fragment key={getKey(item)}>
+        <React.Fragment key={`${String(getKey(item) ?? "item")}-${index}`}>
           {renderItem(item, index, items.length)}
         </React.Fragment>
       ))}

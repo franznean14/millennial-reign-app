@@ -11,6 +11,7 @@ import { FormModal } from "@/components/shared/FormModal";
 import { toast } from "@/components/ui/sonner";
 import { HouseholderForm } from "@/components/business/HouseholderForm";
 import { VisitForm } from "@/components/business/VisitForm";
+import { TodoForm } from "@/components/business/TodoForm";
 import { VisitUpdatesSection } from "@/components/business/VisitUpdatesSection";
 import { type HouseholderWithDetails, type VisitWithUser, type MyOpenCallTodoItem, upsertHouseholder } from "@/lib/db/business";
 import { deleteHouseholder, archiveHouseholder } from "@/lib/db/business";
@@ -103,6 +104,7 @@ export function HouseholderDetails({
   const [isEditing, setIsEditing] = useState(false);
   const [editVisit, setEditVisit] = useState<{ id: string; establishment_id?: string | null; householder_id?: string | null; note?: string | null; publisher_id?: string | null; partner_id?: string | null; visit_date?: string } | null>(null);
   const [newVisitOpen, setNewVisitOpen] = useState(false);
+  const [editTodo, setEditTodo] = useState<MyOpenCallTodoItem | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
@@ -315,6 +317,10 @@ export function HouseholderDetails({
   };
 
   const handleTodoTapOpenCall = (todo: MyOpenCallTodoItem) => {
+    if (!todo.call_id) {
+      setEditTodo(todo);
+      return;
+    }
     const matchedVisit = visits.find((v) => v.id === todo.call_id);
     if (matchedVisit) {
       setEditVisit({
@@ -697,9 +703,29 @@ export function HouseholderDetails({
                 householderId={householder.id}
                 householderName={householder.name}
                 householderStatus={householder.status}
+                disableEstablishmentSelect
           onSaved={() => {
             setEditVisit(null);
           }}
+        />
+      </FormModal>
+
+      <FormModal
+        open={!!editTodo}
+        onOpenChange={(open) => {
+          if (!open) setEditTodo(null);
+        }}
+        title="Edit To-Do"
+        headerClassName="text-center"
+      >
+        <TodoForm
+          establishments={establishments}
+          selectedEstablishmentId={context === "congregation" ? "none" : (establishment?.id || "none")}
+          initialTodo={editTodo}
+          disableEstablishmentSelect
+          householderId={householder.id}
+          householderName={householder.name}
+          onSaved={() => setEditTodo(null)}
         />
       </FormModal>
     </div>

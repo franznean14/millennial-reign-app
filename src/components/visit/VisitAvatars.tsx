@@ -44,7 +44,7 @@ export function VisitAvatars({
   const avatarSizeClass = sizeClassName;
 
   return (
-    <>
+    <div className="flex items-center">
       <Avatar className={cn("rounded-full shrink-0", avatarSizeClass)}>
         {publisher?.avatar_url && (
           <AvatarImage src={publisher.avatar_url} alt={firstDisplayName} className="object-cover" />
@@ -72,6 +72,6 @@ export function VisitAvatars({
           </AvatarFallback>
         </Avatar>
       )}
-    </>
+    </div>
   );
 }

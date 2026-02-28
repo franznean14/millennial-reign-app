@@ -212,6 +212,7 @@ export function VisitUpdatesSection({
                   householderId={householderId}
                   householderName={householderName}
                   householderStatus={householderStatus}
+                  disableEstablishmentSelect={!!selectedEstablishmentId || !!householderId}
                   onSaved={() => {
                     setEditVisit(null);
                     onVisitUpdated?.();

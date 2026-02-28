@@ -26,6 +26,7 @@ import {
 } from "@/components/ui/drawer";
 import { EstablishmentForm } from "@/components/business/EstablishmentForm";
 import { VisitForm } from "@/components/business/VisitForm";
+import { TodoForm } from "@/components/business/TodoForm";
 import { getBwiParticipants } from "@/lib/db/business";
 import { VisitUpdatesSection } from "@/components/business/VisitUpdatesSection";
 import { HomeTodoCard } from "@/components/home/HomeTodoCard";
@@ -84,6 +85,7 @@ export function EstablishmentDetails({
   const [deleting, setDeleting] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [editVisit, setEditVisit] = useState<{ id: string; establishment_id?: string | null; householder_id?: string | null; note?: string | null; publisher_id?: string | null; partner_id?: string | null; visit_date?: string } | null>(null);
+  const [editTodo, setEditTodo] = useState<MyOpenCallTodoItem | null>(null);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
   const [showAddConfirm, setShowAddConfirm] = useState(false);
   const [showMinusButton, setShowMinusButton] = useState(false);
@@ -229,6 +231,10 @@ export function EstablishmentDetails({
   };
 
   const handleTodoTapOpenCall = (todo: MyOpenCallTodoItem) => {
+    if (!todo.call_id) {
+      setEditTodo(todo);
+      return;
+    }
     const matchedVisit = visits.find((v) => v.id === todo.call_id);
     if (matchedVisit) {
       setEditVisit({
@@ -701,9 +707,27 @@ export function EstablishmentDetails({
                   establishments={[{ id: establishment.id, name: establishment.name }]}
                   selectedEstablishmentId={establishment.id}
                   initialVisit={editVisit}
+                  disableEstablishmentSelect
                   onSaved={() => setEditVisit(null)}
                 />
               )}
+      </FormModal>
+
+      <FormModal
+        open={!!editTodo}
+        onOpenChange={(open) => {
+          if (!open) setEditTodo(null);
+        }}
+        title="Edit To-Do"
+        headerClassName="text-center"
+      >
+        <TodoForm
+          establishments={[{ id: establishment.id, name: establishment.name }]}
+          selectedEstablishmentId={establishment.id}
+          initialTodo={editTodo}
+          onSaved={() => setEditTodo(null)}
+          disableEstablishmentSelect
+        />
       </FormModal>
     </div>
   );

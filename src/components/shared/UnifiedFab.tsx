@@ -6,10 +6,11 @@ import { FabMenu } from "@/components/shared/FabMenu";
 import { EstablishmentForm } from "@/components/business/EstablishmentForm";
 import { HouseholderForm } from "@/components/business/HouseholderForm";
 import { VisitForm } from "@/components/business/VisitForm";
+import { TodoForm } from "@/components/business/TodoForm";
 import FieldServiceForm from "@/components/fieldservice/FieldServiceForm";
 import { EventScheduleForm } from "@/components/congregation/EventScheduleForm";
 import { AddUserToCongregationForm } from "@/components/congregation/AddUserToCongregationForm";
-import { Plus, X, UserPlus, FilePlus2, Building2, Calendar } from "lucide-react";
+import { Plus, X, UserPlus, FilePlus2, Building2, Calendar, ListTodo } from "lucide-react";
 import type { EstablishmentWithDetails, HouseholderWithDetails } from "@/lib/db/business";
 
 type BusinessTab = "establishments" | "householders" | "map";
@@ -36,6 +37,7 @@ type FabActionKey =
   | "business-establishment"
   | "business-householder"
   | "business-visit"
+  | "business-todo"
   | "congregation-householder"
   | "congregation-user"
   | "congregation-visit"
@@ -78,8 +80,9 @@ export function UnifiedFab({
     if (currentSection === "business" || currentSection.startsWith("business-")) {
       if (showExpandableButtons) {
         items.push(
-          { key: "business-householder", label: "New Householder", icon: <UserPlus className="h-4 w-4" />, variant: "outline" },
-          { key: "business-visit", label: "New Call", icon: <FilePlus2 className="h-4 w-4" /> }
+          { key: "business-visit", label: "New Call", icon: <FilePlus2 className="h-4 w-4" /> },
+          { key: "business-todo", label: "New To-Do", icon: <ListTodo className="h-4 w-4" /> },
+          { key: "business-householder", label: "New Householder", icon: <UserPlus className="h-4 w-4" />, variant: "outline" }
         );
       } else if (showEstablishmentForm) {
         items.push({ key: "business-establishment", label: "New Establishment", icon: <Building2 className="h-4 w-4" /> });
@@ -180,6 +183,22 @@ export function UnifiedFab({
           householderId={selectedHouseholder?.id}
           householderName={selectedHouseholder?.name}
           householderStatus={selectedHouseholder?.status}
+          onSaved={() => setOpenKey(null)}
+          disableEstablishmentSelect={showExpandableButtons}
+        />
+      </FormModal>
+
+      <FormModal
+        open={openKey === "business-todo"}
+        onOpenChange={(open) => setOpenKey(open ? "business-todo" : null)}
+        title="New To-Do"
+        headerClassName="text-center"
+      >
+        <TodoForm
+          establishments={establishments as Array<{ id?: string; name: string }>}
+          selectedEstablishmentId={businessEstablishmentId}
+          householderId={selectedHouseholder?.id}
+          householderName={selectedHouseholder?.name}
           onSaved={() => setOpenKey(null)}
           disableEstablishmentSelect={showExpandableButtons}
         />

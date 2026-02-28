@@ -19,7 +19,7 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer";
 import { toast } from "@/components/ui/sonner";
-import { addVisit, getBwiParticipants, updateVisit, deleteVisit, getCallTodos, addCallTodo, updateCallTodo, deleteCallTodo, getDistinctCallGuestNames } from "@/lib/db/business";
+import { addVisit, getBwiParticipants, updateVisit, deleteVisit, getCallTodos, addCallTodo, updateCallTodo, deleteCallTodo, getDistinctCallGuestNames, syncCallTodoParticipantsForCall } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getBestStatus } from "@/lib/utils/status-hierarchy";
@@ -134,7 +134,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   // To-dos: for new call they're local until save; for edit they're loaded and synced to server
-  type TodoItem = { id?: string; body: string; is_done: boolean };
+  type TodoItem = { id?: string; body: string; is_done: boolean; deadline_date?: string | null };
   const [todos, setTodos] = useState<TodoItem[]>([]);
   const [todoInput, setTodoInput] = useState("");
   const [showTodoInput, setShowTodoInput] = useState(false);
@@ -220,7 +220,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
     let cancelled = false;
     getCallTodos(initialVisit.id).then((list) => {
       if (!cancelled) {
-        setTodos(list.map((t) => ({ id: t.id, body: t.body, is_done: t.is_done })));
+        setTodos(list.map((t) => ({ id: t.id, body: t.body, is_done: t.is_done, deadline_date: t.deadline_date ?? null })));
         setTodosLoaded(true);
       }
     });
@@ -275,6 +275,10 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
         // Edit mode: update visit
         const ok = await updateVisit({ id: initialVisit.id, ...payload });
         if (ok) {
+          await syncCallTodoParticipantsForCall(initialVisit.id, {
+            publisher_id: payload.publisher_id ?? null,
+            partner_id: payload.partner_id ?? null,
+          });
           toast.success("Call updated.");
           onSaved({ id: initialVisit.id, ...payload });
           const publisher = payload.publisher_id ? participants.find(p => p.id === payload.publisher_id) : undefined;
@@ -295,7 +299,11 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
           .then(async (created) => {
             if (created && created.id) {
               for (const t of todos) {
-                await addCallTodo(created.id, t.body, t.is_done);
+                await addCallTodo(created.id, t.body, t.is_done, {
+                  deadline_date: t.deadline_date ?? null,
+                  publisher_id: created.publisher_id ?? null,
+                  partner_id: created.partner_id ?? null,
+                });
               }
               const publisher = created.publisher_id ? participants.find(p => p.id === created.publisher_id) : undefined;
               const partner = created.partner_id ? participants.find(p => p.id === created.partner_id) : undefined;
@@ -398,13 +406,40 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
     setTodoInput("");
     setShowTodoInput(false);
     if (initialVisit?.id) {
-      const created = await addCallTodo(initialVisit.id, body, false);
-      if (created) setTodos((prev) => [...prev, { id: created.id, body: created.body, is_done: created.is_done }]);
+      const slot0 = slots[0];
+      const slot1 = slots[1];
+      const created = await addCallTodo(initialVisit.id, body, false, {
+        deadline_date: null,
+        publisher_id: slot0?.type === "publisher" ? slot0.id : null,
+        partner_id: slot1?.type === "publisher" ? slot1.id : null,
+      });
+      if (created) setTodos((prev) => [...prev, { id: created.id, body: created.body, is_done: created.is_done, deadline_date: created.deadline_date ?? null }]);
       else toast.error("Failed to add to-do");
     } else {
-      setTodos((prev) => [...prev, { body, is_done: false }]);
+      setTodos((prev) => [...prev, { body, is_done: false, deadline_date: null }]);
     }
-  }, [initialVisit?.id, todoInput]);
+  }, [initialVisit?.id, todoInput, slots]);
+
+  const formatDeadlineLabel = (dateStr?: string | null) => {
+    if (!dateStr) return "Deadline";
+    const parsed = new Date(`${dateStr}T00:00:00`);
+    if (Number.isNaN(parsed.getTime())) return "Deadline";
+    return parsed.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  };
+
+  const handleSetTodoDeadline = async (item: TodoItem, index: number, date: Date | null) => {
+    const nextDeadline = date ? formatLocalDate(date) : null;
+    if (item.id) {
+      const ok = await updateCallTodo(item.id, { deadline_date: nextDeadline });
+      if (!ok) {
+        toast.error("Failed to update deadline");
+        return;
+      }
+      setTodos((prev) => prev.map((t) => (t.id === item.id ? { ...t, deadline_date: nextDeadline } : t)));
+      return;
+    }
+    setTodos((prev) => prev.map((t, i) => (i === index ? { ...t, deadline_date: nextDeadline } : t)));
+  };
 
   const handleToggleTodo = useCallback(async (item: TodoItem) => {
     const next = !item.is_done;
@@ -689,6 +724,14 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
                         {item.body}
                       </button>
                     )}
+                    <DatePicker
+                      date={item.deadline_date ? new Date(`${item.deadline_date}T00:00:00`) : undefined}
+                      onSelect={(date) => {
+                        void handleSetTodoDeadline(item, index, date ?? null);
+                      }}
+                      placeholder={formatDeadlineLabel(item.deadline_date)}
+                      className="w-auto h-7 min-w-[98px] px-2 text-xs"
+                    />
                     <Button
                       type="button"
                       variant="ghost"

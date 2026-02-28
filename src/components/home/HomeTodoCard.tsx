@@ -57,16 +57,27 @@ function formatTodoDate(dateStr: string | null | undefined): string {
   return `${month} ${day}, '${yearShort}`;
 }
 
-/** Age-based row styling using visit_date: <7 days green, 7+ yellow, 14+ orange, 21+ red (oldest on top). */
-function getTodoAgeBorderClass(visitDate: string | null | undefined): string {
-  if (!visitDate) return "";
-  const visit = new Date(visitDate).getTime();
-  const now = Date.now();
+function compareDeadlineAsc(a: MyOpenCallTodoItem, b: MyOpenCallTodoItem): number {
+  const aDeadline = a.deadline_date ? new Date(`${a.deadline_date}T00:00:00`).getTime() : Number.POSITIVE_INFINITY;
+  const bDeadline = b.deadline_date ? new Date(`${b.deadline_date}T00:00:00`).getTime() : Number.POSITIVE_INFINITY;
+  if (aDeadline !== bDeadline) return aDeadline - bDeadline;
+  const aCreated = a.created_at ? new Date(a.created_at).getTime() : 0;
+  const bCreated = b.created_at ? new Date(b.created_at).getTime() : 0;
+  return aCreated - bCreated;
+}
+
+/** Deadline-based styling: passed red, <7 days orange, <14 yellow, >=14 green. */
+function getTodoAgeBorderClass(deadlineDate: string | null | undefined): string {
+  if (!deadlineDate) return "";
+  const deadline = new Date(`${deadlineDate}T00:00:00`).getTime();
+  if (Number.isNaN(deadline)) return "";
+  const nowDate = new Date();
+  const todayStart = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate()).getTime();
   const daysMs = 24 * 60 * 60 * 1000;
-  const daysOld = (now - visit) / daysMs;
-  if (daysOld >= 21) return "border-l-4 border-l-red-500 dark:border-l-red-600";
-  if (daysOld >= 14) return "border-l-4 border-l-orange-500 dark:border-l-orange-600";
-  if (daysOld >= 7) return "border-l-4 border-l-yellow-500 dark:border-l-yellow-600";
+  const daysUntilDeadline = (deadline - todayStart) / daysMs;
+  if (daysUntilDeadline < 0) return "border-l-4 border-l-red-500 dark:border-l-red-600";
+  if (daysUntilDeadline < 7) return "border-l-4 border-l-orange-500 dark:border-l-orange-600";
+  if (daysUntilDeadline < 14) return "border-l-4 border-l-yellow-500 dark:border-l-yellow-600";
   return "border-l-4 border-l-green-500 dark:border-l-green-600";
 }
 
@@ -318,11 +329,11 @@ export function HomeTodoCard({
   );
 
   const filteredOpenTodos = useMemo(
-    () => applyFilters(openTodos),
+    () => [...applyFilters(openTodos)].sort(compareDeadlineAsc),
     [applyFilters, openTodos]
   );
   const filteredCompletedTodos = useMemo(
-    () => applyFilters(completedTodos),
+    () => [...applyFilters(completedTodos)].sort(compareDeadlineAsc),
     [applyFilters, completedTodos]
   );
 
@@ -611,7 +622,8 @@ function TodoRow({
   const householderStatus = todo.context_status || "for_scouting";
   const establishmentStatus = todo.context_establishment_status || "for_scouting";
   const isDone = !!todo.is_done;
-  const ageBorderClass = isDone ? "" : getTodoAgeBorderClass(todo.visit_date);
+  const displayDate = todo.deadline_date;
+  const ageBorderClass = isDone ? "" : getTodoAgeBorderClass(displayDate);
   const isHouseholder = !!todo.householder_id;
   const isEvenRow = typeof rowIndex === "number" && rowIndex % 2 === 1;
   const content = (
@@ -661,9 +673,9 @@ function TodoRow({
               ) : null}
             </>
           ) : null}
-          {todo.visit_date ? (
+          {displayDate ? (
             <span className="text-xs text-muted-foreground shrink-0 ml-auto pl-2 pr-1">
-              {formatTodoDate(todo.visit_date)}
+              {formatTodoDate(displayDate)}
             </span>
           ) : null}
         </div>
