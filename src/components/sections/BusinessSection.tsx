@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useEffect, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { useCallback, useMemo, useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { SectionShell } from "@/components/shared/SectionShell";
 import dynamic from "next/dynamic";
@@ -13,6 +13,8 @@ import type {
 } from "@/lib/db/business";
 
 type BusinessTab = "establishments" | "householders" | "map";
+type EstablishmentSelectionSource = "list" | "map";
+type MapViewState = { center: [number, number]; zoom: number };
 
 const EstablishmentList = dynamic(
   () => import("@/components/business/EstablishmentList").then((m) => m.EstablishmentList),
@@ -143,6 +145,10 @@ export function BusinessSection({
   setCurrentSection,
   updateEstablishment
 }: BusinessSectionProps) {
+  const [selectedEstablishmentSource, setSelectedEstablishmentSource] = useState<EstablishmentSelectionSource>("list");
+  const [lastMapSelectedEstablishmentId, setLastMapSelectedEstablishmentId] = useState<string | undefined>(undefined);
+  const [mapViewState, setMapViewState] = useState<MapViewState | null>(null);
+
   const hasActiveFilters =
     filters.search !== "" ||
     filters.statuses.length > 0 ||
@@ -185,11 +191,21 @@ export function BusinessSection({
     transition: { duration: 0.3 }
   };
 
-  const getDetailsWrapperClass = (isMap: boolean) =>
-    isMap ? "space-y-6 pb-20 px-4 py-6" : "space-y-6";
+  const mapDetailsMotion = {
+    initial: { opacity: 0, x: 18, scale: 0.985, filter: "blur(4px)" },
+    animate: { opacity: 1, x: 0, scale: 1, filter: "blur(0px)" },
+    exit: { opacity: 0, x: -18, scale: 0.985, filter: "blur(4px)" },
+    transition: { duration: 0.24, ease: [0.22, 1, 0.36, 1] as const }
+  };
+
+  const getDetailsWrapperClass = (_isMap: boolean) => "space-y-6";
 
   const handleSelectEstablishment = useCallback(
-    (establishment: EstablishmentWithDetails) => {
+    (establishment: EstablishmentWithDetails, source: EstablishmentSelectionSource = "list") => {
+      setSelectedEstablishmentSource(source);
+      if (source === "map" && establishment.id) {
+        setLastMapSelectedEstablishmentId(establishment.id);
+      }
       setSelectedEstablishment(establishment);
       pushNavigation(currentSection);
       if (establishment.id) {
@@ -244,7 +260,7 @@ export function BusinessSection({
       <SectionShell
         motionKey="business"
         className={
-          businessTab === "map"
+          businessTab === "map" && !selectedEstablishment && !selectedHouseholder
             ? "fixed inset-0 z-10"
             : "relative h-[calc(100vh-80px)] overflow-y-auto space-y-4 px-0 pb-20 pt-[90px]"
         }
@@ -308,17 +324,31 @@ export function BusinessSection({
                   />
                 </motion.div>
               ) : (
-                <motion.div key="establishment-map" {...listMotion} className="w-full h-full" style={{ height: "100%" }}>
+                <motion.div
+                  key="establishment-map"
+                  initial={{ opacity: 0.85, x: -12, scale: 1.01, filter: "blur(4px)" }}
+                  animate={{ opacity: 1, x: 0, scale: 1, filter: "blur(0px)" }}
+                  exit={{ opacity: 0, x: -20, scale: 0.985, filter: "blur(6px)" }}
+                  transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                  className="w-full h-full"
+                  style={{ height: "100%" }}
+                >
                   <EstablishmentMap
                     establishments={filteredEstablishments}
-                    onEstablishmentClick={handleSelectEstablishment}
-                    selectedEstablishmentId={undefined}
+                    onEstablishmentClick={(establishment) => handleSelectEstablishment(establishment, "map")}
+                    selectedEstablishmentId={lastMapSelectedEstablishmentId}
+                    initialView={mapViewState ?? undefined}
+                    onViewChange={setMapViewState}
                     className="h-full"
                   />
                 </motion.div>
               )
             ) : selectedHouseholder ? (
-              <motion.div key="householder-details" {...detailsMotion} className="w-full">
+              <motion.div
+                key="householder-details"
+                {...(businessTab === "map" ? mapDetailsMotion : detailsMotion)}
+                className="w-full"
+              >
                 <div className={getDetailsWrapperClass(businessTab === "map")}>
                   <HouseholderDetails
                     householder={selectedHouseholderDetails?.householder || selectedHouseholder}
@@ -341,7 +371,11 @@ export function BusinessSection({
                 </div>
               </motion.div>
             ) : (
-              <motion.div key="establishment-details" {...detailsMotion} className="w-full">
+              <motion.div
+                key="establishment-details"
+                {...(businessTab === "map" ? mapDetailsMotion : detailsMotion)}
+                className="w-full"
+              >
                 {selectedEstablishment && (
                   <div className={getDetailsWrapperClass(businessTab === "map")}>
                     <EstablishmentDetails
@@ -352,7 +386,7 @@ export function BusinessSection({
                       onBackClick={() => {
                         setSelectedEstablishment(null);
                         setSelectedEstablishmentDetails(null);
-                        navigateBack("business-establishments");
+                        navigateBack(selectedEstablishmentSource === "map" ? "business-map" : "business-establishments");
                       }}
                       onEstablishmentUpdated={(est) => est?.id && updateEstablishment({ id: est.id!, ...est })}
                       onHouseholderClick={(hh) => {

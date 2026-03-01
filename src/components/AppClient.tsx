@@ -1133,13 +1133,18 @@ export function AppClient() {
           }
           const previousSection = popNavigation();
           if (previousSection) {
-            const targetSection = previousSection.startsWith('business-') ? previousSection : 'business-householders';
+            const targetSection = previousSection.startsWith('business-')
+              ? previousSection
+              : businessTab === 'map'
+                ? 'business-map'
+                : 'business-householders';
             setCurrentSection(targetSection);
             const url = new URL(window.location.href);
             url.pathname = targetSection === 'home' ? '/' : '/business';
             window.history.pushState({}, '', url.toString());
           } else {
-            setCurrentSection('business-householders');
+            const fallback = businessTab === 'map' ? 'business-map' : 'business-householders';
+            setCurrentSection(fallback);
             const url = new URL(window.location.href);
             url.pathname = '/business';
             window.history.pushState({}, '', url.toString());
@@ -1149,13 +1154,18 @@ export function AppClient() {
           setSelectedEstablishmentDetails(null);
           const previousSection = popNavigation();
           if (previousSection) {
-            const targetSection = previousSection.startsWith('business-') ? previousSection : 'business-establishments';
+            const targetSection = previousSection.startsWith('business-')
+              ? previousSection
+              : businessTab === 'map'
+                ? 'business-map'
+                : 'business-establishments';
             setCurrentSection(targetSection);
             const url = new URL(window.location.href);
             url.pathname = targetSection === 'home' ? '/' : '/business';
             window.history.pushState({}, '', url.toString());
           } else {
-            setCurrentSection('business-establishments');
+            const fallback = businessTab === 'map' ? 'business-map' : 'business-establishments';
+            setCurrentSection(fallback);
             const url = new URL(window.location.href);
             url.pathname = '/business';
             window.history.pushState({}, '', url.toString());

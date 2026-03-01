@@ -390,10 +390,43 @@ function MapBoundsFitter({
   return null;
 }
 
+function MapViewStateTracker({
+  onViewChange,
+}: {
+  onViewChange?: (view: { center: [number, number]; zoom: number }) => void;
+}) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map || !onViewChange) return;
+
+    const emitView = () => {
+      const center = map.getCenter();
+      onViewChange({
+        center: [center.lat, center.lng],
+        zoom: map.getZoom(),
+      });
+    };
+
+    emitView();
+    map.on("moveend", emitView);
+    map.on("zoomend", emitView);
+
+    return () => {
+      map.off("moveend", emitView);
+      map.off("zoomend", emitView);
+    };
+  }, [map, onViewChange]);
+
+  return null;
+}
+
 interface EstablishmentMapProps {
   establishments: EstablishmentWithDetails[];
   onEstablishmentClick?: (establishment: EstablishmentWithDetails) => void;
   selectedEstablishmentId?: string;
+  initialView?: { center: [number, number]; zoom: number };
+  onViewChange?: (view: { center: [number, number]; zoom: number }) => void;
   className?: string;
 }
 
@@ -642,6 +675,8 @@ export function EstablishmentMap({
   establishments, 
   onEstablishmentClick, 
   selectedEstablishmentId,
+  initialView,
+  onViewChange,
   className = ""
 }: EstablishmentMapProps) {
   const [isClient, setIsClient] = useState(false);
@@ -807,8 +842,8 @@ export function EstablishmentMap({
   return (
     <div className={`w-full h-full ${className || 'h-96'}`} style={{ height: '100%', width: '100%' }}>
       <MapContainer
-        center={mapCenter}
-        zoom={establishmentsWithCoords.length > 0 ? 14 : 13}
+        center={initialView?.center ?? mapCenter}
+        zoom={initialView?.zoom ?? (establishmentsWithCoords.length > 0 ? 14 : 13)}
         style={{ height: '100%', width: '100%' }}
         zoomControl={true}
         attributionControl={false}
@@ -850,9 +885,10 @@ export function EstablishmentMap({
         {/* Component to fit map bounds to establishments */}
         <MapBoundsFitter 
           establishments={establishmentsWithCoords} 
-          isInitialLoad={!hasInitiallyFitted}
+          isInitialLoad={!hasInitiallyFitted && !initialView}
           onFitted={() => setHasInitiallyFitted(true)}
         />
+        <MapViewStateTracker onViewChange={onViewChange} />
         
         {groupedEstablishmentsByStatus.length > 0 ? (
           groupedEstablishmentsByStatus.map(({ status, items }) => {
