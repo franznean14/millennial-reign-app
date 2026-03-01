@@ -7,6 +7,35 @@ import { toast } from "@/components/ui/sonner";
 
 const TABLE = "daily_records";
 
+function isOfflineLikeError(e: any): boolean {
+  if (typeof navigator !== "undefined" && !navigator.onLine) return true;
+  const message = String(e?.message ?? "").toLowerCase();
+  const details = String(e?.details ?? "").toLowerCase();
+  const hint = String(e?.hint ?? "").toLowerCase();
+  return (
+    message.includes("failed to fetch") ||
+    message.includes("networkerror") ||
+    message.includes("network request failed") ||
+    details.includes("failed to fetch") ||
+    hint.includes("network")
+  );
+}
+
+function normalizeDailyRecordWriteError(e: any): string {
+  const code = String(e?.code ?? "");
+  const message = String(e?.message ?? "");
+  const details = String(e?.details ?? "");
+
+  // PostgreSQL check constraint violation (e.g. date out of allowed range).
+  if (code === "23514" || message.toLowerCase().includes("check constraint")) {
+    return "Selected date is outside the allowed range.";
+  }
+
+  if (message) return message;
+  if (details) return details;
+  return "Failed to save daily record.";
+}
+
 export async function getDailyRecord(userId: string, date: string): Promise<DailyRecord | null> {
   // Offline-first: serve cached if present, then fall back to network
   const cached = await cacheGet<DailyRecord>(`daily:${userId}:${date}`);
@@ -50,17 +79,20 @@ export async function upsertDailyRecord(input: Omit<DailyRecord, "id"> & { id?: 
     if (idx >= 0) monthCache[idx] = rec; else monthCache.push(rec);
     await cacheSet(key, monthCache.sort((a, b) => a.date.localeCompare(b.date)));
     return rec;
-  } catch (e) {
-    await outboxEnqueue({ type: "upsert_daily", payload: input });
-    await cacheSet(`daily:${input.user_id}:${input.date}`, input);
-    const month = input.date.slice(0, 7);
-    const key = `daily:${input.user_id}:month:${month}`;
-    const monthCache = (await cacheGet<DailyRecord[]>(key)) || [];
-    const idx = monthCache.findIndex((r) => r.date === input.date);
-    if (idx >= 0) monthCache[idx] = input as DailyRecord; else monthCache.push(input as DailyRecord);
-    await cacheSet(key, monthCache.sort((a, b) => a.date.localeCompare(b.date)));
-    toast.success("Saved offline. Will sync when online.");
-    return input as DailyRecord;
+  } catch (e: any) {
+    if (isOfflineLikeError(e)) {
+      await outboxEnqueue({ type: "upsert_daily", payload: input });
+      await cacheSet(`daily:${input.user_id}:${input.date}`, input);
+      const month = input.date.slice(0, 7);
+      const key = `daily:${input.user_id}:month:${month}`;
+      const monthCache = (await cacheGet<DailyRecord[]>(key)) || [];
+      const idx = monthCache.findIndex((r) => r.date === input.date);
+      if (idx >= 0) monthCache[idx] = input as DailyRecord; else monthCache.push(input as DailyRecord);
+      await cacheSet(key, monthCache.sort((a, b) => a.date.localeCompare(b.date)));
+      toast.success("Saved offline. Will sync when online.");
+      return input as DailyRecord;
+    }
+    throw new Error(normalizeDailyRecordWriteError(e));
   }
 }
 
@@ -130,9 +162,13 @@ export async function deleteDailyRecord(userId: string, date: string) {
     await supabase.auth.getSession();
     const { error } = await supabase.from(TABLE).delete().eq("user_id", userId).eq("date", date);
     if (error) throw error;
-  } catch (e) {
-    // queue offline delete
-    await outboxEnqueue({ type: "delete_daily", payload: { user_id: userId, date } });
+  } catch (e: any) {
+    if (isOfflineLikeError(e)) {
+      // queue offline delete
+      await outboxEnqueue({ type: "delete_daily", payload: { user_id: userId, date } });
+    } else {
+      throw new Error(normalizeDailyRecordWriteError(e));
+    }
   }
   // Remove from caches
   try {

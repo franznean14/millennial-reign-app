@@ -283,7 +283,11 @@ export function UnifiedFab({
         title=""
         headerClassName="sr-only"
       >
-        <FieldServiceForm userId={userId} onClose={() => setOpenKey(null)} />
+        <FieldServiceForm
+          userId={userId}
+          onClose={() => setOpenKey(null)}
+          isOpen={openKey === "field-service"}
+        />
       </FormModal>
     </>
   );

@@ -300,13 +300,30 @@ ON public.monthly_records(user_id, month);
 CREATE TABLE IF NOT EXISTS public.daily_records (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  date date NOT NULL CHECK (date <= (CURRENT_DATE + INTERVAL '1 day')),
+  -- Allow recording for any date (past/present/future).
+  date date NOT NULL,
   hours numeric NOT NULL DEFAULT 0,
   bible_studies text[] NOT NULL DEFAULT '{}',
   note text,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Migration safety: remove legacy upper-bound check that blocked future dates.
+DO $$
+DECLARE
+  c record;
+BEGIN
+  FOR c IN
+    SELECT conname
+    FROM pg_constraint
+    WHERE conrelid = 'public.daily_records'::regclass
+      AND contype = 'c'
+      AND pg_get_constraintdef(oid) ILIKE '%date <=%'
+  LOOP
+    EXECUTE format('ALTER TABLE public.daily_records DROP CONSTRAINT IF EXISTS %I', c.conname);
+  END LOOP;
+END $$;
 
 CREATE UNIQUE INDEX IF NOT EXISTS daily_records_user_date_idx 
 ON public.daily_records(user_id, date);

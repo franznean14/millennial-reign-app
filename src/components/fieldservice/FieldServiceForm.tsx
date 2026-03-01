@@ -28,9 +28,10 @@ function toLocalStr(d: Date) {
 interface FieldServiceFormProps {
   userId: string;
   onClose: () => void;
+  isOpen?: boolean;
 }
 
-export default function FieldServiceForm({ userId, onClose }: FieldServiceFormProps) {
+export default function FieldServiceForm({ userId, onClose, isOpen = true }: FieldServiceFormProps) {
   const isMobile = useMobile();
   const [view, setView] = useState<Date>(() => {
     if (typeof window === "undefined") return new Date();
@@ -901,6 +902,17 @@ export default function FieldServiceForm({ userId, onClose }: FieldServiceFormPr
   useEffect(() => {
     loadMonthMarks();
   }, [view]);
+
+  // Always default to today when the drawer opens.
+  useEffect(() => {
+    if (!isOpen) return;
+    const today = new Date();
+    const todayStr = toLocalStr(today);
+    setMode("days");
+    setView(today);
+    setDirty(false);
+    setDate(todayStr);
+  }, [isOpen, userId]);
 
   // Load selected date only when the user switches day — do NOT reload when dirty flips to false
   // after save, or we overwrite optimistic add/delete with cache and cause stutter (add disappears,
