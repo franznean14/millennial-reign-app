@@ -230,7 +230,7 @@ export function BusinessSection({
     (fallbackSection: string) => {
       const previousSection = popNavigation();
       const targetSection = previousSection
-        ? previousSection.startsWith("business-")
+        ? previousSection === "home" || previousSection.startsWith("business-")
           ? previousSection
           : fallbackSection
         : fallbackSection;

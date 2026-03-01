@@ -1133,7 +1133,7 @@ export function AppClient() {
           }
           const previousSection = popNavigation();
           if (previousSection) {
-            const targetSection = previousSection.startsWith('business-')
+            const targetSection = (previousSection === 'home' || previousSection.startsWith('business-'))
               ? previousSection
               : businessTab === 'map'
                 ? 'business-map'
@@ -1154,7 +1154,7 @@ export function AppClient() {
           setSelectedEstablishmentDetails(null);
           const previousSection = popNavigation();
           if (previousSection) {
-            const targetSection = previousSection.startsWith('business-')
+            const targetSection = (previousSection === 'home' || previousSection.startsWith('business-'))
               ? previousSection
               : businessTab === 'map'
                 ? 'business-map'
