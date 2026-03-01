@@ -284,6 +284,10 @@ export function AppClient() {
   
   // Add this state to track user's visited householders
   const [userVisitedHouseholders, setUserVisitedHouseholders] = useState<Set<string>>(new Set());
+  const businessSubscriptionsInitializedRef = useRef(false);
+  const businessRefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const businessRefetchInFlightRef = useRef(false);
+  const businessRefetchQueuedRef = useRef(false);
 
   // Set content loading to false immediately when component mounts
   useEffect(() => {
@@ -445,9 +449,18 @@ export function AppClient() {
   // Business functions
   const loadBusinessData = useCallback(async () => {
     try {
-      // Check if offline and load from cache if needed
-      const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
-      
+      // Hydrate from IndexedDB cache first for instant render.
+      const [cachedEstablishments, cachedHouseholders] = await Promise.all([
+        cacheGet<EstablishmentWithDetails[]>("establishments:with-details"),
+        cacheGet<HouseholderWithDetails[]>("householders:list"),
+      ]);
+      if (cachedEstablishments?.length) {
+        setEstablishments(cachedEstablishments);
+      }
+      if (cachedHouseholders?.length) {
+        setHouseholders(cachedHouseholders.filter((householder) => !!householder.establishment_id));
+      }
+
       const [establishmentsData, householdersData] = await Promise.all([
         getEstablishmentsWithDetails(),
         listHouseholders()
@@ -455,96 +468,91 @@ export function AppClient() {
       setEstablishments(establishmentsData);
       setHouseholders(householdersData.filter((householder) => !!householder.establishment_id));
 
-      // Set up business event listeners
-      businessEventBus.subscribe('establishment-added', addNewEstablishment);
-      businessEventBus.subscribe('establishment-updated', updateEstablishment);
-      businessEventBus.subscribe('householder-added', addNewHouseholder);
-      businessEventBus.subscribe('visit-added', addNewVisit);
-      businessEventBus.subscribe('visit-updated', (v: any) => {
-        setSelectedEstablishmentDetails(prev => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            visits: prev.visits.map((existing) => existing.id === v.id ? {
-              ...existing,
-              note: v.note ?? existing.note,
-              visit_date: v.visit_date ?? existing.visit_date,
-              publisher_id: v.publisher_id ?? existing.publisher_id,
-              partner_id: v.partner_id ?? existing.partner_id,
-              publisher: v.publisher ?? existing.publisher,
-              partner: v.partner ?? existing.partner,
-            } : existing)
-          };
-        });
-        setSelectedHouseholderDetails(prev => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            visits: prev.visits.map((existing) => existing.id === v.id ? {
-              ...existing,
-              note: v.note ?? existing.note,
-              visit_date: v.visit_date ?? existing.visit_date,
-              publisher_id: v.publisher_id ?? existing.publisher_id,
-              partner_id: v.partner_id ?? existing.partner_id,
-              publisher: v.publisher ?? existing.publisher,
-              partner: v.partner ?? existing.partner,
-            } : existing)
-          };
-        });
-      });
-      businessEventBus.subscribe('visit-deleted', (v: any) => {
-        setSelectedEstablishmentDetails(prev => {
-          if (!prev) return prev;
-          return { ...prev, visits: prev.visits.filter(ex => ex.id !== v.id) };
-        });
-        setSelectedHouseholderDetails(prev => {
-          if (!prev) return prev;
-          return { ...prev, visits: prev.visits.filter(ex => ex.id !== v.id) };
-        });
-      });
-      businessEventBus.subscribe('householder-updated', (hh: any) => {
-        // Update main householders list
-        setHouseholders(prev => prev.map(h => h.id === hh.id ? { ...h, ...hh } : h));
-        
-        setSelectedEstablishmentDetails(prev => {
-          if (!prev) return prev;
-          // Create new arrays to ensure React detects the changes
-          const updatedHouseholders = prev.householders.map(h => h.id === hh.id ? { ...h, ...hh } : h);
-          const updatedVisits = prev.visits.map(visit => {
-            if (visit.householder && visit.householder.id === hh.id) {
-              return { 
-                ...visit, 
-                householder: { ...visit.householder, ...hh }
-              };
-            }
-            return visit;
+      if (!businessSubscriptionsInitializedRef.current) {
+        // Set up business event listeners once to avoid duplicate subscriptions.
+        businessEventBus.subscribe('establishment-added', addNewEstablishment);
+        businessEventBus.subscribe('establishment-updated', updateEstablishment);
+        businessEventBus.subscribe('householder-added', addNewHouseholder);
+        businessEventBus.subscribe('visit-added', addNewVisit);
+        businessEventBus.subscribe('visit-updated', (v: any) => {
+          setSelectedEstablishmentDetails(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              visits: prev.visits.map((existing) => existing.id === v.id ? {
+                ...existing,
+                note: v.note ?? existing.note,
+                visit_date: v.visit_date ?? existing.visit_date,
+                publisher_id: v.publisher_id ?? existing.publisher_id,
+                partner_id: v.partner_id ?? existing.partner_id,
+                publisher: v.publisher ?? existing.publisher,
+                partner: v.partner ?? existing.partner,
+              } : existing)
+            };
           });
+          setSelectedHouseholderDetails(prev => {
+            if (!prev) return prev;
+            return {
+              ...prev,
+              visits: prev.visits.map((existing) => existing.id === v.id ? {
+                ...existing,
+                note: v.note ?? existing.note,
+                visit_date: v.visit_date ?? existing.visit_date,
+                publisher_id: v.publisher_id ?? existing.publisher_id,
+                partner_id: v.partner_id ?? existing.partner_id,
+                publisher: v.publisher ?? existing.publisher,
+                partner: v.partner ?? existing.partner,
+              } : existing)
+            };
+          });
+        });
+        businessEventBus.subscribe('visit-deleted', (v: any) => {
+          setSelectedEstablishmentDetails(prev => {
+            if (!prev) return prev;
+            return { ...prev, visits: prev.visits.filter(ex => ex.id !== v.id) };
+          });
+          setSelectedHouseholderDetails(prev => {
+            if (!prev) return prev;
+            return { ...prev, visits: prev.visits.filter(ex => ex.id !== v.id) };
+          });
+        });
+        businessEventBus.subscribe('householder-updated', (hh: any) => {
+          // Update main householders list
+          setHouseholders(prev => prev.map(h => h.id === hh.id ? { ...h, ...hh } : h));
           
-          return { 
-            ...prev, 
-            householders: updatedHouseholders,
-            visits: updatedVisits
-          };
+          setSelectedEstablishmentDetails(prev => {
+            if (!prev) return prev;
+            // Create new arrays to ensure React detects the changes
+            const updatedHouseholders = prev.householders.map(h => h.id === hh.id ? { ...h, ...hh } : h);
+            const updatedVisits = prev.visits.map(visit => {
+              if (visit.householder && visit.householder.id === hh.id) {
+                return { 
+                  ...visit, 
+                  householder: { ...visit.householder, ...hh }
+                };
+              }
+              return visit;
+            });
+            
+            return { 
+              ...prev, 
+              householders: updatedHouseholders,
+              visits: updatedVisits
+            };
+          });
+          setSelectedHouseholder(prev => prev && prev.id === hh.id ? { ...prev, ...hh } : prev);
+          setSelectedHouseholderDetails(prev => prev && prev.householder.id === hh.id ? { ...prev, householder: { ...prev.householder, ...hh } } : prev);
         });
-        setSelectedHouseholder(prev => prev && prev.id === hh.id ? { ...prev, ...hh } : prev);
-        setSelectedHouseholderDetails(prev => prev && prev.householder.id === hh.id ? { ...prev, householder: { ...prev.householder, ...hh } } : prev);
-      });
-      businessEventBus.subscribe('householder-deleted', (hh: any) => {
-        setSelectedEstablishmentDetails(prev => {
-          if (!prev) return prev;
-          return { ...prev, householders: prev.householders.filter(h => h.id !== hh.id) };
+        businessEventBus.subscribe('householder-deleted', (hh: any) => {
+          setSelectedEstablishmentDetails(prev => {
+            if (!prev) return prev;
+            return { ...prev, householders: prev.householders.filter(h => h.id !== hh.id) };
+          });
+          setSelectedHouseholder(null);
+          setSelectedHouseholderDetails(null);
         });
-        setSelectedHouseholder(null);
-        setSelectedHouseholderDetails(null);
-      });
-
-      return () => {
-        businessEventBus.unsubscribe('establishment-added', addNewEstablishment);
-        businessEventBus.unsubscribe('establishment-updated', updateEstablishment);
-        businessEventBus.unsubscribe('householder-added', addNewHouseholder);
-        businessEventBus.unsubscribe('visit-added', addNewVisit);
-        // Note: inline callbacks cannot be unsubscribed reliably; in a real setup, keep named refs
-      };
+        businessSubscriptionsInitializedRef.current = true;
+      }
     } catch (error) {
       console.error('Failed to load business data:', error);
     }
@@ -562,14 +570,17 @@ export function AppClient() {
 
   // Refetch-only (no event bus). Used when Supabase Realtime detects changes so views re-render with latest data.
   const refetchBusinessData = useCallback(async () => {
+    if (businessRefetchInFlightRef.current) {
+      businessRefetchQueuedRef.current = true;
+      return;
+    }
+    businessRefetchInFlightRef.current = true;
     try {
       const estId = selectedEstablishmentIdRef.current;
       const hhId = selectedHouseholderIdRef.current;
       const congHhId = congregationSelectedHouseholderIdRef.current;
       // Invalidate detail caches first so detail fetches never see stale cache (list and details both get fresh data)
       await Promise.all([
-        cacheDelete("establishments:with-details"),
-        cacheDelete("householders:list"),
         estId ? cacheDelete(`establishment:details:${estId}`) : Promise.resolve(),
         hhId ? cacheDelete(`householder:details:v2:${hhId}`) : Promise.resolve(),
         congHhId ? cacheDelete(`householder:details:v2:${congHhId}`) : Promise.resolve(),
@@ -620,8 +631,28 @@ export function AppClient() {
       }
     } catch (error) {
       console.error('Failed to refetch business data:', error);
+    } finally {
+      businessRefetchInFlightRef.current = false;
+      if (businessRefetchQueuedRef.current) {
+        businessRefetchQueuedRef.current = false;
+        if (businessRefetchTimerRef.current) {
+          clearTimeout(businessRefetchTimerRef.current);
+        }
+        businessRefetchTimerRef.current = setTimeout(() => {
+          void refetchBusinessData();
+        }, 400);
+      }
     }
   }, []);
+
+  const scheduleBusinessRefetch = useCallback(() => {
+    if (businessRefetchTimerRef.current) {
+      clearTimeout(businessRefetchTimerRef.current);
+    }
+    businessRefetchTimerRef.current = setTimeout(() => {
+      void refetchBusinessData();
+    }, 700);
+  }, [refetchBusinessData]);
 
   // Realtime: Supabase postgres_changes → refetch → setState → React re-renders; no manual refresh needed
   const congregationId = (profile as any)?.congregation_id;
@@ -633,23 +664,27 @@ export function AppClient() {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "business_establishments", filter: `congregation_id=eq.${congregationId}` },
-        () => { refetchBusinessData(); }
+        () => { scheduleBusinessRefetch(); }
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "householders" },
-        () => { refetchBusinessData(); }
+        () => { scheduleBusinessRefetch(); }
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "calls" },
-        () => { refetchBusinessData(); }
+        () => { scheduleBusinessRefetch(); }
       )
       .subscribe();
     return () => {
+      if (businessRefetchTimerRef.current) {
+        clearTimeout(businessRefetchTimerRef.current);
+        businessRefetchTimerRef.current = null;
+      }
       try { supabase.removeChannel(channel); } catch {}
     };
-  }, [userId, congregationId, refetchBusinessData]);
+  }, [userId, congregationId, scheduleBusinessRefetch]);
 
   // When current user soft-deletes a householder, refetch establishment details so householders list and establishment fields stay in sync
   useEffect(() => {
