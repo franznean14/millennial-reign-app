@@ -7,6 +7,7 @@ export interface VisitRecord {
   visit_date: string;
   establishment_name?: string;
   householder_name?: string;
+  householder_status?: string;
   visit_type: "establishment" | "householder";
   establishment_id?: string;
   householder_id?: string;
@@ -69,6 +70,7 @@ export function buildVisitRecords(establishmentVisits: any[] = [], householderVi
     id: `hh-${v.id}`,
     visit_date: v.visit_date,
     householder_name: (v.householders as any)?.name,
+    householder_status: (v.householders as any)?.status,
     establishment_name: establishmentData?.name,
     establishment_status: getBestStatus(establishmentData?.statuses || []),
     establishment_area: establishmentData?.area || null,

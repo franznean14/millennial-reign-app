@@ -21,6 +21,7 @@ type VisitQueryResult = {
   business_establishments?: { name?: string | null; statuses?: string[] | null; area?: string | null } | null;
   householders?: {
     name?: string | null;
+    status?: string | null;
     establishment_id?: string | null;
     publisher_id?: string | null;
     business_establishments?: { name?: string | null; statuses?: string[] | null; area?: string | null } | null;
@@ -76,7 +77,7 @@ async function fetchEstablishmentVisits(limit: number, offset: number) {
     .range(offset, offset + limit - 1);
 
   if (error) throw error;
-  return (data || []) as VisitQueryResult[];
+  return (data || []) as unknown as VisitQueryResult[];
 }
 
 async function fetchHouseholderVisits(limit: number, offset: number) {
@@ -95,7 +96,7 @@ async function fetchHouseholderVisits(limit: number, offset: number) {
         partner_id,
         publisher_guest_name,
         partner_guest_name,
-        householders(name, establishment_id, publisher_id, business_establishments(name, statuses, area)),
+        householders(name, status, establishment_id, publisher_id, business_establishments(name, statuses, area)),
         business_establishments(name, statuses, area),
         publisher:profiles!calls_publisher_id_fkey(first_name, last_name, avatar_url),
         partner:profiles!calls_partner_id_fkey(first_name, last_name, avatar_url)
@@ -107,7 +108,7 @@ async function fetchHouseholderVisits(limit: number, offset: number) {
     .range(offset, offset + limit - 1);
 
   if (error) throw error;
-  return (data || []) as VisitQueryResult[];
+  return (data || []) as unknown as VisitQueryResult[];
 }
 
 export async function getRecentBwiVisits(limit = 5, forceRefresh = false): Promise<VisitRecord[]> {

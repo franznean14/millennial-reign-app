@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { FormModal } from "@/components/shared/FormModal";
 import { Building2, Calendar, ChevronRight, DoorOpen, UserRound } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
-import { getTimelineDotSize, getTimelineLineStyle, getVisitTypeDotColor } from "@/lib/utils/visit-timeline";
+import { getTimelineLineStyle } from "@/lib/utils/visit-timeline";
 import type { VisitRecord } from "@/lib/utils/visit-history";
 import { useBwiVisitHistory } from "@/lib/hooks/use-bwi-visit-history";
 import { VisitTimelineRow } from "@/components/visit/VisitTimelineRow";
@@ -22,6 +22,7 @@ import { useMemo } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { getEstablishmentsWithDetails, listHouseholders, type EstablishmentWithDetails, type HouseholderWithDetails } from "@/lib/db/business";
 import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
+import { getStatusColor, getStatusTitleColor } from "@/lib/utils/status-hierarchy";
 import NumberFlow from "@number-flow/react";
 import { cacheGet, cacheSet } from "@/lib/offline/store";
 
@@ -344,17 +345,36 @@ export function VisitHistory({
   );
 
   const renderVisitRow = (visit: VisitRecord, index: number, total: number, isDrawer: boolean) => {
+    const isHouseholderVisit = visit.visit_type === "householder";
+    const primaryLabel = (isHouseholderVisit ? visit.householder_name : visit.establishment_name) || "Unknown";
+    const primaryStatus = isHouseholderVisit
+      ? visit.householder_status || "potential"
+      : visit.establishment_status || "for_scouting";
+
     return (
       <VisitTimelineRow
         onClick={() => handleVisitClick(visit)}
         index={index}
         total={total}
         rootClassName="hover:opacity-80 transition-opacity"
-        lineStyle={getTimelineLineStyle(isDrawer)}
+        lineStyle={{
+          ...getTimelineLineStyle(isDrawer),
+          // Center the vertical timeline line with the 24px icon marker.
+          left: 11,
+        }}
         dot={
           <div
-            className={`${getTimelineDotSize()} rounded-full ${getVisitTypeDotColor(visit.visit_type)} relative z-10 flex-shrink-0`}
-          />
+            className={cn(
+              "w-6 h-6 rounded-full border relative z-10 flex-shrink-0 flex items-center justify-center",
+              getStatusColor(primaryStatus)
+            )}
+          >
+            {isHouseholderVisit ? (
+              <UserRound className={cn("h-3.5 w-3.5", getStatusTitleColor(primaryStatus))} aria-hidden />
+            ) : (
+              <Building2 className={cn("h-3.5 w-3.5", getStatusTitleColor(primaryStatus))} aria-hidden />
+            )}
+          </div>
         }
         contentClassName="ml-3"
         avatarClassName="ml-4"
@@ -370,12 +390,21 @@ export function VisitHistory({
         }
       >
         <VisitRowContent
-          title={getVisitDisplayName(visit)}
+          title={
+            <span className="inline-flex items-center w-fit max-w-[70%] min-w-0 shrink">
+              <VisitStatusBadge
+                status={primaryStatus}
+                label={primaryLabel}
+                className="truncate max-w-full whitespace-nowrap"
+              />
+            </span>
+          }
           titleBadge={
             visit.visit_type === "householder" && visit.establishment_name ? (
               <VisitStatusBadge
                 status={visit.establishment_status || "for_scouting"}
                 label={visit.establishment_name}
+                className="truncate max-w-[30%] whitespace-nowrap border-muted bg-muted/50"
               />
             ) : undefined
           }
@@ -744,20 +773,6 @@ export function VisitHistory({
           </TabsContent>
           
           <TabsContent value="visit-history" className="mt-0 rounded-b-lg bg-background p-4">
-            <div className="flex items-center justify-between mb-3">
-              {/* Legend */}
-              <div className="flex items-center gap-3 text-xs">
-                <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-full bg-blue-500"></div>
-                  <span className="text-muted-foreground">Establishment</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                  <span className="text-muted-foreground">Householder</span>
-                </div>
-              </div>
-            </div>
-            
             <div className="relative">
               <VisitList
                 items={visits}

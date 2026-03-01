@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 
 interface VisitRowContentProps {
-  title: string;
+  title: ReactNode;
   titleBadge?: ReactNode;
   metaIcon?: ReactNode;
   metaText: string;
@@ -25,7 +25,11 @@ export function VisitRowContent({
   return (
     <>
       <div className="flex items-center gap-2 mb-1">
-        <span className="text-sm font-medium text-foreground">{title}</span>
+        {typeof title === "string" ? (
+          <span className="text-sm font-medium text-foreground">{title}</span>
+        ) : (
+          title
+        )}
         {titleBadge}
       </div>
       <div className={cn("flex items-center gap-1 text-xs text-muted-foreground", metaClassName)}>

@@ -99,6 +99,7 @@ export function useBwiVisitHistory({
           visit_date: visitData.visit_date,
           establishment_name: visitData.establishment?.name,
           householder_name: visitData.householder?.name,
+          householder_status: visitData.householder?.status,
           visit_type: visitData.householder_id ? "householder" : "establishment",
           establishment_id: visitData.establishment_id,
           householder_id: visitData.householder_id,
