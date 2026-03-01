@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
 import { createElement } from 'react';
 import { createRoot } from 'react-dom/client';
 import dynamic from 'next/dynamic';
@@ -356,61 +356,36 @@ function MapBoundsFitter({
   isInitialLoad: boolean,
   onFitted: () => void 
 }) {
+  const map = useMap();
   const establishmentsWithCoords = establishments.filter(est => est.lat && est.lng);
   
   useEffect(() => {
-    // Only fit bounds on initial load, not on every filter change
-    if (typeof window === 'undefined' || establishmentsWithCoords.length === 0 || !isInitialLoad) return;
-    
-    // Wait for the map to be ready
-    const waitForMap = () => {
-      const mapElement = document.querySelector('.leaflet-container');
-      if (!mapElement) {
-        setTimeout(waitForMap, 100);
-        return;
-      }
-      
-      // Find the map instance
-      const map = (mapElement as any)._leaflet_map;
-      if (!map) {
-        setTimeout(waitForMap, 100);
-        return;
-      }
-      
-      // Wait a bit more for the map to be fully initialized
-      setTimeout(() => {
-        const L = require('leaflet');
-        
-        // Calculate bounds
-        const lats = establishmentsWithCoords.map(est => est.lat!);
-        const lngs = establishmentsWithCoords.map(est => est.lng!);
-        
-        const minLat = Math.min(...lats);
-        const maxLat = Math.max(...lats);
-        const minLng = Math.min(...lngs);
-        const maxLng = Math.max(...lngs);
-        
-        // Add padding (smaller padding for tighter fit)
-        const latPadding = Math.max((maxLat - minLat) * 0.2, 0.001);
-        const lngPadding = Math.max((maxLng - minLng) * 0.2, 0.001);
-        
-        const bounds = L.latLngBounds(
-          [minLat - latPadding, minLng - lngPadding],
-          [maxLat + latPadding, maxLng + lngPadding]
-        );
-        
-        // Fit the map to the bounds with minimal padding
-        map.fitBounds(bounds, { padding: [10, 10], maxZoom: 18 });
-        
-        // Notify that bounds have been fitted
-        onFitted();
-        
-      }, 500);
-    };
-    
-    waitForMap();
-    
-  }, [establishmentsWithCoords, isInitialLoad, onFitted]);
+    // Only fit bounds on initial load, not on every filter change.
+    if (establishmentsWithCoords.length === 0 || !isInitialLoad || !map) return;
+
+    const L = require('leaflet');
+
+    // Calculate bounds.
+    const lats = establishmentsWithCoords.map(est => est.lat!);
+    const lngs = establishmentsWithCoords.map(est => est.lng!);
+
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLng = Math.min(...lngs);
+    const maxLng = Math.max(...lngs);
+
+    // Add padding (smaller padding for tighter fit).
+    const latPadding = Math.max((maxLat - minLat) * 0.2, 0.001);
+    const lngPadding = Math.max((maxLng - minLng) * 0.2, 0.001);
+
+    const bounds = L.latLngBounds(
+      [minLat - latPadding, minLng - lngPadding],
+      [maxLat + latPadding, maxLng + lngPadding]
+    );
+
+    map.fitBounds(bounds, { padding: [10, 10], maxZoom: 18 });
+    onFitted();
+  }, [map, establishmentsWithCoords, isInitialLoad, onFitted]);
   
   return null;
 }
@@ -426,12 +401,11 @@ interface MapMarkerProps {
   establishment: EstablishmentWithDetails;
   onClick?: () => void;
   isSelected?: boolean;
-  index?: number;
 }
 
 
 // Custom marker component with status-based styling
-function MapMarker({ establishment, onClick, isSelected, index = 0 }: MapMarkerProps) {
+function MapMarker({ establishment, onClick, isSelected }: MapMarkerProps) {
   // Get the best status from the statuses array using the hierarchy
   const primaryStatus = getBestStatus(establishment.statuses || []);
   
@@ -461,8 +435,7 @@ function MapMarker({ establishment, onClick, isSelected, index = 0 }: MapMarkerP
   
   const statusColor = getStatusColorValue(primaryStatus);
   
-  // Create custom icon
-  const createCustomIcon = () => {
+  const icon = useMemo(() => {
     if (typeof window === 'undefined') return null;
     
     const L = require('leaflet');
@@ -491,7 +464,6 @@ function MapMarker({ establishment, onClick, isSelected, index = 0 }: MapMarkerP
           display: flex;
           flex-direction: column;
           align-items: center;
-          animation: markerAppear 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) ${index * 0.1}s both;
           ${isSelected ? 'outline: 2px solid #ffffff; outline-offset: 4px;' : ''}
         ">
           <!-- Badge with establishment name - matching popup badge design -->
@@ -540,13 +512,7 @@ function MapMarker({ establishment, onClick, isSelected, index = 0 }: MapMarkerP
       iconSize: [Math.max(establishment.name.length * 6 + 16, 60), 40],
       iconAnchor: [Math.max(establishment.name.length * 3 + 8, 30), 32],
     });
-  };
-
-  const [icon, setIcon] = useState<any>(() => createCustomIcon());
-
-  useEffect(() => {
-    setIcon(createCustomIcon());
-  }, [establishment.statuses, isSelected]);
+  }, [establishment.name, isSelected, statusColor]);
 
   return (
     <Marker
@@ -662,7 +628,6 @@ export function EstablishmentMap({
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [watchId, setWatchId] = useState<number | null>(null);
   const [hasInitiallyFitted, setHasInitiallyFitted] = useState(false);
-  const clusterGroupRef = useRef<any>(null);
   const [isDarkMode, setIsDarkMode] = useState(false);
 
   useEffect(() => {
@@ -687,13 +652,53 @@ export function EstablishmentMap({
     [establishments]
   );
 
-  // Force cluster group to clear and re-render when establishments change
-  useEffect(() => {
-    if (clusterGroupRef.current) {
-      // Clear all markers from the cluster group
-      clusterGroupRef.current.clearLayers();
+  const createClusterIcon = useCallback((cluster: any) => {
+    const count = cluster.getChildCount();
+    const L = require('leaflet');
+    
+    // Get the most common status color from markers in this cluster
+    let clusterColor = '#3b82f6'; // default blue
+    const markers = cluster.getAllChildMarkers();
+    if (markers.length > 0) {
+      const firstMarker = markers[0] as any;
+      clusterColor = firstMarker?.options?.statusColor || '#3b82f6';
     }
-  }, [establishmentsWithCoords]);
+    
+    const textColor = isDarkMode ? '#ffffff' : '#0f172a';
+    const borderColor = isDarkMode ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.15)';
+    const shadowColor = isDarkMode ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.2)';
+    const shadowColorLight = isDarkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.1)';
+    const shadowColorBorder = isDarkMode ? 'rgba(0,0,0,0.1)' : 'rgba(0,0,0,0.05)';
+    const backgroundColor = isDarkMode ? 'transparent' : 'rgba(255,255,255,0.9)';
+    
+      return L.divIcon({
+        className: 'custom-cluster',
+        html: `
+          <div style="
+            background: ${backgroundColor};
+            color: ${textColor};
+            border: 3px solid ${borderColor};
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 900;
+            box-shadow: 0 6px 24px ${shadowColor}, 0 2px 8px ${shadowColorLight}, 0 0 0 1px ${shadowColorBorder};
+            transform: translate(-50%, -50%);
+            transition: all 0.2s ease;
+          ">
+            ${count}
+          </div>
+        `,
+        iconSize: [44, 44],
+        iconAnchor: [22, 22],
+      });
+  }, [isDarkMode]);
 
 
 
@@ -774,7 +779,6 @@ export function EstablishmentMap({
         />
         
         <MarkerClusterGroup
-          ref={clusterGroupRef}
           // Avoid heavy key churn; clearing layers handles refresh
           chunkedLoading
           maxClusterRadius={25}
@@ -782,61 +786,14 @@ export function EstablishmentMap({
           spiderfyOnMaxZoom={true}
           showCoverageOnHover={false}
           zoomToBoundsOnClick={true}
-          iconCreateFunction={(cluster: any) => {
-            const count = cluster.getChildCount();
-            const L = require('leaflet');
-            
-            // Get the most common status color from markers in this cluster
-            let clusterColor = '#3b82f6'; // default blue
-            const markers = cluster.getAllChildMarkers();
-            if (markers.length > 0) {
-              const firstMarker = markers[0] as any;
-              clusterColor = firstMarker?.options?.statusColor || '#3b82f6';
-            }
-            
-            const textColor = isDarkMode ? '#ffffff' : '#0f172a';
-            const borderColor = isDarkMode ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.15)';
-            const shadowColor = isDarkMode ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.2)';
-            const shadowColorLight = isDarkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.1)';
-            const shadowColorBorder = isDarkMode ? 'rgba(0,0,0,0.1)' : 'rgba(0,0,0,0.05)';
-            const backgroundColor = isDarkMode ? 'transparent' : 'rgba(255,255,255,0.9)';
-            
-              return L.divIcon({
-                className: 'custom-cluster',
-                html: `
-                  <div style="
-                    background: ${backgroundColor};
-                    color: ${textColor};
-                    border: 3px solid ${borderColor};
-                    backdrop-filter: blur(8px);
-                    -webkit-backdrop-filter: blur(8px);
-                    border-radius: 50%;
-                    width: 44px;
-                    height: 44px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    font-size: 18px;
-                    font-weight: 900;
-                    box-shadow: 0 6px 24px ${shadowColor}, 0 2px 8px ${shadowColorLight}, 0 0 0 1px ${shadowColorBorder};
-                    transform: translate(-50%, -50%);
-                    transition: all 0.2s ease;
-                  ">
-                    ${count}
-                  </div>
-                `,
-                iconSize: [44, 44],
-                iconAnchor: [22, 22],
-              });
-          }}
+          iconCreateFunction={createClusterIcon}
         >
-          {establishmentsWithCoords.map((establishment, index) => (
+          {establishmentsWithCoords.map((establishment) => (
             <MapMarker
               key={`${establishment.id}-${establishment.statuses?.join(',') || 'no-status'}`}
               establishment={establishment}
               onClick={() => onEstablishmentClick?.(establishment)}
               isSelected={establishment.id === selectedEstablishmentId}
-              index={index}
             />
           ))}
         </MarkerClusterGroup>
