@@ -301,6 +301,8 @@ export function TodoForm({
           date={deadlineDate ?? undefined}
           onSelect={(date) => setDeadlineDate(date ?? null)}
           placeholder="Deadline date"
+          mobileShowActions
+          mobileAllowClear
         />
       </div>
 

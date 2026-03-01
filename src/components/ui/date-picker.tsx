@@ -21,9 +21,18 @@ interface DatePickerProps {
   onSelect?: (date: Date | undefined) => void;
   placeholder?: string;
   className?: string;
+  mobileShowActions?: boolean;
+  mobileAllowClear?: boolean;
 }
 
-export function DatePicker({ date, onSelect, placeholder = "Select date", className }: DatePickerProps) {
+export function DatePicker({
+  date,
+  onSelect,
+  placeholder = "Select date",
+  className,
+  mobileShowActions = false,
+  mobileAllowClear = false,
+}: DatePickerProps) {
   const [open, setOpen] = useState(false);
   const isMobile = useMobile();
 
@@ -53,12 +62,23 @@ export function DatePicker({ date, onSelect, placeholder = "Select date", classN
           <DateRangeSelectContent
             startDate={date}
             allowRange={false}
+            showActions={mobileShowActions}
+            showClearAction={mobileAllowClear && !!date}
+            onClearAction={() => {
+              onSelect?.(undefined);
+              setOpen(false);
+            }}
             onSelect={(selected) => {
               onSelect?.(selected);
               setOpen(false);
             }}
+            onConfirm={(selected) => {
+              onSelect?.(selected);
+              setOpen(false);
+            }}
+            onCancel={() => setOpen(false)}
             onRequestClose={() => setOpen(false)}
-        />
+          />
         </FormModal>
       </>
     );

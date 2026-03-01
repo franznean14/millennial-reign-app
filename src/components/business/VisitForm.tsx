@@ -530,6 +530,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
           date={visitDate}
           onSelect={(date) => setVisitDate(date || new Date())}
           placeholder="Select call date"
+          mobileShowActions
         />
       </div>
 
@@ -731,6 +732,8 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
                       }}
                       placeholder={formatDeadlineLabel(item.deadline_date)}
                       className="w-auto h-7 min-w-[98px] px-2 text-xs"
+                      mobileShowActions
+                      mobileAllowClear
                     />
                     <Button
                       type="button"

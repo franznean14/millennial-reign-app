@@ -21,6 +21,8 @@ export function DateRangeSelectContent({
   showActions = false,
   onConfirm,
   onCancel,
+  showClearAction = false,
+  onClearAction,
   confirmLabel = "Confirm",
   cancelLabel = "Cancel",
 }: {
@@ -32,6 +34,8 @@ export function DateRangeSelectContent({
   showActions?: boolean;
   onConfirm?: (start: Date, end?: Date) => void;
   onCancel?: () => void;
+  showClearAction?: boolean;
+  onClearAction?: () => void;
   confirmLabel?: string;
   cancelLabel?: string;
 }) {
@@ -112,6 +116,7 @@ export function DateRangeSelectContent({
     setSelectionStart(null);
     setSelectionEnd(null);
     setIsSelectingRange(false);
+    onClearAction?.();
   };
 
   const handleConfirm = () => {
@@ -251,13 +256,22 @@ export function DateRangeSelectContent({
         )}
 
         {showActions && (
-          <div className="flex justify-end gap-2 pt-4 border-t">
-            <Button type="button" variant="outline" onClick={() => onCancel?.()}>
-              {cancelLabel}
-            </Button>
-            <Button type="button" disabled={!selectionStart} onClick={handleConfirm}>
-              {confirmLabel}
-            </Button>
+          <div className="flex items-center justify-between gap-2 pt-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+12px)] border-t">
+            <div>
+              {showClearAction ? (
+                <Button type="button" variant="outline" onClick={handleClear}>
+                  Clear
+                </Button>
+              ) : null}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="outline" onClick={() => onCancel?.()}>
+                {cancelLabel}
+              </Button>
+              <Button type="button" disabled={!selectionStart} onClick={handleConfirm}>
+                {confirmLabel}
+              </Button>
+            </div>
           </div>
         )}
       </div>
