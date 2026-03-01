@@ -6,7 +6,7 @@ import { createRoot } from 'react-dom/client';
 import dynamic from 'next/dynamic';
 import { useMap } from 'react-leaflet';
 import { EstablishmentWithDetails } from '@/lib/db/business';
-import { getStatusColor, getStatusTextColor, getBestStatus } from '@/lib/utils/status-hierarchy';
+import { STATUS_HIERARCHY, getStatusColor, getStatusTextColor, getBestStatus } from '@/lib/utils/status-hierarchy';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -403,36 +403,43 @@ interface MapMarkerProps {
   isSelected?: boolean;
 }
 
+const PERSONAL_TERRITORY_STATUS = 'personal_territory';
+
+function getEstablishmentPrimaryStatus(establishment: EstablishmentWithDetails): string {
+  return establishment.publisher_id ? PERSONAL_TERRITORY_STATUS : getBestStatus(establishment.statuses || []);
+}
+
+function getStatusColorValue(status: string) {
+  switch (status) {
+    case PERSONAL_TERRITORY_STATUS:
+      return '#f472b6'; // pink-400
+    case 'inappropriate':
+      return '#991b1b'; // red-800 (dark red)
+    case 'declined_rack':
+      return '#ef4444'; // red-500
+    case 'for_scouting':
+      return '#06b6d4'; // cyan-500
+    case 'for_follow_up':
+      return '#f97316'; // orange-500
+    case 'accepted_rack':
+      return '#3b82f6'; // blue-500
+    case 'for_replenishment':
+      return '#a855f7'; // purple-500
+    case 'has_bible_studies':
+      return '#10b981'; // emerald-500
+    case 'closed':
+      return '#64748b'; // slate-500
+    default:
+      return '#6b7280'; // gray-500
+  }
+}
+
 
 // Custom marker component with status-based styling
 function MapMarker({ establishment, onClick, isSelected }: MapMarkerProps) {
   // Get the best status from the statuses array using the hierarchy
-  const primaryStatus = getBestStatus(establishment.statuses || []);
-  
-  // Extract color values from the status hierarchy functions
-  const getStatusColorValue = (status: string) => {
-    switch (status) {
-      case 'inappropriate':
-        return '#991b1b'; // red-800 (dark red)
-      case 'declined_rack':
-        return '#ef4444'; // red-500
-      case 'for_scouting':
-        return '#06b6d4'; // cyan-500
-      case 'for_follow_up':
-        return '#f97316'; // orange-500
-      case 'accepted_rack':
-        return '#3b82f6'; // blue-500
-      case 'for_replenishment':
-        return '#a855f7'; // purple-500
-      case 'has_bible_studies':
-        return '#10b981'; // emerald-500
-      case 'closed':
-        return '#64748b'; // slate-500
-      default:
-        return '#6b7280'; // gray-500
-    }
-  };
-  
+  const primaryStatus = getEstablishmentPrimaryStatus(establishment);
+
   const statusColor = getStatusColorValue(primaryStatus);
   
   const icon = useMemo(() => {
@@ -514,6 +521,8 @@ function MapMarker({ establishment, onClick, isSelected }: MapMarkerProps) {
     });
   }, [establishment.name, isSelected, statusColor]);
 
+  if (!icon) return null;
+
   return (
     <Marker
       position={[establishment.lat!, establishment.lng!]}
@@ -533,7 +542,12 @@ function MapMarker({ establishment, onClick, isSelected }: MapMarkerProps) {
         autoPan={false}
       >
         <div 
-          className={cn("min-w-[280px] max-w-[320px] cursor-pointer hover:shadow-xl transition-shadow p-4 bg-background border rounded-lg", getStatusColor(primaryStatus))}
+          className={cn(
+            "min-w-[280px] max-w-[320px] cursor-pointer hover:shadow-xl transition-shadow p-4 bg-background border rounded-lg",
+            primaryStatus === PERSONAL_TERRITORY_STATUS
+              ? "border-pink-400/60 bg-pink-500/10"
+              : getStatusColor(primaryStatus)
+          )}
           onClick={(e) => {
             e.stopPropagation();
             onClick?.();
@@ -550,9 +564,16 @@ function MapMarker({ establishment, onClick, isSelected }: MapMarkerProps) {
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <Badge 
                       variant="outline" 
-                      className={`text-xs px-2 py-1 ${getStatusTextColor(primaryStatus)}`}
+                      className={cn(
+                        "text-xs px-2 py-1",
+                        primaryStatus === PERSONAL_TERRITORY_STATUS
+                          ? "text-pink-400 border-pink-400/60"
+                          : getStatusTextColor(primaryStatus)
+                      )}
                     >
-                      {primaryStatus.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      {primaryStatus === PERSONAL_TERRITORY_STATUS
+                        ? "Personal Territory"
+                        : primaryStatus.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                     </Badge>
                   </div>
                 </div>
@@ -652,6 +673,20 @@ export function EstablishmentMap({
     [establishments]
   );
 
+  const groupedEstablishmentsByStatus = useMemo(() => {
+    const groups = new Map<string, EstablishmentWithDetails[]>();
+    for (const establishment of establishmentsWithCoords) {
+      const status = getEstablishmentPrimaryStatus(establishment);
+      const bucket = groups.get(status) ?? [];
+      bucket.push(establishment);
+      groups.set(status, bucket);
+    }
+    const statusOrder = [PERSONAL_TERRITORY_STATUS, ...STATUS_HIERARCHY, 'unknown'];
+    return Array.from(groups.entries())
+      .sort((a, b) => statusOrder.indexOf(a[0] as any) - statusOrder.indexOf(b[0] as any))
+      .map(([status, items]) => ({ status, items }));
+  }, [establishmentsWithCoords]);
+
   const createClusterIcon = useCallback((cluster: any) => {
     const count = cluster.getChildCount();
     const L = require('leaflet');
@@ -698,6 +733,47 @@ export function EstablishmentMap({
         iconSize: [44, 44],
         iconAnchor: [22, 22],
       });
+  }, [isDarkMode]);
+
+  const createStatusClusterIcon = useCallback((statusColor: string) => {
+    return (cluster: any) => {
+      const count = cluster.getChildCount();
+      const L = require('leaflet');
+      const borderColor = `${statusColor}99`;
+      const textColor = statusColor;
+      const backgroundColor = isDarkMode ? 'rgba(15, 23, 42, 0.8)' : 'rgba(255,255,255,0.95)';
+      const shadowColor = isDarkMode ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.2)';
+      const shadowColorLight = isDarkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.1)';
+      const shadowColorBorder = isDarkMode ? 'rgba(0,0,0,0.1)' : 'rgba(0,0,0,0.05)';
+
+      return L.divIcon({
+        className: 'custom-cluster',
+        html: `
+          <div style="
+            background: ${backgroundColor};
+            color: ${textColor};
+            border: 3px solid ${borderColor};
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border-radius: 50%;
+            width: 44px;
+            height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            font-weight: 900;
+            box-shadow: 0 6px 24px ${shadowColor}, 0 2px 8px ${shadowColorLight}, 0 0 0 1px ${shadowColorBorder};
+            transform: translate(-50%, -50%);
+            transition: all 0.2s ease;
+          ">
+            ${count}
+          </div>
+        `,
+        iconSize: [44, 44],
+        iconAnchor: [22, 22],
+      });
+    };
   }, [isDarkMode]);
 
 
@@ -778,25 +854,42 @@ export function EstablishmentMap({
           onFitted={() => setHasInitiallyFitted(true)}
         />
         
-        <MarkerClusterGroup
-          // Avoid heavy key churn; clearing layers handles refresh
-          chunkedLoading
-          maxClusterRadius={25}
-          disableClusteringAtZoom={18}
-          spiderfyOnMaxZoom={true}
-          showCoverageOnHover={false}
-          zoomToBoundsOnClick={true}
-          iconCreateFunction={createClusterIcon}
-        >
-          {establishmentsWithCoords.map((establishment) => (
-            <MapMarker
-              key={`${establishment.id}-${establishment.statuses?.join(',') || 'no-status'}`}
-              establishment={establishment}
-              onClick={() => onEstablishmentClick?.(establishment)}
-              isSelected={establishment.id === selectedEstablishmentId}
-            />
-          ))}
-        </MarkerClusterGroup>
+        {groupedEstablishmentsByStatus.length > 0 ? (
+          groupedEstablishmentsByStatus.map(({ status, items }) => {
+            const statusColor = getStatusColorValue(status);
+            return (
+              <MarkerClusterGroup
+                key={`cluster-${status}`}
+                chunkedLoading
+                maxClusterRadius={25}
+                disableClusteringAtZoom={18}
+                spiderfyOnMaxZoom={true}
+                showCoverageOnHover={false}
+                zoomToBoundsOnClick={true}
+                iconCreateFunction={createStatusClusterIcon(statusColor)}
+              >
+                {items.map((establishment) => (
+                  <MapMarker
+                    key={`${status}-${establishment.id}-${establishment.statuses?.join(',') || 'no-status'}`}
+                    establishment={establishment}
+                    onClick={() => onEstablishmentClick?.(establishment)}
+                    isSelected={establishment.id === selectedEstablishmentId}
+                  />
+                ))}
+              </MarkerClusterGroup>
+            );
+          })
+        ) : (
+          <MarkerClusterGroup
+            chunkedLoading
+            maxClusterRadius={25}
+            disableClusteringAtZoom={18}
+            spiderfyOnMaxZoom={true}
+            showCoverageOnHover={false}
+            zoomToBoundsOnClick={true}
+            iconCreateFunction={createClusterIcon}
+          />
+        )}
       </MapContainer>
     </div>
   );
