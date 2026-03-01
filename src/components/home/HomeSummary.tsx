@@ -31,6 +31,31 @@ function sumHours(records: { hours: number }[]) {
   return records.reduce((acc, r) => acc + (Number(r.hours) || 0), 0);
 }
 
+async function copyTextWithFallback(text: string): Promise<boolean> {
+  try {
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {}
+
+  try {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.left = "-9999px";
+    document.body.appendChild(textarea);
+    textarea.select();
+    textarea.setSelectionRange(0, text.length);
+    const ok = document.execCommand("copy");
+    document.body.removeChild(textarea);
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
 interface HomeSummaryProps {
   userId: string;
   monthStart: string;
@@ -488,8 +513,6 @@ export function HomeSummary({
       // Only handle horizontal swipe if it's clearly horizontal (more horizontal than vertical)
       if (absDeltaX > deltaY && absDeltaX > 5) {
         setIsSwiping(true);
-        // Prevent default scrolling behavior to stop table from scrolling
-        e.preventDefault();
         e.stopPropagation();
         // Swipe left (negative deltaX) reveals actions
         // Limit swipe to exactly match button width
@@ -574,7 +597,6 @@ export function HomeSummary({
               }}
               onClick={(e) => {
                 e.stopPropagation();
-                e.preventDefault();
                 onViewDetails();
                 setSwipeOffset(0);
               }}
@@ -592,7 +614,6 @@ export function HomeSummary({
               }}
               onClick={async (e) => {
                 e.stopPropagation();
-                e.preventDefault();
                 await onCopy();
                 setSwipeOffset(0);
               }}
@@ -748,10 +769,10 @@ export function HomeSummary({
     ];
     
     const text = lines.join('\n');
-    try {
-      await navigator.clipboard.writeText(text);
+    const copied = await copyTextWithFallback(text);
+    if (copied) {
       toast.success('Copied to clipboard');
-    } catch (error) {
+    } else {
       toast.error('Failed to copy to clipboard');
     }
   };

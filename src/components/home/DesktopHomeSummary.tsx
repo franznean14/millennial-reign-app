@@ -619,11 +619,13 @@ export function DesktopHomeSummary({
       }))
       .sort((a, b) => b.date.localeCompare(a.date));
     
+    const bsLabel = uniqueBS.size > 1 ? 'Bible Studies:' : 'Bible Study:';
+
     const lines = [
       `Month: ${formatMonth(month)}`,
       `Hours: ${fmtHours(totalHours)}`,
       '',
-      'Bible Studies:',
+      bsLabel,
       ...Array.from(uniqueBS).sort().map(bs => `- ${bs}`),
       '',
       'Notes:',
