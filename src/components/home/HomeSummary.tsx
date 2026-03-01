@@ -754,11 +754,10 @@ export function HomeSummary({
       }))
       .sort((a, b) => b.date.localeCompare(a.date));
     
-    const bsCount = uniqueBS.size;
     const lines = [
       formatFullMonth(month),
       `Hours: ${fmtHours(totalHours)}`,
-      `Bible Studie${bsCount !== 1 ? 's' : ''}: ${bsCount}`,
+      `Bible Study: ${uniqueBS.size}`,
       '',
       'Notes:',
       ...notes.map(n => {
