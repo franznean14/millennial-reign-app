@@ -290,11 +290,12 @@ export function EstablishmentDetails({
               <div className="flex items-center gap-2 flex-shrink-0">
                 {hasCoordinates ? (
                   <a
-                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border hover:bg-muted"
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-primary/60 bg-primary/10 text-primary shadow-sm transition-all hover:bg-primary/20 hover:border-primary hover:scale-[1.03] active:scale-100"
                     href={`https://www.google.com/maps/dir/?api=1&destination=${establishment.lat},${establishment.lng}`}
                     target="_blank"
                     rel="noreferrer"
-                    aria-label="Directions"
+                    aria-label="Open directions"
+                    title="Open directions"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <MapPinned className="h-4 w-4" />
@@ -391,9 +392,9 @@ export function EstablishmentDetails({
                   <div onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
                     <Button
                       type="button"
-                      variant="outline"
+                      variant="ghost"
                       size="icon"
-                      className="h-8 w-8 rounded-full"
+                      className="h-8 w-8 rounded-full border border-dashed border-muted-foreground/45 text-muted-foreground/85 hover:bg-muted/30"
                       disabled={!effectivePublisherId || updatingPublisher}
                       onClick={(e) => {
                         e.stopPropagation();
