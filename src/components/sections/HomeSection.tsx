@@ -14,13 +14,13 @@ interface HomeSectionProps {
   portaledControls: React.ReactNode;
   userId: string;
   homeTab: HomeTab;
-  bwiAreaFilter: "all" | string;
-  onBwiAreaChange: (area: "all" | string) => void;
+  bwiAreaFilter: string[];
+  onBwiAreaChange: (areas: string[]) => void;
   onNavigateToCongregation: () => void;
   onNavigateToBusinessWithStatus?: (
     tab: "establishments" | "householders",
     status: string,
-    area?: string
+    areas?: string | string[]
   ) => void;
   /** Simple navigate to BWI (business) section — e.g. for home Quick actions. */
   onNavigateToBusiness?: () => void;

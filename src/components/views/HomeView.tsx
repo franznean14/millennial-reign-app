@@ -14,13 +14,13 @@ interface HomeViewProps {
   onNavigateToBusinessWithStatus?: (
     tab: "establishments" | "householders",
     status: string,
-    area?: string
+    areas?: string | string[]
   ) => void;
   onNavigateToBusiness?: () => void;
   onNavigateToTodoCall?: (params: { establishmentId?: string; householderId?: string }) => void;
   homeTab?: 'summary' | 'events';
-  bwiAreaFilter: "all" | string;
-  onBwiAreaChange: (area: "all" | string) => void;
+  bwiAreaFilter: string[];
+  onBwiAreaChange: (areas: string[]) => void;
 }
 
 export function HomeView({

@@ -32,10 +32,10 @@ interface VisitHistoryProps {
   onNavigateToBusinessWithStatus?: (
     tab: "establishments" | "householders",
     status: string,
-    area?: string
+    areas?: string | string[]
   ) => void;
-  bwiAreaFilter: "all" | string;
-  onBwiAreaChange: (area: "all" | string) => void;
+  bwiAreaFilter: string[];
+  onBwiAreaChange: (areas: string[]) => void;
 }
 
 function KnockingDoorIcon() {
@@ -78,6 +78,7 @@ export function VisitHistory({
   onBwiAreaChange,
 }: VisitHistoryProps) {
   const [showDrawer, setShowDrawer] = useState(false);
+  const [showAreaDrawer, setShowAreaDrawer] = useState(false);
   const [activePanel, setActivePanel] = useState<"list" | "filters">("list");
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [localSearchValue, setLocalSearchValue] = useState("");
@@ -179,14 +180,14 @@ export function VisitHistory({
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [bwiEstablishments]);
 
-  // Filter BWI data by selected area (establishments by area; householders by their establishment's area)
-  // Compare trimmed areas so "Tresmavica Building" matches "Tresmavica Building " from DB
+  // Filter BWI data by selected areas (establishments by area; householders by their establishment's area)
+  // Compare trimmed areas so "Tresmavica Building" matches "Tresmavica Building " from DB.
   const { filteredByAreaEstablishments, filteredByAreaHouseholders } = useMemo(() => {
-    if (bwiAreaFilter === "all") {
+    if (bwiAreaFilter.length === 0) {
       return { filteredByAreaEstablishments: bwiEstablishments, filteredByAreaHouseholders: bwiHouseholders };
     }
-    const areaNorm = bwiAreaFilter.trim();
-    const inArea = (e: EstablishmentWithDetails) => (e.area?.trim() ?? "") === areaNorm;
+    const selectedAreas = new Set(bwiAreaFilter.map((area) => area.trim()).filter(Boolean));
+    const inArea = (e: EstablishmentWithDetails) => selectedAreas.has((e.area?.trim() ?? ""));
     const estIdsInArea = new Set(bwiEstablishments.filter(inArea).map((e) => e.id));
     return {
       filteredByAreaEstablishments: bwiEstablishments.filter(inArea),
@@ -204,13 +205,8 @@ export function VisitHistory({
     if (bwiPointerDownTabRef.current !== "bwi") return;
     e.preventDefault();
     e.stopPropagation();
-    // Cycle area: All -> first area -> ... -> last area -> All
-    onBwiAreaChange((() => {
-      if (bwiAreaFilter === "all") return bwiAreasSorted[0] ?? "all";
-      const i = bwiAreasSorted.indexOf(bwiAreaFilter);
-      if (i < 0 || i === bwiAreasSorted.length - 1) return "all";
-      return bwiAreasSorted[i + 1] ?? "all";
-    })());
+    // When BWI tab is already active, open area picker instead of cycling.
+    setShowAreaDrawer(true);
   };
 
   useEffect(() => {
@@ -330,8 +326,8 @@ export function VisitHistory({
 
   const navigateWithBwiArea = (tab: "establishments" | "householders", status: string) => {
     if (!onNavigateToBusinessWithStatus) return;
-    const area = bwiAreaFilter !== "all" ? bwiAreaFilter.trim() : undefined;
-    onNavigateToBusinessWithStatus(tab, status, area || undefined);
+    const selectedAreas = bwiAreaFilter.map((area) => area.trim()).filter(Boolean);
+    onNavigateToBusinessWithStatus(tab, status, selectedAreas.length > 0 ? selectedAreas : undefined);
   };
 
   const filterForm = (
@@ -541,7 +537,7 @@ export function VisitHistory({
               >
                 <Building2 className="h-4 w-4 shrink-0" />
                 <span>
-                  {bwiLabelFlash ? "BWI" : bwiAreaFilter === "all" ? "All" : bwiAreaFilter}
+                  {bwiLabelFlash ? "BWI" : bwiAreaFilter.length === 0 ? "All" : bwiAreaFilter.length === 1 ? bwiAreaFilter[0] : `${bwiAreaFilter.length} Areas`}
                 </span>
               </motion.div>
             </TabsTrigger>
@@ -674,7 +670,7 @@ export function VisitHistory({
               >
                 <Building2 className="h-4 w-4 shrink-0" />
                 <span>
-                  {bwiLabelFlash ? "BWI" : bwiAreaFilter === "all" ? "All" : bwiAreaFilter}
+                  {bwiLabelFlash ? "BWI" : bwiAreaFilter.length === 0 ? "All" : bwiAreaFilter.length === 1 ? bwiAreaFilter[0] : `${bwiAreaFilter.length} Areas`}
                 </span>
               </motion.div>
             </TabsTrigger>
@@ -963,6 +959,65 @@ export function VisitHistory({
             </div>
           </>
         )}
+      </FormModal>
+
+      {/* Area picker drawer for BWI tab header */}
+      <FormModal
+        open={showAreaDrawer}
+        onOpenChange={setShowAreaDrawer}
+        title="Select Area"
+      >
+        <div className="space-y-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant={bwiAreaFilter.length === 0 ? "default" : "outline"}
+              size="sm"
+              onClick={() => {
+                onBwiAreaChange([]);
+              }}
+              className="h-8"
+            >
+              All
+            </Button>
+            {bwiAreasSorted.map((area) => (
+              <Button
+                key={area}
+                type="button"
+                variant={bwiAreaFilter.includes(area) ? "default" : "outline"}
+                size="sm"
+                onClick={() => {
+                  onBwiAreaChange(
+                    bwiAreaFilter.includes(area)
+                      ? bwiAreaFilter.filter((value) => value !== area)
+                      : [...bwiAreaFilter, area]
+                  );
+                }}
+                className="h-8"
+              >
+                {area}
+              </Button>
+            ))}
+          </div>
+          {bwiAreasSorted.length === 0 ? (
+            <div className="text-sm text-muted-foreground">No areas available.</div>
+          ) : null}
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onBwiAreaChange([])}
+            >
+              Clear
+            </Button>
+            <Button
+              type="button"
+              onClick={() => setShowAreaDrawer(false)}
+            >
+              Done
+            </Button>
+          </div>
+        </div>
       </FormModal>
     </>
   );

@@ -262,7 +262,7 @@ export function AppClient() {
 
   // Home tab state
   const [homeTab, setHomeTab] = useState<'summary' | 'events'>('summary');
-  const [bwiAreaFilter, setBwiAreaFilter] = useState<"all" | string>("all");
+  const [bwiAreaFilter, setBwiAreaFilter] = useState<string[]>([]);
 
   // Account state
   const {
@@ -955,9 +955,10 @@ export function AppClient() {
   };
 
   const onNavigateToBusinessWithStatus = useCallback(
-    (tab: "establishments" | "householders", status: string, area?: string) => {
-      const normalizedArea = area?.trim() || "";
-      const nextAreas = normalizedArea ? [normalizedArea] : [];
+    (tab: "establishments" | "householders", status: string, areas?: string | string[]) => {
+      const nextAreas = Array.isArray(areas)
+        ? Array.from(new Set(areas.map((area) => area.trim()).filter(Boolean)))
+        : (areas?.trim() ? [areas.trim()] : []);
       setBusinessTab(tab);
       if (tab === "establishments") {
         setFiltersEstablishments((prev) => ({
