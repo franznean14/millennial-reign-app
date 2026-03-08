@@ -154,11 +154,11 @@ export function AppClient() {
   const defaultFilters: BusinessFiltersState = {
     search: "",
     statuses: [],
+    excludedStatuses: [],
     areas: [],
     floors: [],
     myEstablishments: false,
     nearMe: false,
-    excludePersonalTerritory: false,
     userLocation: null,
     sort: "last_visit_desc",
   };
@@ -198,14 +198,19 @@ export function AppClient() {
         try {
           const saved = JSON.parse(raw) as Partial<BusinessFiltersState>;
           if (!saved) return prev;
+          const migratedExcludedStatuses = Array.isArray(saved.excludedStatuses)
+            ? saved.excludedStatuses
+            : (saved as { excludePersonalTerritory?: boolean }).excludePersonalTerritory
+              ? ["personal_territory"]
+              : (prev.excludedStatuses ?? []);
           return {
             search: typeof saved.search === "string" ? saved.search : prev.search,
             statuses: Array.isArray(saved.statuses) ? saved.statuses : prev.statuses,
+            excludedStatuses: migratedExcludedStatuses,
             areas: Array.isArray(saved.areas) ? saved.areas : prev.areas,
             floors: Array.isArray(saved.floors) ? saved.floors : prev.floors,
             myEstablishments: typeof saved.myEstablishments === "boolean" ? saved.myEstablishments : prev.myEstablishments,
             nearMe: typeof saved.nearMe === "boolean" ? saved.nearMe : prev.nearMe,
-            excludePersonalTerritory: typeof saved.excludePersonalTerritory === "boolean" ? saved.excludePersonalTerritory : prev.excludePersonalTerritory ?? false,
             userLocation: saved.userLocation != null ? saved.userLocation : prev.userLocation,
             sort: saved.sort ?? prev.sort ?? "last_visit_desc",
           };
@@ -958,12 +963,14 @@ export function AppClient() {
         setFiltersEstablishments((prev) => ({
           ...prev,
           statuses: [status],
+          excludedStatuses: [],
           areas: nextAreas,
         }));
       } else {
         setFiltersHouseholders((prev) => ({
           ...prev,
           statuses: [status],
+          excludedStatuses: [],
           areas: nextAreas,
         }));
       }
@@ -981,6 +988,7 @@ export function AppClient() {
     setFilters((prev) => ({
       search: "",
       statuses: [],
+      excludedStatuses: [],
       areas: [],
       floors: [],
       myEstablishments: false,

@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Filter as FilterIcon, Search, User, UserCheck, X, Building2 } from "lucide-react";
 import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
-import { getExcludeFilterBadgeClass } from "@/lib/utils/status-filter-styles";
 import { cn } from "@/lib/utils";
 import type { FilterBadge } from "@/lib/utils/filter-badges";
 
@@ -153,10 +152,10 @@ export function FilterControls({
                         getStatusTextColor(badge.value),
                         isRightmost ? "max-w-[60px] truncate" : "flex-shrink-0"
                       )
-                    : badge.type === "exclude_personal_territory"
+                    : badge.type === "excluded_status"
                       ? cn(
-                          "filter-badge h-5 text-xs px-1.5 py-0 cursor-pointer hover:opacity-70",
-                          getExcludeFilterBadgeClass(),
+                          "filter-badge h-5 text-xs px-1.5 py-0 cursor-pointer hover:opacity-70 border rounded-full line-through decoration-2",
+                          getStatusTextColor(badge.value),
                           isRightmost ? "max-w-[60px] truncate" : "flex-shrink-0"
                         )
                       : cn(

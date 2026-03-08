@@ -37,9 +37,24 @@ export function useBusinessFilterOptions({
         if (
           excludeType !== "statuses" &&
           filters.statuses.length > 0 &&
-          !establishment.statuses?.some((status) => filters.statuses.includes(status))
+          !(
+            establishment.statuses?.some((status) => filters.statuses.includes(status)) ||
+            (filters.statuses.includes("personal_territory") && !!establishment.publisher_id)
+          )
         ) {
           return false;
+        }
+
+        if (excludeType !== "statuses" && (filters.excludedStatuses?.length ?? 0) > 0) {
+          const excludedStatuses = filters.excludedStatuses ?? [];
+          const excludePersonalTerritory = excludedStatuses.includes("personal_territory");
+          const excludedRegularStatuses = excludedStatuses.filter((status) => status !== "personal_territory");
+          if (excludePersonalTerritory && establishment.publisher_id) {
+            return false;
+          }
+          if (excludedRegularStatuses.length > 0 && establishment.statuses?.some((status) => excludedRegularStatuses.includes(status))) {
+            return false;
+          }
         }
 
         if (
@@ -91,8 +106,9 @@ export function useBusinessFilterOptions({
       const filtered = getFilteredEstablishmentsExcluding("statuses");
       const allStatuses = new Set<string>();
 
-      // Always include currently selected statuses so chips don't disappear
+      // Always include currently selected/excluded statuses so chips don't disappear
       filters.statuses.forEach((status) => allStatuses.add(status));
+      (filters.excludedStatuses ?? []).forEach((status) => allStatuses.add(status));
 
       filtered.forEach((establishment) => {
         establishment.statuses?.forEach((status) => {
@@ -129,7 +145,8 @@ export function useBusinessFilterOptions({
       const available = new Set(allStatuses);
       return orderedStatuses
         .filter((s) => available.has(s))
-        .map((s) => ({ value: s, label: statusMap[s] }));
+        .map((s) => ({ value: s, label: statusMap[s] }))
+        .concat([{ value: "personal_territory", label: "Personal Territry" }]);
     }
 
     // Householder tab – build options from householder statuses
@@ -137,6 +154,7 @@ export function useBusinessFilterOptions({
 
     // Preserve any active filters
     filters.statuses.forEach((status) => allHouseholderStatuses.add(status));
+    (filters.excludedStatuses ?? []).forEach((status) => allHouseholderStatuses.add(status));
 
     // Collect statuses from the visible data set
     householders.forEach((householder) => {
@@ -154,7 +172,7 @@ export function useBusinessFilterOptions({
       do_not_call: "Do Not Call"
     };
     return statusList.filter((s) => s in statusMap).map((s) => ({ value: s, label: statusMap[s] }));
-  }, [getFilteredEstablishmentsExcluding, businessTab, filters.statuses]);
+  }, [getFilteredEstablishmentsExcluding, businessTab, filters.statuses, filters.excludedStatuses, householders]);
 
   const dynamicAreaOptions = useMemo(() => {
     const areaSet = new Set<string>();
@@ -182,6 +200,10 @@ export function useBusinessFilterOptions({
 
         // Apply status filter
         if (filters.statuses.length > 0 && !filters.statuses.includes(householder.status)) {
+          return false;
+        }
+
+        if ((filters.excludedStatuses?.length ?? 0) > 0 && (filters.excludedStatuses ?? []).includes(householder.status)) {
           return false;
         }
 
@@ -223,7 +245,7 @@ export function useBusinessFilterOptions({
     return Array.from(areaSet)
       .sort()
       .map((area) => ({ value: area || "", label: area || "" }));
-  }, [businessTab, establishments, householders, getFilteredEstablishmentsExcluding, filters.areas]);
+  }, [businessTab, establishments, householders, getFilteredEstablishmentsExcluding, filters.areas, filters.excludedStatuses, filters.statuses]);
 
   const dynamicFloorOptions = useMemo(() => {
     const filtered = getFilteredEstablishmentsExcluding("floors");

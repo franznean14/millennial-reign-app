@@ -6,8 +6,6 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { ArrowDownAZ, ArrowUpAZ, ArrowDownWideNarrow, ArrowUpWideNarrow } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { StatusFilterButtons } from "@/components/filters/StatusFilterButtons";
-import { getFadedStatusColor, getSelectedStatusColor } from "@/lib/utils/status-filter-styles";
-import { cn } from "@/lib/utils";
 import type { BusinessFiltersState } from "@/lib/db/business";
 
 
@@ -53,33 +51,51 @@ export function BusinessFiltersForm({
     setLocalFilters({
       search: "",
       statuses: [],
+      excludedStatuses: [],
       areas: [],
       floors: [],
       myEstablishments: false,
       nearMe: false,
-      excludePersonalTerritory: false,
       userLocation: null
     });
   };
 
-  const toggleExcludePersonalTerritory = () => {
+  const cycleStatus = (status: string) => {
+    const selectedStatuses = localFilters.statuses ?? [];
+    const excludedStatuses = localFilters.excludedStatuses ?? [];
+    const isSelected = selectedStatuses.includes(status);
+    const isExcluded = excludedStatuses.includes(status);
+
+    // Cycle order: unselected -> selected -> exclude -> unselected
+    if (!isSelected && !isExcluded) {
+      const newFilters = {
+        ...localFilters,
+        statuses: [...selectedStatuses, status],
+        excludedStatuses: excludedStatuses.filter((s) => s !== status),
+      };
+      setLocalFilters(newFilters);
+      applyFiltersImmediately(newFilters);
+      return;
+    }
+
+    if (isSelected) {
+      const newFilters = {
+        ...localFilters,
+        statuses: selectedStatuses.filter((s) => s !== status),
+        excludedStatuses: [...excludedStatuses.filter((s) => s !== status), status],
+      };
+      setLocalFilters(newFilters);
+      applyFiltersImmediately(newFilters);
+      return;
+    }
+
     const newFilters = {
       ...localFilters,
-      excludePersonalTerritory: !localFilters.excludePersonalTerritory
+      statuses: selectedStatuses.filter((s) => s !== status),
+      excludedStatuses: excludedStatuses.filter((s) => s !== status),
     };
     setLocalFilters(newFilters);
     applyFiltersImmediately(newFilters);
-  };
-
-  const toggleStatus = (status: string) => {
-    const newFilters = {
-      ...localFilters,
-      statuses: localFilters.statuses.includes(status) 
-        ? localFilters.statuses.filter(s => s !== status)
-        : [...localFilters.statuses, status]
-    };
-    setLocalFilters(newFilters);
-    applyFiltersImmediately(newFilters); // Apply immediately for status changes
   };
 
   const toggleArea = (area: string) => {
@@ -105,7 +121,6 @@ export function BusinessFiltersForm({
   };
 
   // Search field removed from filters form
-
   return (
     <div className="space-y-6 pb-[calc(max(env(safe-area-inset-bottom),0px)+40px)]">
       <div className="space-y-4">
@@ -115,24 +130,9 @@ export function BusinessFiltersForm({
             <StatusFilterButtons
               options={statusOptions}
               selected={localFilters.statuses}
-              onToggle={toggleStatus}
+              excluded={localFilters.excludedStatuses ?? []}
+              onCycle={cycleStatus}
             />
-            {scope !== "householders" && (
-              <Button
-                type="button"
-                variant={localFilters.excludePersonalTerritory ? "default" : "outline"}
-                size="sm"
-                onClick={toggleExcludePersonalTerritory}
-                className={cn(
-                  "h-8 border rounded-full",
-                  localFilters.excludePersonalTerritory
-                    ? getSelectedStatusColor("exclude_personal_territory")
-                    : getFadedStatusColor("exclude_personal_territory")
-                )}
-              >
-                Exclude Personal Territory
-              </Button>
-            )}
           </div>
         </div>
 

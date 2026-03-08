@@ -33,6 +33,8 @@ export function getFadedStatusColor(status: string) {
       return "text-red-500 border-red-500 bg-red-500/5";
     case "exclude_personal_territory":
       return "text-pink-500 border-pink-500 bg-pink-500/5";
+    case "personal_territory":
+      return "text-pink-500 border-pink-500 bg-pink-500/5";
     default:
       return "text-gray-500 border-gray-500 bg-gray-500/5";
   }
@@ -70,6 +72,8 @@ export function getSelectedStatusColor(status: string) {
     case "do_not_call":
       return "text-white bg-red-600 border-red-600";
     case "exclude_personal_territory":
+      return "text-white bg-pink-600 border-pink-600";
+    case "personal_territory":
       return "text-white bg-pink-600 border-pink-600";
     default:
       return "text-white bg-gray-600 border-gray-600";

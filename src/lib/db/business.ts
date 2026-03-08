@@ -22,12 +22,12 @@ export function calculateDistance(lat1: number, lon1: number, lat2: number, lon2
 export interface BusinessFiltersState {
   search: string;
   statuses: string[];
+  /** Statuses explicitly excluded from results. */
+  excludedStatuses?: string[];
   areas: string[];
   floors: string[];
   myEstablishments: boolean;
   nearMe: boolean;
-  /** When true, hide establishments that are taken as personal territory (publisher_id set). */
-  excludePersonalTerritory?: boolean;
   userLocation?: [number, number] | null;
   sort?: 'name_asc' | 'name_desc' | 'last_visit_desc' | 'last_visit_asc' | 'area_asc' | 'area_desc' | 'date_added_asc' | 'date_added_desc';
 }

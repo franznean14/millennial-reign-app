@@ -49,6 +49,8 @@ export const getStatusColor = (status: string) => {
       return 'border-emerald-500/50 bg-emerald-500/10';
     case 'closed':
       return 'border-slate-500/50 bg-slate-500/5';
+    case 'personal_territory':
+      return 'border-pink-500/50 bg-pink-500/5';
     default:
       return 'border-gray-500/50 bg-gray-500/5';
   }
@@ -80,6 +82,8 @@ export const getStatusTitleColor = (status: string): string => {
       return 'text-emerald-500';
     case 'closed':
       return 'text-slate-500';
+    case 'personal_territory':
+      return 'text-pink-500';
     default:
       return 'text-foreground';
   }
@@ -106,6 +110,8 @@ export const getStatusTextColor = (status: string) => {
       return 'text-emerald-500 border-emerald-500/50';
     case 'closed':
       return 'text-slate-500 border-slate-500/50';
+    case 'personal_territory':
+      return 'text-pink-500 border-pink-500/50';
     // Householder statuses
     case 'potential':
       return 'text-cyan-500 border-cyan-500/50';

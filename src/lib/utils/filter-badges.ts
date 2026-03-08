@@ -1,28 +1,32 @@
 "use client";
 
 export type FilterBadge = {
-  type: "status" | "area" | "floor" | "exclude_personal_territory";
+  type: "status" | "excluded_status" | "area" | "floor";
   value: string;
   label: string;
 };
 
 export function buildFilterBadges({
   statuses,
+  excludedStatuses,
   areas,
   floors,
-  excludePersonalTerritory,
   formatStatusLabel
 }: {
   statuses: string[];
+  excludedStatuses?: string[];
   areas: string[];
   floors?: string[];
-  excludePersonalTerritory?: boolean;
   formatStatusLabel: (status: string) => string;
 }): FilterBadge[] {
   const badges: FilterBadge[] = [];
 
   statuses.forEach((status) => {
     badges.push({ type: "status", value: status, label: formatStatusLabel(status) });
+  });
+
+  (excludedStatuses ?? []).forEach((status) => {
+    badges.push({ type: "excluded_status", value: status, label: formatStatusLabel(status) });
   });
 
   areas.forEach((area) => {
@@ -32,10 +36,6 @@ export function buildFilterBadges({
   (floors ?? []).forEach((floor) => {
     badges.push({ type: "floor", value: floor, label: floor });
   });
-
-  if (excludePersonalTerritory) {
-    badges.push({ type: "exclude_personal_territory", value: "exclude_personal_territory", label: "Exclude Personal Territory" });
-  }
 
   return badges;
 }

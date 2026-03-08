@@ -39,7 +39,20 @@ export function useBusinessFilteredLists({
       }
 
       if (filters.statuses.length > 0 && !establishment.statuses?.some((status) => filters.statuses.includes(status))) {
-        return false;
+        if (!filters.statuses.includes("personal_territory") || !establishment.publisher_id) {
+          return false;
+        }
+      }
+
+      if ((filters.excludedStatuses?.length ?? 0) > 0) {
+        const excludePersonalTerritory = (filters.excludedStatuses ?? []).includes("personal_territory");
+        if (excludePersonalTerritory && establishment.publisher_id) {
+          return false;
+        }
+        const excludedRegularStatuses = (filters.excludedStatuses ?? []).filter((status) => status !== "personal_territory");
+        if (excludedRegularStatuses.length > 0 && establishment.statuses?.some((status) => excludedRegularStatuses.includes(status))) {
+          return false;
+        }
       }
 
       if (filters.areas.length > 0 && establishment.area && !filters.areas.includes(establishment.area)) {
@@ -60,10 +73,6 @@ export function useBusinessFilteredLists({
       if (filters.myEstablishments) {
         const visitedByUser = establishment.id ? userVisitedEstablishments.has(establishment.id) : false;
         if (!visitedByUser) return false;
-      }
-
-      if (filters.excludePersonalTerritory && establishment.publisher_id) {
-        return false;
       }
 
       if (filters.nearMe) {
@@ -161,6 +170,10 @@ export function useBusinessFilteredLists({
       }
 
       if (filters.statuses.length > 0 && !filters.statuses.includes(householder.status)) {
+        return false;
+      }
+
+      if ((filters.excludedStatuses?.length ?? 0) > 0 && (filters.excludedStatuses ?? []).includes(householder.status)) {
         return false;
       }
 

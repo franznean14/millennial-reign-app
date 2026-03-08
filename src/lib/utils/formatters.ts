@@ -1,6 +1,9 @@
 "use client";
 
 export function formatStatusText(status: string): string {
+  if (status === "personal_territory") {
+    return "Personal Territry";
+  }
   return status
     .split("_")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))

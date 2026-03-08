@@ -140,13 +140,17 @@ function BusinessControlsContent({
     setIsSearchActive(false);
   };
 
-  const hasFilterOptions = filters.statuses.length > 0 || filters.areas.length > 0 || filters.floors.length > 0 || !!filters.excludePersonalTerritory;
+  const hasFilterOptions =
+    filters.statuses.length > 0 ||
+    (filters.excludedStatuses?.length ?? 0) > 0 ||
+    filters.areas.length > 0 ||
+    filters.floors.length > 0;
   const showOtherButtons = !hasFilterOptions && !filters.myEstablishments && !isSearchActive;
   const badges: FilterBadge[] = buildFilterBadges({
     statuses: filters.statuses,
+    excludedStatuses: filters.excludedStatuses,
     areas: filters.areas,
     floors: filters.floors,
-    excludePersonalTerritory: filters.excludePersonalTerritory,
     formatStatusLabel
   });
   const isDetailsView = !!selectedEstablishment || !!selectedHouseholder;
@@ -190,7 +194,7 @@ function BusinessControlsContent({
                       onBusinessTabChange(value);
                     }
                   }}
-                  onClearStatusFilters={() => onFiltersChange({ ...filters, statuses: [] })}
+                  onClearStatusFilters={() => onFiltersChange({ ...filters, statuses: [], excludedStatuses: [] })}
                   className="w-full h-full"
                   isDetailsView={isDetailsView}
                   detailsName={detailsName}
@@ -223,7 +227,7 @@ function BusinessControlsContent({
                   onValueChange={(value) => {
                     onBusinessTabChange(value);
                   }}
-                  onClearStatusFilters={() => onFiltersChange({ ...filters, statuses: [] })}
+                  onClearStatusFilters={() => onFiltersChange({ ...filters, statuses: [], excludedStatuses: [] })}
                   className="w-full h-full"
                   isDetailsView={false}
                   detailsName=""
@@ -296,20 +300,23 @@ function BusinessControlsContent({
                 onFiltersChange({
                   ...filters,
                   statuses: [],
+                  excludedStatuses: [],
                   areas: [],
                   floors: [],
-                  excludePersonalTerritory: false
                 })
               }
               onRemoveBadge={(badge) => {
                 if (badge.type === "status") {
                   onRemoveStatus(badge.value);
+                } else if (badge.type === "excluded_status") {
+                  onFiltersChange({
+                    ...filters,
+                    excludedStatuses: (filters.excludedStatuses ?? []).filter((status) => status !== badge.value)
+                  });
                 } else if (badge.type === "area") {
                   onRemoveArea(badge.value);
                 } else if (badge.type === "floor") {
                   onRemoveFloor(badge.value);
-                } else if (badge.type === "exclude_personal_territory") {
-                  onFiltersChange({ ...filters, excludePersonalTerritory: false });
                 }
               }}
               containerClassName={isSearchActive ? "w-full !max-w-none !px-0" : "justify-center"}

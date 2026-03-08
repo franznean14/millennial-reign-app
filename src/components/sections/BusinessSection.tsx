@@ -152,21 +152,21 @@ export function BusinessSection({
   const hasActiveFilters =
     filters.search !== "" ||
     filters.statuses.length > 0 ||
+    (filters.excludedStatuses?.length ?? 0) > 0 ||
     filters.areas.length > 0 ||
     filters.floors.length > 0 ||
     filters.myEstablishments ||
-    !!filters.excludePersonalTerritory ||
     !!filters.sort;
 
   const defaultFilters = useMemo<BusinessFiltersState>(
     () => ({
       search: "",
       statuses: [],
+      excludedStatuses: [],
       areas: [],
       floors: [],
       myEstablishments: false,
       nearMe: false,
-      excludePersonalTerritory: false,
       userLocation: null,
       sort: "last_visit_desc"
     }),

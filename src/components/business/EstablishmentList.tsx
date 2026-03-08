@@ -132,7 +132,11 @@ export function EstablishmentList({
   );
 
   const hasActiveFilters = !!filters && (
-    !!filters.search || (filters.statuses?.length ?? 0) > 0 || (filters.areas?.length ?? 0) > 0 || !!filters.myEstablishments || !!filters.excludePersonalTerritory
+    !!filters.search ||
+    (filters.statuses?.length ?? 0) > 0 ||
+    (filters.excludedStatuses?.length ?? 0) > 0 ||
+    (filters.areas?.length ?? 0) > 0 ||
+    !!filters.myEstablishments
   );
 
   const formatStatusCompactText = formatEstablishmentStatusCompactText;
