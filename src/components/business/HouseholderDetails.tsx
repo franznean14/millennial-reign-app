@@ -617,6 +617,11 @@ export function HouseholderDetails({
         </DrawerContent>
       </Drawer>
 
+      {/* To-Do scoped to this householder only */}
+      <motion.div className="w-full" layout transition={detailTransition}>
+        <HomeTodoCard householderId={householder.id} onTodoTap={handleTodoTapOpenCall} />
+      </motion.div>
+
       <motion.div className="w-full" layout transition={detailTransition}>
         <VisitUpdatesSection 
           visits={visits} 
@@ -631,11 +636,6 @@ export function HouseholderDetails({
             // Visit updates will be handled by the parent component's data refresh
           }}
         />
-      </motion.div>
-
-      {/* To-Do scoped to this householder only */}
-      <motion.div className="w-full" layout transition={detailTransition}>
-        <HomeTodoCard householderId={householder.id} onTodoTap={handleTodoTapOpenCall} />
       </motion.div>
 
       <FormModal

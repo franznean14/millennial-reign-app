@@ -598,6 +598,11 @@ export function EstablishmentDetails({
         </DrawerContent>
       </Drawer>
 
+      {/* To-Do scoped to this establishment only */}
+      <motion.div className="w-full" layout transition={{ duration: 0.2, ease: "easeOut" }}>
+        <HomeTodoCard establishmentId={establishment.id} onTodoTap={handleTodoTapOpenCall} />
+      </motion.div>
+
       {/* Visit Updates Section */}
       <motion.div className="w-full" layout transition={{ duration: 0.2, ease: "easeOut" }}>
         <VisitUpdatesSection 
@@ -610,11 +615,6 @@ export function EstablishmentDetails({
             // Visit updates will be handled by the parent component's data refresh
           }}
         />
-      </motion.div>
-
-      {/* To-Do scoped to this establishment only */}
-      <motion.div className="w-full" layout transition={{ duration: 0.2, ease: "easeOut" }}>
-        <HomeTodoCard establishmentId={establishment.id} onTodoTap={handleTodoTapOpenCall} />
       </motion.div>
 
       {/* Contacts Section (householders styled like congregation Contacts card) */}

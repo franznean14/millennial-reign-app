@@ -433,7 +433,7 @@ export function HomeTodoCard({
             </DrawerTitle>
           </DrawerHeader>
           {activePanel === "filters" ? (
-            <div className="overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+24px)]">
+            <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
               <VisitFiltersForm
                 filters={filters}
                 statusOptions={statusOptions}
@@ -452,7 +452,7 @@ export function HomeTodoCard({
               </div>
             </div>
           ) : (
-            <div className="overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+24px)]">
+            <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
               {userId && !establishmentId && !householderId && (
                 <div className="mb-4 w-full flex justify-center">
                   <FilterControls
