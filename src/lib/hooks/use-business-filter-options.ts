@@ -116,17 +116,18 @@ export function useBusinessFilterOptions({
         });
       });
 
-      // Positive-to-negative order for filters (match form dropdown)
+      // Positive-to-negative order for filters
       const orderedStatuses: string[] = [
-        "for_scouting",
-        "for_follow_up",
-        "accepted_rack",
-        "for_replenishment",
+        "personal_territory",
         "has_bible_studies",
-        "declined_rack",
-        "rack_pulled_out",
+        "for_replenishment",
+        "accepted_rack",
+        "for_follow_up",
+        "for_scouting",
         "closed",
-        "inappropriate"
+        "rack_pulled_out",
+        "inappropriate",
+        "declined_rack",
       ];
 
       const statusMap: Record<string, string> = {
@@ -144,9 +145,11 @@ export function useBusinessFilterOptions({
       // Filter to statuses that actually exist in data, then map in desired order
       const available = new Set(allStatuses);
       return orderedStatuses
-        .filter((s) => available.has(s))
-        .map((s) => ({ value: s, label: statusMap[s] }))
-        .concat([{ value: "personal_territory", label: "Personal Territry" }]);
+        .filter((s) => s === "personal_territory" || available.has(s))
+        .map((s) => ({
+          value: s,
+          label: s === "personal_territory" ? "Personal Territry" : statusMap[s],
+        }));
     }
 
     // Householder tab – build options from householder statuses
@@ -163,15 +166,26 @@ export function useBusinessFilterOptions({
       }
     });
 
-    const statusList = Array.from(allHouseholderStatuses).sort();
-
     const statusMap: Record<string, string> = {
+      potential: "Potential",
       interested: "Interested",
       return_visit: "Return Visit",
       bible_study: "Bible Study",
       do_not_call: "Do Not Call"
     };
-    return statusList.filter((s) => s in statusMap).map((s) => ({ value: s, label: statusMap[s] }));
+
+    const orderedHouseholderStatuses = [
+      "bible_study",
+      "return_visit",
+      "interested",
+      "potential",
+      "do_not_call",
+    ];
+
+    const availableStatuses = new Set(allHouseholderStatuses);
+    return orderedHouseholderStatuses
+      .filter((status) => availableStatuses.has(status))
+      .map((status) => ({ value: status, label: statusMap[status] }));
   }, [getFilteredEstablishmentsExcluding, businessTab, filters.statuses, filters.excludedStatuses, householders]);
 
   const dynamicAreaOptions = useMemo(() => {
