@@ -82,12 +82,12 @@ export function UnifiedFab({
         items.push(
           { key: "business-visit", label: "New Call", icon: <FilePlus2 className="h-4 w-4" /> },
           { key: "business-todo", label: "New To-Do", icon: <ListTodo className="h-4 w-4" /> },
-          { key: "business-householder", label: "New Householder", icon: <UserPlus className="h-4 w-4" />, variant: "outline" }
+          { key: "business-householder", label: "New Contact", icon: <UserPlus className="h-4 w-4" />, variant: "outline" }
         );
       } else if (showEstablishmentForm) {
         items.push({ key: "business-establishment", label: "New Establishment", icon: <Building2 className="h-4 w-4" /> });
       } else if (showHouseholderForm) {
-        items.push({ key: "business-householder", label: "New Householder", icon: <UserPlus className="h-4 w-4" />, variant: "outline" });
+        items.push({ key: "business-householder", label: "New Contact", icon: <UserPlus className="h-4 w-4" />, variant: "outline" });
       } else if (showVisitForm) {
         items.push(
           { key: "business-visit", label: "New Call", icon: <FilePlus2 className="h-4 w-4" /> },
@@ -162,8 +162,8 @@ export function UnifiedFab({
       <FormModal
         open={openKey === "business-householder"}
         onOpenChange={(open) => setOpenKey(open ? "business-householder" : null)}
-        title="New Householder"
-        description="Add a householder for an establishment."
+        title="New Contact"
+        description="Add a contact for an establishment."
         headerClassName="text-center"
       >
         <HouseholderForm
