@@ -303,6 +303,7 @@ export function TodoForm({
           placeholder="Deadline date"
           mobileShowActions
           mobileAllowClear
+          defaultToTodayOnOpen
         />
       </div>
 

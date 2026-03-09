@@ -23,6 +23,7 @@ interface DatePickerProps {
   className?: string;
   mobileShowActions?: boolean;
   mobileAllowClear?: boolean;
+  defaultToTodayOnOpen?: boolean;
 }
 
 export function DatePicker({
@@ -32,9 +33,11 @@ export function DatePicker({
   className,
   mobileShowActions = false,
   mobileAllowClear = false,
+  defaultToTodayOnOpen = false,
 }: DatePickerProps) {
   const [open, setOpen] = useState(false);
   const isMobile = useMobile();
+  const effectiveDate = date ?? (open && defaultToTodayOnOpen ? new Date() : undefined);
 
   if (isMobile) {
     return (
@@ -60,7 +63,7 @@ export function DatePicker({
           className="sm:max-w-[640px]"
         >
           <DateRangeSelectContent
-            startDate={date}
+            startDate={effectiveDate}
             allowRange={false}
             showActions={mobileShowActions}
             showClearAction={mobileAllowClear && !!date}
@@ -103,7 +106,7 @@ export function DatePicker({
       <PopoverContent className="w-auto p-0" align="start">
         <Calendar
           mode="single"
-          selected={date}
+          selected={effectiveDate}
           onSelect={(selectedDate) => {
             onSelect?.(selectedDate);
             setOpen(false);

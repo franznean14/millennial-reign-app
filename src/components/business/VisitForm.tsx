@@ -734,6 +734,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
                       className="w-auto h-7 min-w-[98px] px-2 text-xs"
                       mobileShowActions
                       mobileAllowClear
+                      defaultToTodayOnOpen
                     />
                     <Button
                       type="button"
