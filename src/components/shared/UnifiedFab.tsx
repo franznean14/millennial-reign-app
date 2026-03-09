@@ -89,7 +89,10 @@ export function UnifiedFab({
       } else if (showHouseholderForm) {
         items.push({ key: "business-householder", label: "New Householder", icon: <UserPlus className="h-4 w-4" />, variant: "outline" });
       } else if (showVisitForm) {
-        items.push({ key: "business-visit", label: "New Call", icon: <FilePlus2 className="h-4 w-4" /> });
+        items.push(
+          { key: "business-visit", label: "New Call", icon: <FilePlus2 className="h-4 w-4" /> },
+          { key: "business-todo", label: "New To-Do", icon: <ListTodo className="h-4 w-4" /> }
+        );
       }
     }
 
