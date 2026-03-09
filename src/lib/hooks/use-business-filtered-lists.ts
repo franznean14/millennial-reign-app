@@ -71,8 +71,9 @@ export function useBusinessFilteredLists({
       }
 
       if (filters.myEstablishments) {
+        const ownedByUser = !!(userId && establishment.publisher_id === userId);
         const visitedByUser = establishment.id ? userVisitedEstablishments.has(establishment.id) : false;
-        if (!visitedByUser) return false;
+        if (!ownedByUser && !visitedByUser) return false;
       }
 
       if (filters.nearMe) {
@@ -120,6 +121,19 @@ export function useBusinessFilteredLists({
       return a! > b! ? -1 : a! < b! ? 1 : 0;
     };
 
+    const getEstablishmentStatusPriority = (establishment: EstablishmentWithDetails): number => {
+      const statuses = establishment.statuses ?? [];
+      if (statuses.includes("has_bible_studies")) return 1;
+      if (statuses.includes("for_replenishment")) return 2;
+      if (statuses.includes("for_follow_up")) return 3;
+      if (statuses.includes("accepted_rack")) return 4;
+      if (statuses.includes("for_scouting")) return 5;
+      if (statuses.includes("rack_pulled_out")) return 6;
+      if (statuses.includes("closed")) return 7;
+      if (statuses.includes("declined_rack")) return 8;
+      return 9;
+    };
+
     if (filters.nearMe && filters.userLocation) {
       const [userLat, userLng] = filters.userLocation;
       const distanceOf = (e: EstablishmentWithDetails) => {
@@ -127,6 +141,24 @@ export function useBusinessFilteredLists({
         return calculateDistance(userLat, userLng, e.lat, e.lng);
       };
       sorted.sort((a, b) => distanceOf(a) - distanceOf(b));
+    } else if (filters.myEstablishments) {
+      sorted.sort((a, b) => {
+        const aIsOwned = !!(userId && a.publisher_id === userId);
+        const bIsOwned = !!(userId && b.publisher_id === userId);
+        if (aIsOwned && !bIsOwned) return -1;
+        if (!aIsOwned && bIsOwned) return 1;
+
+        // Within both owned and non-owned groups, prioritize by status positivity.
+        const aPriority = getEstablishmentStatusPriority(a);
+        const bPriority = getEstablishmentStatusPriority(b);
+        if (aPriority !== bPriority) return aPriority - bPriority;
+
+        // Tie-breaker: more recent visit first.
+        const lastVisitCmp = compareLastVisit(a.last_visit_at, b.last_visit_at, false);
+        if (lastVisitCmp !== 0) return lastVisitCmp;
+
+        return (a.name || "").localeCompare(b.name || "");
+      });
     } else {
       switch (filters.sort) {
         case "name_asc":

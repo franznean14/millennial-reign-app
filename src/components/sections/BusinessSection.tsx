@@ -45,6 +45,7 @@ const FormModal = dynamic(() => import("@/components/shared/FormModal").then((m)
 });
 
 export interface BusinessSectionProps {
+  userId: string | null;
   portaledControls: ReactNode;
   currentSection: string;
   businessTab: BusinessTab;
@@ -106,6 +107,7 @@ export interface BusinessSectionProps {
 }
 
 export function BusinessSection({
+  userId,
   portaledControls,
   currentSection,
   businessTab,
@@ -283,6 +285,7 @@ export function BusinessSection({
                 <motion.div key="establishment-list" {...listMotion} className="w-full">
                   <EstablishmentList
                     establishments={filteredEstablishments}
+                    currentUserId={userId}
                     onEstablishmentClick={handleSelectEstablishment}
                     onEstablishmentDelete={handleDeleteEstablishment}
                     onEstablishmentArchive={handleArchiveEstablishment}

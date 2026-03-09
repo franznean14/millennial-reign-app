@@ -1260,6 +1260,7 @@ export function AppClient() {
       return (
         <>
         <BusinessSectionView
+          userId={userId}
           portaledControls={portaledControls}
           currentSection={currentSection}
           businessTab={businessTab}

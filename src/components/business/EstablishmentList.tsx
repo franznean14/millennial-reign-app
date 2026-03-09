@@ -18,6 +18,7 @@ import { formatEstablishmentStatusCompactText, formatStatusText } from "@/lib/ut
 
 interface EstablishmentListProps {
   establishments: EstablishmentWithDetails[];
+  currentUserId?: string | null;
   onEstablishmentClick: (establishment: EstablishmentWithDetails) => void;
   onEstablishmentDelete?: (establishment: EstablishmentWithDetails) => void;
   onEstablishmentArchive?: (establishment: EstablishmentWithDetails) => void;
@@ -81,6 +82,7 @@ function NameWithAvatarsCell({
 
 export function EstablishmentList({ 
   establishments, 
+  currentUserId,
   onEstablishmentClick,
   onEstablishmentDelete,
   onEstablishmentArchive,
@@ -169,10 +171,13 @@ export function EstablishmentList({
   };
 
   const PERSONAL_TERRITORY_LABEL = "Personal Territory";
-  const PERSONAL_TERRITORY_BADGE_CLASS = "text-pink-400 border-pink-400/60";
+  const OWNED_PERSONAL_TERRITORY_BADGE_CLASS = "text-pink-400 border-pink-400/60";
+  const OTHER_PERSONAL_TERRITORY_BADGE_CLASS = "text-pink-300 border-pink-400/60 border-dashed bg-pink-500/5";
 
   const isPersonalTerritory = (establishment: EstablishmentWithDetails) =>
     !!establishment.publisher_id;
+  const isOwnedPersonalTerritory = (establishment: EstablishmentWithDetails) =>
+    !!(currentUserId && establishment.publisher_id === currentUserId);
 
   const getPrimaryStatusLabel = (establishment: EstablishmentWithDetails) => {
     if (isPersonalTerritory(establishment)) return PERSONAL_TERRITORY_LABEL;
@@ -188,7 +193,9 @@ export function EstablishmentList({
 
   const getPrimaryStatusClass = (establishment: EstablishmentWithDetails) =>
     isPersonalTerritory(establishment)
-      ? PERSONAL_TERRITORY_BADGE_CLASS
+      ? (isOwnedPersonalTerritory(establishment)
+          ? OWNED_PERSONAL_TERRITORY_BADGE_CLASS
+          : OTHER_PERSONAL_TERRITORY_BADGE_CLASS)
       : getStatusTextColor(getBestStatus(establishment.statuses || []));
 
   const getSecondaryStatusesForDots = (establishment: EstablishmentWithDetails) => {
