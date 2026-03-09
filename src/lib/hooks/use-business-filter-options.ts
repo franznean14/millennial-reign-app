@@ -148,7 +148,7 @@ export function useBusinessFilterOptions({
         .filter((s) => s === "personal_territory" || available.has(s))
         .map((s) => ({
           value: s,
-          label: s === "personal_territory" ? "Personal Territry" : statusMap[s],
+          label: s === "personal_territory" ? "Personal Territory" : statusMap[s],
         }));
     }
 

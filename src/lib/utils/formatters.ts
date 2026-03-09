@@ -2,7 +2,7 @@
 
 export function formatStatusText(status: string): string {
   if (status === "personal_territory") {
-    return "Personal Territry";
+    return "Personal Territory";
   }
   return status
     .split("_")
