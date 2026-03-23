@@ -6,10 +6,13 @@ import { ListTodo, ChevronRight, ChevronDown, ChevronUp, User, Building2 } from 
 import {
   getMyOpenCallTodos,
   getMyCompletedCallTodos,
+  getCongregationOpenCallTodos,
+  getCongregationCompletedCallTodos,
   getEstablishmentOpenCallTodos,
   getEstablishmentCompletedCallTodos,
   getHouseholderOpenCallTodos,
   getHouseholderCompletedCallTodos,
+  getBwiParticipants,
   updateCallTodo,
   type MyOpenCallTodoItem,
 } from "@/lib/db/business";
@@ -18,6 +21,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { FilterControls, type FilterBadge } from "@/components/shared/FilterControls";
 import { VisitFiltersForm, type VisitFilters, type VisitFilterOption } from "@/components/visit/VisitFiltersForm";
 import { buildFilterBadges } from "@/lib/utils/filter-badges";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Drawer,
   DrawerContent,
@@ -26,10 +30,14 @@ import {
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import { VisitStatusBadge } from "@/components/visit/VisitStatusBadge";
 import { cn } from "@/lib/utils";
 import { formatStatusText } from "@/lib/utils/formatters";
 import { Badge } from "@/components/ui/badge";
+import { FormModal } from "@/components/shared/FormModal";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getInitialsFromName } from "@/lib/utils/visit-history-ui";
 
 const todoLayoutTransition = {
   type: "spring",
@@ -39,6 +47,47 @@ const todoLayoutTransition = {
 const TODOS_FRESH_MS = 30_000;
 
 const TODOS_CACHE_KEY = (scopeKey: string) => `home-todos:${scopeKey}`;
+const TODOS_LOCAL_STORAGE_KEY = (scopeKey: string) => `home-todos:local:${scopeKey}`;
+const TODO_FILTERS_LOCAL_STORAGE_KEY = (scopeKey: string) => `home-todos:filters:${scopeKey}`;
+
+function readLocalTodosCache(
+  scopeKey: string
+): { open: MyOpenCallTodoItem[]; completed: MyOpenCallTodoItem[]; syncedAt: number } | null {
+  try {
+    if (typeof window === "undefined") return null;
+    const raw = window.localStorage.getItem(TODOS_LOCAL_STORAGE_KEY(scopeKey));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as {
+      open?: MyOpenCallTodoItem[];
+      completed?: MyOpenCallTodoItem[];
+      syncedAt?: number;
+    };
+    if (!Array.isArray(parsed?.open) || !Array.isArray(parsed?.completed)) return null;
+    return {
+      open: parsed.open,
+      completed: parsed.completed,
+      syncedAt: typeof parsed.syncedAt === "number" ? parsed.syncedAt : 0,
+    };
+  } catch {
+    return null;
+  }
+}
+const BULK_TODO_DRAFT_KEY = "business:bulk-todos:draft:v1";
+type BulkPrefillRow = {
+  id: string;
+  targetKey: string;
+  body: string;
+  slots: string[];
+  dueDate: string | null;
+  sourceTodoId?: string | null;
+  sourceCallId?: string | null;
+  original?: {
+    targetKey: string;
+    body: string;
+    slots: string[];
+    dueDate: string | null;
+  };
+};
 
 function truncateLabel(label: string | null | undefined, max = 28): string {
   if (!label) return "";
@@ -55,6 +104,20 @@ function formatTodoDate(dateStr: string | null | undefined): string {
   const day = d.getDate();
   const yearShort = String(d.getFullYear()).slice(-2);
   return `${month} ${day}, '${yearShort}`;
+}
+
+function toLocalDateString(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function parseLocalDateString(value: string | null | undefined): Date | null {
+  if (!value) return null;
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
 }
 
 function compareDeadlineAsc(a: MyOpenCallTodoItem, b: MyOpenCallTodoItem): number {
@@ -111,15 +174,35 @@ export function HomeTodoCard({
     search: "",
     statuses: [],
     areas: [],
-    myUpdatesOnly: false,
+    myUpdatesOnly: true,
     bwiOnly: false,
     householderOnly: false,
   });
-  const [activePanel, setActivePanel] = useState<"list" | "filters">("list");
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchValue, setSearchValue] = useState("");
+  const [dueDateFilter, setDueDateFilter] = useState<Date | null>(null);
+  const [participantsById, setParticipantsById] = useState<
+    Record<string, { first_name: string; last_name: string; avatar_url?: string }>
+  >({});
+  const [bulkEditPromptOpen, setBulkEditPromptOpen] = useState(false);
+  const [selectedTodoIds, setSelectedTodoIds] = useState<string[]>([]);
+  const [bulkDraftMergePromptOpen, setBulkDraftMergePromptOpen] = useState(false);
+  const [pendingBulkPrefillRows, setPendingBulkPrefillRows] = useState<BulkPrefillRow[]>([]);
+  const [filtersHydrated, setFiltersHydrated] = useState(false);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const userScopeMode =
+    userId && !establishmentId && !householderId
+      ? (filters.myUpdatesOnly ? "my" : "all")
+      : null;
   const scopeKey = establishmentId
+    ? `establishment:${establishmentId}`
+    : householderId
+      ? `householder:${householderId}`
+      : userId
+        ? `user:${userId}:${userScopeMode ?? "my"}`
+        : null;
+  const filterScopeKey = establishmentId
     ? `establishment:${establishmentId}`
     : householderId
       ? `householder:${householderId}`
@@ -127,12 +210,23 @@ export function HomeTodoCard({
         ? `user:${userId}`
         : null;
 
-  const loadTodos = useCallback((opts?: { useCache?: boolean; forceNetwork?: boolean }) => {
+  const loadTodos = useCallback((opts?: { useCache?: boolean; forceNetwork?: boolean; trustFreshLocalCache?: boolean }) => {
     if (!scopeKey) return;
     const useCache = opts?.useCache ?? true;
     const forceNetwork = opts?.forceNetwork ?? true;
+    const trustFreshLocalCache = opts?.trustFreshLocalCache ?? false;
     const key = TODOS_CACHE_KEY(scopeKey);
-    if (useCache && !hasLoadedRef.current) {
+    let usedFreshLocalCache = false;
+    let localCachedItemCount = 0;
+    if (useCache) {
+      const localCached = readLocalTodosCache(scopeKey);
+      if (localCached) {
+        setOpenTodos(localCached.open);
+        setCompletedTodos(localCached.completed);
+        localCachedItemCount = localCached.open.length + localCached.completed.length;
+        usedFreshLocalCache =
+          localCached.syncedAt > 0 && Date.now() - localCached.syncedAt < TODOS_FRESH_MS;
+      }
       cacheGet<{ open: MyOpenCallTodoItem[]; completed: MyOpenCallTodoItem[] }>(key).then((cached) => {
         if (cached && Array.isArray(cached.open) && Array.isArray(cached.completed)) {
           setOpenTodos(cached.open);
@@ -141,22 +235,50 @@ export function HomeTodoCard({
       });
     }
 
+    // Only skip network if fresh local cache has actual items.
+    // If it's fresh-but-empty, still fetch to avoid hiding real server data.
+    if (trustFreshLocalCache && usedFreshLocalCache && localCachedItemCount > 0) {
+      hasLoadedRef.current = true;
+      lastSyncedAtRef.current = Date.now();
+      return;
+    }
+
     if (!forceNetwork && Date.now() - lastSyncedAtRef.current < TODOS_FRESH_MS) return;
     if (inFlightRef.current) return;
     inFlightRef.current = true;
+    const mergeById = (...groups: MyOpenCallTodoItem[][]): MyOpenCallTodoItem[] => {
+      const byId = new Map<string, MyOpenCallTodoItem>();
+      for (const group of groups) {
+        for (const item of group) {
+          byId.set(item.id, item);
+        }
+      }
+      return Array.from(byId.values());
+    };
+
     const openQuery = establishmentId
       ? getEstablishmentOpenCallTodos(establishmentId, 50)
       : householderId
         ? getHouseholderOpenCallTodos(householderId, 50)
         : userId
-          ? getMyOpenCallTodos(userId, 50)
+          ? (filters.myUpdatesOnly
+              ? getMyOpenCallTodos(userId, 80)
+              : Promise.all([
+                  getMyOpenCallTodos(userId, 120),
+                  getCongregationOpenCallTodos(180),
+                ]).then(([mine, congregation]) => mergeById(mine, congregation)))
           : Promise.resolve<MyOpenCallTodoItem[]>([]);
     const completedQuery = establishmentId
       ? getEstablishmentCompletedCallTodos(establishmentId, 50)
       : householderId
         ? getHouseholderCompletedCallTodos(householderId, 50)
         : userId
-          ? getMyCompletedCallTodos(userId, 20)
+          ? (filters.myUpdatesOnly
+              ? getMyCompletedCallTodos(userId, 40)
+              : Promise.all([
+                  getMyCompletedCallTodos(userId, 80),
+                  getCongregationCompletedCallTodos(120),
+                ]).then(([mine, congregation]) => mergeById(mine, congregation)))
           : Promise.resolve<MyOpenCallTodoItem[]>([]);
 
     Promise.all([openQuery, completedQuery])
@@ -169,14 +291,140 @@ export function HomeTodoCard({
       .finally(() => {
         inFlightRef.current = false;
       });
-  }, [scopeKey, establishmentId, householderId, userId]);
+  }, [scopeKey, establishmentId, householderId, userId, filters.myUpdatesOnly]);
+
+  useEffect(() => {
+    hasLoadedRef.current = false;
+    lastSyncedAtRef.current = 0;
+    inFlightRef.current = false;
+  }, [scopeKey]);
+
+  useEffect(() => {
+    if (!filterScopeKey) return;
+    try {
+      const raw = window.localStorage.getItem(TODO_FILTERS_LOCAL_STORAGE_KEY(filterScopeKey));
+      if (!raw) {
+        setFiltersHydrated(true);
+        return;
+      }
+      const parsed = JSON.parse(raw) as {
+        filters?: VisitFilters;
+        searchValue?: string;
+        dueDate?: string | null;
+      };
+      if (parsed.filters) {
+        setFilters((prev) => ({
+          ...prev,
+          search: typeof parsed.filters.search === "string" ? parsed.filters.search : prev.search,
+          statuses: Array.isArray(parsed.filters.statuses) ? parsed.filters.statuses : prev.statuses,
+          areas: Array.isArray(parsed.filters.areas) ? parsed.filters.areas : prev.areas,
+          myUpdatesOnly:
+            typeof parsed.filters.myUpdatesOnly === "boolean"
+              ? parsed.filters.myUpdatesOnly
+              : prev.myUpdatesOnly,
+          bwiOnly: typeof parsed.filters.bwiOnly === "boolean" ? parsed.filters.bwiOnly : prev.bwiOnly,
+          householderOnly:
+            typeof parsed.filters.householderOnly === "boolean"
+              ? parsed.filters.householderOnly
+              : prev.householderOnly,
+        }));
+      }
+      if (typeof parsed.searchValue === "string") {
+        setSearchValue(parsed.searchValue);
+        setIsSearchActive(parsed.searchValue.trim().length > 0);
+      }
+      setDueDateFilter(parseLocalDateString(parsed.dueDate));
+    } catch {
+      // no-op
+    } finally {
+      setFiltersHydrated(true);
+    }
+  }, [filterScopeKey]);
+
+  useEffect(() => {
+    if (!filterScopeKey || !filtersHydrated) return;
+    try {
+      window.localStorage.setItem(
+        TODO_FILTERS_LOCAL_STORAGE_KEY(filterScopeKey),
+        JSON.stringify({
+          filters,
+          searchValue,
+          dueDate: dueDateFilter ? toLocalDateString(dueDateFilter) : null,
+        })
+      );
+    } catch {
+      // no-op
+    }
+  }, [filterScopeKey, filtersHydrated, filters, searchValue, dueDateFilter]);
+
+  // Warm up "all to-dos" cache in background while user is on My To-Dos.
+  useEffect(() => {
+    if (!userId || establishmentId || householderId || !filters.myUpdatesOnly) return;
+    const allScopeKey = `user:${userId}:all`;
+    const existingLocal = readLocalTodosCache(allScopeKey);
+    if (existingLocal && (existingLocal.open.length > 0 || existingLocal.completed.length > 0)) return;
+    let cancelled = false;
+    const mergeById = (...groups: MyOpenCallTodoItem[][]): MyOpenCallTodoItem[] => {
+      const byId = new Map<string, MyOpenCallTodoItem>();
+      for (const group of groups) {
+        for (const item of group) byId.set(item.id, item);
+      }
+      return Array.from(byId.values());
+    };
+    Promise.all([
+      Promise.all([getMyOpenCallTodos(userId, 120), getCongregationOpenCallTodos(180)]).then(([mine, congregation]) =>
+        mergeById(mine, congregation)
+      ),
+      Promise.all([getMyCompletedCallTodos(userId, 80), getCongregationCompletedCallTodos(120)]).then(
+        ([mine, congregation]) => mergeById(mine, congregation)
+      ),
+    ]).then(([open, completed]) => {
+      if (cancelled) return;
+      cacheSet(TODOS_CACHE_KEY(allScopeKey), { open, completed });
+      try {
+        window.localStorage.setItem(
+          TODOS_LOCAL_STORAGE_KEY(allScopeKey),
+          JSON.stringify({ open, completed, syncedAt: Date.now() })
+        );
+      } catch {}
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, establishmentId, householderId, filters.myUpdatesOnly]);
 
   useEffect(() => {
     setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
   }, []);
 
   useEffect(() => {
-    loadTodos({ useCache: true, forceNetwork: true });
+    let cancelled = false;
+    const loadParticipants = async () => {
+      try {
+        const participants = await getBwiParticipants();
+        if (cancelled) return;
+        const nextMap: Record<string, { first_name: string; last_name: string; avatar_url?: string }> = {};
+        participants.forEach((participant) => {
+          if (!participant.id) return;
+          nextMap[participant.id] = {
+            first_name: participant.first_name,
+            last_name: participant.last_name,
+            avatar_url: participant.avatar_url,
+          };
+        });
+        setParticipantsById(nextMap);
+      } catch {
+        if (!cancelled) setParticipantsById({});
+      }
+    };
+    loadParticipants();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    loadTodos({ useCache: true, forceNetwork: false, trustFreshLocalCache: true });
   }, [loadTodos]);
 
   useEffect(() => {
@@ -186,6 +434,12 @@ export function HomeTodoCard({
   useEffect(() => {
     if (!scopeKey || !hasLoadedRef.current) return;
     cacheSet(TODOS_CACHE_KEY(scopeKey), { open: openTodos, completed: completedTodos });
+    try {
+      window.localStorage.setItem(
+        TODOS_LOCAL_STORAGE_KEY(scopeKey),
+        JSON.stringify({ open: openTodos, completed: completedTodos, syncedAt: Date.now() })
+      );
+    } catch {}
   }, [scopeKey, openTodos, completedTodos]);
 
   const allTodos = useMemo(
@@ -225,6 +479,7 @@ export function HomeTodoCard({
 
   const clearFilters = useCallback(() => {
     setFilters((prev) => ({ ...prev, statuses: [], areas: [] }));
+    setDueDateFilter(null);
   }, []);
 
   // Live update for both card and drawer
@@ -314,6 +569,14 @@ export function HomeTodoCard({
           }
         }
 
+        // Due date filter
+        if (dueDateFilter) {
+          const selectedDate = toLocalDateString(dueDateFilter);
+          if (!todo.deadline_date || todo.deadline_date !== selectedDate) {
+            return false;
+          }
+        }
+
         // Establishments Only / Contacts Only
         if (filters.bwiOnly && (!todo.establishment_id || !!todo.householder_id)) {
           return false;
@@ -322,10 +585,16 @@ export function HomeTodoCard({
           return false;
         }
 
+        // My To-Dos toggle
+        if (filters.myUpdatesOnly && userId) {
+          const isMine = todo.publisher_id === userId || todo.partner_id === userId;
+          if (!isMine) return false;
+        }
+
         return true;
       });
     },
-    [userId, establishmentId, householderId, filters, searchValue]
+    [userId, establishmentId, householderId, filters, searchValue, dueDateFilter]
   );
 
   const filteredOpenTodos = useMemo(
@@ -336,10 +605,138 @@ export function HomeTodoCard({
     () => [...applyFilters(completedTodos)].sort(compareDeadlineAsc),
     [applyFilters, completedTodos]
   );
+  const cardOpenTodos = useMemo(
+    () => [...openTodos].sort(compareDeadlineAsc),
+    [openTodos]
+  );
+  const cardCompletedTodos = useMemo(
+    () => [...completedTodos].sort(compareDeadlineAsc),
+    [completedTodos]
+  );
+  const selectableTodos = useMemo(
+    () => [...filteredOpenTodos],
+    [filteredOpenTodos]
+  );
 
-  const displayTodos = filteredOpenTodos.slice(0, 5);
+  const openBulkEditPrompt = useCallback(() => {
+    if (selectableTodos.length === 0) return;
+    setSelectedTodoIds(selectableTodos.map((todo) => todo.id));
+    setBulkEditPromptOpen(true);
+  }, [selectableTodos]);
+
+  const toggleSelectedTodo = useCallback((todoId: string, checked: boolean) => {
+    setSelectedTodoIds((prev) => {
+      if (checked) {
+        if (prev.includes(todoId)) return prev;
+        return [...prev, todoId];
+      }
+      return prev.filter((id) => id !== todoId);
+    });
+  }, []);
+
+  const applyBulkEditRows = useCallback((rowsToApply: BulkPrefillRow[], strategy: "overwrite" | "append") => {
+    let finalRows = rowsToApply;
+    if (strategy === "append") {
+      try {
+        const raw = window.localStorage.getItem(BULK_TODO_DRAFT_KEY);
+        const parsed = raw ? (JSON.parse(raw) as { rows?: BulkPrefillRow[] }) : null;
+        const existingRows = Array.isArray(parsed?.rows) ? parsed.rows : [];
+        finalRows = [...existingRows, ...rowsToApply];
+      } catch {
+        finalRows = rowsToApply;
+      }
+    }
+
+    try {
+      window.localStorage.setItem(BULK_TODO_DRAFT_KEY, JSON.stringify({ rows: finalRows }));
+    } catch {}
+
+    try {
+      window.dispatchEvent(
+        new CustomEvent("business-bulk-todos-prefill", {
+          detail: { rows: finalRows },
+        })
+      );
+      window.dispatchEvent(new CustomEvent("open-business-bulk-todos", { detail: { mode: "edit" } }));
+    } catch {}
+
+    setBulkDraftMergePromptOpen(false);
+    setPendingBulkPrefillRows([]);
+    setBulkEditPromptOpen(false);
+    setDrawerOpen(false);
+  }, []);
+
+  const confirmBulkEdit = useCallback(() => {
+    const selectedSet = new Set(selectedTodoIds);
+    const chosen = selectableTodos.filter((todo) => selectedSet.has(todo.id));
+    if (chosen.length === 0) return;
+
+    const prefilledRows = chosen.map((todo, index) => {
+      const targetKey = todo.householder_id
+        ? `householder:${todo.householder_id}`
+        : todo.establishment_id
+          ? `establishment:${todo.establishment_id}`
+          : "none";
+      const slots = [todo.publisher_id, todo.partner_id]
+        .filter((value): value is string => !!value)
+        .filter((value, idx, arr) => arr.indexOf(value) === idx)
+        .slice(0, 2);
+      return {
+        id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
+        targetKey,
+        body: todo.body ?? "",
+        slots,
+        dueDate: todo.deadline_date ?? null,
+        sourceTodoId: todo.id,
+        sourceCallId: todo.call_id ?? null,
+        original: {
+          targetKey,
+          body: todo.body ?? "",
+          slots,
+          dueDate: todo.deadline_date ?? null,
+        },
+      };
+    });
+
+    try {
+      const raw = window.localStorage.getItem(BULK_TODO_DRAFT_KEY);
+      const parsed = raw ? (JSON.parse(raw) as { rows?: unknown[] }) : null;
+      const existingRows = Array.isArray(parsed?.rows) ? parsed.rows : [];
+      if (existingRows.length > 0) {
+        setPendingBulkPrefillRows(prefilledRows);
+        setBulkDraftMergePromptOpen(true);
+        return;
+      }
+    } catch {}
+
+    applyBulkEditRows(prefilledRows, "overwrite");
+  }, [selectedTodoIds, selectableTodos, applyBulkEditRows]);
+
+  const displayTodos = cardOpenTodos.slice(0, 5);
   const openCount = openTodos.length;
   const hasNavigation = !!(onNavigateToTodoCall || onTodoTap);
+  const showAssigneeAvatars = Boolean(
+    establishmentId ||
+      householderId ||
+      (userId && !establishmentId && !householderId && !filters.myUpdatesOnly)
+  );
+  const hasChangedFromDefaultFilters = Boolean(
+    userId &&
+      !establishmentId &&
+      !householderId &&
+      (
+        searchValue.trim().length > 0 ||
+        !!dueDateFilter ||
+        filters.statuses.length > 0 ||
+        filters.areas.length > 0 ||
+        !filters.myUpdatesOnly ||
+        filters.bwiOnly ||
+        filters.householderOnly
+      )
+  );
+  const showOtherPublisherDecorations = Boolean(
+    userId && !establishmentId && !householderId && !filters.myUpdatesOnly
+  );
   const emptyText = userId
     ? "No open to-dos from your calls"
     : "No open to-dos for this call history";
@@ -369,7 +766,7 @@ export function HomeTodoCard({
             <ChevronRight className="h-3.5 w-3.5 ml-auto opacity-70" />
           </button>
           <ul className="space-y-4">
-            {filteredOpenTodos.length === 0 ? (
+            {cardOpenTodos.length === 0 ? (
               <li className="text-sm text-muted-foreground py-1">{emptyText}</li>
             ) : (
               displayTodos.map((todo, index) => (
@@ -380,6 +777,10 @@ export function HomeTodoCard({
                   onMarkDone={handleMarkDone}
                   onTap={hasNavigation ? handleTodoTap : undefined}
                   showCheckbox
+                  currentUserId={userId}
+                  showAssigneeAvatars={showAssigneeAvatars}
+                  highlightOtherPublishers={showOtherPublisherDecorations}
+                  participantsById={participantsById}
                   rowIndex={index}
                   layoutId={`card-${todo.id}`}
                   layoutTransition={todoLayoutTransition}
@@ -387,11 +788,11 @@ export function HomeTodoCard({
               ))
             )}
           </ul>
-          {filteredCompletedTodos.length > 0 && (
+          {cardCompletedTodos.length > 0 && (
             <>
               <div className="text-xs text-muted-foreground mt-4 mb-2 font-medium">Done</div>
               <ul className="space-y-4">
-                {filteredCompletedTodos.slice(0, 3).map((todo, index) => (
+                {cardCompletedTodos.slice(0, 3).map((todo, index) => (
                   <TodoRow
                     key={todo.id}
                     todo={{ ...todo, is_done: true }}
@@ -399,6 +800,10 @@ export function HomeTodoCard({
                     onMarkDone={handleMarkDone}
                     onTap={hasNavigation ? handleTodoTap : undefined}
                     showCheckbox
+                    currentUserId={userId}
+                    showAssigneeAvatars={showAssigneeAvatars}
+                    highlightOtherPublishers={showOtherPublisherDecorations}
+                    participantsById={participantsById}
                     rowIndex={index}
                     layoutId={`card-${todo.id}`}
                     layoutTransition={todoLayoutTransition}
@@ -414,15 +819,18 @@ export function HomeTodoCard({
         open={drawerOpen}
         onOpenChange={(open) => {
           setDrawerOpen(open);
-          if (!open) setDrawerDoneExpanded(false);
+          if (!open) {
+            setDrawerDoneExpanded(false);
+            setFilterDrawerOpen(false);
+          }
         }}
       >
         <DrawerContent className="max-h-[85vh]">
           <DrawerHeader className="px-4 pt-4 pb-2 items-center">
             <DrawerTitle className="flex w-full items-center justify-center gap-2 text-center text-lg font-bold">
               <ListTodo className="h-4 w-4 shrink-0" />
-              {activePanel === "filters" ? "Filter To-Dos" : "To-Do"}
-              {activePanel === "list" && openCount > 0 && (
+              To-Do
+              {openCount > 0 && (
                 <Badge
                   variant="secondary"
                   className="h-5 rounded-full px-2 text-[11px] leading-none"
@@ -432,30 +840,11 @@ export function HomeTodoCard({
               )}
             </DrawerTitle>
           </DrawerHeader>
-          {activePanel === "filters" ? (
-            <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
-              <VisitFiltersForm
-                filters={filters}
-                statusOptions={statusOptions}
-                areaOptions={areaOptions}
-                onFiltersChange={setFilters}
-                onClearFilters={clearFilters}
-              />
-              <div className="flex justify-end pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setActivePanel("list")}
-                >
-                  Done
-                </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
+          <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
               {userId && !establishmentId && !householderId && (
-                <div className="mb-4 w-full flex justify-center">
-                  <FilterControls
+                <div className="mb-4 w-full overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+                  <div className="w-max min-w-full flex justify-center">
+                    <FilterControls
                     isSearchActive={isSearchActive}
                     searchValue={searchValue}
                     searchInputRef={searchInputRef}
@@ -468,7 +857,21 @@ export function HomeTodoCard({
                     onSearchBlur={() => {
                       if (!searchValue.trim()) setIsSearchActive(false);
                     }}
-                    showMyFilter={false}
+                    showMyFilter={Boolean(userId)}
+                    myActive={Boolean(userId) && filters.myUpdatesOnly}
+                    myLabel="My To-Dos"
+                    onMyActivate={() =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        myUpdatesOnly: true,
+                      }))
+                    }
+                    onMyClear={() =>
+                      setFilters((prev) => ({
+                        ...prev,
+                        myUpdatesOnly: false,
+                      }))
+                    }
                     bwiActive={filters.bwiOnly}
                     bwiLabel="Establishments Only"
                     onBwiActivate={() =>
@@ -497,8 +900,12 @@ export function HomeTodoCard({
                       }))
                     }
                     filterBadges={filterBadges}
-                    onOpenFilters={() => setActivePanel("filters")}
+                    onOpenFilters={() => setFilterDrawerOpen(true)}
                     onClearFilters={clearFilters}
+                    preserveActionButtonsWhenTogglesActive
+                    showEditButton
+                    editLabel="Edit To-Dos"
+                    onEditClick={openBulkEditPrompt}
                     onRemoveBadge={(badge) => {
                       if (badge.type === "status") {
                         setFilters((prev) => ({
@@ -515,10 +922,11 @@ export function HomeTodoCard({
                       }
                     }}
                     containerClassName={
-                      isSearchActive ? "w-full !max-w-none !px-0" : "justify-center"
+                      isSearchActive ? "w-full !max-w-none !px-0" : "justify-center whitespace-nowrap"
                     }
                     maxWidthClassName={isSearchActive ? "" : "mx-4"}
                   />
+                  </div>
                 </div>
               )}
 
@@ -536,6 +944,10 @@ export function HomeTodoCard({
                           onMarkDone={handleMarkDone}
                           onTap={hasNavigation ? handleTodoTap : undefined}
                           showCheckbox
+                          currentUserId={userId}
+                          showAssigneeAvatars={showAssigneeAvatars}
+                          highlightOtherPublishers={showOtherPublisherDecorations}
+                          participantsById={participantsById}
                           rowIndex={index}
                           layoutId={`drawer-${todo.id}`}
                           layoutTransition={todoLayoutTransition}
@@ -543,7 +955,7 @@ export function HomeTodoCard({
                       ))}
                     </ul>
                   )}
-                  {filteredCompletedTodos.length > 0 && (
+                  {!hasChangedFromDefaultFilters && filteredCompletedTodos.length > 0 && (
                     <>
                       <div className="text-xs text-muted-foreground mt-5 mb-2 font-medium">
                         Done
@@ -560,6 +972,10 @@ export function HomeTodoCard({
                             onMarkDone={handleMarkDone}
                             onTap={hasNavigation ? handleTodoTap : undefined}
                             showCheckbox
+                            currentUserId={userId}
+                            showAssigneeAvatars={showAssigneeAvatars}
+                            highlightOtherPublishers={showOtherPublisherDecorations}
+                            participantsById={participantsById}
                             rowIndex={index}
                             layoutId={`drawer-${todo.id}`}
                             layoutTransition={todoLayoutTransition}
@@ -591,10 +1007,137 @@ export function HomeTodoCard({
                   )}
                 </>
               )}
-            </div>
-          )}
+          </div>
         </DrawerContent>
       </Drawer>
+
+      <Drawer open={filterDrawerOpen} onOpenChange={setFilterDrawerOpen}>
+        <DrawerContent className="max-h-[80vh]">
+          <DrawerHeader className="px-4 pt-4 pb-2 items-center">
+            <DrawerTitle className="flex w-full items-center justify-center gap-2 text-center text-lg font-bold">
+              <ListTodo className="h-4 w-4 shrink-0" />
+              Filter To-Dos
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
+            <div className="space-y-2 mb-4">
+              <Label>Due Date</Label>
+              <DatePicker
+                date={dueDateFilter ?? undefined}
+                onSelect={(date) => setDueDateFilter(date ?? null)}
+                placeholder="Select due date"
+                mobileShowActions
+                mobileAllowClear
+                defaultToTodayOnOpen
+              />
+            </div>
+            <VisitFiltersForm
+              filters={filters}
+              statusOptions={statusOptions}
+              areaOptions={areaOptions}
+              onFiltersChange={setFilters}
+              onClearFilters={clearFilters}
+            />
+            <div className="flex justify-end pt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setFilterDrawerOpen(false)}
+              >
+                Done
+              </Button>
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      <FormModal
+        open={bulkEditPromptOpen}
+        onOpenChange={setBulkEditPromptOpen}
+        title="Edit To-Dos"
+        description="Select which filtered to-dos to load into bulk edit."
+        headerClassName="text-center"
+      >
+        <div className="space-y-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
+          <div className="max-h-[50vh] overflow-y-auto space-y-2 rounded-md border p-2">
+            {selectableTodos.length === 0 ? (
+              <p className="text-sm text-muted-foreground px-2 py-3">No to-dos available from current filters.</p>
+            ) : (
+              selectableTodos.map((todo) => {
+                const checked = selectedTodoIds.includes(todo.id);
+                const label = todo.context_name || "To-Do";
+                return (
+                  <label
+                    key={todo.id}
+                    className="flex items-start gap-2 rounded-md px-2 py-2 hover:bg-muted/40 cursor-pointer"
+                  >
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={(value) => toggleSelectedTodo(todo.id, value === true)}
+                      className="mt-0.5"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{label}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-2">{todo.body}</p>
+                    </div>
+                  </label>
+                );
+              })
+            )}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={() => setBulkEditPromptOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={confirmBulkEdit}
+              disabled={selectedTodoIds.length === 0}
+            >
+              Load Selected ({selectedTodoIds.length})
+            </Button>
+          </div>
+        </div>
+      </FormModal>
+
+      <FormModal
+        open={bulkDraftMergePromptOpen}
+        onOpenChange={setBulkDraftMergePromptOpen}
+        title="Existing To-Dos in Draft"
+        description="Choose how to load selected to-dos into the bulk form."
+        headerClassName="text-center"
+      >
+        <div className="space-y-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
+          <p className="text-sm text-muted-foreground">
+            You already have unsubmitted to-dos in the bulk form.
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setBulkDraftMergePromptOpen(false);
+                setPendingBulkPrefillRows([]);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => applyBulkEditRows(pendingBulkPrefillRows, "overwrite")}
+            >
+              Overwrite
+            </Button>
+            <Button
+              type="button"
+              onClick={() => applyBulkEditRows(pendingBulkPrefillRows, "append")}
+            >
+              Add to Existing
+            </Button>
+          </div>
+        </div>
+      </FormModal>
     </>
   );
 }
@@ -605,6 +1148,10 @@ function TodoRow({
   onMarkDone,
   onTap,
   showCheckbox = false,
+  currentUserId,
+  showAssigneeAvatars = false,
+  highlightOtherPublishers = false,
+  participantsById = {},
   layoutId,
   layoutTransition,
   rowIndex,
@@ -614,6 +1161,10 @@ function TodoRow({
   onMarkDone: (todo: MyOpenCallTodoItem, checked: boolean) => void;
   onTap?: (todo: MyOpenCallTodoItem) => void;
   showCheckbox?: boolean;
+  currentUserId?: string;
+  showAssigneeAvatars?: boolean;
+  highlightOtherPublishers?: boolean;
+  participantsById?: Record<string, { first_name: string; last_name: string; avatar_url?: string }>;
   layoutId?: string;
   layoutTransition?: { type: "spring"; stiffness: number; damping: number };
   rowIndex?: number;
@@ -626,6 +1177,12 @@ function TodoRow({
   const ageBorderClass = isDone ? "" : getTodoAgeBorderClass(displayDate);
   const isHouseholder = !!todo.householder_id;
   const isEvenRow = typeof rowIndex === "number" && rowIndex % 2 === 1;
+  const isMine = !currentUserId || todo.publisher_id === currentUserId || todo.partner_id === currentUserId;
+  const hasOtherPublisherHighlight = highlightOtherPublishers && !isMine;
+  const assigneeIds = [todo.publisher_id, todo.partner_id]
+    .filter((value): value is string => !!value)
+    .filter((value, idx, arr) => arr.indexOf(value) === idx)
+    .slice(0, 2);
   const content = (
     <>
       {showCheckbox ? (
@@ -673,6 +1230,22 @@ function TodoRow({
               ) : null}
             </>
           ) : null}
+          {showAssigneeAvatars && assigneeIds.length > 0 ? (
+            <div className="inline-flex items-center gap-1 shrink-0">
+              {assigneeIds.map((id) => {
+                const profile = participantsById[id];
+                const fullName = profile ? `${profile.first_name} ${profile.last_name}`.trim() : "Assigned";
+                return (
+                  <Avatar key={`${todo.id}-${id}`} className="h-5 w-5 border border-border/70">
+                    {profile?.avatar_url ? <AvatarImage src={profile.avatar_url} alt={fullName} /> : null}
+                    <AvatarFallback className="text-[10px]">
+                      {getInitialsFromName(fullName || "A")}
+                    </AvatarFallback>
+                  </Avatar>
+                );
+              })}
+            </div>
+          ) : null}
           {displayDate ? (
             <span className="text-xs text-muted-foreground shrink-0 ml-auto pl-2 pr-1">
               {formatTodoDate(displayDate)}
@@ -697,9 +1270,13 @@ function TodoRow({
   const finalClassName = cn(
     "flex items-center gap-2 text-sm group rounded-md",
     isEvenRow && "bg-muted/30",
+    hasOtherPublisherHighlight && "border border-dashed border-muted-foreground/45 dark:border-muted-foreground/35 px-1.5 py-1",
     ageBorderClass && "pl-2",
     ageBorderClass
   );
+  const otherPublisherStyle = hasOtherPublisherHighlight
+    ? ({ borderLeftStyle: "solid" } as const)
+    : undefined;
   if (layoutId) {
     return (
       <motion.li
@@ -707,10 +1284,15 @@ function TodoRow({
         layout
         transition={layoutTransition}
         className={finalClassName}
+        style={otherPublisherStyle}
       >
         {content}
       </motion.li>
     );
   }
-  return <li className={finalClassName}>{content}</li>;
+  return (
+    <li className={finalClassName} style={otherPublisherStyle}>
+      {content}
+    </li>
+  );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactElement } from "react";
+import { useEffect, useMemo, useState, type ReactElement } from "react";
 import { FormModal } from "@/components/shared/FormModal";
 import { FabMenu } from "@/components/shared/FabMenu";
 import { EstablishmentForm } from "@/components/business/EstablishmentForm";
@@ -64,6 +64,40 @@ export function UnifiedFab({
   congregationSelectedHouseholder
 }: UnifiedFabProps) {
   const [openKey, setOpenKey] = useState<FabActionKey>(null);
+  const [bulkTodoKind, setBulkTodoKind] = useState<"new" | "edit" | "mixed">("new");
+
+  const getDraftBulkTodoKind = (): "new" | "edit" | "mixed" => {
+    try {
+      if (typeof window === "undefined") return "new";
+      const raw = window.localStorage.getItem("business:bulk-todos:draft:v1");
+      if (!raw) return "new";
+      const parsed = JSON.parse(raw) as { rows?: Array<{ sourceTodoId?: string | null }> };
+      const rows = Array.isArray(parsed?.rows) ? parsed.rows : [];
+      const hasEdit = rows.some((row) => !!row?.sourceTodoId);
+      const hasNew = rows.some((row) => !row?.sourceTodoId);
+      if (hasEdit && hasNew) return "mixed";
+      if (hasEdit) return "edit";
+      return "new";
+    } catch {
+      return "new";
+    }
+  };
+
+  useEffect(() => {
+    const handleOpenBulkTodos = (event: Event) => {
+      const detail = (event as CustomEvent<{ mode?: "create" | "edit" }>).detail;
+      if (detail?.mode === "edit") {
+        setBulkTodoKind("edit");
+      } else {
+        setBulkTodoKind(getDraftBulkTodoKind());
+      }
+      setOpenKey("business-bulk-todos");
+    };
+    window.addEventListener("open-business-bulk-todos", handleOpenBulkTodos as EventListener);
+    return () => {
+      window.removeEventListener("open-business-bulk-todos", handleOpenBulkTodos as EventListener);
+    };
+  }, []);
 
   const businessEstablishmentId =
     selectedHouseholder?.establishment_id || selectedEstablishment?.id || undefined;
@@ -149,7 +183,12 @@ export function UnifiedFab({
           label: action.label,
           icon: action.icon,
           variant: action.variant,
-          onClick: () => setOpenKey(action.key)
+          onClick: () => {
+            if (action.key === "business-bulk-todos") {
+              setBulkTodoKind(getDraftBulkTodoKind());
+            }
+            setOpenKey(action.key);
+          }
         }))}
       />
 
@@ -216,15 +255,33 @@ export function UnifiedFab({
 
       <FormModal
         open={openKey === "business-bulk-todos"}
-        onOpenChange={(open) => setOpenKey(open ? "business-bulk-todos" : null)}
-        title="New To-Dos"
-        description="Create multiple to-dos in one submission."
+        onOpenChange={(open) => {
+          setOpenKey(open ? "business-bulk-todos" : null);
+        }}
+        title={
+          bulkTodoKind === "mixed"
+            ? "Edit and New To-Dos"
+            : bulkTodoKind === "edit"
+              ? "Edit To-Dos"
+              : "New To-Dos"
+        }
+        description={
+          bulkTodoKind === "mixed"
+            ? "Edit existing and create new to-dos in one submission."
+            : bulkTodoKind === "edit"
+              ? "Edit selected to-dos in one submission."
+              : "Create multiple to-dos in one submission."
+        }
         headerClassName="text-center"
       >
         <BulkTodoForm
           establishments={establishments}
           householders={householders}
-          onSaved={() => setOpenKey(null)}
+          onDraftKindChange={setBulkTodoKind}
+          onSaved={() => {
+            setOpenKey(null);
+            setBulkTodoKind("new");
+          }}
         />
       </FormModal>
 

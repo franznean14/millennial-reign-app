@@ -4,7 +4,7 @@ import React, { type RefObject } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Filter as FilterIcon, Search, User, UserCheck, X, Building2 } from "lucide-react";
+import { Filter as FilterIcon, SquarePen, Search, User, UserCheck, Users, X, Building2 } from "lucide-react";
 import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
 import { cn } from "@/lib/utils";
 import type { FilterBadge } from "@/lib/utils/filter-badges";
@@ -38,6 +38,10 @@ interface FilterControlsProps {
   onRemoveBadge: (badge: FilterBadge) => void;
   containerClassName?: string;
   maxWidthClassName?: string;
+  preserveActionButtonsWhenTogglesActive?: boolean;
+  showEditButton?: boolean;
+  editLabel?: string;
+  onEditClick?: () => void;
 }
 
 export function FilterControls({
@@ -66,7 +70,11 @@ export function FilterControls({
   onClearFilters,
   onRemoveBadge,
   containerClassName,
-  maxWidthClassName
+  maxWidthClassName,
+  preserveActionButtonsWhenTogglesActive = false,
+  showEditButton = false,
+  editLabel = "Edit",
+  onEditClick
 }: FilterControlsProps) {
   const hasActiveFilters = filterBadges.length > 0;
 
@@ -191,6 +199,125 @@ export function FilterControls({
               <X className="h-4 w-4 text-primary-foreground" />
             </div>
           </Button>
+          {preserveActionButtonsWhenTogglesActive && showMyFilter && myActive && onMyClear && (
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              className="h-9 rounded-full px-3 flex items-center gap-2 text-primary-foreground"
+              onClick={onMyClear}
+              aria-label={myLabel}
+            >
+              <UserCheck className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
+              <span className="text-sm whitespace-nowrap text-primary-foreground">{myLabel}</span>
+              <X className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
+            </Button>
+          )}
+          {preserveActionButtonsWhenTogglesActive && showMyFilter && !myActive && onMyActivate && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 rounded-full flex-shrink-0"
+              onClick={onMyActivate}
+              aria-pressed={false}
+              aria-label={myLabel}
+              title={myLabel}
+            >
+              <User className="h-4 w-4 text-foreground" />
+            </Button>
+          )}
+          {preserveActionButtonsWhenTogglesActive && (bwiActive || householderActive) && onBwiActivate && (
+            <Button
+              type="button"
+              variant={householderActive ? "outline" : "default"}
+              size="sm"
+              className={cn(
+                "h-9 rounded-full flex items-center gap-2",
+                householderActive ? "px-2" : "px-3"
+              )}
+              onClick={householderActive ? onBwiActivate : onBwiClear}
+              aria-label={bwiLabel}
+            >
+              <Building2 className={cn(
+                "h-4 w-4 flex-shrink-0",
+                householderActive ? "text-foreground" : "text-primary-foreground"
+              )} />
+              {!householderActive && (
+                <>
+                  <span className="text-sm whitespace-nowrap text-primary-foreground">{bwiLabel}</span>
+                  <X className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
+                </>
+              )}
+            </Button>
+          )}
+          {preserveActionButtonsWhenTogglesActive && (bwiActive || householderActive) && onHouseholderActivate && !householderActive && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 rounded-full flex-shrink-0"
+              onClick={onHouseholderActivate}
+              aria-label={householderLabel}
+              title={householderLabel}
+            >
+              <Users className="h-4 w-4 text-foreground" />
+            </Button>
+          )}
+          {preserveActionButtonsWhenTogglesActive && householderActive && onHouseholderClear && (
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              className="h-9 rounded-full px-3 flex items-center gap-2 text-primary-foreground"
+              onClick={onHouseholderClear}
+              aria-label={householderLabel}
+            >
+              <Users className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
+              <span className="text-sm whitespace-nowrap text-primary-foreground">{householderLabel}</span>
+              <X className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
+            </Button>
+          )}
+          {preserveActionButtonsWhenTogglesActive && !bwiActive && !householderActive && onBwiActivate && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 rounded-full flex-shrink-0"
+              onClick={onBwiActivate}
+              aria-pressed={false}
+              aria-label={bwiLabel}
+              title={bwiLabel}
+            >
+              <Building2 className="h-4 w-4 text-foreground" />
+            </Button>
+          )}
+          {preserveActionButtonsWhenTogglesActive && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 rounded-full flex-shrink-0"
+              onClick={onSearchActivate}
+              aria-label="Search"
+              title="Search"
+            >
+              <Search className="h-4 w-4 text-foreground" />
+            </Button>
+          )}
+          {preserveActionButtonsWhenTogglesActive && showEditButton && onEditClick && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 rounded-full flex-shrink-0"
+              onClick={onEditClick}
+              aria-label={editLabel}
+              title={editLabel}
+            >
+              <SquarePen className="h-4 w-4 text-foreground" />
+            </Button>
+          )}
         </div>
       ) : (showMyFilter && myActive) || bwiActive || householderActive ? (
         <div
@@ -208,6 +335,20 @@ export function FilterControls({
               <UserCheck className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
               <span className="text-sm whitespace-nowrap text-primary-foreground">{myLabel}</span>
               <X className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
+            </Button>
+          )}
+          {showMyFilter && !myActive && onMyActivate && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 rounded-full flex-shrink-0"
+              onClick={onMyActivate}
+              aria-pressed={false}
+              aria-label={myLabel}
+              title={myLabel}
+            >
+              <User className="h-4 w-4 text-foreground" />
             </Button>
           )}
           {(bwiActive || householderActive) && onBwiActivate && (
@@ -244,7 +385,7 @@ export function FilterControls({
               aria-label={householderLabel}
               title={householderLabel}
             >
-              <User className="h-4 w-4 text-foreground" />
+              <Users className="h-4 w-4 text-foreground" />
             </Button>
           )}
           {householderActive && onHouseholderClear && (
@@ -256,10 +397,63 @@ export function FilterControls({
               onClick={onHouseholderClear}
               aria-label={householderLabel}
             >
-              <User className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
+              <Users className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
               <span className="text-sm whitespace-nowrap text-primary-foreground">{householderLabel}</span>
               <X className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
             </Button>
+          )}
+          {preserveActionButtonsWhenTogglesActive && !bwiActive && !householderActive && onBwiActivate && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 rounded-full flex-shrink-0"
+              onClick={onBwiActivate}
+              aria-pressed={false}
+              aria-label={bwiLabel}
+              title={bwiLabel}
+            >
+              <Building2 className="h-4 w-4 text-foreground" />
+            </Button>
+          )}
+          {preserveActionButtonsWhenTogglesActive && (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 rounded-full flex-shrink-0"
+                onClick={onSearchActivate}
+                aria-label="Search"
+                title="Search"
+              >
+                <Search className="h-4 w-4 text-foreground" />
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 rounded-full flex-shrink-0"
+                onClick={onOpenFilters}
+                aria-label="Filter"
+                title="Filter"
+              >
+                <FilterIcon className="h-4 w-4 text-foreground" />
+              </Button>
+              {showEditButton && onEditClick && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  className="h-9 w-9 rounded-full flex-shrink-0"
+                  onClick={onEditClick}
+                  aria-label={editLabel}
+                  title={editLabel}
+                >
+                  <SquarePen className="h-4 w-4 text-foreground" />
+                </Button>
+              )}
+            </>
           )}
         </div>
       ) : (
@@ -317,6 +511,19 @@ export function FilterControls({
           >
             <FilterIcon className="h-4 w-4 text-foreground" />
           </Button>
+          {showEditButton && onEditClick && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 rounded-full flex-shrink-0"
+              onClick={onEditClick}
+              aria-label={editLabel}
+              title={editLabel}
+            >
+              <SquarePen className="h-4 w-4 text-foreground" />
+            </Button>
+          )}
         </div>
       )}
     </>

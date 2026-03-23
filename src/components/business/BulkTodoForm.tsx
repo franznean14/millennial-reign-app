@@ -10,7 +10,7 @@ import { ChevronDown, ChevronUp, Plus, Search, Trash2, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
-import { addStandaloneTodo, getBwiParticipants, type EstablishmentWithDetails, type HouseholderWithDetails } from "@/lib/db/business";
+import { addStandaloneTodo, getBwiParticipants, updateTodoForBulkEdit, type EstablishmentWithDetails, type HouseholderWithDetails } from "@/lib/db/business";
 import { getInitialsFromName } from "@/lib/utils/visit-history-ui";
 import { getBestStatus } from "@/lib/utils/status-hierarchy";
 import { formatStatusText } from "@/lib/utils/formatters";
@@ -24,12 +24,21 @@ type BulkTodoDraftRow = {
   body: string;
   slots: string[];
   dueDate: string | null;
+  sourceTodoId?: string | null;
+  sourceCallId?: string | null;
+  original?: {
+    targetKey: string;
+    body: string;
+    slots: string[];
+    dueDate: string | null;
+  };
 };
 
 interface BulkTodoFormProps {
   establishments: EstablishmentWithDetails[];
   householders: HouseholderWithDetails[];
   onSaved: () => void;
+  onDraftKindChange?: (kind: "new" | "edit" | "mixed") => void;
 }
 
 type PersonAvatar = {
@@ -95,7 +104,12 @@ const getStatusPriority = (status: string | null | undefined): number => {
   }
 };
 
-export function BulkTodoForm({ establishments, householders, onSaved }: BulkTodoFormProps) {
+export function BulkTodoForm({
+  establishments,
+  householders,
+  onSaved,
+  onDraftKindChange,
+}: BulkTodoFormProps) {
   const isMobile = useMobile();
   const [rows, setRows] = useState<BulkTodoDraftRow[]>([createDraftRow()]);
   const [draftHydrated, setDraftHydrated] = useState(false);
@@ -125,7 +139,10 @@ export function BulkTodoForm({ establishments, householders, onSaved }: BulkTodo
     try {
       const raw = window.localStorage.getItem(DRAFT_STORAGE_KEY);
       if (!raw) return;
-      const parsed = JSON.parse(raw) as { rows?: Array<Partial<BulkTodoDraftRow> & Record<string, unknown>> };
+      const parsed = JSON.parse(raw) as {
+        rows?: Array<Partial<BulkTodoDraftRow> & Record<string, unknown>>;
+        targetSearchByRow?: Record<string, string>;
+      };
       if (Array.isArray(parsed?.rows) && parsed.rows.length > 0) {
         // Support migration from initial v1 structure.
         const migratedRows: BulkTodoDraftRow[] = parsed.rows.map((rawRow) => {
@@ -153,9 +170,40 @@ export function BulkTodoForm({ establishments, householders, onSaved }: BulkTodo
             body: typeof rawRow.body === "string" ? rawRow.body : "",
             slots,
             dueDate: typeof rawRow.dueDate === "string" ? rawRow.dueDate : null,
+            sourceTodoId: typeof rawRow.sourceTodoId === "string" ? rawRow.sourceTodoId : null,
+            sourceCallId: typeof rawRow.sourceCallId === "string" ? rawRow.sourceCallId : null,
+            original:
+              rawRow.original && typeof rawRow.original === "object"
+                ? {
+                    targetKey:
+                      typeof (rawRow.original as Record<string, unknown>).targetKey === "string"
+                        ? ((rawRow.original as Record<string, unknown>).targetKey as string)
+                        : targetKey,
+                    body:
+                      typeof (rawRow.original as Record<string, unknown>).body === "string"
+                        ? ((rawRow.original as Record<string, unknown>).body as string)
+                        : (typeof rawRow.body === "string" ? rawRow.body : ""),
+                    slots: Array.isArray((rawRow.original as Record<string, unknown>).slots)
+                      ? ((rawRow.original as Record<string, unknown>).slots as unknown[])
+                          .filter((value): value is string => typeof value === "string")
+                          .slice(0, 2)
+                      : slots,
+                    dueDate:
+                      typeof (rawRow.original as Record<string, unknown>).dueDate === "string"
+                        ? ((rawRow.original as Record<string, unknown>).dueDate as string)
+                        : (typeof rawRow.dueDate === "string" ? rawRow.dueDate : null),
+                  }
+                : undefined,
           };
         });
         setRows(migratedRows.length > 0 ? migratedRows : [createDraftRow()]);
+      }
+      if (parsed?.targetSearchByRow && typeof parsed.targetSearchByRow === "object") {
+        const nextSearchByRow: Record<string, string> = {};
+        Object.entries(parsed.targetSearchByRow).forEach(([key, value]) => {
+          if (typeof value === "string") nextSearchByRow[key] = value;
+        });
+        setTargetSearchByRow(nextSearchByRow);
       }
     } catch (error) {
       console.error("[BulkTodoForm] Failed to restore draft:", error);
@@ -167,11 +215,60 @@ export function BulkTodoForm({ establishments, householders, onSaved }: BulkTodo
   useEffect(() => {
     if (!draftHydrated) return;
     try {
-      window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({ rows }));
+      window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify({ rows, targetSearchByRow }));
     } catch (error) {
       console.error("[BulkTodoForm] Failed to persist draft:", error);
     }
-  }, [rows, draftHydrated]);
+  }, [rows, targetSearchByRow, draftHydrated]);
+
+  useEffect(() => {
+    const handlePrefill = (event: Event) => {
+      const custom = event as CustomEvent<{ rows?: Array<Partial<BulkTodoDraftRow>> }>;
+      const incomingRows = Array.isArray(custom.detail?.rows) ? custom.detail.rows : [];
+      if (incomingRows.length === 0) return;
+      const normalizedRows: BulkTodoDraftRow[] = incomingRows.map((row, index) => ({
+        id: typeof row.id === "string" && row.id ? row.id : `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
+        targetKey: typeof row.targetKey === "string" ? row.targetKey : "none",
+        body: typeof row.body === "string" ? row.body : "",
+        slots: Array.isArray(row.slots) ? row.slots.filter((value): value is string => typeof value === "string").slice(0, 2) : [],
+        dueDate: typeof row.dueDate === "string" ? row.dueDate : null,
+        sourceTodoId: typeof row.sourceTodoId === "string" ? row.sourceTodoId : null,
+        sourceCallId: typeof row.sourceCallId === "string" ? row.sourceCallId : null,
+        original:
+          row.original && typeof row.original === "object"
+            ? {
+                targetKey:
+                  typeof (row.original as Record<string, unknown>).targetKey === "string"
+                    ? ((row.original as Record<string, unknown>).targetKey as string)
+                    : (typeof row.targetKey === "string" ? row.targetKey : "none"),
+                body:
+                  typeof (row.original as Record<string, unknown>).body === "string"
+                    ? ((row.original as Record<string, unknown>).body as string)
+                    : (typeof row.body === "string" ? row.body : ""),
+                slots: Array.isArray((row.original as Record<string, unknown>).slots)
+                  ? ((row.original as Record<string, unknown>).slots as unknown[])
+                      .filter((value): value is string => typeof value === "string")
+                      .slice(0, 2)
+                  : (Array.isArray(row.slots) ? row.slots.filter((value): value is string => typeof value === "string").slice(0, 2) : []),
+                dueDate:
+                  typeof (row.original as Record<string, unknown>).dueDate === "string"
+                    ? ((row.original as Record<string, unknown>).dueDate as string)
+                    : (typeof row.dueDate === "string" ? row.dueDate : null),
+              }
+            : undefined,
+      }));
+      setRows(normalizedRows.length > 0 ? normalizedRows : [createDraftRow()]);
+      setCollapsedByRow({});
+      setTargetPickerOpenByRow({});
+      setTargetSearchByRow({});
+      setAssigneeDrawerOpenByRow({});
+    };
+
+    window.addEventListener("business-bulk-todos-prefill", handlePrefill as EventListener);
+    return () => {
+      window.removeEventListener("business-bulk-todos-prefill", handlePrefill as EventListener);
+    };
+  }, []);
 
   const householdersById = useMemo(() => {
     const map = new Map<string, HouseholderWithDetails>();
@@ -344,42 +441,94 @@ export function BulkTodoForm({ establishments, householders, onSaved }: BulkTodo
     });
   };
 
+  const isRowBlank = (row: BulkTodoDraftRow) =>
+    row.targetKey === "none" &&
+    !row.body.trim() &&
+    row.slots.length === 0 &&
+    !row.dueDate;
+
+  const isRowComplete = (row: BulkTodoDraftRow) =>
+    row.targetKey !== "none" &&
+    !!row.body.trim() &&
+    row.slots.length >= 1;
+
+  const normalizeRowForCompare = (row: BulkTodoDraftRow) => ({
+    targetKey: row.targetKey,
+    body: row.body.trim(),
+    slots: row.slots.slice(0, 2),
+    dueDate: row.dueDate ?? null,
+  });
+
+  const hasRowChanged = (row: BulkTodoDraftRow) => {
+    if (!row.sourceTodoId || !row.original) return false;
+    const current = normalizeRowForCompare(row);
+    const originalBody = row.original.body.trim();
+    const originalDueDate = row.original.dueDate ?? null;
+    const originalSlots = row.original.slots.slice(0, 2);
+    return (
+      current.targetKey !== row.original.targetKey ||
+      current.body !== originalBody ||
+      current.dueDate !== originalDueDate ||
+      current.slots.length !== originalSlots.length ||
+      current.slots.some((slot, index) => slot !== originalSlots[index])
+    );
+  };
+
+  const newRowsCount = rows.filter((row) => !row.sourceTodoId).length;
+  const editRowsCount = rows.filter((row) => !!row.sourceTodoId).length;
+  const draftKind: "new" | "edit" | "mixed" =
+    newRowsCount > 0 && editRowsCount > 0
+      ? "mixed"
+      : editRowsCount > 0
+        ? "edit"
+        : "new";
+
+  useEffect(() => {
+    onDraftKindChange?.(draftKind);
+  }, [draftKind, onDraftKindChange]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (saving) return;
 
-    const isRowBlank = (row: BulkTodoDraftRow) =>
-      row.targetKey === "none" &&
-      !row.body.trim() &&
-      row.slots.length === 0 &&
-      !row.dueDate;
-
-    const isRowComplete = (row: BulkTodoDraftRow) =>
-      row.targetKey !== "none" &&
-      !!row.body.trim() &&
-      row.slots.length >= 1 &&
-      !!row.dueDate;
-
-    const candidateRows = rows.filter((row) => !isRowBlank(row));
-    if (candidateRows.length === 0) {
-      toast.error("Add at least one complete to-do before submitting.");
-      return;
-    }
-
-    const firstIncompleteIndex = rows.findIndex((row) => !isRowBlank(row) && !isRowComplete(row));
-    if (firstIncompleteIndex >= 0) {
-      toast.error(`Please complete required fields for to-do ${firstIncompleteIndex + 1}.`);
-      return;
-    }
-
     setSaving(true);
     try {
-      const payloads = candidateRows.map((row) => {
+      const changedEditRows = rows.filter((row) => !!row.sourceTodoId && hasRowChanged(row));
+      const newCandidateRows = rows.filter((row) => !row.sourceTodoId && !isRowBlank(row));
+      if (changedEditRows.length === 0 && newCandidateRows.length === 0) {
+        toast.error("No changes to submit.");
+        return;
+      }
+
+      const firstInvalidChangedEditIndex = rows.findIndex((row) => !!row.sourceTodoId && hasRowChanged(row) && !isRowComplete(row));
+      if (firstInvalidChangedEditIndex >= 0) {
+        toast.error(`Please complete required fields for to-do ${firstInvalidChangedEditIndex + 1}.`);
+        return;
+      }
+      const firstInvalidNewIndex = rows.findIndex((row) => !row.sourceTodoId && !isRowBlank(row) && !isRowComplete(row));
+      if (firstInvalidNewIndex >= 0) {
+        toast.error(`Please complete required fields for to-do ${firstInvalidNewIndex + 1}.`);
+        return;
+      }
+
+      const invalidTargetChangeOnCallRow = changedEditRows.find(
+        (row) => !!row.sourceCallId && !!row.original && row.targetKey !== row.original.targetKey
+      );
+      if (invalidTargetChangeOnCallRow) {
+        toast.error("Target cannot be changed for call-linked to-dos.");
+        return;
+      }
+
+      const changedCompleteEditRows = changedEditRows.filter(isRowComplete);
+      const completeNewRows = newCandidateRows.filter(isRowComplete);
+
+      type OpResult = { kind: "edit" | "new"; row: BulkTodoDraftRow; ok: boolean };
+      const updateTasks = changedCompleteEditRows.map(async (row): Promise<OpResult> => {
         const [targetType, targetId] = row.targetKey.split(":");
         const selectedHouseholder = targetType === "householder" ? householdersById.get(targetId) : undefined;
         const publisherId = row.slots[0] ?? null;
         const partnerId = row.slots[1] ?? null;
-        return {
+        const ok = await updateTodoForBulkEdit(row.sourceTodoId as string, {
           establishment_id:
             targetType === "establishment"
               ? targetId || null
@@ -390,38 +539,81 @@ export function BulkTodoForm({ establishments, householders, onSaved }: BulkTodo
           deadline_date: row.dueDate ?? null,
           publisher_id: publisherId,
           partner_id: partnerId,
-        };
+        });
+        return { kind: "edit", row, ok };
       });
 
-      const results = await Promise.allSettled(payloads.map((payload) => addStandaloneTodo(payload)));
-      const failedRows: BulkTodoDraftRow[] = [];
-      let successCount = 0;
+      const createTasks = completeNewRows.map(async (row): Promise<OpResult> => {
+        const [targetType, targetId] = row.targetKey.split(":");
+        const selectedHouseholder = targetType === "householder" ? householdersById.get(targetId) : undefined;
+        const publisherId = row.slots[0] ?? null;
+        const partnerId = row.slots[1] ?? null;
+        const created = await addStandaloneTodo({
+          establishment_id:
+            targetType === "establishment"
+              ? targetId || null
+              : selectedHouseholder?.establishment_id ?? null,
+          householder_id:
+            targetType === "householder" ? targetId || null : null,
+          body: row.body.trim(),
+          deadline_date: row.dueDate ?? null,
+          publisher_id: publisherId,
+          partner_id: partnerId,
+        });
+        return { kind: "new", row, ok: !!created };
+      });
 
-      results.forEach((result, index) => {
-        if (result.status === "fulfilled" && result.value) {
-          successCount += 1;
+      const settled = await Promise.allSettled([...updateTasks, ...createTasks]);
+      const operationResults: OpResult[] = settled.map((result, index) => {
+        if (result.status === "fulfilled") return result.value;
+        const opList = [...changedCompleteEditRows, ...completeNewRows];
+        const row = opList[index];
+        const kind: "edit" | "new" = index < changedCompleteEditRows.length ? "edit" : "new";
+        return { kind, row, ok: false };
+      });
+
+      const successCount = operationResults.filter((item) => item.ok).length;
+      const totalOps = operationResults.length;
+      if (successCount === totalOps) {
+        const editCount = changedCompleteEditRows.length;
+        const newCount = completeNewRows.length;
+        if (editCount > 0 && newCount > 0) {
+          toast.success(`Updated ${editCount} and added ${newCount} to-dos.`);
+        } else if (editCount > 0) {
+          toast.success(`Updated ${editCount} to-do${editCount > 1 ? "s" : ""}.`);
         } else {
-          failedRows.push(candidateRows[index]);
+          toast.success(`Added ${newCount} to-do${newCount > 1 ? "s" : ""}.`);
         }
-      });
-
-      if (successCount === rows.length) {
-        toast.success(`Added ${successCount} to-do${successCount > 1 ? "s" : ""}.`);
         window.localStorage.removeItem(DRAFT_STORAGE_KEY);
         setRows([createDraftRow()]);
         onSaved();
         return;
       }
 
-      if (successCount > 0) {
-        toast.error(
-          `${failedRows.length} to-do${failedRows.length > 1 ? "s" : ""} failed. Keeping only failed items in draft.`
-        );
-        setRows(failedRows);
-        return;
-      }
+      const successRowIds = new Set(operationResults.filter((item) => item.ok).map((item) => item.row.id));
+      setRows((prev) =>
+        prev
+          .filter((row) => {
+            if (successRowIds.has(row.id) && !row.sourceTodoId) return false;
+            return true;
+          })
+          .map((row) => {
+            if (!successRowIds.has(row.id) || !row.sourceTodoId) return row;
+            const normalized = normalizeRowForCompare(row);
+            return {
+              ...row,
+              original: {
+                targetKey: normalized.targetKey,
+                body: normalized.body,
+                slots: normalized.slots,
+                dueDate: normalized.dueDate,
+              },
+            };
+          })
+      );
 
-      toast.error("Failed to add to-dos.");
+      const failedCount = totalOps - successCount;
+      toast.error(`${failedCount} to-do${failedCount > 1 ? "s" : ""} failed. Keeping failed items in draft.`);
     } finally {
       setSaving(false);
     }
@@ -446,44 +638,67 @@ export function BulkTodoForm({ establishments, householders, onSaved }: BulkTodo
   };
 
   const getParticipantById = (id: string) => participants.find((participant) => participant.id === id);
-  const isRowBlank = (row: BulkTodoDraftRow) =>
-    row.targetKey === "none" &&
-    !row.body.trim() &&
-    row.slots.length === 0 &&
-    !row.dueDate;
-  const isRowComplete = (row: BulkTodoDraftRow) =>
-    row.targetKey !== "none" &&
-    !!row.body.trim() &&
-    row.slots.length >= 1 &&
-    !!row.dueDate;
-  const submittableCount = rows.filter((row) => !isRowBlank(row) && isRowComplete(row)).length;
-  const canSubmit = !saving && submittableCount > 0;
+  const submittableNewCount = rows.filter((row) => !row.sourceTodoId && !isRowBlank(row) && isRowComplete(row)).length;
+  const submittableEditCount = rows.filter((row) => !!row.sourceTodoId && hasRowChanged(row) && isRowComplete(row)).length;
+  const submitCount = submittableNewCount + submittableEditCount;
+  const canSubmit = !saving && submitCount > 0;
 
   return (
     <form className="space-y-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]" onSubmit={handleSubmit}>
       {rows.map((row, index) => (
-        <div key={row.id} className="rounded-lg border p-3 space-y-3">
-          <div className="flex items-center justify-between">
-            <p className="text-sm font-medium truncate pr-2">
-              {(() => {
-                if (row.targetKey === "none") return `To-Do ${index + 1}`;
-                const [targetType, targetId] = row.targetKey.split(":");
-                if (targetType === "establishment") {
-                  return establishmentById.get(targetId)?.name || `To-Do ${index + 1}`;
-                }
-                const householder = householdersById.get(targetId);
-                return householder?.name || `To-Do ${index + 1}`;
-              })()}
-            </p>
+        <div
+          key={row.id}
+          className={
+            "rounded-lg border p-3 space-y-3 " +
+            (
+              (row.sourceTodoId && hasRowChanged(row) && isRowComplete(row)) ||
+              (!row.sourceTodoId && !isRowBlank(row) && isRowComplete(row))
+                ? "border-emerald-400/70 bg-emerald-500/10 shadow-[0_0_0_1px_rgba(16,185,129,0.25),0_8px_22px_-16px_rgba(16,185,129,0.65)]"
+                : ""
+            )
+          }
+        >
+          <div
+            className="flex items-center justify-between cursor-pointer"
+            role="button"
+            tabIndex={0}
+            onClick={() =>
+              setCollapsedByRow((prev) => ({ ...prev, [row.id]: !prev[row.id] }))
+            }
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                setCollapsedByRow((prev) => ({ ...prev, [row.id]: !prev[row.id] }));
+              }
+            }}
+            aria-label={collapsedByRow[row.id] ? "Expand to-do card" : "Collapse to-do card"}
+          >
+            <div className="min-w-0 pr-2">
+              <p className="text-sm font-medium truncate">
+                {(() => {
+                  if (row.targetKey === "none") return `To-Do ${index + 1}`;
+                  const [targetType, targetId] = row.targetKey.split(":");
+                  if (targetType === "establishment") {
+                    return establishmentById.get(targetId)?.name || `To-Do ${index + 1}`;
+                  }
+                  const householder = householdersById.get(targetId);
+                  return householder?.name || `To-Do ${index + 1}`;
+                })()}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                {row.sourceTodoId ? "(edit)" : "(new)"}
+              </p>
+            </div>
             <div className="flex items-center gap-1">
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8"
-                onClick={() =>
-                  setCollapsedByRow((prev) => ({ ...prev, [row.id]: !prev[row.id] }))
-                }
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setCollapsedByRow((prev) => ({ ...prev, [row.id]: !prev[row.id] }));
+                }}
                 aria-label={collapsedByRow[row.id] ? "Expand to-do card" : "Collapse to-do card"}
               >
                 {collapsedByRow[row.id] ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
@@ -493,7 +708,10 @@ export function BulkTodoForm({ establishments, householders, onSaved }: BulkTodo
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8"
-                onClick={() => removeRow(row.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeRow(row.id);
+                }}
                 aria-label={`Remove to-do ${index + 1}`}
               >
                 <Trash2 className="h-4 w-4" />
@@ -553,14 +771,23 @@ export function BulkTodoForm({ establishments, householders, onSaved }: BulkTodo
             <>
               <div className="grid gap-1">
                 <Label>Establishment / Contact</Label>
-                {isMobile ? (
+                {row.sourceTodoId ? (
+                  <Button type="button" variant="outline" className="justify-start font-normal" disabled>
+                    {(() => {
+                      if (row.targetKey === "none") return "No target";
+                      const [targetType, targetId] = row.targetKey.split(":");
+                      if (targetType === "establishment") {
+                        return establishmentById.get(targetId)?.name || "Selected establishment";
+                      }
+                      const hh = householdersById.get(targetId);
+                      return hh ? `${hh.name}${hh.establishment_name ? ` - ${hh.establishment_name}` : ""}` : "Selected contact";
+                    })()}
+                  </Button>
+                ) : isMobile ? (
                   <Drawer
                     open={!!targetPickerOpenByRow[row.id]}
                     onOpenChange={(open) => {
                       setTargetPickerOpenByRow((prev) => ({ ...prev, [row.id]: open }));
-                      if (!open) {
-                        setTargetSearchByRow((prev) => ({ ...prev, [row.id]: "" }));
-                      }
                     }}
                   >
                     <DrawerTrigger asChild>
@@ -606,7 +833,6 @@ export function BulkTodoForm({ establishments, householders, onSaved }: BulkTodo
                                 onClick={() => {
                                   updateRow(row.id, { targetKey: option.key });
                                   setTargetPickerOpenByRow((prev) => ({ ...prev, [row.id]: false }));
-                                  setTargetSearchByRow((prev) => ({ ...prev, [row.id]: "" }));
                                 }}
                               >
                                 <div className="text-left min-w-0">
@@ -653,9 +879,6 @@ export function BulkTodoForm({ establishments, householders, onSaved }: BulkTodo
                     open={!!targetPickerOpenByRow[row.id]}
                     onOpenChange={(open) => {
                       setTargetPickerOpenByRow((prev) => ({ ...prev, [row.id]: open }));
-                      if (!open) {
-                        setTargetSearchByRow((prev) => ({ ...prev, [row.id]: "" }));
-                      }
                     }}
                   >
                     <PopoverTrigger asChild>
@@ -697,7 +920,6 @@ export function BulkTodoForm({ establishments, householders, onSaved }: BulkTodo
                               onClick={() => {
                                 updateRow(row.id, { targetKey: option.key });
                                 setTargetPickerOpenByRow((prev) => ({ ...prev, [row.id]: false }));
-                                setTargetSearchByRow((prev) => ({ ...prev, [row.id]: "" }));
                               }}
                             >
                               <div className="text-left min-w-0">
@@ -863,7 +1085,15 @@ export function BulkTodoForm({ establishments, householders, onSaved }: BulkTodo
 
       <div className="flex justify-end">
         <Button type="submit" disabled={!canSubmit}>
-          {saving ? "Submitting..." : `Submit ${submittableCount} To-Do${submittableCount > 1 ? "s" : ""}`}
+          {saving
+            ? "Submitting..."
+            : (() => {
+                const parts: string[] = [];
+                if (submittableEditCount > 0) parts.push(`${submittableEditCount} Edit`);
+                if (submittableNewCount > 0) parts.push(`${submittableNewCount} New`);
+                const detail = parts.length > 0 ? `(${parts.join(", ")})` : "";
+                return `Submit ${submitCount} To-Do${submitCount > 1 ? "s" : ""} ${detail}`.trim();
+              })()}
         </Button>
       </div>
     </form>

@@ -1121,6 +1121,48 @@ export async function updateStandaloneTodo(
   }
 }
 
+/** Update a to-do row with full editable fields (used by bulk edit flow). */
+export async function updateTodoForBulkEdit(
+  id: string,
+  updates: {
+    establishment_id?: string | null;
+    householder_id?: string | null;
+    body?: string;
+    deadline_date?: string | null;
+    publisher_id?: string | null;
+    partner_id?: string | null;
+  }
+): Promise<boolean> {
+  const supabase = createSupabaseBrowserClient();
+  try {
+    await supabase.auth.getSession().catch(() => {});
+    const payload: {
+      establishment_id?: string | null;
+      householder_id?: string | null;
+      body?: string;
+      deadline_date?: string | null;
+      publisher_id?: string | null;
+      partner_id?: string | null;
+    } = {};
+    if (updates.establishment_id !== undefined) payload.establishment_id = updates.establishment_id;
+    if (updates.householder_id !== undefined) payload.householder_id = updates.householder_id;
+    if (updates.body !== undefined) payload.body = updates.body.trim();
+    if (updates.deadline_date !== undefined) payload.deadline_date = updates.deadline_date;
+    if (updates.publisher_id !== undefined) payload.publisher_id = updates.publisher_id;
+    if (updates.partner_id !== undefined) payload.partner_id = updates.partner_id;
+    if (Object.keys(payload).length === 0) return true;
+    const { error } = await supabase.from("call_todos").update(payload).eq("id", id);
+    if (error) {
+      console.error("updateTodoForBulkEdit:", error);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error("updateTodoForBulkEdit:", e);
+    return false;
+  }
+}
+
 function buildCallMetaById(calls: any[]): Map<string, { visit_date: string | null; establishment_id: string | null; householder_id: string | null; context_name: string | null; context_establishment_name: string | null; context_status: string | null; context_establishment_status: string | null; call_created_at: string | null; context_area: string | null }> {
   return new Map(
     calls.map((c) => {
@@ -1349,6 +1391,40 @@ export async function getMyCompletedCallTodos(userId: string, limit = 20): Promi
     console.error('getMyCompletedCallTodos:', e);
     return [];
   }
+}
+
+async function getCongregationCallTodos(isDone: boolean, limit = 50): Promise<MyOpenCallTodoItem[]> {
+  const supabase = createSupabaseBrowserClient();
+  try {
+    await supabase.auth.getSession().catch(() => {});
+    const { data: profile } = await supabase.rpc("get_my_profile");
+    if (!profile?.congregation_id) return [];
+
+    const { data, error } = await supabase
+      .from("call_todos")
+      .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, deadline_date, created_at")
+      .eq("congregation_id", profile.congregation_id)
+      .eq("is_done", isDone)
+      .limit(limit);
+    if (error) return [];
+
+    const merged = ((data ?? []) as CallTodo[]).slice(0, limit);
+    if (merged.length === 0) return [];
+    return await enrichTodoItems(merged);
+  } catch (e) {
+    console.error("getCongregationCallTodos:", e);
+    return [];
+  }
+}
+
+/** Open (incomplete) to-dos across the whole congregation. */
+export async function getCongregationOpenCallTodos(limit = 50): Promise<MyOpenCallTodoItem[]> {
+  return getCongregationCallTodos(false, limit);
+}
+
+/** Completed (done) to-dos across the whole congregation. */
+export async function getCongregationCompletedCallTodos(limit = 50): Promise<MyOpenCallTodoItem[]> {
+  return getCongregationCallTodos(true, limit);
 }
 
 async function getScopedCallTodos(options: {
