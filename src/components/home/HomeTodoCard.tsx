@@ -129,6 +129,16 @@ function compareDeadlineAsc(a: MyOpenCallTodoItem, b: MyOpenCallTodoItem): numbe
   return aCreated - bCreated;
 }
 
+function compareLatestDesc(a: MyOpenCallTodoItem, b: MyOpenCallTodoItem): number {
+  const getLatestMs = (todo: MyOpenCallTodoItem) => {
+    const createdMs = todo.created_at ? new Date(todo.created_at).getTime() : 0;
+    const callCreatedMs = todo.call_created_at ? new Date(todo.call_created_at).getTime() : 0;
+    const deadlineMs = todo.deadline_date ? new Date(`${todo.deadline_date}T00:00:00`).getTime() : 0;
+    return Math.max(createdMs, callCreatedMs, deadlineMs);
+  };
+  return getLatestMs(b) - getLatestMs(a);
+}
+
 /** Deadline-based styling: passed red, <7 days orange, <14 yellow, >=14 green. */
 function getTodoAgeBorderClass(deadlineDate: string | null | undefined): string {
   if (!deadlineDate) return "";
@@ -602,7 +612,7 @@ export function HomeTodoCard({
     [applyFilters, openTodos]
   );
   const filteredCompletedTodos = useMemo(
-    () => [...applyFilters(completedTodos)].sort(compareDeadlineAsc),
+    () => [...applyFilters(completedTodos)].sort(compareLatestDesc),
     [applyFilters, completedTodos]
   );
   const cardOpenTodos = useMemo(
@@ -610,7 +620,7 @@ export function HomeTodoCard({
     [openTodos]
   );
   const cardCompletedTodos = useMemo(
-    () => [...completedTodos].sort(compareDeadlineAsc),
+    () => [...completedTodos].sort(compareLatestDesc),
     [completedTodos]
   );
   const selectableTodos = useMemo(
@@ -736,6 +746,9 @@ export function HomeTodoCard({
   );
   const showOtherPublisherDecorations = Boolean(
     userId && !establishmentId && !householderId && !filters.myUpdatesOnly
+  );
+  const showDoneSection = Boolean(
+    filteredCompletedTodos.length > 0 && (!hasChangedFromDefaultFilters || !!dueDateFilter)
   );
   const emptyText = userId
     ? "No open to-dos from your calls"
@@ -955,7 +968,7 @@ export function HomeTodoCard({
                       ))}
                     </ul>
                   )}
-                  {!hasChangedFromDefaultFilters && filteredCompletedTodos.length > 0 && (
+                  {showDoneSection && (
                     <>
                       <div className="text-xs text-muted-foreground mt-5 mb-2 font-medium">
                         Done

@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { StatusFilterButtons } from "@/components/filters/StatusFilterButtons";
+import { motion } from "motion/react";
 
 export interface VisitFilters {
   search: string;
@@ -58,26 +59,40 @@ export function VisitFiltersForm({
       <div className="space-y-4">
         <div className="space-y-2">
           <Label>Status</Label>
-          <StatusFilterButtons
-            options={statusOptions}
-            selected={filters.statuses}
-            onToggle={toggleStatus}
-          />
+          <motion.div
+            key={`status-${filters.statuses.slice().sort().join("|")}`}
+            initial={{ opacity: 0.75, y: 4 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.18, ease: "easeOut" }}
+          >
+            <StatusFilterButtons
+              options={statusOptions}
+              selected={filters.statuses}
+              onCycle={toggleStatus}
+            />
+          </motion.div>
         </div>
 
         <div className="space-y-2">
           <Label>Areas</Label>
           <div className="flex flex-wrap gap-2">
             {areaOptions.map((option) => (
-              <Button
+              <motion.div
                 key={option.value}
-                variant={filters.areas.includes(option.value) ? "default" : "outline"}
-                size="sm"
-                onClick={() => toggleArea(option.value)}
-                className="h-8"
+                layout
+                initial={false}
+                animate={filters.areas.includes(option.value) ? { scale: 1.03 } : { scale: 1 }}
+                transition={{ type: "spring", stiffness: 420, damping: 26, mass: 0.45 }}
               >
-                {option.value}
-              </Button>
+                <Button
+                  variant={filters.areas.includes(option.value) ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => toggleArea(option.value)}
+                  className="h-8"
+                >
+                  {option.value}
+                </Button>
+              </motion.div>
             ))}
           </div>
         </div>

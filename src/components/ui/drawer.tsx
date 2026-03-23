@@ -115,7 +115,7 @@ export const DrawerContent = React.forwardRef<
       >
         <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />
         <div 
-          className="min-h-0 flex-1 overflow-y-auto drawer-content-inner" 
+          className="min-h-0 flex-1 overflow-y-auto overscroll-contain mt-2 drawer-content-inner" 
           style={{ 
             scrollPaddingBottom: 24,
             paddingBottom: visualViewport && typeof window !== 'undefined' && visualViewport.height < window.innerHeight * 0.8 ? 'env(safe-area-inset-bottom, 0px)' : '0px'

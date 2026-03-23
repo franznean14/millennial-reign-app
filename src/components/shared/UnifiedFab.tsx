@@ -123,10 +123,10 @@ export function UnifiedFab({
           { key: "business-householder", label: "New Contact", icon: <UserPlus className="h-4 w-4" />, variant: "outline" }
         );
       } else if (showEstablishmentForm) {
-        items.push(
-          { key: "business-establishment", label: "New Establishment", icon: <Building2 className="h-4 w-4" /> },
-          { key: "business-bulk-todos", label: "New To-Dos", icon: <ListTodo className="h-4 w-4" /> }
-        );
+        items.push({ key: "business-establishment", label: "New Establishment", icon: <Building2 className="h-4 w-4" /> });
+        if (isElder) {
+          items.push({ key: "business-bulk-todos", label: "New To-Dos", icon: <ListTodo className="h-4 w-4" /> });
+        }
       } else if (showHouseholderForm) {
         items.push({ key: "business-householder", label: "New Contact", icon: <UserPlus className="h-4 w-4" />, variant: "outline" });
       } else if (showVisitForm) {
@@ -158,6 +158,7 @@ export function UnifiedFab({
     businessTab,
     canManageCongregation,
     currentSection,
+    isElder,
     isCongregationAdminTab,
     isCongregationDetails,
     isCongregationMinistryTab,
