@@ -1211,6 +1211,7 @@ export function AppClient() {
       currentSection={currentSection}
       userId={userId}
       establishments={establishments}
+      householders={householders}
       selectedEstablishment={selectedEstablishment}
       selectedHouseholder={selectedHouseholder}
       selectedArea={filters.areas[0]}

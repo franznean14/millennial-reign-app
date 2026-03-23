@@ -7,6 +7,7 @@ import { EstablishmentForm } from "@/components/business/EstablishmentForm";
 import { HouseholderForm } from "@/components/business/HouseholderForm";
 import { VisitForm } from "@/components/business/VisitForm";
 import { TodoForm } from "@/components/business/TodoForm";
+import { BulkTodoForm } from "@/components/business/BulkTodoForm";
 import FieldServiceForm from "@/components/fieldservice/FieldServiceForm";
 import { EventScheduleForm } from "@/components/congregation/EventScheduleForm";
 import { AddUserToCongregationForm } from "@/components/congregation/AddUserToCongregationForm";
@@ -21,6 +22,7 @@ interface UnifiedFabProps {
   userId: string;
   // business
   establishments: EstablishmentWithDetails[];
+  householders: HouseholderWithDetails[];
   selectedEstablishment: EstablishmentWithDetails | null;
   selectedHouseholder: HouseholderWithDetails | null;
   selectedArea?: string;
@@ -38,6 +40,7 @@ type FabActionKey =
   | "business-householder"
   | "business-visit"
   | "business-todo"
+  | "business-bulk-todos"
   | "congregation-householder"
   | "congregation-user"
   | "congregation-visit"
@@ -49,6 +52,7 @@ export function UnifiedFab({
   currentSection,
   userId,
   establishments,
+  householders,
   selectedEstablishment,
   selectedHouseholder,
   selectedArea,
@@ -85,7 +89,10 @@ export function UnifiedFab({
           { key: "business-householder", label: "New Contact", icon: <UserPlus className="h-4 w-4" />, variant: "outline" }
         );
       } else if (showEstablishmentForm) {
-        items.push({ key: "business-establishment", label: "New Establishment", icon: <Building2 className="h-4 w-4" /> });
+        items.push(
+          { key: "business-establishment", label: "New Establishment", icon: <Building2 className="h-4 w-4" /> },
+          { key: "business-bulk-todos", label: "New To-Dos", icon: <ListTodo className="h-4 w-4" /> }
+        );
       } else if (showHouseholderForm) {
         items.push({ key: "business-householder", label: "New Contact", icon: <UserPlus className="h-4 w-4" />, variant: "outline" });
       } else if (showVisitForm) {
@@ -204,6 +211,20 @@ export function UnifiedFab({
           householderName={selectedHouseholder?.name}
           onSaved={() => setOpenKey(null)}
           disableEstablishmentSelect={showExpandableButtons}
+        />
+      </FormModal>
+
+      <FormModal
+        open={openKey === "business-bulk-todos"}
+        onOpenChange={(open) => setOpenKey(open ? "business-bulk-todos" : null)}
+        title="New To-Dos"
+        description="Create multiple to-dos in one submission."
+        headerClassName="text-center"
+      >
+        <BulkTodoForm
+          establishments={establishments}
+          householders={householders}
+          onSaved={() => setOpenKey(null)}
         />
       </FormModal>
 
