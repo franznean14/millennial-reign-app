@@ -140,12 +140,7 @@ function BusinessControlsContent({
     setIsSearchActive(false);
   };
 
-  const hasFilterOptions =
-    filters.statuses.length > 0 ||
-    (filters.excludedStatuses?.length ?? 0) > 0 ||
-    filters.areas.length > 0 ||
-    filters.floors.length > 0;
-  const showOtherButtons = !hasFilterOptions && !filters.myEstablishments && !isSearchActive;
+  const showOtherButtons = !isSearchActive;
   const badges: FilterBadge[] = buildFilterBadges({
     statuses: filters.statuses,
     excludedStatuses: filters.excludedStatuses,
@@ -272,137 +267,160 @@ function BusinessControlsContent({
           }}
           transition={{ type: "spring", stiffness: 300, damping: 30, bounce: 0 }}
         >
-          <motion.div 
-            layout="position"
-            initial={false}
-            transition={{ type: "spring", stiffness: 300, damping: 30, bounce: 0 }}
-            className={isSearchActive ? "flex-1 min-w-0" : "flex-shrink-0"}
-          >
-            <FilterControls
-              isSearchActive={isSearchActive}
-              searchValue={filters.search}
-              searchInputRef={searchInputRef}
-              onSearchActivate={() => setIsSearchActive(true)}
-              onSearchChange={(value) => onFiltersChange({ ...filters, search: value })}
-              onSearchClear={handleClearSearchAndRestore}
-              onSearchBlur={() => {
-                if (!filters.search || filters.search.trim() === "") {
-                  setIsSearchActive(false);
-                }
-              }}
-              myActive={filters.myEstablishments}
-              myLabel={businessTab === 'householders' ? 'My Householders' : 'My Personal Territory'}
-              onMyActivate={() => onFiltersChange({ ...filters, myEstablishments: true })}
-              onMyClear={onClearMyEstablishments}
-              filterBadges={badges}
-              onOpenFilters={onOpenFilters}
-              onClearFilters={() =>
-                onFiltersChange({
-                  ...filters,
-                  statuses: [],
-                  excludedStatuses: [],
-                  areas: [],
-                  floors: [],
-                })
-              }
-              onRemoveBadge={(badge) => {
-                if (badge.type === "status") {
-                  onRemoveStatus(badge.value);
-                } else if (badge.type === "excluded_status") {
+          {isSearchActive ? (
+            <motion.div
+              layout="position"
+              initial={false}
+              transition={{ type: "spring", stiffness: 300, damping: 30, bounce: 0 }}
+              className="flex-1 min-w-0"
+            >
+              <FilterControls
+                isSearchActive={isSearchActive}
+                searchValue={filters.search}
+                searchInputRef={searchInputRef}
+                onSearchActivate={() => setIsSearchActive(true)}
+                onSearchChange={(value) => onFiltersChange({ ...filters, search: value })}
+                onSearchClear={handleClearSearchAndRestore}
+                onSearchBlur={() => {
+                  if (!filters.search || filters.search.trim() === "") {
+                    setIsSearchActive(false);
+                  }
+                }}
+                myActive={filters.myEstablishments}
+                myLabel={businessTab === "householders" ? "My Householders" : "My Personal Territory"}
+                onMyActivate={() => onFiltersChange({ ...filters, myEstablishments: true })}
+                onMyClear={onClearMyEstablishments}
+                filterBadges={badges}
+                onOpenFilters={onOpenFilters}
+                onClearFilters={() =>
                   onFiltersChange({
                     ...filters,
-                    excludedStatuses: (filters.excludedStatuses ?? []).filter((status) => status !== badge.value)
-                  });
-                } else if (badge.type === "area") {
-                  onRemoveArea(badge.value);
-                } else if (badge.type === "floor") {
-                  onRemoveFloor(badge.value);
+                    statuses: [],
+                    excludedStatuses: [],
+                    areas: [],
+                    floors: [],
+                  })
                 }
-              }}
-              containerClassName={isSearchActive ? "w-full !max-w-none !px-0" : "justify-center"}
-              maxWidthClassName={isSearchActive ? "" : "mx-4"}
-            />
-          </motion.div>
-
-          {showOtherButtons && (
-            <AnimatePresence mode="popLayout" initial={false}>
-              {businessTab !== "map" && (
-                filters.nearMe ? (
-                  <motion.div
-                    key="near-me-expanded"
-                    layout
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                    className="flex items-center gap-1"
-                  >
-                    <Button
-                      type="button"
-                      variant="default"
-                      size="sm"
-                      className="h-9 rounded-full px-3 flex items-center gap-2"
-                      onClick={onToggleNearMe}
-                      aria-label="Near me"
-                    >
-                      <Crosshair className="h-4 w-4 flex-shrink-0" />
-                      <span className="text-sm whitespace-nowrap">Near Me</span>
-                      <X className="h-4 w-4 flex-shrink-0" />
-                    </Button>
-                  </motion.div>
-                ) : (
-                  <motion.div
-                    key="near-me-icon"
-                    layout
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                  >
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="h-9 w-9 rounded-full flex-shrink-0"
-                      onClick={onToggleNearMe}
-                      aria-pressed={false}
-                      aria-label="Near me"
-                      title="Near me"
-                    >
-                      <Crosshair className="h-4 w-4" />
-                    </Button>
-                  </motion.div>
-                )
-              )}
-            </AnimatePresence>
-          )}
-
-          {showOtherButtons && (
-            <AnimatePresence mode="popLayout" initial={false}>
-              {businessTab !== "map" && (
-                <motion.div
-                  key="view-toggle"
-                  layout
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.8 }}
-                  transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                >
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="h-9 w-9 rounded-full flex-shrink-0"
-                    onClick={onCycleViewMode}
-                    title={`View: ${viewMode}`}
-                  >
-                    {viewMode === "detailed" && <LayoutGrid className="h-4 w-4" />}
-                    {viewMode === "compact" && <List className="h-4 w-4" />}
-                    {viewMode === "table" && <TableIcon className="h-4 w-4" />}
-                  </Button>
-                </motion.div>
-              )}
-            </AnimatePresence>
+                onRemoveBadge={(badge) => {
+                  if (badge.type === "status") {
+                    onRemoveStatus(badge.value);
+                  } else if (badge.type === "excluded_status") {
+                    onFiltersChange({
+                      ...filters,
+                      excludedStatuses: (filters.excludedStatuses ?? []).filter((status) => status !== badge.value),
+                    });
+                  } else if (badge.type === "area") {
+                    onRemoveArea(badge.value);
+                  } else if (badge.type === "floor") {
+                    onRemoveFloor(badge.value);
+                  }
+                }}
+                preserveActionButtonsWhenTogglesActive
+                containerClassName="w-full !max-w-none !px-0"
+                maxWidthClassName=""
+                trailingActions={null}
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              layout="position"
+              initial={false}
+              transition={{ type: "spring", stiffness: 300, damping: 30, bounce: 0 }}
+              className="w-full overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+            >
+              <div className="w-max min-w-full flex items-center justify-center gap-3 px-1">
+                <FilterControls
+                  isSearchActive={isSearchActive}
+                  searchValue={filters.search}
+                  searchInputRef={searchInputRef}
+                  onSearchActivate={() => setIsSearchActive(true)}
+                  onSearchChange={(value) => onFiltersChange({ ...filters, search: value })}
+                  onSearchClear={handleClearSearchAndRestore}
+                  onSearchBlur={() => {
+                    if (!filters.search || filters.search.trim() === "") {
+                      setIsSearchActive(false);
+                    }
+                  }}
+                  myActive={filters.myEstablishments}
+                  myLabel={businessTab === "householders" ? "My Householders" : "My Personal Territory"}
+                  onMyActivate={() => onFiltersChange({ ...filters, myEstablishments: true })}
+                  onMyClear={onClearMyEstablishments}
+                  filterBadges={badges}
+                  onOpenFilters={onOpenFilters}
+                  onClearFilters={() =>
+                    onFiltersChange({
+                      ...filters,
+                      statuses: [],
+                      excludedStatuses: [],
+                      areas: [],
+                      floors: [],
+                    })
+                  }
+                  onRemoveBadge={(badge) => {
+                    if (badge.type === "status") {
+                      onRemoveStatus(badge.value);
+                    } else if (badge.type === "excluded_status") {
+                      onFiltersChange({
+                        ...filters,
+                        excludedStatuses: (filters.excludedStatuses ?? []).filter((status) => status !== badge.value),
+                      });
+                    } else if (badge.type === "area") {
+                      onRemoveArea(badge.value);
+                    } else if (badge.type === "floor") {
+                      onRemoveFloor(badge.value);
+                    }
+                  }}
+                  preserveActionButtonsWhenTogglesActive
+                  containerClassName="whitespace-nowrap"
+                  maxWidthClassName="mx-0"
+                  trailingActions={
+                    showOtherButtons && businessTab !== "map" ? (
+                      <>
+                        {filters.nearMe ? (
+                          <Button
+                            type="button"
+                            variant="default"
+                            size="sm"
+                            className="h-9 rounded-full px-3 flex items-center gap-2 flex-shrink-0"
+                            onClick={onToggleNearMe}
+                            aria-label="Near me"
+                          >
+                            <Crosshair className="h-4 w-4 flex-shrink-0" />
+                            <span className="text-sm whitespace-nowrap">Near Me</span>
+                            <X className="h-4 w-4 flex-shrink-0" />
+                          </Button>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-9 w-9 rounded-full flex-shrink-0"
+                            onClick={onToggleNearMe}
+                            aria-pressed={false}
+                            aria-label="Near me"
+                            title="Near me"
+                          >
+                            <Crosshair className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-9 w-9 rounded-full flex-shrink-0"
+                          onClick={onCycleViewMode}
+                          title={`View: ${viewMode}`}
+                        >
+                          {viewMode === "detailed" && <LayoutGrid className="h-4 w-4" />}
+                          {viewMode === "compact" && <List className="h-4 w-4" />}
+                          {viewMode === "table" && <TableIcon className="h-4 w-4" />}
+                        </Button>
+                      </>
+                    ) : null
+                  }
+                />
+              </div>
+            </motion.div>
           )}
         </motion.div>
       )}

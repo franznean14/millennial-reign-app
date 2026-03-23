@@ -1,6 +1,6 @@
 "use client";
 
-import React, { type RefObject } from "react";
+import React, { type ReactNode, type RefObject } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +42,7 @@ interface FilterControlsProps {
   showEditButton?: boolean;
   editLabel?: string;
   onEditClick?: () => void;
+  trailingActions?: ReactNode;
 }
 
 export function FilterControls({
@@ -74,7 +75,8 @@ export function FilterControls({
   preserveActionButtonsWhenTogglesActive = false,
   showEditButton = false,
   editLabel = "Edit",
-  onEditClick
+  onEditClick,
+  trailingActions
 }: FilterControlsProps) {
   const hasActiveFilters = filterBadges.length > 0;
 
@@ -318,6 +320,11 @@ export function FilterControls({
               <SquarePen className="h-4 w-4 text-foreground" />
             </Button>
           )}
+          {trailingActions ? (
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {trailingActions}
+            </div>
+          ) : null}
         </div>
       ) : (showMyFilter && myActive) || bwiActive || householderActive ? (
         <div
@@ -455,6 +462,11 @@ export function FilterControls({
               )}
             </>
           )}
+          {trailingActions ? (
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {trailingActions}
+            </div>
+          ) : null}
         </div>
       ) : (
         <div
@@ -524,6 +536,11 @@ export function FilterControls({
               <SquarePen className="h-4 w-4 text-foreground" />
             </Button>
           )}
+          {trailingActions ? (
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {trailingActions}
+            </div>
+          ) : null}
         </div>
       )}
     </>
