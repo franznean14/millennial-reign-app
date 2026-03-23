@@ -343,6 +343,7 @@ export function BusinessSection({
                     initialView={mapViewState ?? undefined}
                     onViewChange={setMapViewState}
                     className="h-full"
+                    currentUserId={userId}
                   />
                 </motion.div>
               )

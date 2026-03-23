@@ -428,12 +428,14 @@ interface EstablishmentMapProps {
   initialView?: { center: [number, number]; zoom: number };
   onViewChange?: (view: { center: [number, number]; zoom: number }) => void;
   className?: string;
+  currentUserId?: string | null;
 }
 
 interface MapMarkerProps {
   establishment: EstablishmentWithDetails;
   onClick?: () => void;
   isSelected?: boolean;
+  currentUserId?: string | null;
 }
 
 const PERSONAL_TERRITORY_STATUS = 'personal_territory';
@@ -467,11 +469,47 @@ function getStatusColorValue(status: string) {
   }
 }
 
+function getStatusDotColorClass(status: string) {
+  switch (status) {
+    case 'declined_rack':
+      return 'bg-red-500';
+    case 'for_scouting':
+      return 'bg-cyan-500';
+    case 'for_follow_up':
+      return 'bg-orange-500';
+    case 'accepted_rack':
+      return 'bg-blue-500';
+    case 'for_replenishment':
+      return 'bg-purple-500';
+    case 'has_bible_studies':
+      return 'bg-emerald-500';
+    case 'rack_pulled_out':
+      return 'bg-amber-500';
+    case 'closed':
+      return 'bg-slate-500';
+    default:
+      return 'bg-gray-500';
+  }
+}
+
+function getSecondaryStatusesForDots(establishment: EstablishmentWithDetails, primaryStatus: string): string[] {
+  const statuses = establishment.statuses || [];
+  if (!statuses.length) return [];
+  if (primaryStatus === PERSONAL_TERRITORY_STATUS) return statuses;
+  return statuses.filter((status) => status !== primaryStatus);
+}
+
 
 // Custom marker component with status-based styling
-function MapMarker({ establishment, onClick, isSelected }: MapMarkerProps) {
+function MapMarker({ establishment, onClick, isSelected, currentUserId }: MapMarkerProps) {
   // Get the best status from the statuses array using the hierarchy
   const primaryStatus = getEstablishmentPrimaryStatus(establishment);
+  const secondaryStatuses = getSecondaryStatusesForDots(establishment, primaryStatus);
+  const isOtherPublisherPersonalTerritory =
+    primaryStatus === PERSONAL_TERRITORY_STATUS &&
+    !!establishment.publisher_id &&
+    !!currentUserId &&
+    establishment.publisher_id !== currentUserId;
 
   const statusColor = getStatusColorValue(primaryStatus);
   
@@ -494,6 +532,7 @@ function MapMarker({ establishment, onClick, isSelected }: MapMarkerProps) {
     };
     
     const darkerColor = getDarkerShade(statusColor);
+    const markerBorderStyle = isOtherPublisherPersonalTerritory ? '1px dashed' : '1px solid';
     
     return L.divIcon({
       className: 'custom-marker',
@@ -510,7 +549,7 @@ function MapMarker({ establishment, onClick, isSelected }: MapMarkerProps) {
           <div style="
             background-color: ${darkerColor}15;
             color: ${statusColor};
-            border: 1px solid ${statusColor}30;
+            border: ${markerBorderStyle} ${statusColor}50;
             border-radius: 12px;
             padding: 4px 8px;
             font-size: 10px;
@@ -552,7 +591,7 @@ function MapMarker({ establishment, onClick, isSelected }: MapMarkerProps) {
       iconSize: [Math.max(establishment.name.length * 6 + 16, 60), 40],
       iconAnchor: [Math.max(establishment.name.length * 3 + 8, 30), 32],
     });
-  }, [establishment.name, isSelected, statusColor]);
+  }, [establishment.name, isOtherPublisherPersonalTerritory, isSelected, statusColor]);
 
   if (!icon) return null;
 
@@ -578,7 +617,10 @@ function MapMarker({ establishment, onClick, isSelected }: MapMarkerProps) {
           className={cn(
             "min-w-[280px] max-w-[320px] cursor-pointer hover:shadow-xl transition-shadow p-4 bg-background border rounded-lg",
             primaryStatus === PERSONAL_TERRITORY_STATUS
-              ? "border-pink-400/60 bg-pink-500/10"
+              ? cn(
+                  "border-pink-400/60 bg-pink-500/10",
+                  isOtherPublisherPersonalTerritory && "border border-dashed"
+                )
               : getStatusColor(primaryStatus)
           )}
           onClick={(e) => {
@@ -600,7 +642,10 @@ function MapMarker({ establishment, onClick, isSelected }: MapMarkerProps) {
                       className={cn(
                         "text-xs px-2 py-1",
                         primaryStatus === PERSONAL_TERRITORY_STATUS
-                          ? "text-pink-400 border-pink-400/60"
+                          ? cn(
+                              "text-pink-400 border-pink-400/60",
+                              isOtherPublisherPersonalTerritory && "border border-dashed"
+                            )
                           : getStatusTextColor(primaryStatus)
                       )}
                     >
@@ -608,6 +653,13 @@ function MapMarker({ establishment, onClick, isSelected }: MapMarkerProps) {
                         ? "Personal Territory"
                         : primaryStatus.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                     </Badge>
+                    {secondaryStatuses.slice(0, 3).map((status, index) => (
+                      <span
+                        key={`${establishment.id || establishment.name}-status-dot-${status}-${index}`}
+                        className={cn("w-2 h-2 rounded-full flex-shrink-0", getStatusDotColorClass(status))}
+                        title={status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                      />
+                    ))}
                   </div>
                 </div>
                 
@@ -635,26 +687,54 @@ function MapMarker({ establishment, onClick, isSelected }: MapMarkerProps) {
           <div className="pt-0">
             <div className="flex items-center justify-between w-full gap-2">
               <div className="flex items-center gap-2 min-w-0 flex-1">
-                {/* Overlapping avatars for top visitors - up to 3 */}
-                {establishment.top_visitors && establishment.top_visitors.length > 0 && (
-                  <div className="flex items-center flex-shrink-0">
-                    {establishment.top_visitors.slice(0, 3).map((visitor, index) => (
-                      <Avatar 
-                        key={visitor.user_id || index} 
-                        className={`h-6 w-6 ring-2 ring-background ${index > 0 ? '-ml-2' : ''}`}
-                      >
-                        <AvatarImage src={visitor.avatar_url} />
-                        <AvatarFallback className="text-xs">
-                          {`${visitor.first_name} ${visitor.last_name}`.charAt(0) || 'U'}
-                        </AvatarFallback>
-                      </Avatar>
-                    ))}
-                    {establishment.top_visitors.length > 3 && (
-                      <span className="text-xs text-foreground/70 flex-shrink-0 ml-1">
-                        +{establishment.top_visitors.length - 3}
-                      </span>
-                    )}
-                  </div>
+                {primaryStatus === PERSONAL_TERRITORY_STATUS ? (
+                  (() => {
+                    const ownerVisitor =
+                      establishment.publisher_id && establishment.top_visitors
+                        ? establishment.top_visitors.find((visitor) => visitor.user_id === establishment.publisher_id)
+                        : null;
+                    const ownerAvatar = establishment.assigned_user
+                      ? {
+                          avatar_url: establishment.assigned_user.avatar_url,
+                          initials:
+                            `${establishment.assigned_user.first_name} ${establishment.assigned_user.last_name}`.charAt(0) || 'U',
+                        }
+                      : ownerVisitor
+                        ? {
+                            avatar_url: ownerVisitor.avatar_url,
+                            initials: `${ownerVisitor.first_name} ${ownerVisitor.last_name}`.charAt(0) || 'U',
+                          }
+                        : null;
+                    return ownerAvatar ? (
+                      <div className="flex items-center flex-shrink-0">
+                        <Avatar className="h-6 w-6 ring-2 ring-background">
+                          <AvatarImage src={ownerAvatar.avatar_url} />
+                          <AvatarFallback className="text-xs">{ownerAvatar.initials}</AvatarFallback>
+                        </Avatar>
+                      </div>
+                    ) : null;
+                  })()
+                ) : (
+                  establishment.top_visitors && establishment.top_visitors.length > 0 && (
+                    <div className="flex items-center flex-shrink-0">
+                      {establishment.top_visitors.slice(0, 3).map((visitor, index) => (
+                        <Avatar 
+                          key={visitor.user_id || index} 
+                          className={`h-6 w-6 ring-2 ring-background ${index > 0 ? '-ml-2' : ''}`}
+                        >
+                          <AvatarImage src={visitor.avatar_url} />
+                          <AvatarFallback className="text-xs">
+                            {`${visitor.first_name} ${visitor.last_name}`.charAt(0) || 'U'}
+                          </AvatarFallback>
+                        </Avatar>
+                      ))}
+                      {establishment.top_visitors.length > 3 && (
+                        <span className="text-xs text-foreground/70 flex-shrink-0 ml-1">
+                          +{establishment.top_visitors.length - 3}
+                        </span>
+                      )}
+                    </div>
+                  )
                 )}
                 {establishment.description && (
                   <span className="text-xs text-foreground/70 truncate">{establishment.description}</span>
@@ -677,7 +757,8 @@ export function EstablishmentMap({
   selectedEstablishmentId,
   initialView,
   onViewChange,
-  className = ""
+  className = "",
+  currentUserId
 }: EstablishmentMapProps) {
   const [isClient, setIsClient] = useState(false);
   const [isTracking, setIsTracking] = useState(false);
@@ -910,6 +991,7 @@ export function EstablishmentMap({
                     establishment={establishment}
                     onClick={() => onEstablishmentClick?.(establishment)}
                     isSelected={establishment.id === selectedEstablishmentId}
+                    currentUserId={currentUserId}
                   />
                 ))}
               </MarkerClusterGroup>
