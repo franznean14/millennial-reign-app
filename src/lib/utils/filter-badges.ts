@@ -1,9 +1,11 @@
 "use client";
 
 export type FilterBadge = {
-  type: "status" | "excluded_status" | "area" | "floor";
+  type: "status" | "excluded_status" | "area" | "floor" | "assignee";
   value: string;
   label: string;
+  /** Profile image when filtering by publisher/partner (to-do assignee). */
+  avatarUrl?: string;
 };
 
 export function buildFilterBadges({

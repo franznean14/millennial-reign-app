@@ -19,7 +19,12 @@ import {
 import { cacheGet, cacheSet } from "@/lib/offline/store";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { FilterControls, type FilterBadge } from "@/components/shared/FilterControls";
-import { VisitFiltersForm, type VisitFilters, type VisitFilterOption } from "@/components/visit/VisitFiltersForm";
+import {
+  VisitFiltersForm,
+  type VisitFilters,
+  type VisitFilterOption,
+  type VisitAssigneeFilterOption,
+} from "@/components/visit/VisitFiltersForm";
 import { buildFilterBadges } from "@/lib/utils/filter-badges";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
@@ -185,6 +190,7 @@ export function HomeTodoCard({
     search: "",
     statuses: [],
     areas: [],
+    assigneeIds: [],
     myUpdatesOnly: true,
     bwiOnly: false,
     householderOnly: false,
@@ -329,6 +335,9 @@ export function HomeTodoCard({
           search: typeof parsed.filters.search === "string" ? parsed.filters.search : prev.search,
           statuses: Array.isArray(parsed.filters.statuses) ? parsed.filters.statuses : prev.statuses,
           areas: Array.isArray(parsed.filters.areas) ? parsed.filters.areas : prev.areas,
+          assigneeIds: Array.isArray(parsed.filters.assigneeIds)
+            ? parsed.filters.assigneeIds.filter((id): id is string => typeof id === "string")
+            : prev.assigneeIds,
           myUpdatesOnly:
             typeof parsed.filters.myUpdatesOnly === "boolean"
               ? parsed.filters.myUpdatesOnly
@@ -478,18 +487,50 @@ export function HomeTodoCard({
     return Array.from(values).map((value) => ({ value, label: value }));
   }, [allTodos]);
 
-  const filterBadges: FilterBadge[] = useMemo(
-    () =>
-      buildFilterBadges({
-        statuses: filters.statuses,
-        areas: filters.areas,
-        formatStatusLabel: formatStatusText,
-      }),
-    [filters.statuses, filters.areas]
-  );
+  const assigneeFilterOptions: VisitAssigneeFilterOption[] = useMemo(() => {
+    const ids = new Set<string>();
+    allTodos.forEach((t) => {
+      if (t.publisher_id) ids.add(t.publisher_id);
+      if (t.partner_id) ids.add(t.partner_id);
+    });
+    return Array.from(ids)
+      .map((id) => {
+        const p = participantsById[id];
+        return {
+          id,
+          first_name: p?.first_name ?? "",
+          last_name: p?.last_name ?? "",
+          avatar_url: p?.avatar_url,
+        };
+      })
+      .sort((a, b) => {
+        const na = `${a.first_name} ${a.last_name}`.trim() || a.id;
+        const nb = `${b.first_name} ${b.last_name}`.trim() || b.id;
+        return na.localeCompare(nb, undefined, { sensitivity: "base" });
+      });
+  }, [allTodos, participantsById]);
+
+  const filterBadges: FilterBadge[] = useMemo(() => {
+    const base = buildFilterBadges({
+      statuses: filters.statuses,
+      areas: filters.areas,
+      formatStatusLabel: formatStatusText,
+    });
+    const assigneeBadges: FilterBadge[] = filters.assigneeIds.map((id) => {
+      const p = participantsById[id];
+      const label = p ? `${p.first_name} ${p.last_name}`.trim() || "Assignee" : "Assignee";
+      return {
+        type: "assignee" as const,
+        value: id,
+        label,
+        avatarUrl: p?.avatar_url,
+      };
+    });
+    return [...base, ...assigneeBadges];
+  }, [filters.statuses, filters.areas, filters.assigneeIds, participantsById]);
 
   const clearFilters = useCallback(() => {
-    setFilters((prev) => ({ ...prev, statuses: [], areas: [] }));
+    setFilters((prev) => ({ ...prev, statuses: [], areas: [], assigneeIds: [] }));
     setDueDateFilter(null);
   }, []);
 
@@ -578,6 +619,16 @@ export function HomeTodoCard({
           if (!area || !filters.areas.includes(area)) {
             return false;
           }
+        }
+
+        // Assignee filter (publisher or partner)
+        if (filters.assigneeIds.length > 0) {
+          const pub = todo.publisher_id;
+          const part = todo.partner_id;
+          const matches =
+            (pub && filters.assigneeIds.includes(pub)) ||
+            (part && filters.assigneeIds.includes(part));
+          if (!matches) return false;
         }
 
         // Due date filter
@@ -732,11 +783,7 @@ export function HomeTodoCard({
   const displayTodos = cardOpenTodos.slice(0, 5);
   const openCount = openTodos.length;
   const hasNavigation = !!(onNavigateToTodoCall || onTodoTap);
-  const showAssigneeAvatars = Boolean(
-    establishmentId ||
-      householderId ||
-      (userId && !establishmentId && !householderId && !filters.myUpdatesOnly)
-  );
+  const showAssigneeAvatars = Boolean(userId || establishmentId || householderId);
   const hasChangedFromDefaultFilters = Boolean(
     userId &&
       !establishmentId &&
@@ -746,6 +793,7 @@ export function HomeTodoCard({
         !!dueDateFilter ||
         filters.statuses.length > 0 ||
         filters.areas.length > 0 ||
+        filters.assigneeIds.length > 0 ||
         !filters.myUpdatesOnly ||
         filters.bwiOnly ||
         filters.householderOnly
@@ -939,6 +987,11 @@ export function HomeTodoCard({
                           ...prev,
                           areas: prev.areas.filter((a) => a !== badge.value),
                         }));
+                      } else if (badge.type === "assignee") {
+                        setFilters((prev) => ({
+                          ...prev,
+                          assigneeIds: prev.assigneeIds.filter((id) => id !== badge.value),
+                        }));
                       }
                     }}
                     containerClassName={
@@ -1055,6 +1108,7 @@ export function HomeTodoCard({
               filters={filters}
               statusOptions={statusOptions}
               areaOptions={areaOptions}
+              assigneeOptions={assigneeFilterOptions}
               onFiltersChange={setFilters}
               onClearFilters={clearFilters}
             />

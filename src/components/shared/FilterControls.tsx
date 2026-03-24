@@ -4,6 +4,8 @@ import React, { type ReactNode, type RefObject } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { getInitialsFromName } from "@/lib/utils/visit-history-ui";
 import { Filter as FilterIcon, SquarePen, Search, User, UserCheck, Users, X, Building2 } from "lucide-react";
 import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
 import { cn } from "@/lib/utils";
@@ -155,6 +157,29 @@ export function FilterControls({
             <div className="flex items-center gap-1 min-w-0 flex-1 overflow-hidden">
               {filterBadges.map((badge, index) => {
                 const isRightmost = index >= filterBadges.length - 2 && filterBadges.length > 3;
+                if (badge.type === "assignee") {
+                  return (
+                    <Badge
+                      key={`assignee-${badge.value}-${index}`}
+                      variant="secondary"
+                      className="filter-badge h-6 w-6 shrink-0 p-0 rounded-full cursor-pointer hover:opacity-70 overflow-hidden border border-primary-foreground/25"
+                      title={badge.label}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRemoveBadge(badge);
+                      }}
+                    >
+                      <Avatar className="h-6 w-6 rounded-full">
+                        {badge.avatarUrl ? (
+                          <AvatarImage src={badge.avatarUrl} alt="" className="object-cover" />
+                        ) : null}
+                        <AvatarFallback className="rounded-full text-[8px] bg-muted text-foreground">
+                          {getInitialsFromName(badge.label)}
+                        </AvatarFallback>
+                      </Avatar>
+                    </Badge>
+                  );
+                }
                 const badgeClassName =
                   badge.type === "status"
                     ? cn(

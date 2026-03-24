@@ -104,6 +104,7 @@ const DEFAULT_TARGET_PICKER_FILTERS: VisitFilters = {
   search: "",
   statuses: [],
   areas: [],
+  assigneeIds: [],
   myUpdatesOnly: false,
   bwiOnly: false,
   householderOnly: false,
@@ -411,6 +412,9 @@ export function BulkTodoForm({
               : [],
             areas: Array.isArray(rawFilters.areas)
               ? rawFilters.areas.filter((item): item is string => typeof item === "string")
+              : [],
+            assigneeIds: Array.isArray(rawFilters.assigneeIds)
+              ? rawFilters.assigneeIds.filter((item): item is string => typeof item === "string")
               : [],
             myUpdatesOnly: false,
             bwiOnly: !!rawFilters.bwiOnly,
@@ -1281,12 +1285,19 @@ export function BulkTodoForm({
                 ...prev,
                 statuses: [],
                 areas: [],
+                assigneeIds: [],
               }))
             }
             onRemoveBadge={(badge) =>
               updateTargetPickerFilters(row.id, (prev) => {
                 if (badge.type === "area") {
                   return { ...prev, areas: prev.areas.filter((area) => area !== badge.value) };
+                }
+                if (badge.type === "assignee") {
+                  return {
+                    ...prev,
+                    assigneeIds: prev.assigneeIds.filter((id) => id !== badge.value),
+                  };
                 }
                 return { ...prev, statuses: prev.statuses.filter((status) => status !== badge.value) };
               })
@@ -1401,6 +1412,7 @@ export function BulkTodoForm({
                   ...prev,
                   statuses: filters.statuses,
                   areas: filters.areas,
+                  assigneeIds: filters.assigneeIds,
                 }))
               }
               onClearFilters={() =>
@@ -1408,6 +1420,7 @@ export function BulkTodoForm({
                   ...prev,
                   statuses: [],
                   areas: [],
+                  assigneeIds: [],
                 }))
               }
             />

@@ -875,6 +875,11 @@ export function VisitHistory({
                     setFilters(prev => ({ ...prev, statuses: prev.statuses.filter(s => s !== badge.value) }));
                   } else if (badge.type === "area") {
                     setFilters(prev => ({ ...prev, areas: prev.areas.filter(a => a !== badge.value) }));
+                  } else if (badge.type === "assignee") {
+                    setFilters(prev => ({
+                      ...prev,
+                      assigneeIds: prev.assigneeIds.filter((id) => id !== badge.value),
+                    }));
                   }
                 }}
                 containerClassName={isSearchActive ? "w-full !max-w-none !px-0" : "justify-center"}

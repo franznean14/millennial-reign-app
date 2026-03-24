@@ -31,6 +31,7 @@ export function useBwiVisitHistory({
     search: "",
     statuses: [],
     areas: [],
+    assigneeIds: [],
     myUpdatesOnly: false,
     bwiOnly: false,
     householderOnly: false
@@ -271,7 +272,7 @@ export function useBwiVisitHistory({
   );
 
   const clearFilters = useCallback(() => {
-    setFilters((prev) => ({ ...prev, statuses: [], areas: [] }));
+    setFilters((prev) => ({ ...prev, statuses: [], areas: [], assigneeIds: [] }));
   }, []);
 
   const clearSearch = useCallback(() => {
