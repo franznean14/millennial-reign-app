@@ -49,6 +49,7 @@ const TODOS_FRESH_MS = 30_000;
 const TODOS_CACHE_KEY = (scopeKey: string) => `home-todos:${scopeKey}`;
 const TODOS_LOCAL_STORAGE_KEY = (scopeKey: string) => `home-todos:local:${scopeKey}`;
 const TODO_FILTERS_LOCAL_STORAGE_KEY = (scopeKey: string) => `home-todos:filters:${scopeKey}`;
+const GUEST_SLOT_PREFIX = "guest::";
 
 function readLocalTodosCache(
   scopeKey: string
@@ -691,6 +692,12 @@ export function HomeTodoCard({
         .filter((value): value is string => !!value)
         .filter((value, idx, arr) => arr.indexOf(value) === idx)
         .slice(0, 2);
+      if (slots.length < 2 && todo.publisher_guest_name?.trim()) {
+        slots.push(`${GUEST_SLOT_PREFIX}${todo.publisher_guest_name.trim()}`);
+      }
+      if (slots.length < 2 && todo.partner_guest_name?.trim()) {
+        slots.push(`${GUEST_SLOT_PREFIX}${todo.partner_guest_name.trim()}`);
+      }
       return {
         id: `${Date.now()}-${index}-${Math.random().toString(36).slice(2, 8)}`,
         targetKey,

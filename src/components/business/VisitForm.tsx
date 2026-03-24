@@ -27,6 +27,9 @@ import { getInitialsFromName } from "@/lib/utils/visit-history-ui";
 import { cn } from "@/lib/utils";
 import { useMobile } from "@/lib/hooks/use-mobile";
 
+const PARTICIPANTS_CACHE_KEY = "business:participants:local:v1";
+const GUEST_NAMES_CACHE_KEY = "business:guest-names:local:v1";
+
 interface VisitFormProps {
   establishments: any[];
   selectedEstablishmentId?: string;
@@ -186,8 +189,23 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
   useEffect(() => {
     const loadParticipants = async () => {
       try {
+        const cachedRaw = window.localStorage.getItem(PARTICIPANTS_CACHE_KEY);
+        if (cachedRaw) {
+          const cached = JSON.parse(cachedRaw) as {
+            items?: Array<{ id: string; first_name: string; last_name: string; avatar_url?: string }>;
+          };
+          if (Array.isArray(cached?.items) && cached.items.length > 0) {
+            setParticipants(
+              cached.items.filter(
+                (item): item is { id: string; first_name: string; last_name: string; avatar_url?: string } =>
+                  typeof item?.id === "string"
+              )
+            );
+          }
+        }
         const participantsList = await getBwiParticipants();
         setParticipants(participantsList);
+        window.localStorage.setItem(PARTICIPANTS_CACHE_KEY, JSON.stringify({ items: participantsList }));
         const supabase = createSupabaseBrowserClient();
         const { data: profile } = await supabase.rpc('get_my_profile');
         if (profile && !initialVisit?.id) {
@@ -376,6 +394,15 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
     if (slot.type === 'publisher' && slots.some(s => s.type === 'publisher' && s.id === slot.id)) return;
     if (slot.type === 'guest' && slots.some(s => s.type === 'guest' && s.name === slot.name)) return;
     setSlots((prev) => [...prev, slot]);
+    if (slot.type === "guest") {
+      setExistingGuests((prev) => {
+        const next = Array.from(new Set([...prev, slot.name.trim()])).filter((value) => value.length > 0);
+        try {
+          window.localStorage.setItem(GUEST_NAMES_CACHE_KEY, JSON.stringify({ names: next }));
+        } catch {}
+        return next;
+      });
+    }
     setAddPublisherDrawerOpen(false);
     setNewGuestName("");
   }, [slots]);
@@ -389,7 +416,36 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
 
   useEffect(() => {
     if (!addPublisherDrawerOpen) return;
-    getDistinctCallGuestNames().then(setExistingGuests);
+    try {
+      const cachedRaw = window.localStorage.getItem(GUEST_NAMES_CACHE_KEY);
+      if (cachedRaw) {
+        const cached = JSON.parse(cachedRaw) as { names?: string[] };
+        if (Array.isArray(cached?.names)) {
+          setExistingGuests(
+            Array.from(
+              new Set(
+                cached.names
+                  .map((value) => (typeof value === "string" ? value.trim() : ""))
+                  .filter((value) => value.length > 0)
+              )
+            )
+          );
+        }
+      }
+    } catch {}
+    getDistinctCallGuestNames().then((names) => {
+      const normalized = Array.from(
+        new Set(
+          names
+            .map((value) => (typeof value === "string" ? value.trim() : ""))
+            .filter((value) => value.length > 0)
+        )
+      );
+      setExistingGuests(normalized);
+      try {
+        window.localStorage.setItem(GUEST_NAMES_CACHE_KEY, JSON.stringify({ names: normalized }));
+      } catch {}
+    });
   }, [addPublisherDrawerOpen]);
 
   const getSlotDisplayName = (slot: PublisherSlot) => {

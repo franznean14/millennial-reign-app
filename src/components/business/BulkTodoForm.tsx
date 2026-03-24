@@ -13,7 +13,7 @@ import { ChevronDown, ChevronUp, Plus, Search, Trash2, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Drawer, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
-import { addStandaloneTodo, getBwiParticipants, updateCallTodo, updateTodoForBulkEdit, type EstablishmentWithDetails, type HouseholderWithDetails } from "@/lib/db/business";
+import { addStandaloneTodo, getBwiParticipants, getDistinctCallGuestNames, updateCallTodo, updateTodoForBulkEdit, type EstablishmentWithDetails, type HouseholderWithDetails } from "@/lib/db/business";
 import { getInitialsFromName } from "@/lib/utils/visit-history-ui";
 import { getBestStatus, getStatusTitleColor } from "@/lib/utils/status-hierarchy";
 import { formatStatusText } from "@/lib/utils/formatters";
@@ -94,10 +94,12 @@ type DuplicateAddPromptState = {
 };
 
 const DRAFT_STORAGE_KEY = "business:bulk-todos:draft:v1";
-const PARTICIPANTS_CACHE_KEY = "business:bulk-todos:participants:v1";
+const PARTICIPANTS_CACHE_KEY = "business:participants:local:v1";
+const GUEST_NAMES_CACHE_KEY = "business:guest-names:local:v1";
 const TARGET_INSIGHTS_CACHE_KEY = "business:bulk-todos:target-insights:v1";
 const TARGET_INSIGHTS_CACHE_MAX_AGE_MS = 15 * 60 * 1000;
 const NEW_TODO_PICKER_ROW_ID = "__new-todo-picker__";
+const GUEST_SLOT_PREFIX = "guest::";
 const DEFAULT_TARGET_PICKER_FILTERS: VisitFilters = {
   search: "",
   statuses: [],
@@ -114,6 +116,10 @@ const createDraftRow = (): BulkTodoDraftRow => ({
   slots: [],
   dueDate: null,
 });
+
+const toGuestSlotToken = (name: string): string => `${GUEST_SLOT_PREFIX}${name.trim()}`;
+const isGuestSlotToken = (slot: string): boolean => slot.startsWith(GUEST_SLOT_PREFIX);
+const getGuestNameFromSlot = (slot: string): string => (isGuestSlotToken(slot) ? slot.slice(GUEST_SLOT_PREFIX.length).trim() : "");
 
 const parseDateString = (value: string | null): Date | undefined => {
   if (!value) return undefined;
@@ -260,6 +266,8 @@ export function BulkTodoForm({
   const [targetBulkAddModeByRow, setTargetBulkAddModeByRow] = useState<Record<string, boolean>>({});
   const [targetBulkSelectedKeysByRow, setTargetBulkSelectedKeysByRow] = useState<Record<string, string[]>>({});
   const [assigneeDrawerOpenByRow, setAssigneeDrawerOpenByRow] = useState<Record<string, boolean>>({});
+  const [existingGuestNames, setExistingGuestNames] = useState<string[]>([]);
+  const [newGuestNameByRow, setNewGuestNameByRow] = useState<Record<string, string>>({});
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const [duplicateAddPrompt, setDuplicateAddPrompt] = useState<DuplicateAddPromptState | null>(null);
   const [insightRefreshKey, setInsightRefreshKey] = useState(0);
@@ -294,6 +302,30 @@ export function BulkTodoForm({
       }
     };
     loadParticipants();
+  }, []);
+
+  useEffect(() => {
+    const loadCachedGuestNames = () => {
+      try {
+        const raw = window.localStorage.getItem(GUEST_NAMES_CACHE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw) as { names?: string[] };
+        if (!Array.isArray(parsed?.names)) return;
+        const names = Array.from(
+          new Set(
+            parsed.names
+              .map((value) => (typeof value === "string" ? value.trim() : ""))
+              .filter((value) => value.length > 0)
+          )
+        );
+        if (names.length > 0) {
+          setExistingGuestNames(names);
+        }
+      } catch (error) {
+        console.error("[BulkTodoForm] Failed to restore guest names cache:", error);
+      }
+    };
+    loadCachedGuestNames();
   }, []);
 
   useEffect(() => {
@@ -1508,6 +1540,7 @@ export function BulkTodoForm({
     setRows([]);
     setCollapsedByRow({});
     setAssigneeDrawerOpenByRow({});
+    setNewGuestNameByRow({});
     setTargetPickerOpenByRow((prev) => ({ ...prev, [NEW_TODO_PICKER_ROW_ID]: false }));
     setTargetBulkAddModeByRow((prev) => ({ ...prev, [NEW_TODO_PICKER_ROW_ID]: false }));
     setTargetBulkSelectedKeysByRow((prev) => ({ ...prev, [NEW_TODO_PICKER_ROW_ID]: [] }));
@@ -1557,6 +1590,11 @@ export function BulkTodoForm({
       return next;
     });
     setAssigneeDrawerOpenByRow((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    setNewGuestNameByRow((prev) => {
       const next = { ...prev };
       delete next[id];
       return next;
@@ -1645,54 +1683,82 @@ export function BulkTodoForm({
       const completeNewRows = newCandidateRows.filter(isRowComplete);
 
       type OpResult = { kind: "edit" | "new"; row: BulkTodoDraftRow; ok: boolean };
-      const updateTasks = changedCompleteEditRows.map(async (row): Promise<OpResult> => {
-        const [targetType, targetId] = row.targetKey.split(":");
-        const selectedHouseholder = targetType === "householder" ? householdersById.get(targetId) : undefined;
-        const publisherId = row.slots[0] ?? null;
-        const partnerId = row.slots[1] ?? null;
-        const ok = await updateTodoForBulkEdit(row.sourceTodoId as string, {
-          establishment_id:
-            targetType === "establishment"
-              ? targetId || null
-              : selectedHouseholder?.establishment_id ?? null,
-          householder_id:
-            targetType === "householder" ? targetId || null : null,
-          body: row.body.trim(),
-          deadline_date: row.dueDate ?? null,
-          publisher_id: publisherId,
-          partner_id: partnerId,
-        });
-        return { kind: "edit", row, ok };
-      });
+      const operationQueue: Array<{ kind: "edit" | "new"; row: BulkTodoDraftRow; run: () => Promise<OpResult> }> = [
+        ...changedCompleteEditRows.map((row) => ({
+          kind: "edit" as const,
+          row,
+          run: async (): Promise<OpResult> => {
+            const [targetType, targetId] = row.targetKey.split(":");
+            const selectedHouseholder = targetType === "householder" ? householdersById.get(targetId) : undefined;
+            const slot0 = row.slots[0] ?? "";
+            const slot1 = row.slots[1] ?? "";
+            const publisherId = slot0 && !isGuestSlotToken(slot0) ? slot0 : null;
+            const partnerId = slot1 && !isGuestSlotToken(slot1) ? slot1 : null;
+            const publisherGuestName = slot0 && isGuestSlotToken(slot0) ? getGuestNameFromSlot(slot0) : null;
+            const partnerGuestName = slot1 && isGuestSlotToken(slot1) ? getGuestNameFromSlot(slot1) : null;
+            const ok = await updateTodoForBulkEdit(row.sourceTodoId as string, {
+              establishment_id:
+                targetType === "establishment"
+                  ? targetId || null
+                  : selectedHouseholder?.establishment_id ?? null,
+              householder_id:
+                targetType === "householder" ? targetId || null : null,
+              body: row.body.trim(),
+              deadline_date: row.dueDate ?? null,
+              publisher_id: publisherId,
+              partner_id: partnerId,
+              publisher_guest_name: publisherGuestName,
+              partner_guest_name: partnerGuestName,
+            });
+            return { kind: "edit", row, ok };
+          },
+        })),
+        ...completeNewRows.map((row) => ({
+          kind: "new" as const,
+          row,
+          run: async (): Promise<OpResult> => {
+            const [targetType, targetId] = row.targetKey.split(":");
+            const selectedHouseholder = targetType === "householder" ? householdersById.get(targetId) : undefined;
+            const slot0 = row.slots[0] ?? "";
+            const slot1 = row.slots[1] ?? "";
+            const publisherId = slot0 && !isGuestSlotToken(slot0) ? slot0 : null;
+            const partnerId = slot1 && !isGuestSlotToken(slot1) ? slot1 : null;
+            const publisherGuestName = slot0 && isGuestSlotToken(slot0) ? getGuestNameFromSlot(slot0) : null;
+            const partnerGuestName = slot1 && isGuestSlotToken(slot1) ? getGuestNameFromSlot(slot1) : null;
+            const created = await addStandaloneTodo({
+              establishment_id:
+                targetType === "establishment"
+                  ? targetId || null
+                  : selectedHouseholder?.establishment_id ?? null,
+              householder_id:
+                targetType === "householder" ? targetId || null : null,
+              body: row.body.trim(),
+              deadline_date: row.dueDate ?? null,
+              publisher_id: publisherId,
+              partner_id: partnerId,
+              publisher_guest_name: publisherGuestName,
+              partner_guest_name: partnerGuestName,
+            });
+            return { kind: "new", row, ok: !!created };
+          },
+        })),
+      ];
 
-      const createTasks = completeNewRows.map(async (row): Promise<OpResult> => {
-        const [targetType, targetId] = row.targetKey.split(":");
-        const selectedHouseholder = targetType === "householder" ? householdersById.get(targetId) : undefined;
-        const publisherId = row.slots[0] ?? null;
-        const partnerId = row.slots[1] ?? null;
-        const created = await addStandaloneTodo({
-          establishment_id:
-            targetType === "establishment"
-              ? targetId || null
-              : selectedHouseholder?.establishment_id ?? null,
-          householder_id:
-            targetType === "householder" ? targetId || null : null,
-          body: row.body.trim(),
-          deadline_date: row.dueDate ?? null,
-          publisher_id: publisherId,
-          partner_id: partnerId,
-        });
-        return { kind: "new", row, ok: !!created };
-      });
-
-      const settled = await Promise.allSettled([...updateTasks, ...createTasks]);
-      const operationResults: OpResult[] = settled.map((result, index) => {
-        if (result.status === "fulfilled") return result.value;
-        const opList = [...changedCompleteEditRows, ...completeNewRows];
-        const row = opList[index];
-        const kind: "edit" | "new" = index < changedCompleteEditRows.length ? "edit" : "new";
-        return { kind, row, ok: false };
-      });
+      const BATCH_SIZE = 8;
+      const operationResults: OpResult[] = [];
+      for (let i = 0; i < operationQueue.length; i += BATCH_SIZE) {
+        const batch = operationQueue.slice(i, i + BATCH_SIZE);
+        const batchResults = await Promise.all(
+          batch.map(async (op): Promise<OpResult> => {
+            try {
+              return await op.run();
+            } catch {
+              return { kind: op.kind, row: op.row, ok: false };
+            }
+          })
+        );
+        operationResults.push(...batchResults);
+      }
 
       const successCount = operationResults.filter((item) => item.ok).length;
       const totalOps = operationResults.length;
@@ -1762,6 +1828,53 @@ export function BulkTodoForm({
         return { ...row, slots: [...row.slots, participantId] };
       })
     );
+  };
+
+  const addGuestSlot = (rowId: string, guestName: string) => {
+    const normalized = guestName.trim();
+    if (!normalized) return;
+    const token = toGuestSlotToken(normalized);
+    setRows((prev) =>
+      prev.map((row) => {
+        if (row.id !== rowId) return row;
+        if (row.slots.length >= 2) return row;
+        if (
+          row.slots.some((slot) => {
+            if (!isGuestSlotToken(slot)) return false;
+            return getGuestNameFromSlot(slot).toLowerCase() === normalized.toLowerCase();
+          })
+        ) {
+          return row;
+        }
+        return { ...row, slots: [...row.slots, token] };
+      })
+    );
+    setExistingGuestNames((prev) => {
+      const next = Array.from(new Set([...prev, normalized]));
+      try {
+        window.localStorage.setItem(GUEST_NAMES_CACHE_KEY, JSON.stringify({ names: next }));
+      } catch {}
+      return next;
+    });
+    setAssigneeDrawerOpenByRow((prev) => ({ ...prev, [rowId]: false }));
+    setNewGuestNameByRow((prev) => ({ ...prev, [rowId]: "" }));
+  };
+
+  const loadGuestNamesForAssignees = async () => {
+    try {
+      const list = await getDistinctCallGuestNames();
+      const names = Array.from(
+        new Set(
+          list
+            .map((value) => (typeof value === "string" ? value.trim() : ""))
+            .filter((value) => value.length > 0)
+        )
+      );
+      setExistingGuestNames(names);
+      window.localStorage.setItem(GUEST_NAMES_CACHE_KEY, JSON.stringify({ names }));
+    } catch (error) {
+      console.error("[BulkTodoForm] Failed to load guest names:", error);
+    }
   };
 
   const removeSlot = (rowId: string, slotIndex: number) => {
@@ -1924,13 +2037,23 @@ export function BulkTodoForm({
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center">
                   {row.slots.length > 0 ? (
-                    row.slots.map((participantId, slotIndex) => {
-                      const selected = getParticipantById(participantId);
-                      const fullName = selected ? `${selected.first_name} ${selected.last_name}` : "Publisher";
+                    row.slots.map((slotValue, slotIndex) => {
+                      const isGuest = isGuestSlotToken(slotValue);
+                      const guestName = getGuestNameFromSlot(slotValue);
+                      const selected = !isGuest ? getParticipantById(slotValue) : undefined;
+                      const fullName = isGuest
+                        ? guestName || "Guest"
+                        : selected
+                          ? `${selected.first_name} ${selected.last_name}`
+                          : "Publisher";
                       return (
-                        <Avatar key={`${row.id}-summary-avatar-${participantId}`} className={`h-6 w-6 ring-1 ring-background ${slotIndex > 0 ? "-ml-2" : ""}`}>
-                          {selected?.avatar_url ? <AvatarImage src={selected.avatar_url} alt={fullName} /> : null}
-                          <AvatarFallback className="text-xs">{getInitialsFromName(fullName)}</AvatarFallback>
+                        <Avatar key={`${row.id}-summary-avatar-${slotValue}-${slotIndex}`} className={`h-6 w-6 ring-1 ring-background ${slotIndex > 0 ? "-ml-2" : ""}`}>
+                          {!isGuest && selected?.avatar_url ? <AvatarImage src={selected.avatar_url} alt={fullName} /> : null}
+                          <AvatarFallback
+                            className={isGuest ? "text-xs bg-amber-500/25 text-amber-800 dark:bg-amber-500/30 dark:text-amber-200 ring-1 ring-amber-500/50 dark:ring-amber-400/40" : "text-xs"}
+                          >
+                            {getInitialsFromName(fullName)}
+                          </AvatarFallback>
                         </Avatar>
                       );
                     })
@@ -1965,14 +2088,24 @@ export function BulkTodoForm({
               <div className="grid gap-1">
                 <Label>Publishers</Label>
                 <div className="flex flex-wrap items-center gap-2">
-                  {row.slots.map((participantId, slotIndex) => {
-                    const selected = getParticipantById(participantId);
-                    const fullName = selected ? `${selected.first_name} ${selected.last_name}` : "Publisher";
+                  {row.slots.map((slotValue, slotIndex) => {
+                    const isGuest = isGuestSlotToken(slotValue);
+                    const guestName = getGuestNameFromSlot(slotValue);
+                    const selected = !isGuest ? getParticipantById(slotValue) : undefined;
+                    const fullName = isGuest
+                      ? guestName || "Guest"
+                      : selected
+                        ? `${selected.first_name} ${selected.last_name}`
+                        : "Publisher";
                     return (
-                      <div key={`${row.id}-slot-${participantId}`} className="flex items-center gap-2 bg-muted px-2 py-1.5 rounded-md">
+                      <div key={`${row.id}-slot-${slotValue}-${slotIndex}`} className="flex items-center gap-2 bg-muted px-2 py-1.5 rounded-md">
                         <Avatar className="h-6 w-6 shrink-0">
-                          {selected?.avatar_url ? <AvatarImage src={selected.avatar_url} alt={fullName} /> : null}
-                          <AvatarFallback className="text-xs">{getInitialsFromName(fullName)}</AvatarFallback>
+                          {!isGuest && selected?.avatar_url ? <AvatarImage src={selected.avatar_url} alt={fullName} /> : null}
+                          <AvatarFallback
+                            className={isGuest ? "text-xs bg-amber-500/25 text-amber-800 dark:bg-amber-500/30 dark:text-amber-200 ring-1 ring-amber-500/50 dark:ring-amber-400/40" : "text-xs"}
+                          >
+                            {getInitialsFromName(fullName)}
+                          </AvatarFallback>
                         </Avatar>
                         <span className="text-sm">{fullName}</span>
                         <Button
@@ -1991,7 +2124,14 @@ export function BulkTodoForm({
                   {row.slots.length < 2 && (
                     <Drawer
                       open={!!assigneeDrawerOpenByRow[row.id]}
-                      onOpenChange={(open) => setAssigneeDrawerOpenByRow((prev) => ({ ...prev, [row.id]: open }))}
+                      onOpenChange={(open) => {
+                        setAssigneeDrawerOpenByRow((prev) => ({ ...prev, [row.id]: open }));
+                        if (open) {
+                          void loadGuestNamesForAssignees();
+                        } else {
+                          setNewGuestNameByRow((prev) => ({ ...prev, [row.id]: "" }));
+                        }
+                      }}
                     >
                       <DrawerTrigger asChild>
                         <Button
@@ -2006,40 +2146,98 @@ export function BulkTodoForm({
                       </DrawerTrigger>
                       <DrawerContent className="max-h-[70vh]">
                         <DrawerHeader className="text-center">
-                          <DrawerTitle>Select publisher</DrawerTitle>
+                          <DrawerTitle>Select publisher or guest</DrawerTitle>
                         </DrawerHeader>
-                        <div className="overflow-y-auto px-4 pt-2 pb-[calc(env(safe-area-inset-bottom)+24px)]">
-                          {participants.length > 0 ? (
-                            <ul className="space-y-1">
-                              {participants
-                                .filter((participant) => !row.slots.includes(participant.id))
-                                .map((participant) => (
-                                  <li key={participant.id}>
-                                    <Button
-                                      type="button"
-                                      variant="ghost"
-                                      className="w-full justify-start gap-2 h-12 px-3"
-                                      onClick={() => {
-                                        toggleSlot(row.id, participant.id);
-                                        setAssigneeDrawerOpenByRow((prev) => ({ ...prev, [row.id]: false }));
-                                      }}
-                                    >
-                                      <Avatar className="h-8 w-8">
-                                        <AvatarImage src={participant.avatar_url} />
-                                        <AvatarFallback className="text-xs">
-                                          {getInitialsFromName(`${participant.first_name} ${participant.last_name}`)}
-                                        </AvatarFallback>
-                                      </Avatar>
-                                      <span>
-                                        {participant.first_name} {participant.last_name}
-                                      </span>
-                                    </Button>
-                                  </li>
+                        <div className="overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+24px)] space-y-6">
+                          <section>
+                            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                              Publishers
+                            </h3>
+                            {participants.length > 0 ? (
+                              <ul className="space-y-1">
+                                {participants
+                                  .filter((participant) => !row.slots.includes(participant.id))
+                                  .map((participant) => (
+                                    <li key={participant.id}>
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        className="w-full justify-start gap-2 h-12 px-3"
+                                        onClick={() => {
+                                          toggleSlot(row.id, participant.id);
+                                          setAssigneeDrawerOpenByRow((prev) => ({ ...prev, [row.id]: false }));
+                                        }}
+                                      >
+                                        <Avatar className="h-8 w-8">
+                                          <AvatarImage src={participant.avatar_url} />
+                                          <AvatarFallback className="text-xs">
+                                            {getInitialsFromName(`${participant.first_name} ${participant.last_name}`)}
+                                          </AvatarFallback>
+                                        </Avatar>
+                                        <span>
+                                          {participant.first_name} {participant.last_name}
+                                        </span>
+                                      </Button>
+                                    </li>
+                                  ))}
+                              </ul>
+                            ) : (
+                              <p className="text-sm text-muted-foreground py-2">No publishers available</p>
+                            )}
+                          </section>
+
+                          <section>
+                            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                              Guest
+                            </h3>
+                            <div className="space-y-2">
+                              {existingGuestNames
+                                .filter((name) => {
+                                  const token = toGuestSlotToken(name);
+                                  return !row.slots.includes(token);
+                                })
+                                .map((name) => (
+                                  <Button
+                                    key={`${row.id}-guest-${name}`}
+                                    type="button"
+                                    variant="ghost"
+                                    className="w-full justify-start gap-2 h-12 px-3"
+                                    onClick={() => addGuestSlot(row.id, name)}
+                                  >
+                                    <Avatar className="h-8 w-8 shrink-0">
+                                      <AvatarFallback className="text-xs bg-amber-500/25 text-amber-800 dark:bg-amber-500/30 dark:text-amber-200 ring-1 ring-amber-500/50 dark:ring-amber-400/40">
+                                        {getInitialsFromName(name)}
+                                      </AvatarFallback>
+                                    </Avatar>
+                                    <span>{name}</span>
+                                  </Button>
                                 ))}
-                            </ul>
-                          ) : (
-                            <p className="text-sm text-muted-foreground py-2">No publishers available</p>
-                          )}
+                              <div className="flex gap-2 pt-1">
+                                <Input
+                                  placeholder="New guest name"
+                                  value={newGuestNameByRow[row.id] || ""}
+                                  onChange={(e) =>
+                                    setNewGuestNameByRow((prev) => ({ ...prev, [row.id]: e.target.value }))
+                                  }
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") {
+                                      e.preventDefault();
+                                      addGuestSlot(row.id, newGuestNameByRow[row.id] || "");
+                                    }
+                                  }}
+                                  className="flex-1"
+                                />
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  onClick={() => addGuestSlot(row.id, newGuestNameByRow[row.id] || "")}
+                                  disabled={!(newGuestNameByRow[row.id] || "").trim()}
+                                >
+                                  Add
+                                </Button>
+                              </div>
+                            </div>
+                          </section>
                         </div>
                       </DrawerContent>
                     </Drawer>

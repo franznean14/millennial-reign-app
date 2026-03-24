@@ -28,6 +28,8 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getInitialsFromName } from "@/lib/utils/visit-history-ui";
 
 type PublisherSlot = { type: "publisher"; id: string } | { type: "guest"; name: string };
+const PARTICIPANTS_CACHE_KEY = "business:participants:local:v1";
+const GUEST_NAMES_CACHE_KEY = "business:guest-names:local:v1";
 
 interface TodoFormProps {
   /** Same as VisitForm: list of establishments (id optional for type compatibility with EstablishmentWithDetails[]) */
@@ -41,6 +43,8 @@ interface TodoFormProps {
     deadline_date?: string | null;
     publisher_id?: string | null;
     partner_id?: string | null;
+    publisher_guest_name?: string | null;
+    partner_guest_name?: string | null;
     establishment_id?: string | null;
     householder_id?: string | null;
   } | null;
@@ -76,7 +80,9 @@ export function TodoForm({
   const [slots, setSlots] = useState<PublisherSlot[]>(() => {
     const next: PublisherSlot[] = [];
     if (initialTodo?.publisher_id) next.push({ type: "publisher", id: initialTodo.publisher_id });
+    else if (initialTodo?.publisher_guest_name?.trim()) next.push({ type: "guest", name: initialTodo.publisher_guest_name.trim() });
     if (initialTodo?.partner_id) next.push({ type: "publisher", id: initialTodo.partner_id });
+    else if (initialTodo?.partner_guest_name?.trim()) next.push({ type: "guest", name: initialTodo.partner_guest_name.trim() });
     return next;
   });
 
@@ -131,15 +137,32 @@ export function TodoForm({
     setDeadlineDate(initialTodo.deadline_date ? new Date(initialTodo.deadline_date) : null);
     const next: PublisherSlot[] = [];
     if (initialTodo.publisher_id) next.push({ type: "publisher", id: initialTodo.publisher_id });
+    else if (initialTodo.publisher_guest_name?.trim()) next.push({ type: "guest", name: initialTodo.publisher_guest_name.trim() });
     if (initialTodo.partner_id) next.push({ type: "publisher", id: initialTodo.partner_id });
+    else if (initialTodo.partner_guest_name?.trim()) next.push({ type: "guest", name: initialTodo.partner_guest_name.trim() });
     setSlots(next);
   }, [initialTodo]);
 
   useEffect(() => {
     const loadParticipants = async () => {
       try {
+        const cachedRaw = window.localStorage.getItem(PARTICIPANTS_CACHE_KEY);
+        if (cachedRaw) {
+          const cached = JSON.parse(cachedRaw) as {
+            items?: Array<{ id: string; first_name: string; last_name: string; avatar_url?: string }>;
+          };
+          if (Array.isArray(cached?.items) && cached.items.length > 0) {
+            setParticipants(
+              cached.items.filter(
+                (item): item is { id: string; first_name: string; last_name: string; avatar_url?: string } =>
+                  typeof item?.id === "string"
+              )
+            );
+          }
+        }
         const list = await getBwiParticipants();
         setParticipants(list);
+        window.localStorage.setItem(PARTICIPANTS_CACHE_KEY, JSON.stringify({ items: list }));
         const supabase = createSupabaseBrowserClient();
         const { data: profile } = await supabase.rpc("get_my_profile");
         if (!initialTodo && profile && slots.length === 0) {
@@ -154,7 +177,36 @@ export function TodoForm({
 
   useEffect(() => {
     if (!addPublisherDrawerOpen) return;
-    getDistinctCallGuestNames().then(setExistingGuests);
+    try {
+      const cachedRaw = window.localStorage.getItem(GUEST_NAMES_CACHE_KEY);
+      if (cachedRaw) {
+        const cached = JSON.parse(cachedRaw) as { names?: string[] };
+        if (Array.isArray(cached?.names)) {
+          setExistingGuests(
+            Array.from(
+              new Set(
+                cached.names
+                  .map((value) => (typeof value === "string" ? value.trim() : ""))
+                  .filter((value) => value.length > 0)
+              )
+            )
+          );
+        }
+      }
+    } catch {}
+    getDistinctCallGuestNames().then((names) => {
+      const normalized = Array.from(
+        new Set(
+          names
+            .map((value) => (typeof value === "string" ? value.trim() : ""))
+            .filter((value) => value.length > 0)
+        )
+      );
+      setExistingGuests(normalized);
+      try {
+        window.localStorage.setItem(GUEST_NAMES_CACHE_KEY, JSON.stringify({ names: normalized }));
+      } catch {}
+    });
   }, [addPublisherDrawerOpen]);
 
   const formatLocalDate = (date: Date): string => {
@@ -182,6 +234,8 @@ export function TodoForm({
           deadline_date: deadlineDate ? formatLocalDate(deadlineDate) : null,
           publisher_id: slot0?.type === "publisher" ? slot0.id : null,
           partner_id: slot1?.type === "publisher" ? slot1.id : null,
+          publisher_guest_name: slot0?.type === "guest" ? slot0.name : null,
+          partner_guest_name: slot1?.type === "guest" ? slot1.name : null,
         });
         if (ok) {
           toast.success("To-do updated.");
@@ -235,6 +289,15 @@ export function TodoForm({
         return prev;
       return [...prev, slot];
     });
+    if (slot.type === "guest") {
+      setExistingGuests((prev) => {
+        const next = Array.from(new Set([...prev, slot.name.trim()])).filter((value) => value.length > 0);
+        try {
+          window.localStorage.setItem(GUEST_NAMES_CACHE_KEY, JSON.stringify({ names: next }));
+        } catch {}
+        return next;
+      });
+    }
     setAddPublisherDrawerOpen(false);
     setNewGuestName("");
   }, []);

@@ -87,6 +87,8 @@ export interface CallTodo {
   householder_id?: string | null;
   publisher_id?: string | null;
   partner_id?: string | null;
+  publisher_guest_name?: string | null;
+  partner_guest_name?: string | null;
   deadline_date?: string | null;
   created_at?: string;
 }
@@ -1039,6 +1041,21 @@ export async function deleteCallTodo(id: string): Promise<boolean> {
 }
 
 /** Create a standalone to-do item (no call row is created). */
+const CALL_TODO_SELECT_BASE =
+  "id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, deadline_date, created_at";
+const CALL_TODO_SELECT_WITH_GUESTS =
+  "id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, publisher_guest_name, partner_guest_name, deadline_date, created_at";
+
+function isGuestColumnMissingError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const details = JSON.stringify(error).toLowerCase();
+  return (
+    details.includes("publisher_guest_name") ||
+    details.includes("partner_guest_name") ||
+    details.includes("column") && details.includes("does not exist")
+  );
+}
+
 export async function addStandaloneTodo(params: {
   establishment_id?: string | null;
   householder_id?: string | null;
@@ -1059,7 +1076,7 @@ export async function addStandaloneTodo(params: {
       .single();
     if (!profile?.congregation_id) return null;
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       call_id: null,
       congregation_id: profile.congregation_id,
       establishment_id: params.establishment_id ?? null,
@@ -1070,16 +1087,34 @@ export async function addStandaloneTodo(params: {
       partner_id: params.partner_id ?? null,
       deadline_date: params.deadline_date?.trim() || null,
     };
+    const hasGuestNames = !!(params.publisher_guest_name?.trim() || params.partner_guest_name?.trim());
+    if (hasGuestNames) {
+      payload.publisher_guest_name = params.publisher_guest_name?.trim() || null;
+      payload.partner_guest_name = params.partner_guest_name?.trim() || null;
+    }
     const { data, error } = await supabase
       .from("call_todos")
       .insert(payload)
-      .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, deadline_date, created_at")
+      .select(hasGuestNames ? CALL_TODO_SELECT_WITH_GUESTS : CALL_TODO_SELECT_BASE)
       .single();
     if (error) {
+      if (hasGuestNames && isGuestColumnMissingError(error)) {
+        const fallbackPayload = { ...payload };
+        delete fallbackPayload.publisher_guest_name;
+        delete fallbackPayload.partner_guest_name;
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from("call_todos")
+          .insert(fallbackPayload)
+          .select(CALL_TODO_SELECT_BASE)
+          .single();
+        if (!fallbackError) {
+          return (fallbackData as unknown as CallTodo) ?? null;
+        }
+      }
       console.error("Error adding standalone todo:", error);
       return null;
     }
-    return (data as CallTodo) ?? null;
+    return (data as unknown as CallTodo) ?? null;
   } catch (e) {
     console.error("addStandaloneTodo:", e);
     return null;
@@ -1093,6 +1128,8 @@ export async function updateStandaloneTodo(
     deadline_date?: string | null;
     publisher_id?: string | null;
     partner_id?: string | null;
+    publisher_guest_name?: string | null;
+    partner_guest_name?: string | null;
   }
 ): Promise<boolean> {
   const supabase = createSupabaseBrowserClient();
@@ -1103,14 +1140,25 @@ export async function updateStandaloneTodo(
       deadline_date?: string | null;
       publisher_id?: string | null;
       partner_id?: string | null;
+      publisher_guest_name?: string | null;
+      partner_guest_name?: string | null;
     } = {};
     if (updates.body !== undefined) payload.body = updates.body.trim();
     if (updates.deadline_date !== undefined) payload.deadline_date = updates.deadline_date;
     if (updates.publisher_id !== undefined) payload.publisher_id = updates.publisher_id;
     if (updates.partner_id !== undefined) payload.partner_id = updates.partner_id;
+    if (updates.publisher_guest_name !== undefined) payload.publisher_guest_name = updates.publisher_guest_name;
+    if (updates.partner_guest_name !== undefined) payload.partner_guest_name = updates.partner_guest_name;
     if (Object.keys(payload).length === 0) return true;
     const { error } = await supabase.from("call_todos").update(payload).eq("id", id);
     if (error) {
+      if (isGuestColumnMissingError(error)) {
+        const fallbackPayload = { ...payload };
+        delete fallbackPayload.publisher_guest_name;
+        delete fallbackPayload.partner_guest_name;
+        const { error: fallbackError } = await supabase.from("call_todos").update(fallbackPayload).eq("id", id);
+        if (!fallbackError) return true;
+      }
       console.error("updateStandaloneTodo:", error);
       return false;
     }
@@ -1131,6 +1179,8 @@ export async function updateTodoForBulkEdit(
     deadline_date?: string | null;
     publisher_id?: string | null;
     partner_id?: string | null;
+    publisher_guest_name?: string | null;
+    partner_guest_name?: string | null;
   }
 ): Promise<boolean> {
   const supabase = createSupabaseBrowserClient();
@@ -1143,6 +1193,8 @@ export async function updateTodoForBulkEdit(
       deadline_date?: string | null;
       publisher_id?: string | null;
       partner_id?: string | null;
+      publisher_guest_name?: string | null;
+      partner_guest_name?: string | null;
     } = {};
     if (updates.establishment_id !== undefined) payload.establishment_id = updates.establishment_id;
     if (updates.householder_id !== undefined) payload.householder_id = updates.householder_id;
@@ -1150,9 +1202,18 @@ export async function updateTodoForBulkEdit(
     if (updates.deadline_date !== undefined) payload.deadline_date = updates.deadline_date;
     if (updates.publisher_id !== undefined) payload.publisher_id = updates.publisher_id;
     if (updates.partner_id !== undefined) payload.partner_id = updates.partner_id;
+    if (updates.publisher_guest_name !== undefined) payload.publisher_guest_name = updates.publisher_guest_name;
+    if (updates.partner_guest_name !== undefined) payload.partner_guest_name = updates.partner_guest_name;
     if (Object.keys(payload).length === 0) return true;
     const { error } = await supabase.from("call_todos").update(payload).eq("id", id);
     if (error) {
+      if (isGuestColumnMissingError(error)) {
+        const fallbackPayload = { ...payload };
+        delete fallbackPayload.publisher_guest_name;
+        delete fallbackPayload.partner_guest_name;
+        const { error: fallbackError } = await supabase.from("call_todos").update(fallbackPayload).eq("id", id);
+        if (!fallbackError) return true;
+      }
       console.error("updateTodoForBulkEdit:", error);
       return false;
     }

@@ -449,6 +449,14 @@ DO $$ BEGIN
   ALTER TABLE public.calls ADD COLUMN IF NOT EXISTS partner_guest_name text;
 EXCEPTION WHEN duplicate_column THEN null;
 END $$;
+DO $$ BEGIN
+  ALTER TABLE public.call_todos ADD COLUMN IF NOT EXISTS publisher_guest_name text;
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+DO $$ BEGIN
+  ALTER TABLE public.call_todos ADD COLUMN IF NOT EXISTS partner_guest_name text;
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
 
 -- Event schedules
 CREATE TABLE IF NOT EXISTS public.event_schedules (
