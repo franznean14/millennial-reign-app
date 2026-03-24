@@ -955,7 +955,7 @@ export function HomeTodoCard({
               ) : (
                 <>
                   {filteredOpenTodos.length > 0 && (
-                    <ul className="space-y-3 pb-2">
+                    <ul className="space-y-5 pb-2">
                       {filteredOpenTodos.map((todo, index) => (
                         <TodoRow
                           key={todo.id}
@@ -980,7 +980,7 @@ export function HomeTodoCard({
                       <div className="text-xs text-muted-foreground mt-5 mb-2 font-medium">
                         Done
                       </div>
-                      <ul className="space-y-3">
+                      <ul className="space-y-5">
                         {(drawerDoneExpanded
                           ? filteredCompletedTodos
                           : filteredCompletedTodos.slice(0, 3)
@@ -1203,13 +1203,14 @@ function TodoRow({
     .filter((value): value is string => !!value)
     .filter((value, idx, arr) => arr.indexOf(value) === idx)
     .slice(0, 2);
+  const areaLabel = todo.context_area?.trim() ?? "";
   const content = (
     <>
       {showCheckbox ? (
         <Checkbox
           checked={isDone}
           onCheckedChange={(checked) => onMarkDone(todo, checked === true)}
-          className="mt-0 shrink-0 h-5 w-5"
+          className="shrink-0 h-5 w-5"
           aria-label={isDone ? "Mark as not done" : "Mark as done"}
         />
       ) : (
@@ -1218,7 +1219,7 @@ function TodoRow({
           aria-hidden
         />
       )}
-      <div className="min-w-0 flex-1 flex flex-col gap-0.5">
+      <div className="min-w-0 flex-1 flex flex-col gap-2.5">
         <div className="flex items-center gap-1.5 overflow-hidden">
           {todo.context_name ? (
             <>
@@ -1267,30 +1268,44 @@ function TodoRow({
             </div>
           ) : null}
           {displayDate ? (
-            <span className="text-xs text-muted-foreground shrink-0 ml-auto pl-2 pr-1">
+            <span className="text-xs text-muted-foreground shrink-0 ml-auto pl-2 text-right tabular-nums">
               {formatTodoDate(displayDate)}
             </span>
           ) : null}
         </div>
-        <button
-          type="button"
-          onClick={() => onTap?.(todo)}
-          className={cn(
-            "text-left line-clamp-2 py-0.5 rounded w-full",
-            canNavigate && "hover:bg-muted/50 active:bg-muted transition-colors",
-            isDone && "text-muted-foreground line-through"
-          )}
-          disabled={!canNavigate}
-        >
-          {todo.body}
-        </button>
+        <div className="flex items-start gap-2 w-full min-w-0">
+          <button
+            type="button"
+            onClick={() => onTap?.(todo)}
+            className={cn(
+              "text-left text-base leading-snug line-clamp-2 py-0.5 rounded flex-1 min-w-0",
+              canNavigate && "hover:bg-muted/50 active:bg-muted transition-colors",
+              isDone && "text-muted-foreground line-through"
+            )}
+            disabled={!canNavigate}
+          >
+            {todo.body}
+          </button>
+          {areaLabel ? (
+            <span
+              className={cn(
+                "text-xs text-muted-foreground shrink-0 max-w-[42%] text-right leading-snug pt-0.5",
+                isDone && "opacity-70"
+              )}
+              title={areaLabel}
+            >
+              {truncateLabel(areaLabel, 36)}
+            </span>
+          ) : null}
+        </div>
       </div>
     </>
   );
   const finalClassName = cn(
-    "flex items-center gap-2 text-sm group rounded-md",
+    "flex items-center gap-2 text-sm group rounded-md py-2.5",
     isEvenRow && "bg-muted/30",
-    hasOtherPublisherHighlight && "border border-dashed border-muted-foreground/45 dark:border-muted-foreground/35 px-1.5 py-1",
+    hasOtherPublisherHighlight &&
+      "border border-dashed border-muted-foreground/45 dark:border-muted-foreground/35 px-1.5 py-2.5",
     ageBorderClass && "pl-2",
     ageBorderClass
   );

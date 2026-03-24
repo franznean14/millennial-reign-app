@@ -1316,6 +1316,24 @@ async function enrichTodoItems(
     householderById.set(h.id, h);
   }
 
+  // Contact to-dos may only reference householder_id; load parent establishment for name/status/area.
+  const parentEstablishmentIds = Array.from(
+    new Set(
+      (householderRows.data ?? [])
+        .map((h: { establishment_id?: string | null }) => h.establishment_id)
+        .filter((id: string | null | undefined): id is string => !!id && !establishmentById.has(id))
+    )
+  );
+  if (parentEstablishmentIds.length > 0) {
+    const { data: parentRows } = await supabase
+      .from("business_establishments")
+      .select("id, name, statuses, area")
+      .in("id", parentEstablishmentIds);
+    for (const e of parentRows ?? []) {
+      establishmentById.set(e.id, e);
+    }
+  }
+
   const items = todos.map((t) => {
     const callMeta = t.call_id ? callMetaById.get(t.call_id) : undefined;
     const effectiveEstablishmentId = t.establishment_id ?? callMeta?.establishment_id ?? null;
@@ -1337,7 +1355,8 @@ async function enrichTodoItems(
     const context_establishment_status = householder
       ? (householderEstablishment?.statuses ? getBestStatus(householderEstablishment.statuses) : establishmentStatus ?? callMeta?.context_establishment_status ?? null)
       : establishmentStatus ?? callMeta?.context_establishment_status ?? null;
-    const context_area = establishment?.area ?? callMeta?.context_area ?? null;
+    const context_area =
+      householderEstablishment?.area ?? establishment?.area ?? callMeta?.context_area ?? null;
 
     return {
       ...(t as CallTodo),
