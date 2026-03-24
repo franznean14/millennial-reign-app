@@ -1359,7 +1359,7 @@ function TodoRow({
     "flex items-center gap-2 text-sm group rounded-md py-2.5",
     isEvenRow && "bg-muted/30",
     hasOtherPublisherHighlight &&
-      "border border-dashed border-muted-foreground/45 dark:border-muted-foreground/35 px-1.5 py-2.5",
+      "border-2 border-dashed border-muted-foreground/45 dark:border-muted-foreground/35 px-1.5 py-2.5",
     ageBorderClass && "pl-2",
     ageBorderClass
   );
