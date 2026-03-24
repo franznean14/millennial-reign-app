@@ -1,7 +1,7 @@
 "use client";
 
 export type FilterBadge = {
-  type: "status" | "excluded_status" | "area" | "floor" | "assignee";
+  type: "status" | "excluded_status" | "area" | "floor" | "assignee" | "due_date";
   value: string;
   label: string;
   /** Profile image when filtering by publisher/partner (to-do assignee). */

@@ -516,29 +516,71 @@ export function HomeTodoCard({
     [openTodos, completedTodos]
   );
 
+  /** Todos matching search, due date, scope toggles — used to populate Status/Areas/Assignees chips (excludes chip filters themselves). */
+  const todosForFilterChipOptions = useMemo(() => {
+    if (!userId || establishmentId || householderId) {
+      return allTodos;
+    }
+    return allTodos.filter((todo) => {
+      if (searchValue.trim()) {
+        const term = searchValue.trim().toLowerCase();
+        const haystack =
+          `${todo.body ?? ""} ${todo.context_name ?? ""}`.toLowerCase();
+        if (!haystack.includes(term)) return false;
+      }
+      if (dueDateFilter) {
+        const selectedDate = toLocalDateString(dueDateFilter);
+        if (!todo.deadline_date || todo.deadline_date !== selectedDate) {
+          return false;
+        }
+      }
+      if (filters.bwiOnly && (!todo.establishment_id || !!todo.householder_id)) {
+        return false;
+      }
+      if (filters.householderOnly && !todo.householder_id) {
+        return false;
+      }
+      if (filters.myUpdatesOnly && userId) {
+        const isMine = todo.publisher_id === userId || todo.partner_id === userId;
+        if (!isMine) return false;
+      }
+      return true;
+    });
+  }, [
+    allTodos,
+    userId,
+    establishmentId,
+    householderId,
+    searchValue,
+    dueDateFilter,
+    filters.bwiOnly,
+    filters.householderOnly,
+    filters.myUpdatesOnly,
+  ]);
+
   const statusOptions: VisitFilterOption[] = useMemo(() => {
     const values = new Set<string>();
-    allTodos.forEach((t) => {
+    todosForFilterChipOptions.forEach((t) => {
       if (t.context_status) values.add(t.context_status);
     });
     return Array.from(values).map((value) => ({
       value,
       label: formatStatusText(value),
     }));
-  }, [allTodos]);
+  }, [todosForFilterChipOptions]);
 
   const areaOptions: VisitFilterOption[] = useMemo(() => {
     const values = new Set<string>();
-    allTodos.forEach((t) => {
+    todosForFilterChipOptions.forEach((t) => {
       const area = t.context_area?.trim();
       if (area) values.add(area);
     });
     return Array.from(values).map((value) => ({ value, label: value }));
-  }, [allTodos]);
+  }, [todosForFilterChipOptions]);
 
   const assigneeFilterOptions: VisitAssigneeFilterOption[] = useMemo(() => {
     const ids = new Set<string>();
-    allTodos.forEach((t) => {
+    todosForFilterChipOptions.forEach((t) => {
       if (t.publisher_id) ids.add(t.publisher_id);
       if (t.partner_id) ids.add(t.partner_id);
     });
@@ -557,7 +599,43 @@ export function HomeTodoCard({
         const nb = `${b.first_name} ${b.last_name}`.trim() || b.id;
         return na.localeCompare(nb, undefined, { sensitivity: "base" });
       });
-  }, [allTodos, participantsById]);
+  }, [todosForFilterChipOptions, participantsById]);
+
+  // When a due date is set, drop chip selections that no longer exist for that date (after todos are loaded).
+  useEffect(() => {
+    if (!userId || establishmentId || householderId) return;
+    if (!dueDateFilter || allTodos.length === 0) return;
+    const validStatus = new Set(statusOptions.map((o) => o.value));
+    const validArea = new Set(areaOptions.map((o) => o.value));
+    const validAssignee = new Set(assigneeFilterOptions.map((o) => o.id));
+    setFilters((prev) => {
+      const nextStatuses = prev.statuses.filter((s) => validStatus.has(s));
+      const nextAreas = prev.areas.filter((a) => validArea.has(a));
+      const nextAssignees = prev.assigneeIds.filter((id) => validAssignee.has(id));
+      if (
+        nextStatuses.length === prev.statuses.length &&
+        nextAreas.length === prev.areas.length &&
+        nextAssignees.length === prev.assigneeIds.length
+      ) {
+        return prev;
+      }
+      return {
+        ...prev,
+        statuses: nextStatuses,
+        areas: nextAreas,
+        assigneeIds: nextAssignees,
+      };
+    });
+  }, [
+    userId,
+    establishmentId,
+    householderId,
+    dueDateFilter,
+    allTodos.length,
+    statusOptions,
+    areaOptions,
+    assigneeFilterOptions,
+  ]);
 
   const filterBadges: FilterBadge[] = useMemo(() => {
     const base = buildFilterBadges({
@@ -575,8 +653,18 @@ export function HomeTodoCard({
         avatarUrl: p?.avatar_url,
       };
     });
-    return [...base, ...assigneeBadges];
-  }, [filters.statuses, filters.areas, filters.assigneeIds, participantsById]);
+    const dueDateBadges: FilterBadge[] =
+      dueDateFilter != null
+        ? [
+            {
+              type: "due_date" as const,
+              value: toLocalDateString(dueDateFilter),
+              label: formatTodoDate(toLocalDateString(dueDateFilter)),
+            },
+          ]
+        : [];
+    return [...base, ...assigneeBadges, ...dueDateBadges];
+  }, [filters.statuses, filters.areas, filters.assigneeIds, participantsById, dueDateFilter]);
 
   const clearFilters = useCallback(() => {
     setFilters((prev) => ({ ...prev, statuses: [], areas: [], assigneeIds: [] }));
@@ -1066,6 +1154,8 @@ export function HomeTodoCard({
                           ...prev,
                           assigneeIds: prev.assigneeIds.filter((id) => id !== badge.value),
                         }));
+                      } else if (badge.type === "due_date") {
+                        setDueDateFilter(null);
                       }
                     }}
                     containerClassName={
@@ -1329,7 +1419,7 @@ function BulkEditTodoListItem({
         onCheckedChange={(value) => onCheckedChange(value === true)}
         className="mt-1 shrink-0 h-5 w-5"
       />
-      <div className="min-w-0 flex-1 flex flex-col gap-2">
+      <div className="min-w-0 flex-1 flex flex-col gap-2 pr-2.5">
         <div className="flex items-center gap-1.5 overflow-hidden min-w-0">
           {todo.context_name ? (
             <>
@@ -1454,7 +1544,7 @@ function TodoRow({
           aria-hidden
         />
       )}
-      <div className="min-w-0 flex-1 flex flex-col gap-2.5">
+      <div className="min-w-0 flex-1 flex flex-col gap-2.5 pr-2.5">
         <div className="flex items-center gap-1.5 overflow-hidden">
           {todo.context_name ? (
             <>
