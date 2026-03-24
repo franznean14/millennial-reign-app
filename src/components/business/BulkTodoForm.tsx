@@ -13,7 +13,16 @@ import { ChevronDown, ChevronUp, Plus, Search, Trash2, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Drawer, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
-import { addStandaloneTodo, getBwiParticipants, getDistinctCallGuestNames, updateCallTodo, updateTodoForBulkEdit, type EstablishmentWithDetails, type HouseholderWithDetails } from "@/lib/db/business";
+import {
+  addStandaloneTodo,
+  deleteCallTodo,
+  getBwiParticipants,
+  getDistinctCallGuestNames,
+  updateCallTodo,
+  updateTodoForBulkEdit,
+  type EstablishmentWithDetails,
+  type HouseholderWithDetails,
+} from "@/lib/db/business";
 import { getInitialsFromName } from "@/lib/utils/visit-history-ui";
 import { getBestStatus, getStatusTitleColor } from "@/lib/utils/status-hierarchy";
 import { formatStatusText } from "@/lib/utils/formatters";
@@ -272,6 +281,7 @@ export function BulkTodoForm({
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const [duplicateAddPrompt, setDuplicateAddPrompt] = useState<DuplicateAddPromptState | null>(null);
   const [insightRefreshKey, setInsightRefreshKey] = useState(0);
+  const [deletingSourceTodoRowId, setDeletingSourceTodoRowId] = useState<string | null>(null);
 
   useEffect(() => {
     const loadParticipants = async () => {
@@ -1614,6 +1624,31 @@ export function BulkTodoForm({
     });
   };
 
+  const handleDeleteSourceTodoRow = async (row: BulkTodoDraftRow) => {
+    if (!row.sourceTodoId) return;
+    if (
+      !window.confirm(
+        "Delete this to-do permanently? It will be removed from the database and cannot be undone."
+      )
+    ) {
+      return;
+    }
+    setDeletingSourceTodoRowId(row.id);
+    try {
+      const ok = await deleteCallTodo(row.sourceTodoId);
+      if (!ok) {
+        toast.error("Could not delete this to-do.");
+        return;
+      }
+      toast.success("To-do deleted.");
+      removeRow(row.id);
+      setInsightRefreshKey((k) => k + 1);
+      onSaved();
+    } finally {
+      setDeletingSourceTodoRowId(null);
+    }
+  };
+
   const isRowBlank = (row: BulkTodoDraftRow) =>
     row.targetKey === "none" &&
     !row.body.trim() &&
@@ -2014,9 +2049,9 @@ export function BulkTodoForm({
                   e.stopPropagation();
                   removeRow(row.id);
                 }}
-                aria-label={`Remove to-do ${index + 1}`}
+                aria-label={`Remove to-do ${index + 1} from form`}
               >
-                <Trash2 className="h-4 w-4" />
+                <X className="h-4 w-4" />
               </Button>
             </div>
           </div>
@@ -2359,6 +2394,28 @@ export function BulkTodoForm({
                       );
                     })}
                   </ul>
+                </div>
+              ) : null}
+
+              {row.sourceTodoId ? (
+                <div className="mt-3 flex justify-end border-t border-border/60 pt-2">
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="icon"
+                    className="h-8 w-8 shrink-0"
+                    disabled={deletingSourceTodoRowId === row.id}
+                    aria-label={
+                      deletingSourceTodoRowId === row.id ? "Deleting to-do" : "Delete to-do permanently"
+                    }
+                    title="Delete to-do"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void handleDeleteSourceTodoRow(row);
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
               ) : null}
             </>

@@ -745,6 +745,31 @@ export function HomeTodoCard({
     });
   }, []);
 
+  const bulkEditSelectAllState = useMemo(() => {
+    const n = selectableTodos.length;
+    if (n === 0) return { allSelected: false, someSelected: false };
+    const idSet = new Set(selectedTodoIds);
+    let count = 0;
+    for (const t of selectableTodos) {
+      if (idSet.has(t.id)) count += 1;
+    }
+    return {
+      allSelected: count === n,
+      someSelected: count > 0 && count < n,
+    };
+  }, [selectableTodos, selectedTodoIds]);
+
+  const toggleBulkEditSelectAll = useCallback(
+    (checked: boolean) => {
+      if (checked) {
+        setSelectedTodoIds(selectableTodos.map((t) => t.id));
+      } else {
+        setSelectedTodoIds([]);
+      }
+    },
+    [selectableTodos]
+  );
+
   const applyBulkEditRows = useCallback((rowsToApply: BulkPrefillRow[], strategy: "overwrite" | "append") => {
     let finalRows = rowsToApply;
     if (strategy === "append") {
@@ -1182,30 +1207,40 @@ export function HomeTodoCard({
         headerClassName="text-center"
       >
         <div className="space-y-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
-          <div className="max-h-[50vh] overflow-y-auto space-y-2 rounded-md border p-2">
+          <div className="overflow-hidden rounded-md border">
             {selectableTodos.length === 0 ? (
               <p className="text-sm text-muted-foreground px-2 py-3">No to-dos available from current filters.</p>
             ) : (
-              selectableTodos.map((todo) => {
-                const checked = selectedTodoIds.includes(todo.id);
-                const label = todo.context_name || "To-Do";
-                return (
-                  <label
-                    key={todo.id}
-                    className="flex items-start gap-2 rounded-md px-2 py-2 hover:bg-muted/40 cursor-pointer"
-                  >
-                    <Checkbox
-                      checked={checked}
-                      onCheckedChange={(value) => toggleSelectedTodo(todo.id, value === true)}
-                      className="mt-0.5"
+              <>
+                <div className="flex items-center gap-2 border-b bg-muted/25 px-3 py-2">
+                  <Checkbox
+                    id="bulk-edit-select-all"
+                    checked={
+                      bulkEditSelectAllState.allSelected
+                        ? true
+                        : bulkEditSelectAllState.someSelected
+                          ? "indeterminate"
+                          : false
+                    }
+                    onCheckedChange={(value) => toggleBulkEditSelectAll(value === true)}
+                    aria-label={bulkEditSelectAllState.allSelected ? "Unselect all" : "Select all"}
+                  />
+                  <Label htmlFor="bulk-edit-select-all" className="text-sm font-medium cursor-pointer">
+                    Select all
+                  </Label>
+                </div>
+                <div className="max-h-[50vh] overflow-y-auto space-y-2 p-2">
+                  {selectableTodos.map((todo) => (
+                    <BulkEditTodoListItem
+                      key={todo.id}
+                      todo={todo}
+                      checked={selectedTodoIds.includes(todo.id)}
+                      participantsById={participantsById}
+                      onCheckedChange={(next) => toggleSelectedTodo(todo.id, next)}
                     />
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium truncate">{label}</p>
-                      <p className="text-xs text-muted-foreground line-clamp-2">{todo.body}</p>
-                    </div>
-                  </label>
-                );
-              })
+                  ))}
+                </div>
+              </>
             )}
           </div>
           <div className="flex justify-end gap-2">
@@ -1262,6 +1297,103 @@ export function HomeTodoCard({
         </div>
       </FormModal>
     </>
+  );
+}
+
+/** Edit To-Dos picker row — matches drawer density: context badges, assignees, due date, body, area. */
+function BulkEditTodoListItem({
+  todo,
+  checked,
+  participantsById,
+  onCheckedChange,
+}: {
+  todo: MyOpenCallTodoItem;
+  checked: boolean;
+  participantsById: Record<string, { first_name: string; last_name: string; avatar_url?: string }>;
+  onCheckedChange: (checked: boolean) => void;
+}) {
+  const householderStatus = todo.context_status || "for_scouting";
+  const establishmentStatus = todo.context_establishment_status || "for_scouting";
+  const isHouseholder = !!todo.householder_id;
+  const assigneeIds = [todo.publisher_id, todo.partner_id]
+    .filter((value): value is string => !!value)
+    .filter((value, idx, arr) => arr.indexOf(value) === idx)
+    .slice(0, 2);
+  const areaLabel = todo.context_area?.trim() ?? "";
+  const displayDate = todo.deadline_date;
+
+  return (
+    <label className="flex items-start gap-2 rounded-md px-2 py-2 hover:bg-muted/40 cursor-pointer">
+      <Checkbox
+        checked={checked}
+        onCheckedChange={(value) => onCheckedChange(value === true)}
+        className="mt-1 shrink-0 h-5 w-5"
+      />
+      <div className="min-w-0 flex-1 flex flex-col gap-2">
+        <div className="flex items-center gap-1.5 overflow-hidden min-w-0">
+          {todo.context_name ? (
+            <>
+              {isHouseholder ? (
+                <span className="inline-flex items-center gap-1 w-fit max-w-[55%] min-w-0 shrink">
+                  <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                  <VisitStatusBadge
+                    status={householderStatus}
+                    label={truncateLabel(todo.context_name, 28)}
+                    className="truncate max-w-full whitespace-nowrap"
+                  />
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 w-fit max-w-[55%] min-w-0 shrink">
+                  <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                  <VisitStatusBadge
+                    status={establishmentStatus}
+                    label={truncateLabel(todo.context_name, 28)}
+                    className="truncate max-w-full whitespace-nowrap"
+                  />
+                </span>
+              )}
+              {isHouseholder && todo.context_establishment_name ? (
+                <VisitStatusBadge
+                  status={establishmentStatus}
+                  label={truncateLabel(todo.context_establishment_name, 24)}
+                  className="truncate max-w-[42%] whitespace-nowrap border-muted bg-muted/50"
+                />
+              ) : null}
+            </>
+          ) : null}
+          {assigneeIds.length > 0 ? (
+            <div className="inline-flex items-center gap-1 shrink-0">
+              {assigneeIds.map((id) => {
+                const profile = participantsById[id];
+                const fullName = profile ? `${profile.first_name} ${profile.last_name}`.trim() : "Assigned";
+                return (
+                  <Avatar key={`${todo.id}-${id}`} className="h-5 w-5 border border-border/70">
+                    {profile?.avatar_url ? <AvatarImage src={profile.avatar_url} alt={fullName} /> : null}
+                    <AvatarFallback className="text-[10px]">{getInitialsFromName(fullName || "A")}</AvatarFallback>
+                  </Avatar>
+                );
+              })}
+            </div>
+          ) : null}
+          {displayDate ? (
+            <span className="text-xs text-muted-foreground shrink-0 ml-auto pl-2 text-right tabular-nums">
+              {formatTodoDate(displayDate)}
+            </span>
+          ) : null}
+        </div>
+        <div className="flex items-start gap-2 w-full min-w-0">
+          <p className="text-left text-base leading-snug line-clamp-2 flex-1 min-w-0">{todo.body}</p>
+          {areaLabel ? (
+            <span
+              className="text-xs text-muted-foreground shrink-0 max-w-[42%] text-right leading-snug pt-0.5"
+              title={areaLabel}
+            >
+              {truncateLabel(areaLabel, 36)}
+            </span>
+          ) : null}
+        </div>
+      </div>
+    </label>
   );
 }
 
