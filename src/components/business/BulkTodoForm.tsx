@@ -87,6 +87,12 @@ type TargetOption = {
   searchText: string;
 };
 
+type DuplicateAddPromptState = {
+  sourceRowId: string;
+  requestedTargetKeys: string[];
+  duplicateTargetKeys: string[];
+};
+
 const DRAFT_STORAGE_KEY = "business:bulk-todos:draft:v1";
 const PARTICIPANTS_CACHE_KEY = "business:bulk-todos:participants:v1";
 const TARGET_INSIGHTS_CACHE_KEY = "business:bulk-todos:target-insights:v1";
@@ -255,6 +261,7 @@ export function BulkTodoForm({
   const [targetBulkSelectedKeysByRow, setTargetBulkSelectedKeysByRow] = useState<Record<string, string[]>>({});
   const [assigneeDrawerOpenByRow, setAssigneeDrawerOpenByRow] = useState<Record<string, boolean>>({});
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
+  const [duplicateAddPrompt, setDuplicateAddPrompt] = useState<DuplicateAddPromptState | null>(null);
   const [insightRefreshKey, setInsightRefreshKey] = useState(0);
 
   useEffect(() => {
@@ -913,6 +920,22 @@ export function BulkTodoForm({
     }
   };
 
+  const findDuplicateTargetKeys = (targetKeys: string[]): string[] => {
+    if (targetKeys.length === 0) return [];
+    const existingKeys = new Set(
+      rows
+        .map((row) => row.targetKey)
+        .filter((targetKey): targetKey is string => !!targetKey && targetKey !== "none")
+    );
+    return Array.from(new Set(targetKeys.filter((targetKey) => existingKeys.has(targetKey))));
+  };
+
+  const resetTargetPickerAddState = (rowId: string) => {
+    setTargetBulkAddModeByRow((prev) => ({ ...prev, [rowId]: false }));
+    setTargetBulkSelectedKeysByRow((prev) => ({ ...prev, [rowId]: [] }));
+    setTargetPickerOpenByRow((prev) => ({ ...prev, [rowId]: false }));
+  };
+
   const handleTargetOptionSelect = (
     rowId: string,
     option: {
@@ -920,24 +943,23 @@ export function BulkTodoForm({
       avatars?: Array<{ id: string }>;
     }
   ) => {
+    if (rowId === NEW_TODO_PICKER_ROW_ID) {
+      const duplicateTargetKeys = findDuplicateTargetKeys([option.key]);
+      if (duplicateTargetKeys.length > 0) {
+        setDuplicateAddPrompt({
+          sourceRowId: rowId,
+          requestedTargetKeys: [option.key],
+          duplicateTargetKeys,
+        });
+        return;
+      }
+      addRowsFromTargetKeys([option.key], { skipDuplicateTargets: false });
+      resetTargetPickerAddState(rowId);
+      return;
+    }
     const autoSlots = getAutoAssignedSlotsFromOption(option);
     const suggestedBody = getSuggestedTodoBodyFromTargetOption(option);
     const today = toLocalDateString(new Date());
-    if (rowId === NEW_TODO_PICKER_ROW_ID) {
-      const newRow = createDraftRow();
-      setRows((prev) => [
-        ...prev,
-        {
-          ...newRow,
-          targetKey: option.key,
-          body: suggestedBody,
-          slots: autoSlots,
-          dueDate: today,
-        },
-      ]);
-      setTargetPickerOpenByRow((prev) => ({ ...prev, [rowId]: false }));
-      return;
-    }
     setRows((prev) =>
       prev.map((row) =>
         row.id === rowId
@@ -954,11 +976,25 @@ export function BulkTodoForm({
     setTargetPickerOpenByRow((prev) => ({ ...prev, [rowId]: false }));
   };
 
-  const addRowsFromTargetKeys = (targetKeys: string[]) => {
-    if (targetKeys.length === 0) return;
+  const addRowsFromTargetKeys = (
+    targetKeys: string[],
+    options?: {
+      skipDuplicateTargets?: boolean;
+    }
+  ) => {
+    if (targetKeys.length === 0) return 0;
     const today = toLocalDateString(new Date());
     const optionsByKey = new Map(targetOptions.map((option) => [option.key, option]));
+    const shouldSkipDuplicates = options?.skipDuplicateTargets === true;
+    const existingKeys = shouldSkipDuplicates
+      ? new Set(
+          rows
+            .map((row) => row.targetKey)
+            .filter((targetKey): targetKey is string => !!targetKey && targetKey !== "none")
+        )
+      : null;
     const rowsToAdd = targetKeys.reduce<BulkTodoDraftRow[]>((acc, targetKey) => {
+      if (shouldSkipDuplicates && existingKeys?.has(targetKey)) return acc;
       const option = optionsByKey.get(targetKey);
       if (!option) return acc;
       const autoSlots = getAutoAssignedSlotsFromOption(option);
@@ -970,11 +1006,42 @@ export function BulkTodoForm({
         slots: autoSlots,
         dueDate: today,
       });
+      if (shouldSkipDuplicates) {
+        existingKeys?.add(targetKey);
+      }
       return acc;
     }, []);
 
-    if (rowsToAdd.length === 0) return;
+    if (rowsToAdd.length === 0) return 0;
     setRows((prev) => [...prev, ...rowsToAdd]);
+    return rowsToAdd.length;
+  };
+
+  const resolveDuplicateAddPrompt = (mode: "ignore-duplicates" | "add-anyway") => {
+    const prompt = duplicateAddPrompt;
+    if (!prompt) return;
+    const addedCount = addRowsFromTargetKeys(prompt.requestedTargetKeys, {
+      skipDuplicateTargets: mode === "ignore-duplicates",
+    });
+    const ignoredCount =
+      mode === "ignore-duplicates"
+        ? prompt.requestedTargetKeys.length - addedCount
+        : 0;
+
+    if (mode === "ignore-duplicates") {
+      if (addedCount > 0) {
+        toast.success(
+          `Added ${addedCount} to-do${addedCount > 1 ? "s" : ""}${ignoredCount > 0 ? ` and ignored ${ignoredCount} duplicate${ignoredCount > 1 ? "s" : ""}` : ""}.`
+        );
+      } else {
+        toast.message("No new to-dos were added. Duplicates were ignored.");
+      }
+    }
+
+    if (mode === "add-anyway" || addedCount > 0) {
+      resetTargetPickerAddState(prompt.sourceRowId);
+    }
+    setDuplicateAddPrompt(null);
   };
 
   const updateTargetPickerFilters = (
@@ -1065,10 +1132,18 @@ export function BulkTodoForm({
       return;
     }
 
+    const duplicateTargetKeys = findDuplicateTargetKeys(selectedKeys);
+    if (duplicateTargetKeys.length > 0) {
+      setDuplicateAddPrompt({
+        sourceRowId: rowId,
+        requestedTargetKeys: selectedKeys,
+        duplicateTargetKeys,
+      });
+      return;
+    }
+
     addRowsFromTargetKeys(selectedKeys);
-    setTargetBulkAddModeByRow((prev) => ({ ...prev, [rowId]: false }));
-    setTargetBulkSelectedKeysByRow((prev) => ({ ...prev, [rowId]: [] }));
-    setTargetPickerOpenByRow((prev) => ({ ...prev, [rowId]: false }));
+    resetTargetPickerAddState(rowId);
   };
 
   const cancelBulkAddMode = (rowId: string) => {
@@ -2194,6 +2269,59 @@ export function BulkTodoForm({
                 onClick={clearAllRows}
               >
                 Clear All
+              </Button>
+            </DrawerFooter>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      <Drawer
+        open={!!duplicateAddPrompt}
+        onOpenChange={(open) => {
+          if (!open) setDuplicateAddPrompt(null);
+        }}
+      >
+        <DrawerContent className="max-h-[55vh]">
+          <DrawerHeader className="text-center">
+            <DrawerTitle>Duplicate target detected</DrawerTitle>
+          </DrawerHeader>
+          <div className="px-4 pb-4 space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Some selected establishment/contact already exists in this form.
+            </p>
+            {duplicateAddPrompt?.duplicateTargetKeys?.length ? (
+              <div className="rounded-md border border-border/60 bg-muted/20 p-3">
+                <p className="text-xs font-medium text-foreground/90 mb-2">
+                  Duplicates ({duplicateAddPrompt.duplicateTargetKeys.length})
+                </p>
+                <ul className="space-y-1 text-xs text-muted-foreground">
+                  {duplicateAddPrompt.duplicateTargetKeys.slice(0, 4).map((targetKey) => {
+                    const option = targetOptions.find((item) => item.key === targetKey);
+                    return <li key={`dup-${targetKey}`}>{option?.label || targetKey}</li>;
+                  })}
+                  {duplicateAddPrompt.duplicateTargetKeys.length > 4 ? (
+                    <li>+{duplicateAddPrompt.duplicateTargetKeys.length - 4} more</li>
+                  ) : null}
+                </ul>
+              </div>
+            ) : null}
+            <DrawerFooter className="p-0 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                className="w-full h-12"
+                onClick={() => resolveDuplicateAddPrompt("ignore-duplicates")}
+              >
+                Ignore Duplicates
+              </Button>
+              <Button
+                type="button"
+                size="lg"
+                className="w-full h-12"
+                onClick={() => resolveDuplicateAddPrompt("add-anyway")}
+              >
+                Add Anyway
               </Button>
             </DrawerFooter>
           </div>
