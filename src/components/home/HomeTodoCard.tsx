@@ -78,6 +78,24 @@ function readLocalTodosCache(
     return null;
   }
 }
+
+/** Persist to-dos for a scope (offline-first; primary source for instant load). */
+function writeLocalTodosCache(
+  scopeKey: string,
+  open: MyOpenCallTodoItem[],
+  completed: MyOpenCallTodoItem[],
+  syncedAt: number
+): void {
+  try {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      TODOS_LOCAL_STORAGE_KEY(scopeKey),
+      JSON.stringify({ open, completed, syncedAt })
+    );
+  } catch {
+    // quota / private mode
+  }
+}
 const BULK_TODO_DRAFT_KEY = "business:bulk-todos:draft:v1";
 type BulkPrefillRow = {
   id: string;
@@ -186,6 +204,8 @@ export function HomeTodoCard({
   const hasLoadedRef = useRef(false);
   const lastSyncedAtRef = useRef(0);
   const inFlightRef = useRef(false);
+  /** Bumps on scope change so stale IndexedDB / network results never overwrite the active list. */
+  const loadGenRef = useRef(0);
   const [filters, setFilters] = useState<VisitFilters>({
     search: "",
     statuses: [],
@@ -233,23 +253,39 @@ export function HomeTodoCard({
     const forceNetwork = opts?.forceNetwork ?? true;
     const trustFreshLocalCache = opts?.trustFreshLocalCache ?? false;
     const key = TODOS_CACHE_KEY(scopeKey);
+    const genAtStart = loadGenRef.current;
+    const isCurrent = () => genAtStart === loadGenRef.current;
+
     let usedFreshLocalCache = false;
     let localCachedItemCount = 0;
     if (useCache) {
       const localCached = readLocalTodosCache(scopeKey);
       if (localCached) {
-        setOpenTodos(localCached.open);
-        setCompletedTodos(localCached.completed);
+        if (isCurrent()) {
+          setOpenTodos(localCached.open);
+          setCompletedTodos(localCached.completed);
+        }
         localCachedItemCount = localCached.open.length + localCached.completed.length;
         usedFreshLocalCache =
           localCached.syncedAt > 0 && Date.now() - localCached.syncedAt < TODOS_FRESH_MS;
+      } else if (isCurrent()) {
+        // Avoid showing the previous scope's rows while this scope has no snapshot yet.
+        setOpenTodos([]);
+        setCompletedTodos([]);
       }
-      cacheGet<{ open: MyOpenCallTodoItem[]; completed: MyOpenCallTodoItem[] }>(key).then((cached) => {
-        if (cached && Array.isArray(cached.open) && Array.isArray(cached.completed)) {
-          setOpenTodos(cached.open);
-          setCompletedTodos(cached.completed);
-        }
-      });
+
+      // Prefer localStorage as source of truth when it has data; IndexedDB is only a fallback
+      // (and must not overwrite LS after a scope switch — generation guard).
+      if (localCachedItemCount === 0) {
+        const genAtIdb = loadGenRef.current;
+        cacheGet<{ open: MyOpenCallTodoItem[]; completed: MyOpenCallTodoItem[] }>(key).then((cached) => {
+          if (genAtIdb !== loadGenRef.current) return;
+          if (cached && Array.isArray(cached.open) && Array.isArray(cached.completed)) {
+            setOpenTodos(cached.open);
+            setCompletedTodos(cached.completed);
+          }
+        });
+      }
     }
 
     // Only skip network if fresh local cache has actual items.
@@ -262,6 +298,7 @@ export function HomeTodoCard({
 
     if (!forceNetwork && Date.now() - lastSyncedAtRef.current < TODOS_FRESH_MS) return;
     if (inFlightRef.current) return;
+    const genAtFetch = loadGenRef.current;
     inFlightRef.current = true;
     const mergeById = (...groups: MyOpenCallTodoItem[][]): MyOpenCallTodoItem[] => {
       const byId = new Map<string, MyOpenCallTodoItem>();
@@ -300,20 +337,28 @@ export function HomeTodoCard({
 
     Promise.all([openQuery, completedQuery])
       .then(([open, completed]) => {
+        if (genAtFetch !== loadGenRef.current) return;
         hasLoadedRef.current = true;
         lastSyncedAtRef.current = Date.now();
         setOpenTodos(open);
         setCompletedTodos(completed);
       })
       .finally(() => {
-        inFlightRef.current = false;
+        if (genAtFetch === loadGenRef.current) {
+          inFlightRef.current = false;
+        }
       });
   }, [scopeKey, establishmentId, householderId, userId, filters.myUpdatesOnly]);
 
   useEffect(() => {
+    if (!scopeKey) return;
+    loadGenRef.current += 1;
     hasLoadedRef.current = false;
     lastSyncedAtRef.current = 0;
     inFlightRef.current = false;
+    const snap = readLocalTodosCache(scopeKey);
+    setOpenTodos(snap?.open ?? []);
+    setCompletedTodos(snap?.completed ?? []);
   }, [scopeKey]);
 
   useEffect(() => {
@@ -377,12 +422,18 @@ export function HomeTodoCard({
     }
   }, [filterScopeKey, filtersHydrated, filters, searchValue, dueDateFilter]);
 
-  // Warm up "all to-dos" cache in background while user is on My To-Dos.
+  // Warm up "all to-dos" in localStorage while user is on My To-Dos (re-fetch when snapshot is missing or stale).
   useEffect(() => {
     if (!userId || establishmentId || householderId || !filters.myUpdatesOnly) return;
     const allScopeKey = `user:${userId}:all`;
     const existingLocal = readLocalTodosCache(allScopeKey);
-    if (existingLocal && (existingLocal.open.length > 0 || existingLocal.completed.length > 0)) return;
+    const hasRows =
+      !!existingLocal && (existingLocal.open.length > 0 || existingLocal.completed.length > 0);
+    const freshEnough =
+      !!existingLocal &&
+      existingLocal.syncedAt > 0 &&
+      Date.now() - existingLocal.syncedAt < TODOS_FRESH_MS;
+    if (hasRows && freshEnough) return;
     let cancelled = false;
     const mergeById = (...groups: MyOpenCallTodoItem[][]): MyOpenCallTodoItem[] => {
       const byId = new Map<string, MyOpenCallTodoItem>();
@@ -400,13 +451,9 @@ export function HomeTodoCard({
       ),
     ]).then(([open, completed]) => {
       if (cancelled) return;
+      const syncedAt = Date.now();
       cacheSet(TODOS_CACHE_KEY(allScopeKey), { open, completed });
-      try {
-        window.localStorage.setItem(
-          TODOS_LOCAL_STORAGE_KEY(allScopeKey),
-          JSON.stringify({ open, completed, syncedAt: Date.now() })
-        );
-      } catch {}
+      writeLocalTodosCache(allScopeKey, open, completed, syncedAt);
     });
     return () => {
       cancelled = true;
@@ -443,23 +490,25 @@ export function HomeTodoCard({
     };
   }, []);
 
+  // Only skip a network round-trip when "My To-Dos" has a fresh local snapshot.
+  // Congregation scope must always revalidate: LS may be mine-only if a prior merge missed congregation data.
   useEffect(() => {
-    loadTodos({ useCache: true, forceNetwork: false, trustFreshLocalCache: true });
-  }, [loadTodos]);
+    loadTodos({
+      useCache: true,
+      forceNetwork: false,
+      trustFreshLocalCache: filters.myUpdatesOnly,
+    });
+  }, [loadTodos, filters.myUpdatesOnly]);
 
   useEffect(() => {
-    if (drawerOpen) loadTodos({ useCache: false, forceNetwork: false });
+    if (drawerOpen) loadTodos({ useCache: true, forceNetwork: false, trustFreshLocalCache: false });
   }, [drawerOpen, loadTodos]);
 
   useEffect(() => {
     if (!scopeKey || !hasLoadedRef.current) return;
+    const syncedAt = Date.now();
     cacheSet(TODOS_CACHE_KEY(scopeKey), { open: openTodos, completed: completedTodos });
-    try {
-      window.localStorage.setItem(
-        TODOS_LOCAL_STORAGE_KEY(scopeKey),
-        JSON.stringify({ open: openTodos, completed: completedTodos, syncedAt: Date.now() })
-      );
-    } catch {}
+    writeLocalTodosCache(scopeKey, openTodos, completedTodos, syncedAt);
   }, [scopeKey, openTodos, completedTodos]);
 
   const allTodos = useMemo(
