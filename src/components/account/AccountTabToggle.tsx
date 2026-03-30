@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { User, Settings, LogOut, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import InstallPrompt from "@/components/InstallPrompt";
 import { useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { toast } from "@/components/ui/sonner";
@@ -87,9 +86,6 @@ export function AccountTabToggle({
           <span className="text-[10px] font-medium text-center">Account</span>
         </ToggleGroupItem>
       </ToggleGroup>
-      <div className="pl-2 flex-shrink-0 flex items-center justify-center h-full">
-        <InstallPrompt compact className="text-foreground/90" />
-      </div>
       <div className="pr-3 pl-2 flex-shrink-0 flex items-center justify-center h-full">
         <Button
           variant="ghost"

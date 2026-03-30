@@ -529,6 +529,8 @@ export function ProfileForm({
               date={formData.date_of_birth}
               onSelect={(date) => setFormData(prev => ({ ...prev, date_of_birth: date }))}
               placeholder="Select birth date"
+              mobileShowActions
+              mobileAllowClear
             />
           </div>
           <div className="space-y-2">
@@ -537,6 +539,8 @@ export function ProfileForm({
               date={formData.date_of_baptism}
               onSelect={(date) => setFormData(prev => ({ ...prev, date_of_baptism: date }))}
               placeholder="Select baptism date"
+              mobileShowActions
+              mobileAllowClear
             />
           </div>
         </div>
