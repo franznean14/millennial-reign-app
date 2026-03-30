@@ -3,7 +3,6 @@
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { BarChart3, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
-import InstallPrompt from "@/components/InstallPrompt";
 
 interface HomeTabToggleProps {
   value: 'summary' | 'events';
@@ -17,12 +16,7 @@ export function HomeTabToggle({
   className
 }: HomeTabToggleProps) {
   return (
-    <div
-      className={cn(
-        "bg-background/95 backdrop-blur-sm border p-0.1 rounded-lg shadow-lg w-full relative overflow-hidden flex items-center",
-        className
-      )}
-    >
+    <div className={cn("bg-background/95 backdrop-blur-sm border p-0.1 rounded-lg shadow-lg w-full relative overflow-hidden", className)}>
       <ToggleGroup
         type="single"
         value={value}
@@ -31,7 +25,7 @@ export function HomeTabToggle({
             onValueChange(newValue as 'summary' | 'events');
           }
         }}
-        className="flex-1 h-full"
+        className="w-full h-full"
       >
         <ToggleGroupItem 
           value="summary" 
@@ -48,7 +42,6 @@ export function HomeTabToggle({
           <span className="text-[10px] font-medium text-center">Events</span>
         </ToggleGroupItem>
       </ToggleGroup>
-      <InstallPrompt compact className="mr-2 ml-1" />
     </div>
   );
 }

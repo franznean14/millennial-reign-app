@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Download } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "@/components/ui/sonner";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
@@ -18,6 +19,7 @@ export default function InstallPrompt({ className, compact = false }: InstallPro
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [visible, setVisible] = useState(false);
   const [installed, setInstalled] = useState(false);
+  const [showIosInstallHelp, setShowIosInstallHelp] = useState(false);
 
   useEffect(() => {
     const inStandalone =
@@ -31,6 +33,10 @@ export default function InstallPrompt({ className, compact = false }: InstallPro
       setInstalled(true);
       return;
     }
+    const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+    const isIOS = /iPad|iPhone|iPod/.test(ua);
+    const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua);
+    setShowIosInstallHelp(isIOS && isSafari);
 
     const onBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
@@ -47,8 +53,7 @@ export default function InstallPrompt({ className, compact = false }: InstallPro
     // console messages about preventDefault() and duplicate prompts.
     window.addEventListener(
       "beforeinstallprompt",
-      onBeforeInstallPrompt as EventListener,
-      { once: true }
+      onBeforeInstallPrompt as EventListener
     );
     window.addEventListener("appinstalled", onAppInstalled);
     return () => {
@@ -57,9 +62,16 @@ export default function InstallPrompt({ className, compact = false }: InstallPro
     };
   }, []);
 
-  if (installed || !visible || !deferred) return null;
+  if (installed || (!showIosInstallHelp && (!visible || !deferred))) return null;
 
   const install = async () => {
+    if (!deferred && showIosInstallHelp) {
+      toast.message("Add to Home Screen", {
+        description: "In Safari, tap Share, then select 'Add to Home Screen'.",
+      });
+      return;
+    }
+    if (!deferred) return;
     await deferred.prompt();
     const choice = await deferred.userChoice;
     if (choice.outcome !== "accepted") {
@@ -84,10 +96,12 @@ export default function InstallPrompt({ className, compact = false }: InstallPro
       {compact ? (
         <>
           <Download className="h-4 w-4 flex-shrink-0" />
-          <span className="text-xs font-medium leading-none">Install</span>
+          <span className="text-xs font-medium leading-none">
+            {deferred ? "Install" : "Add to Home"}
+          </span>
         </>
       ) : (
-        "Install app"
+        deferred ? "Install app" : "Add to Home"
       )}
     </button>
   );

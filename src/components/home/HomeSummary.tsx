@@ -9,6 +9,7 @@ import { FormModal } from "@/components/shared/FormModal";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Button } from "@/components/ui/button";
 import { Eye, Copy, ChevronLeft } from "lucide-react";
+import InstallPrompt from "@/components/InstallPrompt";
 import { toast } from "@/components/ui/sonner";
 import type { DailyRecord } from "@/lib/db/types";
 
@@ -815,7 +816,10 @@ export function HomeSummary({
   return (
     <>
       <section>
-        <h2 className="text-lg font-semibold mb-3">This Month</h2>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold">This Month</h2>
+          <InstallPrompt compact />
+        </div>
         <div className="grid gap-3 sm:grid-cols-3">
           {/* Combined hours card */}
           <div 
