@@ -66,7 +66,7 @@ export default function InstallPrompt({ className, compact = false }: InstallPro
 
   const install = async () => {
     if (!deferred && showIosInstallHelp) {
-      toast.message("Add to Home Screen", {
+      toast.info("Add to Home Screen", {
         description: "In Safari, tap Share, then select 'Add to Home Screen'.",
       });
       return;
