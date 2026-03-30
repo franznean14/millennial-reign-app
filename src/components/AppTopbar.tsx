@@ -6,7 +6,6 @@ import { Home, Landmark, Briefcase, User, Menu } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AuthButtons } from "@/components/auth/AuthButtons";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
-import InstallPrompt from "@/components/InstallPrompt";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 
@@ -69,7 +68,6 @@ export function AppTopbar({ currentSection, onSectionChange, userPermissions, cl
 
         <div className="flex items-center gap-2">
           <OfflineIndicator variant="inline" />
-          <InstallPrompt />
           <ThemeToggle />
           <AuthButtons />
         </div>

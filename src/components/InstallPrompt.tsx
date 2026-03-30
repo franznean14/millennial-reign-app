@@ -1,13 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { cn } from "@/lib/utils";
 
 type BeforeInstallPromptEvent = Event & {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
-export default function InstallPrompt() {
+interface InstallPromptProps {
+  className?: string;
+}
+
+export default function InstallPrompt({ className }: InstallPromptProps) {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [visible, setVisible] = useState(false);
 
@@ -44,7 +49,10 @@ export default function InstallPrompt() {
   return (
     <button
       onClick={install}
-      className="px-3 py-1.5 rounded-md border text-sm bg-white/80 dark:bg-black/30 backdrop-blur border-black/10 dark:border-white/20"
+      className={cn(
+        "px-3 py-1.5 rounded-md border text-sm bg-white/80 dark:bg-black/30 backdrop-blur border-black/10 dark:border-white/20",
+        className
+      )}
     >
       Install app
     </button>
