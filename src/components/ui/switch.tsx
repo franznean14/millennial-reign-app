@@ -29,12 +29,14 @@ export function Switch({ id, checked, defaultChecked, onCheckedChange, disabled,
       aria-checked={value}
       aria-disabled={disabled}
       onClick={toggle}
-      className={`relative inline-flex h-6 w-10 items-center rounded-full border transition-colors ${
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border px-0.5 transition-colors ${
         value ? "bg-primary/80 border-primary" : "bg-muted border-border"
-      } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"} ${className}`}
+      } ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"} ${className}`}
     >
       <span
-        className={`inline-block h-4 w-4 transform rounded-full bg-background transition-transform ${value ? "translate-x-4" : "translate-x-1"}`}
+        className={`pointer-events-none block h-4 w-4 rounded-full bg-background shadow-sm ring-0 transition-transform ${
+          value ? "translate-x-5" : "translate-x-0"
+        }`}
       />
     </button>
   );

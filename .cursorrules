@@ -111,6 +111,11 @@
 
 ## Database Schema Management
 
+### Non-destructive migrations (Supabase / PostgreSQL)
+- **Never delete production or user data in migrations** — do not use `DELETE`, `TRUNCATE`, or bulk destructive statements to fix schema issues unless the user explicitly requests a one-off data migration with backup.
+- Prefer **additive** changes: `CREATE TABLE IF NOT EXISTS`, `ADD COLUMN IF NOT EXISTS`, `CREATE OR REPLACE FUNCTION`, new policies alongside old ones, then deprecate.
+- **Never drop tables or columns** that may hold user content without an explicit, reviewed migration path and user approval.
+
 ### Schema File Integrity
 - **ALWAYS retain the entire schema** in `supabase-schema.sql` file
 - **Never delete existing tables, functions, or policies** without careful consideration

@@ -735,6 +735,10 @@ export function AppClient() {
       }
     } catch (error) {
       console.error('Failed to load establishment details:', error);
+      // Drop stale IndexedDB snapshot so the next open retries a full fetch (e.g. after transient 500s).
+      if (typeof navigator !== 'undefined' && navigator.onLine) {
+        await cacheDelete(cacheKey);
+      }
     }
   }, []);
 

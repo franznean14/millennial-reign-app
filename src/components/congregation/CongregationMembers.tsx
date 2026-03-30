@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cacheGet, cacheSet } from "@/lib/offline/store";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -12,9 +12,21 @@ import { UserManagementForm } from "./UserManagementForm";
 import { FormModal } from "@/components/shared/FormModal";
 import type { Profile } from "@/lib/db/types";
 
+const GUEST_MEMBERS_TAB = "__cong_guest_members__";
+
 type CongregationMember = Pick<
   Profile,
-  "id" | "first_name" | "last_name" | "username" | "avatar_url" | "privileges" | "group_name" | "congregation_id" | "role" | "gender"
+  | "id"
+  | "first_name"
+  | "last_name"
+  | "username"
+  | "avatar_url"
+  | "privileges"
+  | "group_name"
+  | "congregation_id"
+  | "role"
+  | "gender"
+  | "is_congregation_guest"
 >;
 
 interface CongregationMembersProps {
@@ -46,7 +58,9 @@ export function CongregationMembers({ congregationId, currentUserId }: Congregat
     try {
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, first_name, last_name, username, avatar_url, privileges, group_name, congregation_id, role, gender')
+        .select(
+          "id, first_name, last_name, username, avatar_url, privileges, group_name, congregation_id, role, gender, is_congregation_guest",
+        )
         .eq('congregation_id', congregationId)
         .order('last_name')
         .order('first_name');
@@ -68,13 +82,36 @@ export function CongregationMembers({ congregationId, currentUserId }: Congregat
     loadMembers();
   }, [congregationId]);
 
+  const groupTabValues = useMemo(() => {
+    const set = new Set<string>();
+    for (const m of members) {
+      if (m.is_congregation_guest) {
+        if (m.group_name) set.add(m.group_name);
+        continue;
+      }
+      set.add(m.group_name || "No Group");
+    }
+    const sorted = Array.from(set)
+      .filter((g) => g !== "Guest")
+      .sort((a, b) => a.localeCompare(b));
+    return ["All", ...sorted, GUEST_MEMBERS_TAB] as string[];
+  }, [members]);
+
   // Default group to the current user's group when possible
   useEffect(() => {
     if (!currentUserId || members.length === 0) return;
     const me = members.find((m) => m.id === currentUserId);
     if (!me) return;
-    setActiveGroup(me.group_name || "No Group");
-  }, [currentUserId, members]);
+    const preferred = me.is_congregation_guest
+      ? GUEST_MEMBERS_TAB
+      : me.group_name || "No Group";
+    if (groupTabValues.includes(preferred)) setActiveGroup(preferred);
+    else setActiveGroup("All");
+  }, [currentUserId, members, groupTabValues]);
+
+  useEffect(() => {
+    if (!groupTabValues.includes(activeGroup)) setActiveGroup("All");
+  }, [groupTabValues, activeGroup]);
 
   // Listen for refresh events
   useEffect(() => {
@@ -116,18 +153,26 @@ export function CongregationMembers({ congregationId, currentUserId }: Congregat
     return null;
   };
 
-  const groupNames = (() => {
-    const set = new Set<string>();
-    for (const m of members) set.add(m.group_name || "No Group");
-    return ["All", ...Array.from(set).sort((a, b) => a.localeCompare(b))];
-  })();
-
   const filteredMembers =
-    activeGroup === "All" ? members : members.filter((m) => (m.group_name || "No Group") === activeGroup);
+    activeGroup === GUEST_MEMBERS_TAB
+      ? members.filter((m) => !!m.is_congregation_guest)
+      : activeGroup === "All"
+        ? members
+        : activeGroup === "No Group"
+          ? members.filter(
+              (m) => !m.is_congregation_guest && (m.group_name || "No Group") === "No Group",
+            )
+          : members.filter((m) => (m.group_name || "No Group") === activeGroup);
 
   const previewMembers = (() => {
     if (members.length === 0) return [];
     const me = currentUserId ? members.find((m) => m.id === currentUserId) : undefined;
+    if (me?.is_congregation_guest) {
+      const guestOthers = members
+        .filter((m) => m.id !== me.id && !!m.is_congregation_guest)
+        .slice(0, 2);
+      return [me, ...guestOthers];
+    }
     const myGroup = me?.group_name || "No Group";
     const myGroupOthers = members
       .filter((m) => m.id !== me?.id && (m.group_name || "No Group") === myGroup)
@@ -150,10 +195,18 @@ export function CongregationMembers({ congregationId, currentUserId }: Congregat
           </Avatar>
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0 flex items-center gap-2">
+              <div className="min-w-0 flex items-center gap-2 flex-wrap">
                 <p className={compact ? "text-sm font-medium truncate" : "text-sm font-medium truncate"}>
                   {member.first_name} {member.last_name}
                 </p>
+                {member.is_congregation_guest ? (
+                  <Badge
+                    variant="secondary"
+                    className="text-[10px] px-1.5 py-0 h-4 leading-none shrink-0 font-normal"
+                  >
+                    Guest
+                  </Badge>
+                ) : null}
                 {getPrivilegeIcon(member.privileges)}
               </div>
               {primary ? (
@@ -230,14 +283,16 @@ export function CongregationMembers({ congregationId, currentUserId }: Congregat
                   }}
                   className="w-max min-w-full h-full justify-center"
                 >
-                  {groupNames.map((g) => (
+                  {groupTabValues.map((g) => (
                     <ToggleGroupItem
                       key={g}
                       value={g}
                       className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm min-w-0 max-w-[100px] px-3 min-h-12 py-2 flex items-center justify-center transition-colors"
-                      title={g}
+                      title={g === GUEST_MEMBERS_TAB ? "Guest" : g}
                     >
-                      <span className="text-[11px] font-medium text-center whitespace-normal break-words w-full">{g}</span>
+                      <span className="text-[11px] font-medium text-center whitespace-normal break-words w-full">
+                        {g === GUEST_MEMBERS_TAB ? "Guest" : g}
+                      </span>
                     </ToggleGroupItem>
                   ))}
                 </ToggleGroup>
@@ -284,10 +339,18 @@ export function CongregationMembers({ congregationId, currentUserId }: Congregat
                               <AvatarFallback className="text-[10px] font-semibold">{initials}</AvatarFallback>
                             </Avatar>
                             <div className="min-w-0">
-                              <div className="flex items-center gap-2 min-w-0">
+                              <div className="flex items-center gap-2 min-w-0 flex-wrap">
                                 <span className="truncate">
                                   {member.first_name} {member.last_name}
                                 </span>
+                                {member.is_congregation_guest ? (
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-[10px] px-1.5 py-0 h-4 leading-none shrink-0 font-normal"
+                                  >
+                                    Guest
+                                  </Badge>
+                                ) : null}
                                 {getPrivilegeIcon(member.privileges)}
                               </div>
                             </div>

@@ -10,7 +10,16 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/sonner";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { cacheSet } from "@/lib/offline/store";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 interface UserManagementFormProps {
@@ -23,6 +32,8 @@ interface UserManagementFormProps {
 // Security is enforced at the database level via RLS policies
 export function UserManagementForm({ user, onSaved, onClose }: UserManagementFormProps) {
   const [saving, setSaving] = useState(false);
+  const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const [bwiEnabled, setBwiEnabled] = useState(false);
   const [isBwiParticipant, setIsBwiParticipant] = useState(false);
   const [groupOptions, setGroupOptions] = useState<string[]>([]);
@@ -32,15 +43,18 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
     privileges: user.privileges || [],
     group_name: user.group_name || "",
     congregation_id: user.congregation_id || null,
+    is_congregation_guest: !!user.is_congregation_guest,
   });
 
   // Update form data when user prop changes
   useEffect(() => {
     setFormData({
       privileges: user.privileges || [],
-      group_name: user.group_name || "",
+      group_name: user.is_congregation_guest ? "" : user.group_name || "",
       congregation_id: user.congregation_id || null,
+      is_congregation_guest: !!user.is_congregation_guest,
     });
+    if (user.is_congregation_guest) setShowGroupInput(false);
   }, [user]);
 
   const normalizePrivileges = (privileges: Privilege[]) =>
@@ -54,8 +68,8 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
       currentPrivileges.length !== initialPrivileges.length ||
       currentPrivileges.some((p, i) => p !== initialPrivileges[i]);
 
-    const currentGroup = formData.group_name || "";
-    const initialGroup = user.group_name || "";
+    const currentGroup = formData.is_congregation_guest ? "" : formData.group_name || "";
+    const initialGroup = user.is_congregation_guest ? "" : user.group_name || "";
 
     const currentCongregationId = formData.congregation_id || null;
     const initialCongregationId = user.congregation_id || null;
@@ -63,7 +77,8 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
     return (
       privilegesChanged ||
       currentGroup !== initialGroup ||
-      currentCongregationId !== initialCongregationId
+      currentCongregationId !== initialCongregationId ||
+      formData.is_congregation_guest !== !!user.is_congregation_guest
     );
   }, [formData, user]);
 
@@ -138,8 +153,9 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
       // Use the dedicated admin function for updating other users
       const profile = await updateUserProfile(user.id, {
         privileges: formData.privileges,
-        group_name: formData.group_name || null,
+        group_name: formData.is_congregation_guest ? null : formData.group_name || null,
         congregation_id: formData.congregation_id,
+        is_congregation_guest: formData.is_congregation_guest,
       });
 
       toast.success("User updated successfully");
@@ -149,6 +165,27 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
       toast.error(error.message || "Failed to update user");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleConfirmCongregationRemove = async () => {
+    setRemoving(true);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase.rpc("remove_user_from_congregation", {
+        target_user: user.id,
+      });
+      if (error) throw error;
+      const profile = data as Profile;
+      await cacheSet(`profile:${user.id}`, profile);
+      toast.success(`${user.first_name} ${user.last_name} removed from this congregation`);
+      setRemoveConfirmOpen(false);
+      onSaved(profile);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Failed to remove user";
+      toast.error(msg);
+    } finally {
+      setRemoving(false);
     }
   };
 
@@ -313,6 +350,7 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
   }, [allPrivileges, formData.privileges, user.gender]);
 
   return (
+    <>
     <div className="space-y-6">
       {/* User Header */}
       <div className="flex items-center gap-4 p-4 border rounded-lg">
@@ -355,59 +393,79 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
           </Select>
         </div>
 
-        {/* Group Name Assignment */}
         <div className="space-y-2">
-          <Label>Group Assignment</Label>
-          {showGroupInput ? (
-            <div className="flex gap-2">
-              <Input
-                className="flex-1"
-                placeholder="Enter new group name"
-                value={formData.group_name}
-                onChange={(e) => setFormData(prev => ({ ...prev, group_name: e.target.value }))}
-                autoFocus
-              />
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setShowGroupInput(false)}
-              >
-                Cancel
-              </Button>
+          <Label>Guest publisher</Label>
+          <div className="flex items-center justify-between p-3 border rounded-md">
+            <div className="min-w-0 flex-1 space-y-1 pr-2">
+              <div className="text-sm font-medium">Guest publisher</div>
+              <div className="text-xs text-muted-foreground">
+                Shows a Guest badge in the congregation members list and enables the Guest filter tab.
+              </div>
             </div>
-          ) : (
-            <Select 
-              value={formData.group_name || "none"} 
-              onValueChange={(value) => {
-                if (value === "__custom__") {
-                  setShowGroupInput(true);
-                  setFormData(prev => ({ ...prev, group_name: "" }));
-                } else if (value === "none") {
-                  setFormData(prev => ({ ...prev, group_name: "" }));
-                } else {
-                  setFormData(prev => ({ ...prev, group_name: value }));
-                }
+            <Switch
+              id="cong-guest-switch"
+              className="shrink-0"
+              checked={formData.is_congregation_guest}
+              onCheckedChange={(checked) => {
+                if (checked) setShowGroupInput(false);
+                setFormData((prev) => ({
+                  ...prev,
+                  is_congregation_guest: checked,
+                  ...(checked ? { group_name: "" } : {}),
+                }));
               }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select group or add new" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No group</SelectItem>
-                {groupOptions.map((group) => (
-                  <SelectItem key={group} value={group}>
-                    {group}
-                  </SelectItem>
-                ))}
-                <SelectItem value="__custom__">
-                  + Add new group
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          )}
+            />
+          </div>
         </div>
 
-        {/* Privileges */}
+        {!formData.is_congregation_guest && (
+          <div className="space-y-2">
+            <Label>Group Assignment</Label>
+            {showGroupInput ? (
+              <div className="flex gap-2">
+                <Input
+                  className="flex-1"
+                  placeholder="Enter new group name"
+                  value={formData.group_name}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, group_name: e.target.value }))}
+                  autoFocus
+                />
+                <Button type="button" variant="outline" onClick={() => setShowGroupInput(false)}>
+                  Cancel
+                </Button>
+              </div>
+            ) : (
+              <Select
+                value={formData.group_name || "none"}
+                onValueChange={(value) => {
+                  if (value === "__custom__") {
+                    setShowGroupInput(true);
+                    setFormData((prev) => ({ ...prev, group_name: "" }));
+                  } else if (value === "none") {
+                    setFormData((prev) => ({ ...prev, group_name: "" }));
+                  } else {
+                    setFormData((prev) => ({ ...prev, group_name: value }));
+                  }
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select group or add new" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No group</SelectItem>
+                  {groupOptions.map((group) => (
+                    <SelectItem key={group} value={group}>
+                      {group}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="__custom__">+ Add new group</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        )}
+
+        {/* Privileges — no mount-in animation so the drawer feels instant */}
         <div className="space-y-2">
           <Label>Privileges</Label>
           <AnimatePresence initial={false}>
@@ -415,11 +473,9 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
               {visiblePrivileges.map((privilege) => (
                 <motion.div
                   key={privilege}
-                  layout
-                  initial={{ opacity: 0, scale: 0.9, y: 4 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.9, y: -4 }}
-                  transition={{ duration: 0.15 }}
+                  initial={false}
+                  exit={{ opacity: 0, scale: 0.98 }}
+                  transition={{ duration: 0.1 }}
                 >
                   <Button
                     type="button"
@@ -457,18 +513,76 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
           </div>
         )}
 
-        {/* Action Buttons */}
-        <div className={`flex gap-2 ${hasFormChanges ? "justify-between" : "justify-start"}`}>
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          {hasFormChanges && (
-            <Button type="submit" disabled={saving}>
-              {saving ? "Saving..." : "Save Changes"}
+        <div
+          className={`flex flex-wrap items-center gap-2 border-t border-border pt-4 ${
+            user.congregation_id ? "justify-between" : "justify-start"
+          }`}
+        >
+          {user.congregation_id ? (
+            <Button
+              type="button"
+              variant="destructive"
+              className="w-fit shrink-0"
+              onClick={() => setRemoveConfirmOpen(true)}
+            >
+              Remove from congregation
             </Button>
-          )}
+          ) : null}
+          <div className="flex flex-wrap gap-2">
+            {hasFormChanges ? (
+              <Button type="submit" disabled={saving}>
+                {saving ? "Saving..." : "Save Changes"}
+              </Button>
+            ) : (
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+            )}
+          </div>
         </div>
       </form>
     </div>
+
+    <Drawer open={removeConfirmOpen} onOpenChange={setRemoveConfirmOpen}>
+      <DrawerContent
+        className="flex flex-col !z-[100]"
+        overlayClassName="!z-[100]"
+        style={{ maxHeight: "50vh", height: "50vh" }}
+      >
+        <div className="flex flex-1 flex-col justify-center px-4 min-h-0">
+          <DrawerHeader className="pt-6 px-4 pb-2 text-center sm:text-center">
+            <DrawerTitle className="text-center">Remove from congregation?</DrawerTitle>
+          </DrawerHeader>
+          <DrawerDescription className="text-center px-2 pb-2">
+            {user.first_name} {user.last_name} will no longer be assigned to this congregation. Their account
+            stays active; they can be added again later. Business witnessing (BWI) participation and guest-name
+            links for this congregation are cleared.
+          </DrawerDescription>
+          <DrawerFooter className="flex flex-col gap-3 p-0 pt-4 pb-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              className="w-full h-12"
+              onClick={() => setRemoveConfirmOpen(false)}
+              disabled={removing}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="lg"
+              variant="destructive"
+              className="w-full h-12"
+              onClick={handleConfirmCongregationRemove}
+              disabled={removing}
+            >
+              {removing ? "Removing…" : "Remove"}
+            </Button>
+          </DrawerFooter>
+        </div>
+      </DrawerContent>
+    </Drawer>
+    </>
   );
 }

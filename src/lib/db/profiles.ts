@@ -57,6 +57,7 @@ export async function updateUserProfile(targetUserId: string, updates: {
   privileges?: string[];
   group_name?: string | null;
   congregation_id?: string | null;
+  is_congregation_guest?: boolean;
 }) {
   const supabase = createSupabaseBrowserClient();
   try {

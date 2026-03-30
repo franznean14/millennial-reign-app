@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "@/components/ui/sonner";
@@ -23,6 +24,15 @@ export function AddUserToCongregationForm({ congregationId, onUserAdded, onClose
   const [groupOptions, setGroupOptions] = useState<string[]>([]);
   const [selectedGroup, setSelectedGroup] = useState<string>("");
   const [showGroupInput, setShowGroupInput] = useState(false);
+  const [guestNameOptions, setGuestNameOptions] = useState<string[]>([]);
+  const [loadingGuestNames, setLoadingGuestNames] = useState(false);
+  /** Exact label from visit history; empty = do not inherit */
+  const [selectedGuestName, setSelectedGuestName] = useState<string>("");
+  /** Guest publishers skip group assignment; sets is_congregation_guest on profile */
+  const [addAsGuest, setAddAsGuest] = useState(false);
+
+  const eligibleForGuestInherit =
+    !!searchResult && searchResult.congregation_id !== congregationId;
 
   // Load existing group names
   useEffect(() => {
@@ -41,6 +51,63 @@ export function AddUserToCongregationForm({ congregationId, onUserAdded, onClose
     loadGroupOptions();
   }, []);
 
+  // Guest names still available to link (one publisher per guest label per congregation)
+  useEffect(() => {
+    if (!eligibleForGuestInherit) {
+      setGuestNameOptions([]);
+      setSelectedGuestName("");
+      return;
+    }
+
+    let cancelled = false;
+    const loadGuestNames = async () => {
+      setLoadingGuestNames(true);
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const { data, error } = await supabase.rpc("list_inheritable_guest_names", {
+          congregation_id_param: congregationId,
+        });
+        if (cancelled) return;
+        if (error) {
+          // PostgrestError serializes to "{}" in some consoles — log fields explicitly
+          const detail = [error.message, error.details, error.hint].filter(Boolean).join(" — ");
+          console.error("list_inheritable_guest_names failed", {
+            message: error.message,
+            code: error.code,
+            details: error.details,
+            hint: error.hint,
+          });
+          toast.error("Could not load guest names", {
+            description:
+              detail ||
+              "Check that the latest migration is applied and you have Elder privileges for this congregation.",
+          });
+          setGuestNameOptions([]);
+          return;
+        }
+        const rows = Array.isArray(data) ? data : [];
+        const names = rows
+          .map((row: { guest_name?: string }) => row.guest_name)
+          .filter((n: string | undefined): n is string => typeof n === "string" && n.trim().length > 0);
+        setGuestNameOptions(names);
+      } catch (e) {
+        if (!cancelled) {
+          const msg = e instanceof Error ? e.message : String(e);
+          console.error("list_inheritable_guest_names exception", e);
+          toast.error("Could not load guest names", { description: msg });
+          setGuestNameOptions([]);
+        }
+      } finally {
+        if (!cancelled) setLoadingGuestNames(false);
+      }
+    };
+
+    void loadGuestNames();
+    return () => {
+      cancelled = true;
+    };
+  }, [eligibleForGuestInherit, congregationId]);
+
   // Search for user as they type (with debouncing)
   useEffect(() => {
     if (searchQuery.trim().length === 0) {
@@ -54,6 +121,13 @@ export function AddUserToCongregationForm({ congregationId, onUserAdded, onClose
 
     return () => clearTimeout(timeoutId);
   }, [searchQuery]);
+
+  useEffect(() => {
+    setAddAsGuest(false);
+    setSelectedGroup("");
+    setShowGroupInput(false);
+    setSelectedGuestName("");
+  }, [searchResult?.id]);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -168,29 +242,49 @@ export function AddUserToCongregationForm({ congregationId, onUserAdded, onClose
   };
 
   const handleAddUser = async () => {
-    if (!searchResult || !selectedGroup) return;
-    
+    if (!searchResult) return;
+    if (!addAsGuest && !selectedGroup) return;
+
     setAddingUser(true);
     try {
       const supabase = createSupabaseBrowserClient();
       
       // Use RPC function to transfer user to congregation
-      const { data, error } = await supabase.rpc('transfer_user_to_congregation', {
+      const { error } = await supabase.rpc('transfer_user_to_congregation', {
         target_user: searchResult.id,
         new_congregation: congregationId
       });
 
       if (error) throw error;
       
-      // Update the user's group
-      const { error: groupError } = await supabase
+      const { error: profileError } = await supabase
         .from('profiles')
-        .update({ group_name: selectedGroup })
+        .update(
+          addAsGuest
+            ? { group_name: null, is_congregation_guest: true }
+            : { group_name: selectedGroup, is_congregation_guest: false },
+        )
         .eq('id', searchResult.id);
 
-      if (groupError) {
-        console.error('Error updating group:', groupError);
-        // Still show success since user was transferred
+      if (profileError) {
+        console.error('Error updating profile after transfer:', profileError);
+      }
+
+      if (selectedGuestName.trim()) {
+        const { error: inheritError } = await supabase.rpc("inherit_guest_name_on_profile", {
+          congregation_id_param: congregationId,
+          target_profile: searchResult.id,
+          guest_name: selectedGuestName.trim(),
+        });
+        if (inheritError) {
+          toast.error(
+            inheritError.message ||
+              "User was added but linking visit history failed. You can retry linking from support tools if available.",
+          );
+          onUserAdded(searchResult);
+          onClose();
+          return;
+        }
       }
       
       toast.success(`${searchResult.first_name} ${searchResult.last_name} added to congregation successfully!`);
@@ -204,13 +298,14 @@ export function AddUserToCongregationForm({ congregationId, onUserAdded, onClose
     }
   };
 
-  const canAddUser = searchResult && 
-    searchResult.id && 
-    selectedGroup && 
-    searchResult.congregation_id !== congregationId;
+  const canAddUser =
+    !!searchResult &&
+    !!searchResult.id &&
+    searchResult.congregation_id !== congregationId &&
+    (addAsGuest || !!selectedGroup);
 
   return (
-    <div className="space-y-6 pb-100">
+    <div className="space-y-6 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
       <div className="space-y-4">
         <Label htmlFor="search">Search by Username or Email</Label>
         <Input
@@ -254,61 +349,121 @@ export function AddUserToCongregationForm({ congregationId, onUserAdded, onClose
             </div>
           </div>
 
-          {/* Group Selection */}
-          <div className="space-y-2">
-            <Label>Assign to Group</Label>
-            {showGroupInput ? (
-              <div className="flex gap-2">
-                <Input
-                  className="flex-1"
-                  placeholder="Enter new group name"
-                  value={selectedGroup}
-                  onChange={(e) => setSelectedGroup(e.target.value)}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowGroupInput(false)}
-                >
-                  Cancel
-                </Button>
+          {eligibleForGuestInherit && (
+            <div className="flex items-center justify-between gap-3 rounded-md border p-3">
+              <div className="space-y-0.5 pr-2">
+                <Label htmlFor="add-as-guest" className="text-sm font-medium">
+                  Add as guest publisher
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  No field service group is assigned. They appear under the Guest tab and get a Guest badge until you change it in Manage user.
+                </p>
               </div>
-            ) : (
-              <Select 
-                value={selectedGroup} 
-                onValueChange={(value) => {
-                  if (value === "__custom__") {
-                    setShowGroupInput(true);
+              <Switch
+                id="add-as-guest"
+                checked={addAsGuest}
+                onCheckedChange={(on) => {
+                  setAddAsGuest(on);
+                  if (on) {
                     setSelectedGroup("");
-                  } else {
-                    setSelectedGroup(value);
+                    setShowGroupInput(false);
                   }
                 }}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select group or add new" />
-                </SelectTrigger>
-                <SelectContent>
-                  {groupOptions.map((group) => (
-                    <SelectItem key={group} value={group}>
-                      {group}
-                    </SelectItem>
-                  ))}
-                  <SelectItem value="__custom__">
-                    + Add new group
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            )}
-          </div>
+              />
+            </div>
+          )}
 
-          {/* Add Button */}
+          {/* Optional: inherit visit rows from a guest name (same label can only link to one user; released if profile deleted) */}
+          {eligibleForGuestInherit && (
+            <div className="space-y-2">
+              <Label>Inherit visit history from guest name (optional)</Label>
+              <p className="text-xs text-muted-foreground">
+                Each guest name can link to only one publisher in this congregation. Matching calls and to-dos are updated to this user.
+              </p>
+              {loadingGuestNames ? (
+                <div className="text-sm text-muted-foreground">Loading guest names…</div>
+              ) : guestNameOptions.length === 0 ? (
+                <div className="text-sm text-muted-foreground">
+                  No unlinked guest names in visit history for this congregation.
+                </div>
+              ) : (
+                <Select
+                  value={selectedGuestName ? selectedGuestName : "__none__"}
+                  onValueChange={(value) => setSelectedGuestName(value === "__none__" ? "" : value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="None — do not link visit history" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[min(280px,50vh)]">
+                    <SelectItem value="__none__">None</SelectItem>
+                    {guestNameOptions.map((name) => (
+                      <SelectItem key={name} value={name}>
+                        <span className="truncate">{name}</span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          )}
+
+          {eligibleForGuestInherit && !addAsGuest && (
+            <div className="space-y-2">
+              <Label>Assign to Group</Label>
+              {showGroupInput ? (
+                <div className="flex gap-2">
+                  <Input
+                    className="flex-1"
+                    placeholder="Enter new group name"
+                    value={selectedGroup}
+                    onChange={(e) => setSelectedGroup(e.target.value)}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setShowGroupInput(false)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <Select
+                  value={selectedGroup}
+                  onValueChange={(value) => {
+                    if (value === "__custom__") {
+                      setShowGroupInput(true);
+                      setSelectedGroup("");
+                    } else {
+                      setSelectedGroup(value);
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select group or add new" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {groupOptions.map((group) => (
+                      <SelectItem key={group} value={group}>
+                        {group}
+                      </SelectItem>
+                    ))}
+                    <SelectItem value="__custom__">+ Add new group</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+          )}
+
           <Button
             onClick={handleAddUser}
             disabled={!canAddUser || addingUser}
             className="w-full"
           >
-            {addingUser ? "Adding..." : `Add ${searchResult.first_name} to Congregation`}
+            {addingUser
+              ? "Adding..."
+              : addAsGuest
+                ? `Add ${searchResult.first_name} as guest`
+                : `Add ${searchResult.first_name} to Congregation`}
           </Button>
         </div>
       )}

@@ -28,6 +28,8 @@ export interface Profile {
   gender?: Gender | null; // optional; required when assigning male-only privileges
   congregation_id?: string | null;
   group_name?: string | null; // Add group name field
+  /** Temporary / guest publisher in this congregation (badge + members filter) */
+  is_congregation_guest?: boolean | null;
   // Contact information fields
   phone_number?: string | null;
   address?: string | null;

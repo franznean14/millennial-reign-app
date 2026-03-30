@@ -25,6 +25,7 @@ import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
 import { getStatusColor, getStatusTitleColor } from "@/lib/utils/status-hierarchy";
 import NumberFlow from "@number-flow/react";
 import { cacheGet, cacheSet } from "@/lib/offline/store";
+import { businessEventBus, type BusinessEventType } from "@/lib/events/business-events";
 
 interface VisitHistoryProps {
   userId: string;
@@ -209,45 +210,81 @@ export function VisitHistory({
     setShowAreaDrawer(true);
   };
 
+  // BWI summary (establishment + householder counts) must not be tied to the "All" / "Calls" tab.
+  // Previously, switching to "Calls" before the fetch finished aborted the in-flight request (cleanup set
+  // isMounted=false), so counts and hh-derived stats stayed at zero until something triggered a refetch.
   useEffect(() => {
-    let isMounted = true;
+    if (!userId) return;
+
+    let cancelled = false;
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
     const loadBwiData = async () => {
-      if (activeTab !== "bwi") return;
-      
-      // Load from cache first (like HomeSummary does)
-      const cacheKey = 'bwi-summary-data';
-      const cached = await cacheGet<{ establishments?: EstablishmentWithDetails[], householders?: HouseholderWithDetails[] }>(cacheKey);
+      const cacheKey = "bwi-summary-data";
+      const cached = await cacheGet<{
+        establishments?: EstablishmentWithDetails[];
+        householders?: HouseholderWithDetails[];
+      }>(cacheKey);
+
       if (cached?.establishments || cached?.householders) {
-        if (!isMounted) return;
-        setBwiEstablishments(cached.establishments || []);
-        setBwiHouseholders((cached.householders || []).filter((hh) => !!hh.establishment_id));
+        if (!cancelled) {
+          setBwiEstablishments(cached.establishments || []);
+          setBwiHouseholders((cached.householders || []).filter((hh) => !!hh.establishment_id));
+        }
       }
-      
-      // Only fetch fresh data if we don't have data yet or if we're online
-      if (typeof navigator !== 'undefined' && !navigator.onLine) {
+
+      if (typeof navigator !== "undefined" && !navigator.onLine) {
         return;
       }
-      
+
       try {
         const [establishments, householders] = await Promise.all([
           getEstablishmentsWithDetails(),
-          listHouseholders()
+          listHouseholders(),
         ]);
-        if (!isMounted) return;
+        if (cancelled) return;
         setBwiEstablishments(establishments);
         setBwiHouseholders(householders.filter((hh) => !!hh.establishment_id));
-        
-        // Cache the data for next time
         await cacheSet(cacheKey, { establishments, householders });
       } catch (error) {
         console.error("Error loading BWI summary data:", error);
       }
     };
-    loadBwiData();
-    return () => {
-      isMounted = false;
+
+    const scheduleRefetch = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => {
+        if (!cancelled) void loadBwiData();
+      }, 400);
     };
-  }, [activeTab]);
+
+    void loadBwiData();
+
+    const refetchEvents: BusinessEventType[] = [
+      "establishment-added",
+      "establishment-updated",
+      "householder-added",
+      "householder-updated",
+      "householder-deleted",
+      "householder-archived",
+      "visit-added",
+      "visit-updated",
+      "visit-deleted",
+    ];
+    refetchEvents.forEach((ev) => businessEventBus.subscribe(ev, scheduleRefetch));
+
+    const onOnline = () => {
+      if (!cancelled) void loadBwiData();
+    };
+    window.addEventListener("online", onOnline);
+
+    return () => {
+      cancelled = true;
+      if (debounceTimer) clearTimeout(debounceTimer);
+      refetchEvents.forEach((ev) => businessEventBus.unsubscribe(ev, scheduleRefetch));
+      window.removeEventListener("online", onOnline);
+    };
+  }, [userId]);
 
   const establishmentStatusCounts = useMemo(() => {
     const counts = {
