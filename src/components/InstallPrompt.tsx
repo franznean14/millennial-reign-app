@@ -75,7 +75,7 @@ export default function InstallPrompt({ className, compact = false }: InstallPro
       onClick={install}
       className={cn(
         compact
-          ? "flex flex-col items-center justify-center gap-1 px-2 py-6 h-full rounded-md hover:bg-muted transition-colors"
+          ? "inline-flex items-center justify-center gap-1.5 h-10 px-3 rounded-md border border-border/70 bg-background/70 hover:bg-muted transition-colors text-foreground"
           : "px-3 py-1.5 rounded-md border text-sm bg-white/80 dark:bg-black/30 backdrop-blur border-black/10 dark:border-white/20",
         className
       )}
@@ -84,7 +84,7 @@ export default function InstallPrompt({ className, compact = false }: InstallPro
       {compact ? (
         <>
           <Download className="h-4 w-4 flex-shrink-0" />
-          <span className="text-[10px] font-medium text-center">Install</span>
+          <span className="text-xs font-medium leading-none">Install</span>
         </>
       ) : (
         "Install app"

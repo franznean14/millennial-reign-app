@@ -48,9 +48,7 @@ export function HomeTabToggle({
           <span className="text-[10px] font-medium text-center">Events</span>
         </ToggleGroupItem>
       </ToggleGroup>
-      <div className="pr-2 pl-1 flex-shrink-0 flex items-center justify-center h-full">
-        <InstallPrompt compact className="text-foreground/90" />
-      </div>
+      <InstallPrompt compact className="mr-2 ml-1" />
     </div>
   );
 }
