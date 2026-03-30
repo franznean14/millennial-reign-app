@@ -43,6 +43,12 @@ interface HouseholderDetailsProps {
   isLoading?: boolean;
 }
 
+type TodoEditorItem = MyOpenCallTodoItem & {
+  call_note?: string | null;
+  call_visit_date?: string | null;
+  call_publishers?: string[];
+};
+
 // Helper function for householder status color coding
 const getHouseholderStatusColorClass = (status: string) => {
   switch (status) {
@@ -104,7 +110,7 @@ export function HouseholderDetails({
   const [isEditing, setIsEditing] = useState(false);
   const [editVisit, setEditVisit] = useState<{ id: string; establishment_id?: string | null; householder_id?: string | null; note?: string | null; publisher_id?: string | null; partner_id?: string | null; visit_date?: string } | null>(null);
   const [newVisitOpen, setNewVisitOpen] = useState(false);
-  const [editTodo, setEditTodo] = useState<MyOpenCallTodoItem | null>(null);
+  const [editTodo, setEditTodo] = useState<TodoEditorItem | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
@@ -322,23 +328,18 @@ export function HouseholderDetails({
       return;
     }
     const matchedVisit = visits.find((v) => v.id === todo.call_id);
-    if (matchedVisit) {
-      setEditVisit({
-        id: matchedVisit.id,
-        establishment_id: matchedVisit.establishment_id ?? establishment?.id ?? null,
-        householder_id: matchedVisit.householder_id ?? householder.id ?? null,
-        note: matchedVisit.note ?? null,
-        publisher_id: matchedVisit.publisher_id ?? null,
-        partner_id: matchedVisit.partner_id ?? null,
-        visit_date: matchedVisit.visit_date,
-      });
-      return;
-    }
-    setEditVisit({
-      id: todo.call_id,
-      establishment_id: todo.establishment_id ?? establishment?.id ?? null,
-      householder_id: todo.householder_id ?? householder.id ?? null,
-      visit_date: todo.visit_date ?? undefined,
+    const callPublishers = [matchedVisit?.publisher, matchedVisit?.partner]
+      .filter((person): person is NonNullable<typeof person> => !!person)
+      .map((person) => `${person.first_name} ${person.last_name}`.trim())
+      .filter(Boolean);
+    if (matchedVisit?.publisher_guest_name?.trim()) callPublishers.push(matchedVisit.publisher_guest_name.trim());
+    if (matchedVisit?.partner_guest_name?.trim()) callPublishers.push(matchedVisit.partner_guest_name.trim());
+
+    setEditTodo({
+      ...todo,
+      call_note: matchedVisit?.note ?? null,
+      call_visit_date: matchedVisit?.visit_date ?? todo.visit_date ?? null,
+      call_publishers: Array.from(new Set(callPublishers)),
     });
   };
 

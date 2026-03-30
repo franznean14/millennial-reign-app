@@ -163,8 +163,11 @@ function compareLatestDesc(a: MyOpenCallTodoItem, b: MyOpenCallTodoItem): number
   return getLatestMs(b) - getLatestMs(a);
 }
 
-/** Deadline-based styling: passed red, <7 days orange, <14 yellow, >=14 green. */
-function getTodoAgeBorderClass(deadlineDate: string | null | undefined): string {
+/** Deadline-based styling: subtle background tint by urgency. */
+function getTodoAgeBorderClass(
+  deadlineDate: string | null | undefined,
+  softened = false
+): string {
   if (!deadlineDate) return "";
   const deadline = new Date(`${deadlineDate}T00:00:00`).getTime();
   if (Number.isNaN(deadline)) return "";
@@ -172,10 +175,16 @@ function getTodoAgeBorderClass(deadlineDate: string | null | undefined): string 
   const todayStart = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate()).getTime();
   const daysMs = 24 * 60 * 60 * 1000;
   const daysUntilDeadline = (deadline - todayStart) / daysMs;
-  if (daysUntilDeadline < 0) return "border-l-4 border-l-red-500 dark:border-l-red-600";
-  if (daysUntilDeadline < 7) return "border-l-4 border-l-orange-500 dark:border-l-orange-600";
-  if (daysUntilDeadline < 14) return "border-l-4 border-l-yellow-500 dark:border-l-yellow-600";
-  return "border-l-4 border-l-green-500 dark:border-l-green-600";
+  if (softened) {
+    if (daysUntilDeadline < 0) return "bg-red-500/[0.025] dark:bg-red-500/[0.04]";
+    if (daysUntilDeadline < 7) return "bg-orange-500/[0.022] dark:bg-orange-500/[0.036]";
+    if (daysUntilDeadline < 14) return "bg-yellow-500/[0.02] dark:bg-yellow-500/[0.034]";
+    return "bg-green-500/[0.02] dark:bg-green-500/[0.034]";
+  }
+  if (daysUntilDeadline < 0) return "bg-red-500/[0.04] dark:bg-red-500/[0.06]";
+  if (daysUntilDeadline < 7) return "bg-orange-500/[0.035] dark:bg-orange-500/[0.055]";
+  if (daysUntilDeadline < 14) return "bg-yellow-500/[0.03] dark:bg-yellow-500/[0.05]";
+  return "bg-green-500/[0.03] dark:bg-green-500/[0.05]";
 }
 
 interface HomeTodoCardProps {
@@ -995,7 +1004,7 @@ export function HomeTodoCard({
             )}
             <ChevronRight className="h-3.5 w-3.5 ml-auto opacity-70" />
           </button>
-          <ul className="space-y-4">
+          <ul className="space-y-2.5">
             {cardOpenTodos.length === 0 ? (
               <li className="text-sm text-muted-foreground py-1">{emptyText}</li>
             ) : (
@@ -1014,6 +1023,7 @@ export function HomeTodoCard({
                   rowIndex={index}
                   layoutId={`card-${todo.id}`}
                   layoutTransition={todoLayoutTransition}
+                  hideHouseholderNameBadge={!!householderId}
                 />
               ))
             )}
@@ -1021,7 +1031,7 @@ export function HomeTodoCard({
           {cardCompletedTodos.length > 0 && (
             <>
               <div className="text-xs text-muted-foreground mt-4 mb-2 font-medium">Done</div>
-              <ul className="space-y-4">
+              <ul className="space-y-2.5">
                 {cardCompletedTodos.slice(0, 3).map((todo, index) => (
                   <TodoRow
                     key={todo.id}
@@ -1037,6 +1047,7 @@ export function HomeTodoCard({
                     rowIndex={index}
                     layoutId={`card-${todo.id}`}
                     layoutTransition={todoLayoutTransition}
+                    hideHouseholderNameBadge={!!householderId}
                   />
                 ))}
               </ul>
@@ -1172,7 +1183,7 @@ export function HomeTodoCard({
               ) : (
                 <>
                   {filteredOpenTodos.length > 0 && (
-                    <ul className="space-y-5 pb-2">
+                    <ul className="space-y-3 pb-2">
                       {filteredOpenTodos.map((todo, index) => (
                         <TodoRow
                           key={todo.id}
@@ -1188,6 +1199,8 @@ export function HomeTodoCard({
                           rowIndex={index}
                           layoutId={`drawer-${todo.id}`}
                           layoutTransition={todoLayoutTransition}
+                          clampBody={false}
+                          hideHouseholderNameBadge={!!householderId}
                         />
                       ))}
                     </ul>
@@ -1197,7 +1210,7 @@ export function HomeTodoCard({
                       <div className="text-xs text-muted-foreground mt-5 mb-2 font-medium">
                         Done
                       </div>
-                      <ul className="space-y-5">
+                      <ul className="space-y-3">
                         {(drawerDoneExpanded
                           ? filteredCompletedTodos
                           : filteredCompletedTodos.slice(0, 3)
@@ -1216,6 +1229,8 @@ export function HomeTodoCard({
                             rowIndex={index}
                             layoutId={`drawer-${todo.id}`}
                             layoutTransition={todoLayoutTransition}
+                            clampBody={false}
+                            hideHouseholderNameBadge={!!householderId}
                           />
                         ))}
                       </ul>
@@ -1500,6 +1515,8 @@ function TodoRow({
   layoutId,
   layoutTransition,
   rowIndex,
+  clampBody = true,
+  hideHouseholderNameBadge = false,
 }: {
   todo: MyOpenCallTodoItem;
   timeZone: string | null;
@@ -1513,17 +1530,19 @@ function TodoRow({
   layoutId?: string;
   layoutTransition?: { type: "spring"; stiffness: number; damping: number };
   rowIndex?: number;
+  clampBody?: boolean;
+  hideHouseholderNameBadge?: boolean;
 }) {
   const canNavigate = !!onTap && (!!todo.call_id || !!todo.establishment_id || !!todo.householder_id);
   const householderStatus = todo.context_status || "for_scouting";
   const establishmentStatus = todo.context_establishment_status || "for_scouting";
   const isDone = !!todo.is_done;
   const displayDate = todo.deadline_date;
-  const ageBorderClass = isDone ? "" : getTodoAgeBorderClass(displayDate);
   const isHouseholder = !!todo.householder_id;
   const isEvenRow = typeof rowIndex === "number" && rowIndex % 2 === 1;
   const isMine = !currentUserId || todo.publisher_id === currentUserId || todo.partner_id === currentUserId;
   const hasOtherPublisherHighlight = highlightOtherPublishers && !isMine;
+  const ageBorderClass = isDone ? "" : getTodoAgeBorderClass(displayDate, hasOtherPublisherHighlight);
   const assigneeIds = [todo.publisher_id, todo.partner_id]
     .filter((value): value is string => !!value)
     .filter((value, idx, arr) => arr.indexOf(value) === idx)
@@ -1549,6 +1568,7 @@ function TodoRow({
           {todo.context_name ? (
             <>
               {isHouseholder ? (
+                hideHouseholderNameBadge ? null : (
                 <span className="inline-flex items-center gap-1 w-fit max-w-[55%] min-w-0 shrink">
                   <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
                   <VisitStatusBadge
@@ -1557,6 +1577,7 @@ function TodoRow({
                     className={cn("truncate max-w-full whitespace-nowrap", isDone && "opacity-70")}
                   />
                 </span>
+                )
               ) : (
                 <span className="inline-flex items-center gap-1 w-fit max-w-[55%] min-w-0 shrink">
                   <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
@@ -1603,7 +1624,8 @@ function TodoRow({
             type="button"
             onClick={() => onTap?.(todo)}
             className={cn(
-              "text-left text-base leading-snug line-clamp-2 py-0.5 rounded flex-1 min-w-0",
+              "text-left text-base leading-snug py-0.5 rounded flex-1 min-w-0",
+              clampBody && "line-clamp-2",
               canNavigate && "hover:bg-muted/50 active:bg-muted transition-colors",
               isDone && "text-muted-foreground line-through"
             )}
@@ -1627,16 +1649,13 @@ function TodoRow({
     </>
   );
   const finalClassName = cn(
-    "flex items-center gap-2 text-sm group rounded-md py-2.5",
+    "flex items-center gap-2 text-sm group rounded-md py-2.5 pl-2",
     isEvenRow && "bg-muted/30",
     hasOtherPublisherHighlight &&
-      "border-2 border-dashed border-muted-foreground/45 dark:border-muted-foreground/35 px-1.5 py-2.5",
-    ageBorderClass && "pl-2",
+      "border border-dashed border-muted-foreground/40 dark:border-muted-foreground/30 px-1.5 py-2.5",
     ageBorderClass
   );
-  const otherPublisherStyle = hasOtherPublisherHighlight
-    ? ({ borderLeftStyle: "solid" } as const)
-    : undefined;
+  const otherPublisherStyle = undefined;
   if (layoutId) {
     return (
       <motion.li

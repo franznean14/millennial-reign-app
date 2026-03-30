@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { X, Plus } from "lucide-react";
+import { X, Plus, Calendar, Users, FileText, Link2 } from "lucide-react";
 import {
   Drawer,
   DrawerContent,
@@ -39,6 +39,7 @@ interface TodoFormProps {
   householderName?: string;
   initialTodo?: {
     id: string;
+    call_id?: string | null;
     body?: string | null;
     deadline_date?: string | null;
     publisher_id?: string | null;
@@ -47,6 +48,9 @@ interface TodoFormProps {
     partner_guest_name?: string | null;
     establishment_id?: string | null;
     householder_id?: string | null;
+    call_note?: string | null;
+    call_visit_date?: string | null;
+    call_publishers?: string[];
   } | null;
   onSaved: () => void;
   disableEstablishmentSelect?: boolean;
@@ -326,6 +330,62 @@ export function TodoForm({
       className="grid gap-3 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]"
       onSubmit={handleSubmit}
     >
+      {initialTodo?.call_id ? (
+        <div className="rounded-md border border-primary/40 bg-primary/5 p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <Link2 className="h-4 w-4 text-primary" />
+            <span className="text-sm font-semibold">Linked Call To-Do</span>
+          </div>
+          {initialTodo.call_visit_date ? (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Calendar className="h-3.5 w-3.5" />
+              <span>
+                {new Date(`${initialTodo.call_visit_date}T00:00:00`).toLocaleDateString("en-US", {
+                  month: "long",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+              </span>
+            </div>
+          ) : null}
+          {slots.length > 0 ? (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Users className="h-3.5 w-3.5" />
+              <div className="inline-flex items-center gap-1.5">
+                {slots.slice(0, 2).map((slot, index) => {
+                  const profile = slot.type === "publisher" ? getSelectedUser(slot.id) : null;
+                  const fullName =
+                    slot.type === "publisher"
+                      ? profile
+                        ? `${profile.first_name} ${profile.last_name}`.trim()
+                        : "Publisher"
+                      : slot.name;
+                  return (
+                    <Avatar key={`${slot.type}-${slot.type === "publisher" ? slot.id : slot.name}-${index}`} className="h-6 w-6 border border-border/70">
+                      {profile?.avatar_url ? <AvatarImage src={profile.avatar_url} alt={fullName} /> : null}
+                      <AvatarFallback
+                        className={slot.type === "guest" ? "text-[10px] bg-amber-500/25 text-amber-800 dark:bg-amber-500/30 dark:text-amber-200" : "text-[10px]"}
+                        title={fullName}
+                      >
+                        {slot.type === "publisher" && profile
+                          ? getInitials(profile.first_name, profile.last_name)
+                          : getInitialsFromName(fullName || "P")}
+                      </AvatarFallback>
+                    </Avatar>
+                  );
+                })}
+              </div>
+            </div>
+          ) : null}
+          {initialTodo.call_note?.trim() ? (
+            <div className="flex items-start gap-2 text-xs text-muted-foreground">
+              <FileText className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+              <span className="line-clamp-3">{initialTodo.call_note.trim()}</span>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
       {householderId ? (
         <div className="grid gap-1">
           <Label>Householder</Label>
