@@ -19,6 +19,8 @@ type AccountTab = "profile" | "account";
 interface AccountSectionProps {
   userId: string;
   profile: any;
+  canEditPrivilegesAndBwi: boolean;
+  canEditPioneerPrivilegesOnly: boolean;
   accountTab: AccountTab;
   setAccountTab: Dispatch<SetStateAction<AccountTab>>;
   editing: boolean;
@@ -41,6 +43,8 @@ interface AccountSectionProps {
 export function AccountSection({
   userId,
   profile,
+  canEditPrivilegesAndBwi,
+  canEditPioneerPrivilegesOnly,
   accountTab,
   setAccountTab,
   editing,
@@ -57,7 +61,7 @@ export function AccountSection({
   isBwiParticipant,
   setIsBwiParticipant,
   setProfile,
-  getSupabaseClient
+  getSupabaseClient,
 }: AccountSectionProps) {
   const fullName = profile ? `${profile.first_name} ${profile.last_name}`.trim() : "User";
   const initials = profile ? `${profile.first_name?.[0] || ""}${profile.last_name?.[0] || ""}`.toUpperCase() : "U";
@@ -248,6 +252,8 @@ export function AccountSection({
             userId={userId!}
             initialEmail={profile?.email}
             initialProfile={profile}
+            canEditPrivilegesAndBwi={canEditPrivilegesAndBwi}
+            canEditPioneerPrivilegesOnly={canEditPioneerPrivilegesOnly}
             bwiEnabled={bwiEnabled}
             isBwiParticipant={isBwiParticipant}
             onBwiToggle={async () => {

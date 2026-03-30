@@ -103,6 +103,7 @@ export function CongregationSection({
               setModalOpen(true);
             }}
             canEdit={canEdit}
+            canManageCongregationUsers={admin || isElder}
             initialTab={congregationInitialTab}
             congregationTab={congregationTab}
             onCongregationTabChange={setCongregationTab}

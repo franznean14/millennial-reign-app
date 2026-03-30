@@ -11,15 +11,12 @@ export async function getProfile(userId: string): Promise<Profile | null> {
   const supabase = createSupabaseBrowserClient();
   const cacheKey = `profile:${userId}`;
 
-  // Offline-first: try cache
+  // Offline-first: cache is the immediate fallback source.
   const cached = await cacheGet<Profile>(cacheKey);
-  if (cached && cached.id === userId) {
-    return cached;
-  }
 
-  // If offline and cache is missing or clearly wrong, bail out
+  // While offline, only cached profile is available.
   if (typeof navigator !== "undefined" && !navigator.onLine) {
-    return null;
+    return cached && cached.id === userId ? cached : null;
   }
 
   // Ensure session is hydrated (avoids RLS errors during initial hydration)
@@ -44,7 +41,7 @@ export async function getProfile(userId: string): Promise<Profile | null> {
     if (prof) {
       await cacheSet(cacheKey, prof);
     }
-    return prof;
+    return prof ?? (cached && cached.id === userId ? cached : null);
   } catch (e) {
     console.error("getProfile: unexpected error", e);
     // As a last resort return valid cached profile if it matches, else null
@@ -97,7 +94,7 @@ export async function upsertProfile(input: Omit<Profile, "id" | "role"> & { id: 
   const sanitizePrivileges = (raw: any, gender: Gender | null) => {
     let privs: string[] = Array.isArray(raw) ? [...raw] : [];
     privs = Array.from(new Set(privs));
-    const allowed = ['Elder','Ministerial Servant','Regular Pioneer','Auxiliary Pioneer','Secretary','Coordinator','Group Overseer'];
+    const allowed = ['Elder','Ministerial Servant','Regular Pioneer','Auxiliary Pioneer','Secretary','Coordinator','Group Overseer','Group Assistant'];
     privs = privs.filter((p) => allowed.includes(p));
     if (privs.includes('Regular Pioneer') && privs.includes('Auxiliary Pioneer')) {
       privs = privs.filter((p) => p !== 'Auxiliary Pioneer');
@@ -205,11 +202,37 @@ export async function upsertProfile(input: Omit<Profile, "id" | "role"> & { id: 
     await cacheSet(`profile:${input.id}`, prof);
     return prof;
   } catch (e: any) {
-    // Unique violation or other constraint: surface helpful message and queue offline
+    // Surface validation/permission errors; queue only network/offline failures.
     const code = e?.code || e?.details || "";
     const msg = e?.message || "Failed to save profile";
+    const normalized = String(msg).toLowerCase();
+    const refreshCachedProfile = async () => {
+      try {
+        const { data } = await supabase
+          .from(TABLE)
+          .select("*")
+          .eq("id", input.id)
+          .single();
+        if (data) {
+          await cacheSet(`profile:${input.id}`, data as Profile);
+        }
+      } catch {
+        // Best-effort cache correction only.
+      }
+    };
     if (/insufficient_privilege/i.test(msg)) {
+      await refreshCachedProfile();
       throw new Error("You don’t have permission to change congregation assignment. Ask an elder or admin.");
+    }
+    if (
+      normalized.includes("only elders may") ||
+      normalized.includes("congregation privileges") ||
+      normalized.includes("role cannot be changed") ||
+      normalized.includes("cannot be changed from profile") ||
+      normalized.includes("require elder")
+    ) {
+      await refreshCachedProfile();
+      throw new Error(msg);
     }
     if (String(code).includes("23505") || /unique/i.test(msg)) {
       // Likely username conflict
@@ -217,6 +240,17 @@ export async function upsertProfile(input: Omit<Profile, "id" | "role"> & { id: 
       // eslint-disable-next-line no-console
       console.warn("Profile save unique violation:", e);
       throw new Error(hint);
+    }
+    const isOfflineRetryable =
+      (typeof navigator !== "undefined" && !navigator.onLine) ||
+      normalized.includes("failed to fetch") ||
+      normalized.includes("network request failed") ||
+      normalized.includes("networkerror") ||
+      normalized.includes("load failed") ||
+      normalized.includes("timeout");
+    if (!isOfflineRetryable) {
+      await refreshCachedProfile();
+      throw new Error(msg);
     }
     await outboxEnqueue({
       type: "upsert_profile",

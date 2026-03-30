@@ -52,6 +52,7 @@ export function AppClient() {
   const [profile, setProfile] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [admin, setAdmin] = useState(false);
+  const [isElderByServer, setIsElderByServer] = useState(false);
   
   // Get SPA context for loading state
   const { setContentLoading, onSectionChange, popNavigation, setCurrentSection, pushNavigation, currentSection } = useSPA();
@@ -320,19 +321,23 @@ export function AppClient() {
       setUserId(id);
       
       if (id) {
-        const [profileData, adminStatus, congregationData, { data: { user } }, bwiEnabledData, bwiParticipantData] = await Promise.all([
+        const [profileData, adminStatus, congregationData, { data: { user } }, bwiEnabledData, bwiParticipantData, elderStatus] = await Promise.all([
           getProfile(id),
           isAdmin(id),
           getMyCongregation(),
           supabase.auth.getUser(),
           supabase.rpc('is_business_enabled'),
-          supabase.rpc('is_business_participant')
+          supabase.rpc('is_business_participant'),
+          supabase.rpc('is_elder', { uid: id }),
         ]);
         
         // Add email from auth to profile data
-        const profileWithEmail = profileData ? { ...profileData, email: user?.email } : null;
+        const profileWithEmail = profileData
+          ? { ...profileData, email: user?.email, __isElderServer: !!elderStatus.data }
+          : null;
         setProfile(profileWithEmail);
         setAdmin(adminStatus);
+        setIsElderByServer(!!elderStatus.data);
         setCong(congregationData);
         setBwiEnabled(!!bwiEnabledData.data);
         setIsBwiParticipant(!!bwiParticipantData.data);
@@ -342,6 +347,8 @@ export function AppClient() {
           setMode("create");
           setModalOpen(true);
         }
+      } else {
+        setIsElderByServer(false);
       }
       
       setIsLoading(false);
@@ -350,6 +357,27 @@ export function AppClient() {
 
     loadAppData();
   }, [setContentLoading]);
+
+  // Keep elder capability aligned with server truth (prevents stale cache from showing elder-only UI).
+  useEffect(() => {
+    const refreshIsElder = async () => {
+      if (!userId) {
+        setIsElderByServer(false);
+        setProfile((prev: any) => (prev ? { ...prev, __isElderServer: false } : prev));
+        return;
+      }
+      try {
+        const supabase = await getSupabaseClient();
+        const { data } = await supabase.rpc("is_elder", { uid: userId });
+        const next = !!data;
+        setIsElderByServer(next);
+        setProfile((prev: any) => (prev ? { ...prev, __isElderServer: next } : prev));
+      } catch {
+        // Keep previous state when network is unavailable.
+      }
+    };
+    refreshIsElder();
+  }, [userId, (profile as any)?.privileges]);
 
   // Calculate date ranges for home view
   useEffect(() => {
@@ -1083,7 +1111,11 @@ export function AppClient() {
   });
 
   // Congregation functions
-  const isElder = Array.isArray((profile as any)?.privileges) && (profile as any).privileges.includes('Elder');
+  const isElder = isElderByServer;
+  const canEditAccountPrivilegesAndBwi = admin || isElderByServer;
+  const canEditPioneerPrivilegesOnly =
+    !!(profile as any)?.congregation_id && !canEditAccountPrivilegesAndBwi;
+
   const canEdit = useMemo(() => {
     if (!userId) return false;
     if (!cong?.id) return admin;
@@ -1354,6 +1386,8 @@ export function AppClient() {
           <AccountSection
             userId={userId}
             profile={profile}
+            canEditPrivilegesAndBwi={canEditAccountPrivilegesAndBwi}
+            canEditPioneerPrivilegesOnly={canEditPioneerPrivilegesOnly}
             accountTab={accountTab}
             setAccountTab={setAccountTab}
             editing={editing}

@@ -26,11 +26,18 @@ interface UserManagementFormProps {
   user: Profile;
   onSaved: (profile: Profile) => void;
   onClose: () => void;
+  /** When false, all fields are read-only (view-only). DB still enforces permissions. */
+  allowManage?: boolean;
 }
 
-// This form is only accessible to admin/superadmin users who are elders
+// Elders and platform admins can edit; others may open the modal to view only.
 // Security is enforced at the database level via RLS policies
-export function UserManagementForm({ user, onSaved, onClose }: UserManagementFormProps) {
+export function UserManagementForm({
+  user,
+  onSaved,
+  onClose,
+  allowManage = true,
+}: UserManagementFormProps) {
   const [saving, setSaving] = useState(false);
   const [removeConfirmOpen, setRemoveConfirmOpen] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -39,6 +46,7 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
   const [groupOptions, setGroupOptions] = useState<string[]>([]);
   const [showGroupInput, setShowGroupInput] = useState(false);
   const [congregationOptions, setCongregationOptions] = useState<Array<{id: string, name: string}>>([]);
+  const [animatePrivilegeTransitions, setAnimatePrivilegeTransitions] = useState(false);
   const [formData, setFormData] = useState({
     privileges: user.privileges || [],
     group_name: user.group_name || "",
@@ -56,6 +64,15 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
     });
     if (user.is_congregation_guest) setShowGroupInput(false);
   }, [user]);
+
+  // Avoid mount animation delay when opening the drawer;
+  // enable motion right after first paint so only toggle changes animate.
+  useEffect(() => {
+    const rafId = window.requestAnimationFrame(() => {
+      setAnimatePrivilegeTransitions(true);
+    });
+    return () => window.cancelAnimationFrame(rafId);
+  }, []);
 
   const normalizePrivileges = (privileges: Privilege[]) =>
     Array.from(new Set(privileges)).sort();
@@ -147,6 +164,7 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!allowManage) return;
     setSaving(true);
 
     try {
@@ -169,6 +187,7 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
   };
 
   const handleConfirmCongregationRemove = async () => {
+    if (!allowManage) return;
     setRemoving(true);
     try {
       const supabase = createSupabaseBrowserClient();
@@ -190,6 +209,7 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
   };
 
   const toggleBwiParticipation = async () => {
+    if (!allowManage) return;
     const supabase = createSupabaseBrowserClient();
     try {
       // Use the new function that can toggle BWI for a specific user
@@ -349,6 +369,10 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
     });
   }, [allPrivileges, formData.privileges, user.gender]);
 
+  const displayedPrivileges = allowManage
+    ? visiblePrivileges
+    : allPrivileges.filter((privilege) => formData.privileges.includes(privilege));
+
   return (
     <>
     <div className="space-y-6">
@@ -369,10 +393,17 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6 pb-10">
+        {!allowManage ? (
+          <p className="text-sm text-muted-foreground rounded-md border border-border bg-muted/30 px-3 py-2">
+            You can view this member&apos;s assignments. Only congregation elders and admins can make changes.
+          </p>
+        ) : null}
+
         {/* Congregation Assignment */}
         <div className="space-y-2">
           <Label>Congregation Assignment</Label>
           <Select
+            disabled={!allowManage}
             value={formData.congregation_id || "none"}
             onValueChange={(value) => setFormData(prev => ({ 
               ...prev, 
@@ -405,6 +436,7 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
             <Switch
               id="cong-guest-switch"
               className="shrink-0"
+              disabled={!allowManage}
               checked={formData.is_congregation_guest}
               onCheckedChange={(checked) => {
                 if (checked) setShowGroupInput(false);
@@ -427,15 +459,22 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
                   className="flex-1"
                   placeholder="Enter new group name"
                   value={formData.group_name}
+                  disabled={!allowManage}
                   onChange={(e) => setFormData((prev) => ({ ...prev, group_name: e.target.value }))}
                   autoFocus
                 />
-                <Button type="button" variant="outline" onClick={() => setShowGroupInput(false)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={!allowManage}
+                  onClick={() => setShowGroupInput(false)}
+                >
                   Cancel
                 </Button>
               </div>
             ) : (
               <Select
+                disabled={!allowManage}
                 value={formData.group_name || "none"}
                 onValueChange={(value) => {
                   if (value === "__custom__") {
@@ -465,30 +504,40 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
           </div>
         )}
 
-        {/* Privileges — no mount-in animation so the drawer feels instant */}
+        {/* Privileges */}
         <div className="space-y-2">
           <Label>Privileges</Label>
-          <AnimatePresence initial={false}>
-            <div className="grid grid-cols-2 gap-2">
-              {visiblePrivileges.map((privilege) => (
-                <motion.div
-                  key={privilege}
-                  initial={false}
-                  exit={{ opacity: 0, scale: 0.98 }}
-                  transition={{ duration: 0.1 }}
-                >
-                  <Button
-                    type="button"
-                    variant={formData.privileges.includes(privilege) ? "default" : "outline"}
-                    onClick={() => togglePrivilege(privilege)}
-                    className="justify-start w-full"
-                  >
-                    {formData.privileges.includes(privilege) ? "✓ " : ""}{privilege}
-                  </Button>
-                </motion.div>
-              ))}
+          {displayedPrivileges.length === 0 ? (
+            <div className="text-sm text-muted-foreground rounded-md border border-border px-3 py-2">
+              No active privileges.
             </div>
-          </AnimatePresence>
+          ) : (
+            <AnimatePresence initial={false}>
+              <div className="grid grid-cols-2 gap-2">
+                {displayedPrivileges.map((privilege) => (
+                  <motion.div
+                    key={privilege}
+                    layout={animatePrivilegeTransitions}
+                    initial={animatePrivilegeTransitions ? { opacity: 0, scale: 0.96, y: 4 } : false}
+                    animate={animatePrivilegeTransitions ? { opacity: 1, scale: 1, y: 0 } : undefined}
+                    exit={{ opacity: 0, scale: 0.96, y: -4 }}
+                    transition={{ duration: 0.16, ease: "easeOut" }}
+                  >
+                    <Button
+                      type="button"
+                      variant={formData.privileges.includes(privilege) ? "default" : "outline"}
+                      disabled={!allowManage}
+                      onClick={() => togglePrivilege(privilege)}
+                      className="justify-start w-full"
+                    >
+                      {formData.privileges.includes(privilege) ? "✓ " : ""}
+                      {privilege}
+                    </Button>
+                  </motion.div>
+                ))}
+              </div>
+            </AnimatePresence>
+          )}
         </div>
 
         {/* BWI Participation */}
@@ -506,6 +555,7 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
                 </div>
               </div>
               <Switch
+                disabled={!allowManage}
                 checked={isBwiParticipant}
                 onCheckedChange={toggleBwiParticipation}
               />
@@ -515,10 +565,10 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
 
         <div
           className={`flex flex-wrap items-center gap-2 border-t border-border pt-4 ${
-            user.congregation_id ? "justify-between" : "justify-start"
+            allowManage && user.congregation_id ? "justify-between" : "justify-start"
           }`}
         >
-          {user.congregation_id ? (
+          {allowManage && user.congregation_id ? (
             <Button
               type="button"
               variant="destructive"
@@ -529,13 +579,13 @@ export function UserManagementForm({ user, onSaved, onClose }: UserManagementFor
             </Button>
           ) : null}
           <div className="flex flex-wrap gap-2">
-            {hasFormChanges ? (
+            {allowManage && hasFormChanges ? (
               <Button type="submit" disabled={saving}>
                 {saving ? "Saving..." : "Save Changes"}
               </Button>
             ) : (
               <Button type="button" variant="outline" onClick={onClose}>
-                Cancel
+                {allowManage ? "Cancel" : "Close"}
               </Button>
             )}
           </div>

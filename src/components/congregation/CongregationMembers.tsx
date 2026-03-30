@@ -32,9 +32,15 @@ type CongregationMember = Pick<
 interface CongregationMembersProps {
   congregationId: string;
   currentUserId: string | null;
+  /** Elders and platform admins may edit members; others see Manage User as read-only. */
+  canManageCongregationUsers: boolean;
 }
 
-export function CongregationMembers({ congregationId, currentUserId }: CongregationMembersProps) {
+export function CongregationMembers({
+  congregationId,
+  currentUserId,
+  canManageCongregationUsers,
+}: CongregationMembersProps) {
   const [members, setMembers] = useState<CongregationMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedUser, setSelectedUser] = useState<CongregationMember | null>(null);
@@ -378,12 +384,17 @@ export function CongregationMembers({ congregationId, currentUserId }: Congregat
         open={userManagementModalOpen}
         onOpenChange={setUserManagementModalOpen}
         title="Manage User"
-        description="Edit user privileges, congregation, and group assignments"
+        description={
+          canManageCongregationUsers
+            ? "Edit user privileges, congregation, and group assignments"
+            : "View user details and assignments. Only elders and admins can make changes."
+        }
         className="sm:max-w-2xl"
       >
         {selectedUser && (
           <UserManagementForm
             user={selectedUser}
+            allowManage={canManageCongregationUsers}
             onSaved={handleUserUpdated}
             onClose={() => {
               setUserManagementModalOpen(false);

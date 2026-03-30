@@ -54,7 +54,7 @@ export default function RootLayout({
         {/* Prevent zoom on iOS */}
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {/* FAB portal root, placed first in body for highest paint priority */}
         <div id="fab-root" />
         <ThemeInit />

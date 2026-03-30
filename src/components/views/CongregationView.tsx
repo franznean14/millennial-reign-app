@@ -10,7 +10,11 @@ import { MeetingsSection } from "../congregation/MeetingsSection";
 import { MinistrySection } from "../congregation/MinistrySection";
 
 // Dynamic import to avoid circular dependencies
-type CongregationMembersCardProps = { congregationId: string; currentUserId: string | null };
+type CongregationMembersCardProps = {
+  congregationId: string;
+  currentUserId: string | null;
+  canManageCongregationUsers: boolean;
+};
 const CongregationMembers = dynamic<CongregationMembersCardProps>(
   () => import("../congregation/CongregationMembers").then((m) => m.CongregationMembers),
   { ssr: false }
@@ -28,6 +32,8 @@ interface CongregationViewProps {
   data: Congregation;
   onEdit?: () => void;
   canEdit?: boolean;
+  /** Elders and platform admins may edit other members; others get read-only Manage User. */
+  canManageCongregationUsers?: boolean;
   initialTab?: 'meetings' | 'ministry' | 'admin';
   congregationTab?: 'meetings' | 'ministry' | 'admin';
   onCongregationTabChange?: (tab: 'meetings' | 'ministry' | 'admin') => void;
@@ -49,7 +55,7 @@ interface CongregationViewProps {
   loadHouseholderDetails: (householderId: string) => Promise<void>;
 }
 
-export function CongregationView({ data, onEdit, canEdit, initialTab = 'meetings', congregationTab: externalCongregationTab, onCongregationTabChange: externalOnCongregationTabChange, userId, isElder = false, selectedHouseholder, selectedHouseholderDetails, onSelectHouseholder, onSelectHouseholderDetails, onClearSelectedHouseholder, loadHouseholderDetails }: CongregationViewProps) {
+export function CongregationView({ data, onEdit, canEdit, canManageCongregationUsers = false, initialTab = 'meetings', congregationTab: externalCongregationTab, onCongregationTabChange: externalOnCongregationTabChange, userId, isElder = false, selectedHouseholder, selectedHouseholderDetails, onSelectHouseholder, onSelectHouseholderDetails, onClearSelectedHouseholder, loadHouseholderDetails }: CongregationViewProps) {
   const [internalCongregationTab, setInternalCongregationTab] = useState<'meetings' | 'ministry' | 'admin'>(initialTab);
   
   // Use external state if provided, otherwise use internal state
@@ -161,9 +167,10 @@ export function CongregationView({ data, onEdit, canEdit, initialTab = 'meetings
       {congregationTab === 'meetings' && (
         <>
           <MeetingsSection congregationData={data} />
-          <CongregationMembers 
+          <CongregationMembers
             congregationId={data.id!} // Add ! to assert non-null
             currentUserId={userId ?? null}
+            canManageCongregationUsers={canManageCongregationUsers}
           />
         </>
       )}
