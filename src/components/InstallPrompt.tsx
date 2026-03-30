@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type BeforeInstallPromptEvent = Event & {
@@ -10,18 +11,37 @@ type BeforeInstallPromptEvent = Event & {
 
 interface InstallPromptProps {
   className?: string;
+  compact?: boolean;
 }
 
-export default function InstallPrompt({ className }: InstallPromptProps) {
+export default function InstallPrompt({ className, compact = false }: InstallPromptProps) {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [visible, setVisible] = useState(false);
+  const [installed, setInstalled] = useState(false);
 
   useEffect(() => {
+    const inStandalone =
+      (typeof window !== "undefined" &&
+        window.matchMedia &&
+        window.matchMedia("(display-mode: standalone)").matches) ||
+      (typeof window !== "undefined" &&
+        typeof (window.navigator as Navigator & { standalone?: boolean }).standalone === "boolean" &&
+        !!(window.navigator as Navigator & { standalone?: boolean }).standalone);
+    if (inStandalone) {
+      setInstalled(true);
+      return;
+    }
+
     const onBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       const evt = e as BeforeInstallPromptEvent;
       setDeferred(evt);
       setVisible(true);
+    };
+    const onAppInstalled = () => {
+      setInstalled(true);
+      setVisible(false);
+      setDeferred(null);
     };
     // Handle the event only once per page lifecycle to avoid repeated
     // console messages about preventDefault() and duplicate prompts.
@@ -30,10 +50,14 @@ export default function InstallPrompt({ className }: InstallPromptProps) {
       onBeforeInstallPrompt as EventListener,
       { once: true }
     );
-    return () => window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt as EventListener);
+    window.addEventListener("appinstalled", onAppInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onBeforeInstallPrompt as EventListener);
+      window.removeEventListener("appinstalled", onAppInstalled);
+    };
   }, []);
 
-  if (!visible || !deferred) return null;
+  if (installed || !visible || !deferred) return null;
 
   const install = async () => {
     await deferred.prompt();
@@ -50,11 +74,21 @@ export default function InstallPrompt({ className }: InstallPromptProps) {
     <button
       onClick={install}
       className={cn(
-        "px-3 py-1.5 rounded-md border text-sm bg-white/80 dark:bg-black/30 backdrop-blur border-black/10 dark:border-white/20",
+        compact
+          ? "flex flex-col items-center justify-center gap-1 px-2 py-6 h-full rounded-md hover:bg-muted transition-colors"
+          : "px-3 py-1.5 rounded-md border text-sm bg-white/80 dark:bg-black/30 backdrop-blur border-black/10 dark:border-white/20",
         className
       )}
+      aria-label="Install app"
     >
-      Install app
+      {compact ? (
+        <>
+          <Download className="h-4 w-4 flex-shrink-0" />
+          <span className="text-[10px] font-medium text-center">Install</span>
+        </>
+      ) : (
+        "Install app"
+      )}
     </button>
   );
 }

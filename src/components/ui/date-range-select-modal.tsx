@@ -68,7 +68,7 @@ export function DateRangeSelectContent({
   const years = useMemo(() => {
     const base = view.getFullYear();
     const start = base - 7;
-    return Array.from({ length: 12 }, (i) => start + i);
+    return Array.from({ length: 12 }, (_, i) => start + i);
   }, [view]);
 
   const inMonth = (d: Date) => d.getMonth() === view.getMonth();

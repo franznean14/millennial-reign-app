@@ -14,7 +14,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import InstallPrompt from "@/components/InstallPrompt";
 
 // Component to show floating trigger when sidebar is closed
 function FloatingSidebarTrigger() {
@@ -73,7 +72,6 @@ export function AppChrome({ children }: AppChromeProps) {
       <SidebarProvider>
         <AppSidebar />
         <FloatingSidebarTrigger />
-        <InstallPrompt className="fixed z-30 right-4 bottom-[calc(max(env(safe-area-inset-bottom),0px)+72px)] lg:bottom-4" />
         <SidebarInset>
           <AppTopbar 
             currentSection={currentSection}
