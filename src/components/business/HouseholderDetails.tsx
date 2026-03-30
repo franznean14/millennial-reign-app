@@ -30,6 +30,7 @@ import { getProfile } from "@/lib/db/profiles";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cacheDelete } from "@/lib/offline/store";
 import { HomeTodoCard } from "@/components/home/HomeTodoCard";
+import { getPersonalTerritoryDetailsCardClass } from "@/lib/utils/status-hierarchy";
 
 interface HouseholderDetailsProps {
   householder: HouseholderWithDetails;
@@ -292,6 +293,9 @@ export function HouseholderDetails({
 
   const isCurrentUserPublisher = effectivePublisherId && householder.publisher_id === effectivePublisherId;
   const assignedUser = householder.assigned_user;
+  const detailsCardSurfaceClass = householder.publisher_id
+    ? getPersonalTerritoryDetailsCardClass(!!isCurrentUserPublisher)
+    : getHouseholderCardColor(householder.status);
 
   // Handle click outside to restore avatar when minus button is shown (don't close when remove-confirm popover is open)
   useEffect(() => {
@@ -366,7 +370,7 @@ export function HouseholderDetails({
               if (!showMinusButton) setIsEditing(true);
             }
           }}
-          className={cn("w-full cursor-pointer transition-colors hover:bg-muted/30", getHouseholderCardColor(householder.status))}
+          className={cn("w-full cursor-pointer transition-colors hover:bg-muted/30", detailsCardSurfaceClass)}
         >
           <CardHeader>
             <CardTitle className="flex items-center justify-between gap-2">

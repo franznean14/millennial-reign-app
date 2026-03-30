@@ -625,13 +625,27 @@ export function BulkTodoForm({
     [targetOptions]
   );
 
+  const insightTargetKeys = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          rows
+            .map((row) => row.targetKey)
+            .filter((targetKey): targetKey is string => !!targetKey && targetKey !== "none")
+        )
+      ),
+    [rows]
+  );
+
   useEffect(() => {
-    const establishmentIds = sortedEstablishments
-      .filter((establishment): establishment is EstablishmentWithDetails & { id: string } => !!establishment.id)
-      .map((establishment) => establishment.id);
-    const householderIds = sortedHouseholders
-      .filter((householder): householder is HouseholderWithDetails & { id: string } => !!householder.id)
-      .map((householder) => householder.id);
+    const establishmentIds = insightTargetKeys
+      .filter((key) => key.startsWith("establishment:"))
+      .map((key) => key.slice("establishment:".length))
+      .filter((id) => id.length > 0);
+    const householderIds = insightTargetKeys
+      .filter((key) => key.startsWith("householder:"))
+      .map((key) => key.slice("householder:".length))
+      .filter((id) => id.length > 0);
 
     if (establishmentIds.length === 0 && householderIds.length === 0) {
       setLatestInsightByTarget({});
@@ -775,27 +789,31 @@ export function BulkTodoForm({
               .filter((id: unknown): id is string => typeof id === "string" && id.length > 0)
           )
         );
-        const doneTodoByCallResult = callIds.length
-          ? await supabase
+        const doneTodoByCallPromise = callIds.length
+          ? supabase
               .from("call_todos")
               .select(
                 "id, call_id, establishment_id, householder_id, body, created_at, publisher_id, partner_id, call:calls!call_todos_call_id_fkey(establishment_id, householder_id, publisher_id, partner_id)"
               )
               .eq("is_done", true)
               .in("call_id", callIds)
-          : ({ data: [], error: null } as any);
-        if (doneTodoByCallResult.error) {
-          console.warn("[BulkTodoForm] doneTodoByCall query failed:", doneTodoByCallResult.error);
-        }
-        const openTodoByCallResult = callIds.length
-          ? await supabase
+          : Promise.resolve({ data: [], error: null } as any);
+        const openTodoByCallPromise = callIds.length
+          ? supabase
               .from("call_todos")
               .select(
                 "id, call_id, establishment_id, householder_id, body, created_at, deadline_date, publisher_id, partner_id, call:calls!call_todos_call_id_fkey(establishment_id, householder_id, publisher_id, partner_id)"
               )
               .eq("is_done", false)
               .in("call_id", callIds)
-          : ({ data: [], error: null } as any);
+          : Promise.resolve({ data: [], error: null } as any);
+        const [doneTodoByCallResult, openTodoByCallResult] = await Promise.all([
+          doneTodoByCallPromise,
+          openTodoByCallPromise,
+        ]);
+        if (doneTodoByCallResult.error) {
+          console.warn("[BulkTodoForm] doneTodoByCall query failed:", doneTodoByCallResult.error);
+        }
         if (openTodoByCallResult.error) {
           console.warn("[BulkTodoForm] openTodoByCall query failed:", openTodoByCallResult.error);
         }
@@ -936,7 +954,7 @@ export function BulkTodoForm({
     return () => {
       cancelled = true;
     };
-  }, [sortedEstablishments, sortedHouseholders, participantsById, householdersById, insightRefreshKey]);
+  }, [insightTargetKeys, participantsById, householdersById, insightRefreshKey]);
 
   const updateRow = (id: string, updates: Partial<BulkTodoDraftRow>) => {
     setRows((prev) => prev.map((row) => (row.id === id ? { ...row, ...updates } : row)));
@@ -1708,27 +1726,21 @@ export function BulkTodoForm({
         return;
       }
 
-      const firstInvalidChangedEditIndex = rows.findIndex((row) => !!row.sourceTodoId && hasRowChanged(row) && !isRowComplete(row));
-      if (firstInvalidChangedEditIndex >= 0) {
-        toast.error(`Please complete required fields for to-do ${firstInvalidChangedEditIndex + 1}.`);
-        return;
-      }
-      const firstInvalidNewIndex = rows.findIndex((row) => !row.sourceTodoId && !isRowBlank(row) && !isRowComplete(row));
-      if (firstInvalidNewIndex >= 0) {
-        toast.error(`Please complete required fields for to-do ${firstInvalidNewIndex + 1}.`);
+      const changedCompleteEditRows = changedEditRows.filter(isRowComplete);
+      const completeNewRows = newCandidateRows.filter(isRowComplete);
+
+      if (changedCompleteEditRows.length === 0 && completeNewRows.length === 0) {
+        toast.error("No ready to-dos to submit.");
         return;
       }
 
-      const invalidTargetChangeOnCallRow = changedEditRows.find(
+      const invalidTargetChangeOnCallRow = changedCompleteEditRows.find(
         (row) => !!row.sourceCallId && !!row.original && row.targetKey !== row.original.targetKey
       );
       if (invalidTargetChangeOnCallRow) {
         toast.error("Target cannot be changed for call-linked to-dos.");
         return;
       }
-
-      const changedCompleteEditRows = changedEditRows.filter(isRowComplete);
-      const completeNewRows = newCandidateRows.filter(isRowComplete);
 
       type OpResult = { kind: "edit" | "new"; row: BulkTodoDraftRow; ok: boolean };
       const operationQueue: Array<{ kind: "edit" | "new"; row: BulkTodoDraftRow; run: () => Promise<OpResult> }> = [

@@ -104,6 +104,7 @@ export interface BusinessSectionProps {
   pushNavigation: (section: string) => void;
   setCurrentSection: (section: string) => void;
   updateEstablishment: (updated: Partial<EstablishmentWithDetails> & { id: string }) => void;
+  canManagePersonalTerritoryOwner?: boolean;
 }
 
 export function BusinessSection({
@@ -145,7 +146,8 @@ export function BusinessSection({
   popNavigation,
   pushNavigation,
   setCurrentSection,
-  updateEstablishment
+  updateEstablishment,
+  canManagePersonalTerritoryOwner = false,
 }: BusinessSectionProps) {
   const [selectedEstablishmentSource, setSelectedEstablishmentSource] = useState<EstablishmentSelectionSource>("list");
   const [lastMapSelectedEstablishmentId, setLastMapSelectedEstablishmentId] = useState<string | undefined>(undefined);
@@ -387,6 +389,7 @@ export function BusinessSection({
                       visits={selectedEstablishmentDetails?.visits || []}
                       householders={selectedEstablishmentDetails?.householders || []}
                       isLoading={!selectedEstablishmentDetails}
+                      canManagePersonalTerritoryOwner={canManagePersonalTerritoryOwner}
                       onBackClick={() => {
                         setSelectedEstablishment(null);
                         setSelectedEstablishmentDetails(null);

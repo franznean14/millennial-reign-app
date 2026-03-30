@@ -1,3 +1,5 @@
+import { cn } from "@/lib/utils";
+
 // Status hierarchy from worst to best
 export const STATUS_HIERARCHY = [
   'inappropriate',      // Worst
@@ -127,3 +129,13 @@ export const getStatusTextColor = (status: string) => {
       return 'text-gray-500 border-gray-500/50';
   }
 };
+
+/**
+ * Details card surface when a record is personal territory / personal contact (publisher_id set).
+ * Pink tint from {@link getStatusColor}("personal_territory"); dashed border when assigned to someone other than the viewer.
+ */
+export function getPersonalTerritoryDetailsCardClass(ownedByViewer: boolean): string {
+  const base = getStatusColor("personal_territory");
+  if (ownedByViewer) return base;
+  return cn(base, "border-dashed border-pink-400/60");
+}

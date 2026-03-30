@@ -1336,6 +1336,7 @@ export function AppClient() {
           pushNavigation={pushNavigation}
           setCurrentSection={setCurrentSection}
           updateEstablishment={updateEstablishment}
+          canManagePersonalTerritoryOwner={admin || isElder}
         />
           {unifiedFab}
         </>

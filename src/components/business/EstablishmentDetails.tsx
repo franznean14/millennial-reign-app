@@ -1,20 +1,26 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, MapPinned, Calendar, BookOpen, UserPlus, Minus } from "lucide-react";
+import { Building2, MapPinned, Calendar, BookOpen, UserPlus, Minus, Plus, X } from "lucide-react";
 import { FormModal } from "@/components/shared/FormModal";
 import { toast } from "@/components/ui/sonner";
 import { deleteEstablishment, archiveEstablishment, updateEstablishmentPublisherId } from "@/lib/db/business";
 import { type EstablishmentWithDetails, type VisitWithUser, type HouseholderWithDetails, type MyOpenCallTodoItem } from "@/lib/db/business";
 import { cn } from "@/lib/utils";
 import { formatStatusText } from "@/lib/utils/formatters";
-import { getBestStatus, getStatusColor, getStatusTextColor } from "@/lib/utils/status-hierarchy";
-import { getInitials } from "@/lib/utils/visit-history-ui";
+import {
+  getBestStatus,
+  getPersonalTerritoryDetailsCardClass,
+  getStatusColor,
+  getStatusTextColor,
+} from "@/lib/utils/status-hierarchy";
+import { getInitials, getInitialsFromName } from "@/lib/utils/visit-history-ui";
 import { businessEventBus } from "@/lib/events/business-events";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
@@ -23,6 +29,7 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerFooter,
+  DrawerTrigger,
 } from "@/components/ui/drawer";
 import { EstablishmentForm } from "@/components/business/EstablishmentForm";
 import { VisitForm } from "@/components/business/VisitForm";
@@ -40,6 +47,7 @@ interface EstablishmentDetailsProps {
   onHouseholderClick?: (householder: HouseholderWithDetails) => void;
   publisherId?: string | null;
   isLoading?: boolean;
+  canManagePersonalTerritoryOwner?: boolean;
 }
 
 type TodoEditorItem = MyOpenCallTodoItem & {
@@ -47,6 +55,8 @@ type TodoEditorItem = MyOpenCallTodoItem & {
   call_visit_date?: string | null;
   call_publishers?: string[];
 };
+
+type TerritoryOwnerSlot = { type: "publisher"; id: string };
 
 // Helper function for householder status color coding
 const getHouseholderStatusColorClass = (status: string) => {
@@ -74,7 +84,8 @@ export function EstablishmentDetails({
   onEstablishmentUpdated,
   onHouseholderClick,
   publisherId,
-  isLoading = false
+  isLoading = false,
+  canManagePersonalTerritoryOwner = false,
 }: EstablishmentDetailsProps) {
   
   // Reset scroll position to top when component mounts
@@ -96,6 +107,14 @@ export function EstablishmentDetails({
   const [showAddConfirm, setShowAddConfirm] = useState(false);
   const [showMinusButton, setShowMinusButton] = useState(false);
   const [updatingPublisher, setUpdatingPublisher] = useState(false);
+  const [assignableParticipants, setAssignableParticipants] = useState<Array<{
+    id: string;
+    first_name: string;
+    last_name: string;
+    avatar_url?: string;
+  }>>([]);
+  const [territoryOwnerSlots, setTerritoryOwnerSlots] = useState<TerritoryOwnerSlot[]>([]);
+  const [territoryPublisherPickerOpen, setTerritoryPublisherPickerOpen] = useState(false);
   const avatarButtonRef = useRef<HTMLDivElement>(null);
   const minusActiveOnPointerDownRef = useRef(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(publisherId ?? null);
@@ -117,6 +136,75 @@ export function EstablishmentDetails({
 
   const effectivePublisherId = publisherId ?? currentUserId;
 
+  useEffect(() => {
+    if (!canManagePersonalTerritoryOwner) return;
+    let cancelled = false;
+    const loadParticipants = async () => {
+      try {
+        const participants = await getBwiParticipants();
+        if (!cancelled) {
+          setAssignableParticipants(participants);
+        }
+      } catch {
+        if (!cancelled) setAssignableParticipants([]);
+      }
+    };
+    loadParticipants();
+    return () => {
+      cancelled = true;
+    };
+  }, [canManagePersonalTerritoryOwner]);
+
+  useEffect(() => {
+    if (!showAddConfirm) return;
+    if (canManagePersonalTerritoryOwner) {
+      setTerritoryOwnerSlots(
+        effectivePublisherId ? [{ type: "publisher", id: effectivePublisherId }] : []
+      );
+      setTerritoryPublisherPickerOpen(false);
+      return;
+    }
+    setTerritoryPublisherPickerOpen(false);
+  }, [showAddConfirm, canManagePersonalTerritoryOwner, effectivePublisherId]);
+
+  const participantsById = useMemo(() => {
+    const m = new Map<string, (typeof assignableParticipants)[number]>();
+    for (const p of assignableParticipants) m.set(p.id, p);
+    return m;
+  }, [assignableParticipants]);
+
+  const getTerritorySlotUser = useCallback(
+    (userId: string) => participantsById.get(userId),
+    [participantsById]
+  );
+
+  const getTerritorySlotDisplayName = useCallback(
+    (slot: TerritoryOwnerSlot) => {
+      const u = getTerritorySlotUser(slot.id);
+      if (!u) return "Publisher";
+      const name = `${u.first_name} ${u.last_name}`.trim();
+      return name || "Publisher";
+    },
+    [getTerritorySlotUser]
+  );
+
+  const availableTerritoryParticipants = useMemo(
+    () =>
+      assignableParticipants.filter(
+        (p) => !territoryOwnerSlots.some((s) => s.type === "publisher" && s.id === p.id)
+      ),
+    [assignableParticipants, territoryOwnerSlots]
+  );
+
+  const addTerritoryOwnerSlot = useCallback((slot: TerritoryOwnerSlot) => {
+    setTerritoryOwnerSlots([slot]);
+    setTerritoryPublisherPickerOpen(false);
+  }, []);
+
+  const removeTerritoryOwnerSlot = useCallback((index: number) => {
+    setTerritoryOwnerSlots((prev) => prev.filter((_, i) => i !== index));
+  }, []);
+
   // Listen for edit trigger from header
   useEffect(() => {
     const handleEditTrigger = () => {
@@ -133,10 +221,13 @@ export function EstablishmentDetails({
   const hasCoordinates = establishment.lat != null && establishment.lng != null;
 
   const handleAddAsPersonalTerritory = async () => {
-    if (!establishment?.id || !effectivePublisherId) return;
+    const ownerId = canManagePersonalTerritoryOwner
+      ? territoryOwnerSlots[0]?.id ?? effectivePublisherId
+      : effectivePublisherId;
+    if (!establishment?.id || !ownerId) return;
     setUpdatingPublisher(true);
     try {
-      const updated = await updateEstablishmentPublisherId(establishment.id, effectivePublisherId);
+      const updated = await updateEstablishmentPublisherId(establishment.id, ownerId);
       if (updated) {
         if (onEstablishmentUpdated) onEstablishmentUpdated(updated);
         businessEventBus.emit('establishment-updated', updated);
@@ -173,8 +264,12 @@ export function EstablishmentDetails({
     }
   };
 
-  const isCurrentUserPublisher = effectivePublisherId && establishment.publisher_id === effectivePublisherId;
+  const isCurrentUserPublisher = !!effectivePublisherId && establishment.publisher_id === effectivePublisherId;
+  const canManageOwner = canManagePersonalTerritoryOwner || isCurrentUserPublisher;
   const assignedUser = establishment.assigned_user;
+  const detailsCardSurfaceClass = establishment.publisher_id
+    ? getPersonalTerritoryDetailsCardClass(isCurrentUserPublisher)
+    : getStatusColor(primaryStatus);
 
   useEffect(() => {
     if (!showMinusButton) return;
@@ -280,7 +375,7 @@ export function EstablishmentDetails({
               if (!showMinusButton) setIsEditing(true);
             }
           }}
-          className={cn("w-full cursor-pointer transition-colors hover:bg-muted/30", getStatusColor(primaryStatus))}
+          className={cn("w-full cursor-pointer transition-colors hover:bg-muted/30", detailsCardSurfaceClass)}
         >
           <CardHeader className="flex flex-row items-center justify-between gap-2">
             <CardTitle className="flex items-center justify-between gap-2 w-full">
@@ -317,7 +412,7 @@ export function EstablishmentDetails({
                 {/* Personal Territory: avatar / minus / UserPlus */}
                 {isLoading ? (
                   <div className="h-8 w-8 rounded-full bg-muted/60 blur-[2px] animate-pulse" />
-                ) : assignedUser && isCurrentUserPublisher ? (
+                ) : assignedUser && canManageOwner ? (
                   <div
                     ref={avatarButtonRef}
                     className="flex-shrink-0 cursor-pointer h-8 w-8 flex items-center justify-center"
@@ -396,7 +491,12 @@ export function EstablishmentDetails({
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 rounded-full border border-dashed border-muted-foreground/45 text-muted-foreground/85 hover:bg-muted/30"
-                      disabled={!effectivePublisherId || updatingPublisher}
+                      disabled={
+                        updatingPublisher ||
+                        (canManagePersonalTerritoryOwner
+                          ? assignableParticipants.length === 0 && !effectivePublisherId
+                          : !effectivePublisherId)
+                      }
                       onClick={(e) => {
                         e.stopPropagation();
                         setShowAddConfirm(true);
@@ -565,22 +665,136 @@ export function EstablishmentDetails({
         </DrawerContent>
       </Drawer>
 
-      {/* Take as Personal Territory - bottom drawer, 50% height (same design as contact) */}
-      <Drawer open={showAddConfirm} onOpenChange={setShowAddConfirm}>
-        <DrawerContent
-          className="flex flex-col"
-          style={{ maxHeight: "50vh", height: "50vh" }}
-        >
-          <div className="flex flex-1 flex-col justify-center px-4 min-h-0">
-            <DrawerHeader className="pt-6 px-4 pb-2 text-center">
-              <DrawerTitle className="text-center">Take as Personal Territory?</DrawerTitle>
+      {/* Assign as Personal Territory — half-height sheet with lower inset */}
+      <Drawer
+        open={showAddConfirm}
+        onOpenChange={(open) => {
+          setShowAddConfirm(open);
+          if (!open) setTerritoryPublisherPickerOpen(false);
+        }}
+      >
+        <DrawerContent className="flex h-[50vh] max-h-[50vh] flex-col p-0">
+          <div
+            className={cn(
+              "flex min-h-0 flex-1 flex-col px-4",
+              canManagePersonalTerritoryOwner ? "" : "justify-center"
+            )}
+          >
+            <DrawerHeader className="shrink-0 px-0 pt-6 pb-2 text-center">
+              <DrawerTitle className="text-center">Assign as Personal Territory</DrawerTitle>
             </DrawerHeader>
-            <DrawerFooter className="flex flex-col gap-3 p-0 pt-4 pb-2">
+            {canManagePersonalTerritoryOwner ? (
+              <div className="grid shrink-0 gap-1 pb-2">
+                <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                  Publishers
+                </Label>
+                <div className="flex flex-wrap items-center gap-2">
+                  {territoryOwnerSlots.map((slot, index) => {
+                    const u = getTerritorySlotUser(slot.id);
+                    return (
+                      <div
+                        key={`${slot.id}-${index}`}
+                        className="flex items-center gap-2 bg-muted px-2 py-1.5 rounded-md"
+                      >
+                        <Avatar className="h-6 w-6 shrink-0">
+                          {u?.avatar_url ? (
+                            <AvatarImage src={u.avatar_url} alt={getTerritorySlotDisplayName(slot)} />
+                          ) : null}
+                          <AvatarFallback className="text-xs">
+                            {u
+                              ? getInitialsFromName(
+                                  `${u.first_name} ${u.last_name}`.trim() || getTerritorySlotDisplayName(slot)
+                                )
+                              : getInitialsFromName(getTerritorySlotDisplayName(slot))}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm">{getTerritorySlotDisplayName(slot)}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 shrink-0 p-0"
+                          onClick={() => removeTerritoryOwnerSlot(index)}
+                          aria-label="Remove"
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                  {territoryOwnerSlots.length === 0 ? (
+                    <Drawer
+                      open={territoryPublisherPickerOpen}
+                      onOpenChange={setTerritoryPublisherPickerOpen}
+                    >
+                      <DrawerTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-9 w-9 shrink-0 rounded-full"
+                          aria-label="Add publisher"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </DrawerTrigger>
+                      <DrawerContent className="max-h-[70vh]">
+                        <DrawerHeader className="text-center">
+                          <DrawerTitle>Select publisher</DrawerTitle>
+                        </DrawerHeader>
+                        <div className="space-y-4 overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+24px)]">
+                          <section>
+                            <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                              Publishers
+                            </h3>
+                            {availableTerritoryParticipants.length > 0 ? (
+                              <ul className="space-y-1">
+                                {availableTerritoryParticipants.map((participant) => (
+                                  <li key={participant.id}>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      className="h-12 w-full justify-start gap-2 px-3"
+                                      onClick={() =>
+                                        addTerritoryOwnerSlot({ type: "publisher", id: participant.id })
+                                      }
+                                    >
+                                      <Avatar className="h-8 w-8">
+                                        <AvatarImage src={participant.avatar_url || undefined} />
+                                        <AvatarFallback className="text-xs">
+                                          {getInitialsFromName(
+                                            `${participant.first_name} ${participant.last_name}`.trim()
+                                          )}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                      <span>
+                                        {participant.first_name} {participant.last_name}
+                                      </span>
+                                    </Button>
+                                  </li>
+                                ))}
+                              </ul>
+                            ) : (
+                              <p className="py-2 text-sm text-muted-foreground">
+                                {assignableParticipants.length === 0
+                                  ? "No publishers available."
+                                  : "No publishers to add."}
+                              </p>
+                            )}
+                          </section>
+                        </div>
+                      </DrawerContent>
+                    </Drawer>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+            <DrawerFooter className="mt-auto flex shrink-0 flex-col gap-3 p-0 pt-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
               <Button
                 type="button"
                 variant="outline"
                 size="lg"
-                className="w-full h-12"
+                className="h-12 w-full"
                 onClick={() => setShowAddConfirm(false)}
               >
                 Cancel
@@ -588,8 +802,13 @@ export function EstablishmentDetails({
               <Button
                 type="button"
                 size="lg"
-                className="w-full h-12 bg-green-600 hover:bg-green-700 text-white"
-                disabled={updatingPublisher || !effectivePublisherId}
+                className="h-12 w-full bg-green-600 text-white hover:bg-green-700"
+                disabled={
+                  updatingPublisher ||
+                  !(canManagePersonalTerritoryOwner
+                    ? territoryOwnerSlots[0]?.id || effectivePublisherId
+                    : effectivePublisherId)
+                }
                 onClick={handleAddAsPersonalTerritory}
               >
                 {updatingPublisher ? "Adding..." : "Add"}
