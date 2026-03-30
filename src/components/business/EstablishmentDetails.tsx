@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Building2, MapPinned, Calendar, BookOpen, UserPlus, Minus, Plus, X } from "lucide-react";
+import { MapPinned, Calendar, BookOpen, UserPlus, Minus, Plus, X } from "lucide-react";
 import { FormModal } from "@/components/shared/FormModal";
 import { toast } from "@/components/ui/sonner";
 import { deleteEstablishment, archiveEstablishment, updateEstablishmentPublisherId } from "@/lib/db/business";
@@ -378,12 +378,60 @@ export function EstablishmentDetails({
           className={cn("w-full cursor-pointer transition-colors hover:bg-muted/30", detailsCardSurfaceClass)}
         >
           <CardHeader className="flex flex-row items-center justify-between gap-2">
-            <CardTitle className="flex items-center justify-between gap-2 w-full">
-              <div className="flex items-center gap-2">
-                <Building2 className="h-5 w-5 flex-shrink-0" />
-                Details
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex w-full min-w-0 flex-1 flex-wrap items-center gap-2 pr-1">
+              {establishment.statuses && establishment.statuses.length > 0 ? (
+                <>
+                  <Badge
+                    variant="outline"
+                    className={cn("flex-shrink-0", getStatusTextColor(primaryStatus))}
+                  >
+                    {formatStatusText(primaryStatus)}
+                  </Badge>
+                  {establishment.statuses.length > 1 && (
+                    <div className="flex gap-1">
+                      {establishment.statuses
+                        .filter((s) => s !== primaryStatus)
+                        .map((status) => {
+                          let dotColor = "";
+                          switch (status) {
+                            case "declined_rack":
+                              dotColor = "bg-red-500";
+                              break;
+                            case "for_scouting":
+                              dotColor = "bg-cyan-500";
+                              break;
+                            case "for_follow_up":
+                              dotColor = "bg-orange-500";
+                              break;
+                            case "accepted_rack":
+                              dotColor = "bg-blue-500";
+                              break;
+                            case "for_replenishment":
+                              dotColor = "bg-purple-500";
+                              break;
+                            case "has_bible_studies":
+                              dotColor = "bg-emerald-500";
+                              break;
+                            case "closed":
+                              dotColor = "bg-slate-500";
+                              break;
+                            default:
+                              dotColor = "bg-gray-500";
+                          }
+                          return (
+                            <div
+                              key={status}
+                              className={cn("h-2 w-2 rounded-full", dotColor)}
+                              title={formatStatusText(status)}
+                            />
+                          );
+                        })}
+                    </div>
+                  )}
+                </>
+              ) : null}
+            </div>
+            <div className="flex flex-shrink-0 items-center gap-2">
                 {hasCoordinates ? (
                   <a
                     className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-primary/60 bg-primary/10 text-primary shadow-sm transition-all hover:bg-primary/20 hover:border-primary hover:scale-[1.03] active:scale-100"
@@ -507,62 +555,10 @@ export function EstablishmentDetails({
                   </div>
                 )}
               </div>
-            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Details card uses list data (establishment) so we always have it — no skeleton */}
             <div className="grid grid-cols-2 gap-4">
-                  {/* Row 1: Status | Area */}
-                  {establishment.statuses && establishment.statuses.length > 0 && (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Status</p>
-                      <div className="flex items-center gap-2">
-                        <Badge 
-                          variant="outline" 
-                          className={cn("flex-shrink-0", getStatusTextColor(primaryStatus))}
-                        >
-                          {formatStatusText(primaryStatus)}
-                        </Badge>
-                        {establishment.statuses.length > 1 && (
-                          <div className="flex gap-1">
-                            {establishment.statuses
-                              .filter((s) => s !== primaryStatus)
-                              .map((status) => {
-                                let dotColor = '';
-                                switch (status) {
-                                  case 'declined_rack':
-                                    dotColor = 'bg-red-500';
-                                    break;
-                                  case 'for_scouting':
-                                    dotColor = 'bg-cyan-500';
-                                    break;
-                                  case 'for_follow_up':
-                                    dotColor = 'bg-orange-500';
-                                    break;
-                                  case 'accepted_rack':
-                                    dotColor = 'bg-blue-500';
-                                    break;
-                                  case 'for_replenishment':
-                                    dotColor = 'bg-purple-500';
-                                    break;
-                                  case 'has_bible_studies':
-                                    dotColor = 'bg-emerald-500';
-                                    break;
-                                  case 'closed':
-                                    dotColor = 'bg-slate-500';
-                                    break;
-                                  default:
-                                    dotColor = 'bg-gray-500';
-                                }
-                                return (
-                                  <div key={status} className={cn("w-2 h-2 rounded-full", dotColor)} title={formatStatusText(status)} />
-                                );
-                              })}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
                   {establishment.area?.trim() && (
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Area</p>

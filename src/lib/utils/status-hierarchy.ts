@@ -86,10 +86,39 @@ export const getStatusTitleColor = (status: string): string => {
       return 'text-slate-500';
     case 'personal_territory':
       return 'text-pink-500';
+    /** Header title when establishment/contact is another publisher's personal territory */
+    case 'personal_territory_other':
+      return 'text-pink-400';
     default:
       return 'text-foreground';
   }
 };
+
+/**
+ * Status token for {@link getStatusTitleColor} in business/section headers when viewing details.
+ * Personal territory (publisher_id) overrides establishment status or householder status for the title color.
+ */
+export function getBusinessDetailsHeaderTitleStatus(
+  selectedHouseholder: { publisher_id?: string | null; status: string } | null | undefined,
+  selectedEstablishment: { publisher_id?: string | null; statuses?: string[] | null } | null | undefined,
+  currentUserId: string | null | undefined
+): string | undefined {
+  if (selectedHouseholder) {
+    if (selectedHouseholder.publisher_id) {
+      const owned = !!(currentUserId && selectedHouseholder.publisher_id === currentUserId);
+      return owned ? "personal_territory" : "personal_territory_other";
+    }
+    return selectedHouseholder.status;
+  }
+  if (selectedEstablishment) {
+    if (selectedEstablishment.publisher_id) {
+      const owned = !!(currentUserId && selectedEstablishment.publisher_id === currentUserId);
+      return owned ? "personal_territory" : "personal_territory_other";
+    }
+    return getBestStatus(selectedEstablishment.statuses || []);
+  }
+  return undefined;
+}
 
 export const getStatusTextColor = (status: string) => {
   switch (status) {

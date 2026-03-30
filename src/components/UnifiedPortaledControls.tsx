@@ -13,7 +13,7 @@ import { buildFilterBadges } from "@/lib/utils/filter-badges";
 import { cn } from "@/lib/utils";
 import { LayoutGrid, List, Table as TableIcon, X, Crosshair, ChevronLeft, Edit } from "lucide-react";
 import type { BusinessFiltersState, EstablishmentWithDetails, HouseholderWithDetails } from "@/lib/db/business";
-import { getBestStatus, getStatusTitleColor } from "@/lib/utils/status-hierarchy";
+import { getBusinessDetailsHeaderTitleStatus, getStatusTitleColor } from "@/lib/utils/status-hierarchy";
 import {
   getHeaderToastState,
   subscribeHeaderToast,
@@ -43,6 +43,8 @@ interface UnifiedPortaledControlsProps {
   selectedHouseholder?: HouseholderWithDetails | null;
   onBackClick?: () => void;
   onEditClick?: () => void;
+  /** Signed-in user id — used to color detail headers for personal territory / personal contact */
+  headerDetailsUserId?: string | null;
   // Congregation props
   congregationTab?: 'meetings' | 'ministry' | 'admin';
   onCongregationTabChange?: (tab: 'meetings' | 'ministry' | 'admin') => void;
@@ -80,6 +82,7 @@ function BusinessControlsContent({
   selectedHouseholder,
   onBackClick,
   onEditClick,
+  headerDetailsUserId,
   headerToast = null
 }: {
   businessTab: 'establishments' | 'householders' | 'map';
@@ -101,6 +104,7 @@ function BusinessControlsContent({
   selectedHouseholder?: HouseholderWithDetails | null;
   onBackClick: () => void;
   onEditClick: () => void;
+  headerDetailsUserId?: string | null;
   headerToast?: HeaderToastProp;
 }) {
   const [isSearchActive, setIsSearchActive] = useState(false);
@@ -151,7 +155,11 @@ function BusinessControlsContent({
   const isDetailsView = !!selectedEstablishment || !!selectedHouseholder;
   // When both are set we're on householder details (opened from establishment); show householder name
   const detailsName = selectedHouseholder?.name || selectedEstablishment?.name || "";
-  const detailsStatus = selectedHouseholder?.status ?? (selectedEstablishment ? getBestStatus(selectedEstablishment.statuses || []) : undefined);
+  const detailsStatus = getBusinessDetailsHeaderTitleStatus(
+    selectedHouseholder,
+    selectedEstablishment,
+    headerDetailsUserId
+  );
 
   return (
     <div
@@ -435,6 +443,7 @@ function CongregationControlsContent({
   selectedHouseholder,
   onBackClick,
   onEditClick,
+  headerDetailsUserId,
   headerToast = null
 }: {
   congregationTab: 'meetings' | 'ministry' | 'admin';
@@ -443,11 +452,16 @@ function CongregationControlsContent({
   selectedHouseholder?: HouseholderWithDetails | null;
   onBackClick?: () => void;
   onEditClick?: () => void;
+  headerDetailsUserId?: string | null;
   headerToast?: HeaderToastProp;
 }) {
   const isDetailsView = !!selectedHouseholder;
   const detailsName = selectedHouseholder?.name || "";
-  const detailsStatus = selectedHouseholder?.status;
+  const detailsStatus = getBusinessDetailsHeaderTitleStatus(
+    selectedHouseholder,
+    undefined,
+    headerDetailsUserId
+  );
 
   return (
     <div
@@ -722,6 +736,7 @@ export function UnifiedPortaledControls(props: UnifiedPortaledControlsProps) {
         selectedHouseholder={props.selectedHouseholder}
         onBackClick={props.onBackClick!}
         onEditClick={props.onEditClick!}
+        headerDetailsUserId={props.headerDetailsUserId}
         headerToast={headerToastProp}
       />
   ) : showCongregationControls && props.congregationTab !== undefined ? (
@@ -732,6 +747,7 @@ export function UnifiedPortaledControls(props: UnifiedPortaledControlsProps) {
       selectedHouseholder={props.congregationSelectedHouseholder}
       onBackClick={props.onCongregationBackClick}
       onEditClick={props.onCongregationEditClick}
+      headerDetailsUserId={props.headerDetailsUserId}
       headerToast={headerToastProp}
     />
   ) : showHomeControls && props.homeTab !== undefined ? (

@@ -1222,6 +1222,7 @@ export function AppClient() {
           window.dispatchEvent(new CustomEvent('trigger-edit-details'));
         }
       }}
+      headerDetailsUserId={userId}
       congregationTab={congregationTab}
       onCongregationTabChange={setCongregationTab}
       congregationSelectedHouseholder={congregationSelectedHouseholder}
