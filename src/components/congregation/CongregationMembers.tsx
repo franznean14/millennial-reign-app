@@ -384,11 +384,6 @@ export function CongregationMembers({
         open={userManagementModalOpen}
         onOpenChange={setUserManagementModalOpen}
         title="Manage User"
-        description={
-          canManageCongregationUsers
-            ? "Edit user privileges, congregation, and group assignments"
-            : "View user details and assignments. Only elders and admins can make changes."
-        }
         className="sm:max-w-2xl"
       >
         {selectedUser && (

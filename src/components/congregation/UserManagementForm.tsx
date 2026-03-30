@@ -372,6 +372,8 @@ export function UserManagementForm({
   const displayedPrivileges = allowManage
     ? visiblePrivileges
     : allPrivileges.filter((privilege) => formData.privileges.includes(privilege));
+  const showGuestPublisher = allowManage || formData.is_congregation_guest;
+  const showGroupAssignment = !formData.is_congregation_guest;
 
   return (
     <>
@@ -393,11 +395,6 @@ export function UserManagementForm({
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6 pb-10">
-        {!allowManage ? (
-          <p className="text-sm text-muted-foreground rounded-md border border-border bg-muted/30 px-3 py-2">
-            You can view this member&apos;s assignments. Only congregation elders and admins can make changes.
-          </p>
-        ) : null}
 
         {/* Congregation Assignment */}
         <div className="space-y-2">
@@ -424,33 +421,32 @@ export function UserManagementForm({
           </Select>
         </div>
 
-        <div className="space-y-2">
-          <Label>Guest publisher</Label>
-          <div className="flex items-center justify-between p-3 border rounded-md">
-            <div className="min-w-0 flex-1 space-y-1 pr-2">
-              <div className="text-sm font-medium">Guest publisher</div>
-              <div className="text-xs text-muted-foreground">
-                Shows a Guest badge in the congregation members list and enables the Guest filter tab.
+        {showGuestPublisher && (
+          <div className="space-y-2">
+            <Label>Guest publisher</Label>
+            <div className="flex items-center justify-between p-3 border rounded-md">
+              <div className="min-w-0 flex-1 pr-2">
+                <div className="text-sm font-medium">Guest publisher</div>
               </div>
+              <Switch
+                id="cong-guest-switch"
+                className="shrink-0"
+                disabled={!allowManage}
+                checked={formData.is_congregation_guest}
+                onCheckedChange={(checked) => {
+                  if (checked) setShowGroupInput(false);
+                  setFormData((prev) => ({
+                    ...prev,
+                    is_congregation_guest: checked,
+                    ...(checked ? { group_name: "" } : {}),
+                  }));
+                }}
+              />
             </div>
-            <Switch
-              id="cong-guest-switch"
-              className="shrink-0"
-              disabled={!allowManage}
-              checked={formData.is_congregation_guest}
-              onCheckedChange={(checked) => {
-                if (checked) setShowGroupInput(false);
-                setFormData((prev) => ({
-                  ...prev,
-                  is_congregation_guest: checked,
-                  ...(checked ? { group_name: "" } : {}),
-                }));
-              }}
-            />
           </div>
-        </div>
+        )}
 
-        {!formData.is_congregation_guest && (
+        {showGroupAssignment && (
           <div className="space-y-2">
             <Label>Group Assignment</Label>
             {showGroupInput ? (
@@ -545,14 +541,8 @@ export function UserManagementForm({
           <div className="space-y-2">
             <Label>Business Witnessing Initiative (BWI)</Label>
             <div className="flex items-center justify-between p-3 border rounded-md">
-              <div className="space-y-1">
+              <div>
                 <div className="text-sm font-medium">BWI Participant</div>
-                <div className="text-xs text-muted-foreground">
-                  {isBwiParticipant 
-                    ? "User can access the Business tab in navigation" 
-                    : "Enable to access Business Witnessing features"
-                  }
-                </div>
               </div>
               <Switch
                 disabled={!allowManage}
