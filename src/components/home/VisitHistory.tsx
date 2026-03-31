@@ -23,7 +23,7 @@ import { useMemo } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { getEstablishmentsWithDetails, listHouseholders, type EstablishmentWithDetails, type HouseholderWithDetails } from "@/lib/db/business";
 import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
-import { getStatusColor, getStatusTitleColor } from "@/lib/utils/status-hierarchy";
+import { getSelectedStatusColor } from "@/lib/utils/status-filter-styles";
 import NumberFlow from "@number-flow/react";
 import { cacheGet, cacheSet } from "@/lib/offline/store";
 import { businessEventBus, type BusinessEventType } from "@/lib/events/business-events";
@@ -416,6 +416,9 @@ export function VisitHistory({
       ? visit.householder_status || "potential"
       : visit.establishment_status || "for_scouting";
 
+    const hasEstablishmentBadge =
+      visit.visit_type === "householder" && Boolean(visit.establishment_name);
+
     return (
       <VisitTimelineRow
         onClick={() => handleVisitClick(visit)}
@@ -431,13 +434,13 @@ export function VisitHistory({
           <div
             className={cn(
               "w-6 h-6 rounded-full border relative z-10 flex-shrink-0 flex items-center justify-center",
-              getStatusColor(primaryStatus)
+              getSelectedStatusColor(primaryStatus)
             )}
           >
             {isHouseholderVisit ? (
-              <UserRound className={cn("h-3.5 w-3.5", getStatusTitleColor(primaryStatus))} aria-hidden />
+              <UserRound className="h-3.5 w-3.5" aria-hidden />
             ) : (
-              <Building2 className={cn("h-3.5 w-3.5", getStatusTitleColor(primaryStatus))} aria-hidden />
+              <Building2 className="h-3.5 w-3.5" aria-hidden />
             )}
           </div>
         }
@@ -456,21 +459,28 @@ export function VisitHistory({
       >
         <VisitRowContent
           title={
-            <span className="inline-flex items-center w-fit max-w-[70%] min-w-0 shrink">
+            <span
+              className={cn(
+                "inline-flex min-w-0 items-center",
+                hasEstablishmentBadge ? "max-w-[50%] min-w-0 shrink" : "min-w-0 flex-1"
+              )}
+            >
               <VisitStatusBadge
                 status={primaryStatus}
                 label={primaryLabel}
-                className="truncate max-w-full whitespace-nowrap"
+                className="truncate max-w-full min-w-0 whitespace-nowrap"
               />
             </span>
           }
           titleBadge={
-            visit.visit_type === "householder" && visit.establishment_name ? (
-              <VisitStatusBadge
-                status={visit.establishment_status || "for_scouting"}
-                label={visit.establishment_name}
-                className="truncate max-w-[30%] whitespace-nowrap border-muted bg-muted/50"
-              />
+            hasEstablishmentBadge ? (
+              <span className="min-w-0 flex-1 overflow-hidden">
+                <VisitStatusBadge
+                  status={visit.establishment_status || "for_scouting"}
+                  label={visit.establishment_name!}
+                  className="w-fit max-w-full min-w-0 truncate whitespace-nowrap border-muted bg-muted/50"
+                />
+              </span>
             ) : undefined
           }
           metaIcon={<Calendar className="h-3 w-3" />}

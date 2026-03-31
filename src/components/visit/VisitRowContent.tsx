@@ -24,7 +24,7 @@ export function VisitRowContent({
 }: VisitRowContentProps) {
   return (
     <>
-      <div className="flex items-center gap-2 mb-1">
+      <div className="flex min-w-0 w-full items-center gap-2 mb-1">
         {typeof title === "string" ? (
           <span className="text-sm font-medium text-foreground">{title}</span>
         ) : (
