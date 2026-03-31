@@ -5,11 +5,19 @@ import type { VisitRecord } from "@/lib/utils/visit-history";
 import { dedupeAndSortVisits } from "@/lib/utils/visit-history";
 import { getBwiVisitsPage, getRecentBwiVisits } from "@/lib/db/visit-history";
 import { formatStatusText } from "@/lib/utils/formatters";
-import { getVisitSearchText } from "@/lib/utils/visit-history-ui";
+import { getVisitSearchText, visitDayKey } from "@/lib/utils/visit-history-ui";
 import { buildFilterBadges, type FilterBadge } from "@/lib/utils/filter-badges";
-import type { VisitFilters } from "@/components/visit/VisitFiltersForm";
+import type { VisitAssigneeFilterOption, VisitFilters } from "@/components/visit/VisitFiltersForm";
 import { businessEventBus } from "@/lib/events/business-events";
 import { cacheDelete } from "@/lib/offline/store";
+import { format } from "date-fns";
+
+function formatYmdLabel(ymd: string): string {
+  const parts = ymd.split("-").map((n) => Number.parseInt(n, 10));
+  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return ymd;
+  const [y, m, d] = parts;
+  return format(new Date(y, m - 1, d), "MMM d, yyyy");
+}
 
 interface UseBwiVisitHistoryOptions {
   userId: string;
@@ -32,6 +40,8 @@ export function useBwiVisitHistory({
     statuses: [],
     areas: [],
     assigneeIds: [],
+    callDateFrom: null,
+    callDateTo: null,
     myUpdatesOnly: false,
     bwiOnly: false,
     householderOnly: false
@@ -223,6 +233,37 @@ export function useBwiVisitHistory({
     };
   }, [allVisitsRaw]);
 
+  /** Publishers/partners that appear on loaded calls — same pattern as home to-do assignee filters. */
+  const assigneeFilterOptions: VisitAssigneeFilterOption[] = useMemo(() => {
+    const byId = new Map<string, VisitAssigneeFilterOption>();
+    const upsert = (id: string | undefined, p: VisitRecord["publisher"] | VisitRecord["partner"]) => {
+      if (!id) return;
+      const cur = byId.get(id);
+      const first = p?.first_name ?? cur?.first_name ?? "";
+      const last = p?.last_name ?? cur?.last_name ?? "";
+      const avatar_url = p?.avatar_url ?? cur?.avatar_url;
+      byId.set(id, { id, first_name: first, last_name: last, avatar_url });
+    };
+    allVisitsRaw.forEach((v) => {
+      upsert(v.publisher_id, v.publisher);
+      upsert(v.partner_id, v.partner);
+    });
+    return Array.from(byId.values()).sort((a, b) => {
+      const na = `${a.first_name} ${a.last_name}`.trim() || a.id;
+      const nb = `${b.first_name} ${b.last_name}`.trim() || b.id;
+      return na.localeCompare(nb, undefined, { sensitivity: "base" });
+    });
+  }, [allVisitsRaw]);
+
+  useEffect(() => {
+    const valid = new Set(assigneeFilterOptions.map((o) => o.id));
+    setFilters((prev) => {
+      const next = prev.assigneeIds.filter((id) => valid.has(id));
+      if (next.length === prev.assigneeIds.length) return prev;
+      return { ...prev, assigneeIds: next };
+    });
+  }, [assigneeFilterOptions]);
+
   const filteredVisits = useMemo(() => {
     let filtered = [...allVisitsRaw];
     if (filters.myUpdatesOnly) {
@@ -258,21 +299,80 @@ export function useBwiVisitHistory({
         (visit) => visit.establishment_area && filters.areas.includes(visit.establishment_area)
       );
     }
+    if (filters.assigneeIds.length > 0) {
+      filtered = filtered.filter((visit) => {
+        const pub = visit.publisher_id;
+        const part = visit.partner_id;
+        return (
+          (pub != null && filters.assigneeIds.includes(pub)) ||
+          (part != null && filters.assigneeIds.includes(part))
+        );
+      });
+    }
+    if (filters.callDateFrom) {
+      filtered = filtered.filter(
+        (visit) => visitDayKey(visit.visit_date) >= filters.callDateFrom!
+      );
+    }
+    if (filters.callDateTo) {
+      filtered = filtered.filter(
+        (visit) => visitDayKey(visit.visit_date) <= filters.callDateTo!
+      );
+    }
     return filtered;
   }, [allVisitsRaw, filters, userId]);
 
-  const filterBadges: FilterBadge[] = useMemo(
-    () =>
-      buildFilterBadges({
-        statuses: filters.statuses,
-        areas: filters.areas,
-        formatStatusLabel: formatStatusText
-      }),
-    [filters.statuses, filters.areas]
-  );
+  const assigneeById = useMemo(() => {
+    const m = new Map<string, VisitAssigneeFilterOption>();
+    assigneeFilterOptions.forEach((o) => m.set(o.id, o));
+    return m;
+  }, [assigneeFilterOptions]);
+
+  const filterBadges: FilterBadge[] = useMemo(() => {
+    const base = buildFilterBadges({
+      statuses: filters.statuses,
+      areas: filters.areas,
+      formatStatusLabel: formatStatusText
+    });
+    const assigneeBadges: FilterBadge[] = filters.assigneeIds.map((id) => {
+      const p = assigneeById.get(id);
+      const label = p ? `${p.first_name} ${p.last_name}`.trim() || "Publisher" : "Publisher";
+      return {
+        type: "assignee" as const,
+        value: id,
+        label,
+        avatarUrl: p?.avatar_url
+      };
+    });
+    const callDateBadges: FilterBadge[] = (() => {
+      const from = filters.callDateFrom;
+      const to = filters.callDateTo;
+      if (!from && !to) return [];
+      let label: string;
+      if (from && to) {
+        label =
+          from === to
+            ? formatYmdLabel(from)
+            : `${formatYmdLabel(from)} – ${formatYmdLabel(to)}`;
+      } else if (from) {
+        label = `From ${formatYmdLabel(from)}`;
+      } else {
+        label = `Until ${formatYmdLabel(to!)}`;
+      }
+      return [{ type: "call_date" as const, value: "range", label }];
+    })();
+    return [...base, ...assigneeBadges, ...callDateBadges];
+  }, [filters.statuses, filters.areas, filters.assigneeIds, filters.callDateFrom, filters.callDateTo, assigneeById]);
 
   const clearFilters = useCallback(() => {
-    setFilters((prev) => ({ ...prev, statuses: [], areas: [], assigneeIds: [] }));
+    setFilters((prev) => ({
+      ...prev,
+      statuses: [],
+      areas: [],
+      assigneeIds: [],
+      callDateFrom: null,
+      callDateTo: null
+    }));
   }, []);
 
   const clearSearch = useCallback(() => {
@@ -291,6 +391,7 @@ export function useBwiVisitHistory({
     allVisitsRawCount: allVisitsRaw.length,
     filteredVisits,
     filterOptions,
+    assigneeFilterOptions,
     filterBadges,
     filters,
     setFilters,

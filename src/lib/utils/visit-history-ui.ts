@@ -14,6 +14,18 @@ export function formatVisitDateShort(dateString: string): string {
   return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
+/** Normalizes a visit's `visit_date` to `YYYY-MM-DD` for comparisons (date-only or ISO strings). */
+export function visitDayKey(visitDate: string): string {
+  const t = visitDate.trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(t)) return t.slice(0, 10);
+  const d = new Date(t);
+  if (Number.isNaN(d.getTime())) return "";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export function getPublisherName(publisher?: { first_name: string; last_name: string } | null): string {
   if (!publisher) return "Unknown Publisher";
   const name = `${publisher.first_name ?? ""} ${publisher.last_name ?? ""}`.trim();

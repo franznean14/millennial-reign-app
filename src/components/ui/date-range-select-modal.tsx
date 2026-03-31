@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
-import { FormModal } from "@/components/shared/FormModal";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 function startOfGrid(view: Date) {
@@ -10,6 +10,11 @@ function startOfGrid(view: Date) {
   const s = new Date(first);
   s.setDate(first.getDay() === 0 ? 1 - 0 : 1 - first.getDay());
   return s;
+}
+
+/** e.g. March 31, 2026 — no ordinal suffixes. */
+function formatCalendarDate(d: Date): string {
+  return format(d, "MMMM d, yyyy");
 }
 
 export function DateRangeSelectContent({
@@ -172,10 +177,13 @@ export function DateRangeSelectContent({
             <div className="text-sm">
               {selectionStart && selectionEnd ? (
                 <span>
-                  {selectionStart.toLocaleDateString()} - {selectionEnd.toLocaleDateString()}
+                  {formatCalendarDate(selectionStart)} - {formatCalendarDate(selectionEnd)}
                 </span>
               ) : selectionStart ? (
-                <span>Select end date</span>
+                <span>
+                  {formatCalendarDate(selectionStart)}{" "}
+                  <span className="text-muted-foreground">- Select End Date (optional)</span>
+                </span>
               ) : null}
             </div>
             <Button type="button" variant="ghost" size="sm" onClick={handleClear}>

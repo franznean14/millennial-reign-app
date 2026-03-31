@@ -79,8 +79,8 @@ export function VisitHistory({
   onBwiAreaChange,
 }: VisitHistoryProps) {
   const [showDrawer, setShowDrawer] = useState(false);
+  const [showFiltersDrawer, setShowFiltersDrawer] = useState(false);
   const [showAreaDrawer, setShowAreaDrawer] = useState(false);
-  const [activePanel, setActivePanel] = useState<"list" | "filters">("list");
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [localSearchValue, setLocalSearchValue] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -102,6 +102,7 @@ export function VisitHistory({
     allVisitsRawCount,
     filteredVisits: hookFilteredVisits,
     filterOptions,
+    assigneeFilterOptions,
     filterBadges,
     filters,
     setFilters,
@@ -372,6 +373,9 @@ export function VisitHistory({
       filters={filters}
       statusOptions={filterOptions.statuses}
       areaOptions={filterOptions.areas}
+      assigneeOptions={assigneeFilterOptions}
+      assigneeHelpText="Show calls where this publisher or partner participated."
+      showCallDateFilter
       onFiltersChange={setFilters}
       onClearFilters={clearFilters}
     />
@@ -820,187 +824,188 @@ export function VisitHistory({
         </Tabs>
       </div>
 
-      {/* Drawer for all visits */}
+      {/* Drawer: full calls list */}
       <FormModal
         open={showDrawer}
         onOpenChange={(open) => {
           setShowDrawer(open);
-          if (!open) setActivePanel("list");
+          if (!open) setShowFiltersDrawer(false);
         }}
         title={
           <span className="flex w-full items-center justify-center gap-2 text-center text-lg font-bold">
             <KnockingDoorIcon />
-            {activePanel === "filters" ? "Filter Calls" : "Calls"}
+            Calls
           </span>
         }
         headerClassName="px-4 pt-4 pb-2 items-center text-center"
-        description={activePanel === "filters" ? "Filter by status and area" : undefined}
       >
-        {activePanel === "filters" ? (
-          <div className="pb-[calc(max(env(safe-area-inset-bottom),0px)+40px)]">
-            {filterForm}
-            <div className="flex justify-end pt-4">
-              <Button type="button" variant="outline" onClick={() => setActivePanel("list")}>
-                Done
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* Filter Controls - Centered when search inactive */}
-            <div className={cn(
-              "mb-4 w-full flex",
-              isSearchActive ? "justify-start" : "justify-center"
-            )}>
-              <FilterControls
-                isSearchActive={isSearchActive}
-                searchValue={localSearchValue}
-                searchInputRef={searchInputRef}
-                onSearchActivate={() => {
-                  setIsSearchActive(true);
-                  hasFocusedRef.current = false;
-                }}
-                onSearchChange={(value) => {
-                  // Mark that user is actively typing to prevent focus effects from running
-                  isTypingRef.current = true;
-                  
-                  // Update local value immediately for responsive UI (client-side filtering)
-                  setLocalSearchValue(value);
-                  
-                  // Don't update filters.search - keep search completely client-side
-                  // This prevents rerenders and keeps items mounted, only unmounting items that don't match
-                  
-                  // Reset typing flag after a short delay to allow focus effects to run when user stops
-                  setTimeout(() => {
-                    isTypingRef.current = false;
-                  }, 500);
-                }}
-                onSearchClear={() => {
-                  setLocalSearchValue("");
-                  // Clear search in filters too for consistency
-                  clearSearch();
+        <>
+          {/* Filter Controls - Centered when search inactive */}
+          <div className={cn(
+            "mb-4 w-full flex",
+            isSearchActive ? "justify-start" : "justify-center"
+          )}>
+            <FilterControls
+              isSearchActive={isSearchActive}
+              searchValue={localSearchValue}
+              searchInputRef={searchInputRef}
+              onSearchActivate={() => {
+                setIsSearchActive(true);
+                hasFocusedRef.current = false;
+              }}
+              onSearchChange={(value) => {
+                isTypingRef.current = true;
+                setLocalSearchValue(value);
+                setTimeout(() => {
+                  isTypingRef.current = false;
+                }, 500);
+              }}
+              onSearchClear={() => {
+                setLocalSearchValue("");
+                clearSearch();
+                setIsSearchActive(false);
+                hasFocusedRef.current = false;
+                isTypingRef.current = false;
+              }}
+              onSearchBlur={() => {
+                isTypingRef.current = false;
+                setIsTyping(false);
+                if (!localSearchValue || localSearchValue.trim() === "") {
                   setIsSearchActive(false);
                   hasFocusedRef.current = false;
-                  isTypingRef.current = false;
-                }}
-                onSearchBlur={() => {
-                  // Mark that typing has stopped
-                  isTypingRef.current = false;
-                  setIsTyping(false);
-                  if (!localSearchValue || localSearchValue.trim() === "") {
-                    setIsSearchActive(false);
-                    hasFocusedRef.current = false;
-                  }
-                }}
-                myActive={filters.myUpdatesOnly}
-                myLabel="My Visits"
-                onMyActivate={() => setFilters(prev => ({ ...prev, myUpdatesOnly: true }))}
-                onMyClear={() => setFilters(prev => ({ ...prev, myUpdatesOnly: false }))}
-                bwiActive={filters.bwiOnly}
-                bwiLabel="BWI Only"
-                onBwiActivate={() => setFilters(prev => ({ ...prev, bwiOnly: true, householderOnly: false }))}
-                onBwiClear={() => setFilters(prev => ({ ...prev, bwiOnly: false }))}
-                householderActive={filters.householderOnly}
-                householderLabel="Personal Contacts Only"
-                onHouseholderActivate={() => setFilters(prev => ({ ...prev, householderOnly: true, bwiOnly: false }))}
-                onHouseholderClear={() => setFilters(prev => ({ ...prev, householderOnly: false }))}
-                filterBadges={filterBadges}
-                onOpenFilters={() => setActivePanel("filters")}
-                onClearFilters={clearFilters}
-                onRemoveBadge={(badge) => {
-                  if (badge.type === "status") {
-                    setFilters(prev => ({ ...prev, statuses: prev.statuses.filter(s => s !== badge.value) }));
-                  } else if (badge.type === "area") {
-                    setFilters(prev => ({ ...prev, areas: prev.areas.filter(a => a !== badge.value) }));
-                  } else if (badge.type === "assignee") {
-                    setFilters(prev => ({
-                      ...prev,
-                      assigneeIds: prev.assigneeIds.filter((id) => id !== badge.value),
-                    }));
-                  }
-                }}
-                containerClassName={isSearchActive ? "w-full !max-w-none !px-0" : "justify-center"}
-                maxWidthClassName={isSearchActive ? "" : "mx-4"}
-              />
-            </div>
-
-            <div 
-              className="relative max-h-[70vh] overflow-y-auto pb-[calc(max(env(safe-area-inset-bottom),0px)+40px)]"
-              tabIndex={-1}
-              onFocus={(e) => {
-                // If focus moves to the scrollable container, return it to the input if user is typing
-                if (isTypingRef.current && searchInputRef.current && e.target === e.currentTarget) {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  // Use setTimeout to ensure this happens after any other focus handlers
-                  setTimeout(() => {
-                    if (searchInputRef.current && isTypingRef.current) {
-                      const input = searchInputRef.current;
-                      const selectionStart = input.selectionStart;
-                      const selectionEnd = input.selectionEnd;
-                      input.focus();
-                      if (selectionStart !== null && selectionEnd !== null) {
-                        try {
-                          input.setSelectionRange(selectionStart, selectionEnd);
-                        } catch (e) {
-                          // Ignore
-                        }
-                      }
-                    }
-                  }, 0);
                 }
               }}
+              myActive={filters.myUpdatesOnly}
+              myLabel="My Visits"
+              onMyActivate={() => setFilters(prev => ({ ...prev, myUpdatesOnly: true }))}
+              onMyClear={() => setFilters(prev => ({ ...prev, myUpdatesOnly: false }))}
+              bwiActive={filters.bwiOnly}
+              bwiLabel="BWI Only"
+              onBwiActivate={() => setFilters(prev => ({ ...prev, bwiOnly: true, householderOnly: false }))}
+              onBwiClear={() => setFilters(prev => ({ ...prev, bwiOnly: false }))}
+              householderActive={filters.householderOnly}
+              householderLabel="Personal Contacts Only"
+              onHouseholderActivate={() => setFilters(prev => ({ ...prev, householderOnly: true, bwiOnly: false }))}
+              onHouseholderClear={() => setFilters(prev => ({ ...prev, householderOnly: false }))}
+              filterBadges={filterBadges}
+              onOpenFilters={() => setShowFiltersDrawer(true)}
+              onClearFilters={clearFilters}
+              onRemoveBadge={(badge) => {
+                if (badge.type === "status") {
+                  setFilters(prev => ({ ...prev, statuses: prev.statuses.filter(s => s !== badge.value) }));
+                } else if (badge.type === "area") {
+                  setFilters(prev => ({ ...prev, areas: prev.areas.filter(a => a !== badge.value) }));
+                } else if (badge.type === "assignee") {
+                  setFilters(prev => ({
+                    ...prev,
+                    assigneeIds: prev.assigneeIds.filter((id) => id !== badge.value),
+                  }));
+                } else if (badge.type === "call_date") {
+                  setFilters(prev => ({ ...prev, callDateFrom: null, callDateTo: null }));
+                }
+              }}
+              containerClassName={isSearchActive ? "w-full !max-w-none !px-0" : "justify-center"}
+              maxWidthClassName={isSearchActive ? "" : "mx-4"}
+            />
+          </div>
+
+          <div 
+            className="relative max-h-[70vh] overflow-y-auto pb-[calc(max(env(safe-area-inset-bottom),0px)+40px)]"
+            tabIndex={-1}
+            onFocus={(e) => {
+              if (isTypingRef.current && searchInputRef.current && e.target === e.currentTarget) {
+                e.preventDefault();
+                e.stopPropagation();
+                setTimeout(() => {
+                  if (searchInputRef.current && isTypingRef.current) {
+                    const input = searchInputRef.current;
+                    const selectionStart = input.selectionStart;
+                    const selectionEnd = input.selectionEnd;
+                    input.focus();
+                    if (selectionStart !== null && selectionEnd !== null) {
+                      try {
+                        input.setSelectionRange(selectionStart, selectionEnd);
+                      } catch {
+                        // Ignore
+                      }
+                    }
+                  }
+                }, 0);
+              }
+            }}
+          >
+            <motion.div 
+              className="space-y-4"
+              layout={!isTyping}
+              transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
             >
-              <motion.div 
-                className="space-y-4"
-                layout={!isTyping}
-                transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+              <AnimatePresence mode="popLayout" initial={false}>
+                {filteredVisits.map((visit, index) => (
+                  <motion.div
+                    key={visit.id}
+                    layout={!isTyping}
+                    initial={false}
+                    animate={{ opacity: 1, height: "auto", y: 0 }}
+                    exit={{ opacity: 0, height: 0, y: -10 }}
+                    transition={{ 
+                      duration: 0.3,
+                      ease: [0.4, 0, 0.2, 1],
+                      layout: { duration: 0.3, ease: [0.4, 0, 0.2, 1] }
+                    }}
+                  >
+                    {renderVisitRow(visit, index, filteredVisits.length, true)}
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            </motion.div>
+            
+            {loadingMore && (
+              <div className="text-center py-4">
+                <div className="text-sm opacity-70">Loading more visits...</div>
+              </div>
+            )}
+            
+            {hasMore && !loadingMore && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-full"
+                onClick={loadMore}
               >
-                <AnimatePresence mode="popLayout" initial={false}>
-                  {filteredVisits.map((visit, index) => (
-                    <motion.div
-                      key={visit.id}
-                      layout={!isTyping}
-                      initial={false}
-                      animate={{ opacity: 1, height: "auto", y: 0 }}
-                      exit={{ opacity: 0, height: 0, y: -10 }}
-                      transition={{ 
-                        duration: 0.3,
-                        ease: [0.4, 0, 0.2, 1],
-                        layout: { duration: 0.3, ease: [0.4, 0, 0.2, 1] }
-                      }}
-                    >
-                      {renderVisitRow(visit, index, filteredVisits.length, true)}
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
-              </motion.div>
-              
-              {loadingMore && (
-                <div className="text-center py-4">
-                  <div className="text-sm opacity-70">Loading more visits...</div>
-                </div>
-              )}
-              
-              {hasMore && !loadingMore && (
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="w-full"
-                  onClick={loadMore}
-                >
-                  Load More
-                </Button>
-              )}
-              
-              {!hasMore && filteredVisits.length > 0 && (
-                <div className="text-center py-4">
-                  <div className="text-sm opacity-70">No more visits to load</div>
-                </div>
-              )}
-            </div>
-          </>
-        )}
+                Load More
+              </Button>
+            )}
+            
+            {!hasMore && filteredVisits.length > 0 && (
+              <div className="text-center py-4">
+                <div className="text-sm opacity-70">No more visits to load</div>
+              </div>
+            )}
+          </div>
+        </>
+      </FormModal>
+
+      {/* Sub-drawer: call date, status, area, publisher */}
+      <FormModal
+        open={showFiltersDrawer}
+        onOpenChange={setShowFiltersDrawer}
+        title={
+          <span className="flex w-full items-center justify-center gap-2 text-center text-lg font-bold">
+            <KnockingDoorIcon />
+            Filter Calls
+          </span>
+        }
+        headerClassName="px-4 pt-4 pb-2 items-center text-center"
+        description="Filter by call date, status, area, and publisher"
+      >
+        <div className="pb-[calc(max(env(safe-area-inset-bottom),0px)+40px)]">
+          {filterForm}
+          <div className="flex justify-end pt-4">
+            <Button type="button" variant="outline" onClick={() => setShowFiltersDrawer(false)}>
+              Done
+            </Button>
+          </div>
+        </div>
       </FormModal>
 
       {/* Area picker drawer for BWI tab header */}

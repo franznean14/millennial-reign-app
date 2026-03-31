@@ -220,6 +220,8 @@ export function HomeTodoCard({
     statuses: [],
     areas: [],
     assigneeIds: [],
+    callDateFrom: null,
+    callDateTo: null,
     myUpdatesOnly: true,
     bwiOnly: false,
     householderOnly: false,
@@ -383,24 +385,33 @@ export function HomeTodoCard({
         searchValue?: string;
         dueDate?: string | null;
       };
-      if (parsed.filters) {
+      const hydrated = parsed.filters;
+      if (hydrated) {
         setFilters((prev) => ({
           ...prev,
-          search: typeof parsed.filters.search === "string" ? parsed.filters.search : prev.search,
-          statuses: Array.isArray(parsed.filters.statuses) ? parsed.filters.statuses : prev.statuses,
-          areas: Array.isArray(parsed.filters.areas) ? parsed.filters.areas : prev.areas,
-          assigneeIds: Array.isArray(parsed.filters.assigneeIds)
-            ? parsed.filters.assigneeIds.filter((id): id is string => typeof id === "string")
+          search: typeof hydrated.search === "string" ? hydrated.search : prev.search,
+          statuses: Array.isArray(hydrated.statuses) ? hydrated.statuses : prev.statuses,
+          areas: Array.isArray(hydrated.areas) ? hydrated.areas : prev.areas,
+          assigneeIds: Array.isArray(hydrated.assigneeIds)
+            ? hydrated.assigneeIds.filter((id): id is string => typeof id === "string")
             : prev.assigneeIds,
           myUpdatesOnly:
-            typeof parsed.filters.myUpdatesOnly === "boolean"
-              ? parsed.filters.myUpdatesOnly
+            typeof hydrated.myUpdatesOnly === "boolean"
+              ? hydrated.myUpdatesOnly
               : prev.myUpdatesOnly,
-          bwiOnly: typeof parsed.filters.bwiOnly === "boolean" ? parsed.filters.bwiOnly : prev.bwiOnly,
+          bwiOnly: typeof hydrated.bwiOnly === "boolean" ? hydrated.bwiOnly : prev.bwiOnly,
           householderOnly:
-            typeof parsed.filters.householderOnly === "boolean"
-              ? parsed.filters.householderOnly
+            typeof hydrated.householderOnly === "boolean"
+              ? hydrated.householderOnly
               : prev.householderOnly,
+          callDateFrom:
+            hydrated.callDateFrom === null || typeof hydrated.callDateFrom === "string"
+              ? hydrated.callDateFrom
+              : prev.callDateFrom,
+          callDateTo:
+            hydrated.callDateTo === null || typeof hydrated.callDateTo === "string"
+              ? hydrated.callDateTo
+              : prev.callDateTo,
         }));
       }
       if (typeof parsed.searchValue === "string") {
@@ -676,7 +687,14 @@ export function HomeTodoCard({
   }, [filters.statuses, filters.areas, filters.assigneeIds, participantsById, dueDateFilter]);
 
   const clearFilters = useCallback(() => {
-    setFilters((prev) => ({ ...prev, statuses: [], areas: [], assigneeIds: [] }));
+    setFilters((prev) => ({
+      ...prev,
+      statuses: [],
+      areas: [],
+      assigneeIds: [],
+      callDateFrom: null,
+      callDateTo: null,
+    }));
     setDueDateFilter(null);
   }, []);
 

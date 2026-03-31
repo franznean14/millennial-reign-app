@@ -114,6 +114,8 @@ const DEFAULT_TARGET_PICKER_FILTERS: VisitFilters = {
   statuses: [],
   areas: [],
   assigneeIds: [],
+  callDateFrom: null,
+  callDateTo: null,
   myUpdatesOnly: false,
   bwiOnly: false,
   householderOnly: false,
@@ -440,6 +442,9 @@ export function BulkTodoForm({
             assigneeIds: Array.isArray(rawFilters.assigneeIds)
               ? rawFilters.assigneeIds.filter((item): item is string => typeof item === "string")
               : [],
+            callDateFrom:
+              typeof rawFilters.callDateFrom === "string" ? rawFilters.callDateFrom : null,
+            callDateTo: typeof rawFilters.callDateTo === "string" ? rawFilters.callDateTo : null,
             myUpdatesOnly: false,
             bwiOnly: !!rawFilters.bwiOnly,
             householderOnly: !!rawFilters.householderOnly,
@@ -1328,6 +1333,8 @@ export function BulkTodoForm({
                 statuses: [],
                 areas: [],
                 assigneeIds: [],
+                callDateFrom: null,
+                callDateTo: null,
               }))
             }
             onRemoveBadge={(badge) =>
@@ -1455,6 +1462,8 @@ export function BulkTodoForm({
                   statuses: filters.statuses,
                   areas: filters.areas,
                   assigneeIds: filters.assigneeIds,
+                  callDateFrom: filters.callDateFrom,
+                  callDateTo: filters.callDateTo,
                 }))
               }
               onClearFilters={() =>
@@ -1463,6 +1472,8 @@ export function BulkTodoForm({
                   statuses: [],
                   areas: [],
                   assigneeIds: [],
+                  callDateFrom: null,
+                  callDateTo: null,
                 }))
               }
             />
