@@ -7,6 +7,12 @@ import { toast } from "@/components/ui/sonner";
 
 const TABLE = "daily_records";
 
+/** Ensures DB always gets a finite number; invalid/NaN parses become 0 (JSON.stringify drops NaN → null). */
+export function normalizeDailyHours(hours: unknown): number {
+  const n = typeof hours === "number" ? hours : Number(hours);
+  return Number.isFinite(n) ? n : 0;
+}
+
 function isOfflineLikeError(e: any): boolean {
   if (typeof navigator !== "undefined" && !navigator.onLine) return true;
   const message = String(e?.message ?? "").toLowerCase();
@@ -60,37 +66,38 @@ export async function getDailyRecord(userId: string, date: string): Promise<Dail
 }
 
 export async function upsertDailyRecord(input: Omit<DailyRecord, "id"> & { id?: string }) {
+  const payload = { ...input, hours: normalizeDailyHours(input.hours) };
   const supabase = createSupabaseBrowserClient();
   await supabase.auth.getSession();
   try {
     const { data, error } = await supabase
       .from(TABLE)
-      .upsert(input, { onConflict: "user_id,date" })
+      .upsert(payload, { onConflict: "user_id,date" })
       .select()
       .single();
     if (error) throw error;
     const rec = data as DailyRecord;
-    await cacheSet(`daily:${input.user_id}:${input.date}`, rec);
-    const month = input.date.slice(0, 7);
+    await cacheSet(`daily:${payload.user_id}:${payload.date}`, rec);
+    const month = payload.date.slice(0, 7);
     // Update cached month list if present
-    const key = `daily:${input.user_id}:month:${month}`;
+    const key = `daily:${payload.user_id}:month:${month}`;
     const monthCache = (await cacheGet<DailyRecord[]>(key)) || [];
-    const idx = monthCache.findIndex((r) => r.date === input.date);
+    const idx = monthCache.findIndex((r) => r.date === payload.date);
     if (idx >= 0) monthCache[idx] = rec; else monthCache.push(rec);
     await cacheSet(key, monthCache.sort((a, b) => a.date.localeCompare(b.date)));
     return rec;
   } catch (e: any) {
     if (isOfflineLikeError(e)) {
-      await outboxEnqueue({ type: "upsert_daily", payload: input });
-      await cacheSet(`daily:${input.user_id}:${input.date}`, input);
-      const month = input.date.slice(0, 7);
-      const key = `daily:${input.user_id}:month:${month}`;
+      await outboxEnqueue({ type: "upsert_daily", payload });
+      await cacheSet(`daily:${payload.user_id}:${payload.date}`, payload);
+      const month = payload.date.slice(0, 7);
+      const key = `daily:${payload.user_id}:month:${month}`;
       const monthCache = (await cacheGet<DailyRecord[]>(key)) || [];
-      const idx = monthCache.findIndex((r) => r.date === input.date);
-      if (idx >= 0) monthCache[idx] = input as DailyRecord; else monthCache.push(input as DailyRecord);
+      const idx = monthCache.findIndex((r) => r.date === payload.date);
+      if (idx >= 0) monthCache[idx] = payload as DailyRecord; else monthCache.push(payload as DailyRecord);
       await cacheSet(key, monthCache.sort((a, b) => a.date.localeCompare(b.date)));
       toast.success("Saved offline. Will sync when online.");
-      return input as DailyRecord;
+      return payload as DailyRecord;
     }
     throw new Error(normalizeDailyRecordWriteError(e));
   }

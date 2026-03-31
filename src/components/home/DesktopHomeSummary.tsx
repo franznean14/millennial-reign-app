@@ -20,6 +20,12 @@ import type { DailyRecord } from "@/lib/db/types";
 
 type StudyCount = [string, number];
 
+function addCalendarMonths(ym: string, delta: number): string {
+  const [y, m] = ym.split("-").map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
 function topStudies(records: { bible_studies: string[] | null }[], limit = 5): StudyCount[] {
   const counts = new Map<string, number>();
   for (const r of records) {
@@ -566,6 +572,41 @@ export function DesktopHomeSummary({
     return `${monthShort} ${yearShort}`;
   };
 
+  const formatFullMonth = (monthStr: string) => {
+    const [year, month] = monthStr.split("-");
+    const date = new Date(parseInt(year, 10), parseInt(month, 10) - 1);
+    const monthFull = date.toLocaleDateString("en-US", { month: "long" });
+    return `${monthFull} ${year}`;
+  };
+
+  const monthNavBounds = useMemo(() => {
+    const now = new Date();
+    const latestNav = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    if (!dailyRecords.length) {
+      return { earliestNav: latestNav, latestNav };
+    }
+    let earliestNav = dailyRecords[0].date.slice(0, 7);
+    for (const r of dailyRecords) {
+      const m = r.date.slice(0, 7);
+      if (m < earliestNav) earliestNav = m;
+    }
+    return { earliestNav, latestNav };
+  }, [dailyRecords]);
+
+  const canGoPrevMonth =
+    !!selectedMonth && addCalendarMonths(selectedMonth, -1) >= monthNavBounds.earliestNav;
+  const canGoNextMonth =
+    !!selectedMonth && addCalendarMonths(selectedMonth, 1) <= monthNavBounds.latestNav;
+
+  const goPrevMonth = () => {
+    if (!selectedMonth || !canGoPrevMonth) return;
+    setSelectedMonth(addCalendarMonths(selectedMonth, -1));
+  };
+  const goNextMonth = () => {
+    if (!selectedMonth || !canGoNextMonth) return;
+    setSelectedMonth(addCalendarMonths(selectedMonth, 1));
+  };
+
   // Get month detail data — BS displayed as unique householder names
   const monthDetailData = useMemo(() => {
     if (!selectedMonth) return null;
@@ -896,7 +937,29 @@ export function DesktopHomeSummary({
       <FormModal
         open={recordsDrawerOpen}
         onOpenChange={setRecordsDrawerOpen}
-        title="Monthly Records"
+        title={
+          selectedMonth ? (
+            <span className="flex w-full max-w-full items-center gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 shrink-0 -ml-1"
+                onClick={() => setSelectedMonth(null)}
+                aria-label="Back to month list"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+              <span className="min-w-0 flex-1 text-center text-base font-semibold leading-tight">
+                Monthly Records
+              </span>
+              <span className="h-9 w-9 shrink-0" aria-hidden />
+            </span>
+          ) : (
+            "Monthly Records"
+          )
+        }
+        headerClassName={selectedMonth ? "!p-3 !pb-2 w-full max-w-full text-left" : undefined}
       >
         <div className="space-y-4">
           {serviceYears.length > 0 ? (
@@ -904,31 +967,52 @@ export function DesktopHomeSummary({
               <div className="flex justify-center">
                 <div className="bg-background/95 backdrop-blur-sm border p-0.1 rounded-lg shadow-lg w-full max-w-screen-sm relative overflow-hidden">
                   <div className="w-full overflow-x-auto no-scrollbar">
-                    <ToggleGroup
-                      type="single"
-                      value={selectedMonth ? "back" : (activeServiceYear ?? undefined)}
-                      onValueChange={(v) => {
-                        if (v === "back") {
-                          setSelectedMonth(null);
-                        } else if (v) {
-                          setActiveServiceYear(v);
-                          setSelectedMonth(null);
-                        }
-                      }}
-                      className="w-max min-w-full h-full justify-center"
-                    >
-                      {selectedMonth ? (
-                        <>
-                          <ToggleGroupItem
-                            value="back"
-                            className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm min-w-0 px-3 h-12 flex items-center justify-center transition-colors"
+                    {selectedMonth ? (
+                      <div className="flex items-center gap-0.5 w-full h-12 px-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={!canGoPrevMonth}
+                          onClick={goPrevMonth}
+                          className="flex-shrink-0 h-12 w-10 px-0 flex items-center justify-center transition-colors hover:bg-muted disabled:opacity-30"
+                          aria-label="Previous month"
+                        >
+                          <ChevronLeft className="h-4 w-4 flex-shrink-0" />
+                        </Button>
+                        <div className="flex-1 min-w-0 px-1 h-12 flex items-center justify-center">
+                          <span className="text-sm font-semibold text-foreground truncate w-full text-center pointer-events-none">
+                            {formatFullMonth(selectedMonth)}
+                          </span>
+                        </div>
+                        {canGoNextMonth ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={goNextMonth}
+                            className="flex-shrink-0 h-12 w-10 px-0 flex items-center justify-center transition-colors hover:bg-muted"
+                            aria-label="Next month"
                           >
-                            <ChevronLeft className="h-4 w-4 mr-2" />
-                            <span className="text-[11px] font-medium">{formatMonth(selectedMonth)}</span>
-                          </ToggleGroupItem>
-                        </>
-                      ) : (
-                        serviceYears.map((year) => (
+                            <ChevronRight className="h-4 w-4 flex-shrink-0" />
+                          </Button>
+                        ) : (
+                          <span className="h-12 w-10 shrink-0" aria-hidden />
+                        )}
+                      </div>
+                    ) : (
+                      <ToggleGroup
+                        type="single"
+                        value={activeServiceYear ?? undefined}
+                        onValueChange={(v) => {
+                          if (v) {
+                            setActiveServiceYear(v);
+                            setSelectedMonth(null);
+                          }
+                        }}
+                        className="w-max min-w-full h-full justify-center"
+                      >
+                        {serviceYears.map((year) => (
                           <ToggleGroupItem
                             key={year}
                             value={String(year)}
@@ -937,9 +1021,9 @@ export function DesktopHomeSummary({
                           >
                             <span className="text-[11px] font-medium text-center truncate w-full">{year}</span>
                           </ToggleGroupItem>
-                        ))
-                      )}
-                    </ToggleGroup>
+                        ))}
+                      </ToggleGroup>
+                    )}
                   </div>
                 </div>
               </div>

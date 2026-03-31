@@ -8,12 +8,18 @@ import { cacheGet, cacheSet } from "@/lib/offline/store";
 import { FormModal } from "@/components/shared/FormModal";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Button } from "@/components/ui/button";
-import { Eye, Copy, ChevronLeft } from "lucide-react";
+import { Eye, Copy, ChevronLeft, ChevronRight } from "lucide-react";
 import InstallPrompt from "@/components/InstallPrompt";
 import { toast } from "@/components/ui/sonner";
 import type { DailyRecord } from "@/lib/db/types";
 
 type StudyCount = [string, number];
+
+function addCalendarMonths(ym: string, delta: number): string {
+  const [y, m] = ym.split("-").map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
 
 function topStudies(records: { bible_studies: string[] | null }[], limit = 5): StudyCount[] {
   const counts = new Map<string, number>();
@@ -672,6 +678,34 @@ export function HomeSummary({
     return `${monthFull} ${year}`;
   };
 
+  const monthNavBounds = useMemo(() => {
+    const now = new Date();
+    const latestNav = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+    if (!dailyRecords.length) {
+      return { earliestNav: latestNav, latestNav };
+    }
+    let earliestNav = dailyRecords[0].date.slice(0, 7);
+    for (const r of dailyRecords) {
+      const m = r.date.slice(0, 7);
+      if (m < earliestNav) earliestNav = m;
+    }
+    return { earliestNav, latestNav };
+  }, [dailyRecords]);
+
+  const canGoPrevMonth =
+    !!selectedMonth && addCalendarMonths(selectedMonth, -1) >= monthNavBounds.earliestNav;
+  const canGoNextMonth =
+    !!selectedMonth && addCalendarMonths(selectedMonth, 1) <= monthNavBounds.latestNav;
+
+  const goPrevMonth = () => {
+    if (!selectedMonth || !canGoPrevMonth) return;
+    setSelectedMonth(addCalendarMonths(selectedMonth, -1));
+  };
+  const goNextMonth = () => {
+    if (!selectedMonth || !canGoNextMonth) return;
+    setSelectedMonth(addCalendarMonths(selectedMonth, 1));
+  };
+
   // Get month detail data
   const monthDetailData = useMemo(() => {
     if (!selectedMonth) return null;
@@ -679,36 +713,25 @@ export function HomeSummary({
     const monthRecords = dailyRecords.filter(r => r.date.startsWith(selectedMonth));
     const totalHours = monthRecords.reduce((sum, r) => sum + (Number(r.hours) || 0), 0);
     
-    // Collect Bible Study names with session counts
+    // Session counts keyed by resolved display name (same person may appear as different visit: IDs)
+    const resolveToName = (raw: string) => cacheRef.current.get(raw) ?? raw;
     const bsSessionCounts = new Map<string, number>();
     monthRecords.forEach(r => {
       if (Array.isArray(r.bible_studies)) {
         r.bible_studies.forEach(bs => {
           if (bs && bs.trim()) {
-            const trimmedBS = bs.trim();
-            bsSessionCounts.set(trimmedBS, (bsSessionCounts.get(trimmedBS) || 0) + 1);
+            const displayName = resolveToName(bs.trim());
+            if (displayName) {
+              bsSessionCounts.set(displayName, (bsSessionCounts.get(displayName) || 0) + 1);
+            }
           }
         });
       }
     });
-    
-    // Convert to array of {name, sessions} and resolve visit IDs and householder IDs to names
+
     const bibleStudies = Array.from(bsSessionCounts.entries())
-      .map(([nameOrId, sessions]) => {
-        // Check if it's a visit ID (new format)
-        if (nameOrId.startsWith("visit:")) {
-          const resolvedName = cacheRef.current.get(nameOrId) || nameOrId;
-          return { name: resolvedName, sessions, id: null };
-        }
-        // Check if it's a householder ID (legacy format)
-        else if (nameOrId.startsWith("householder:")) {
-          const resolvedName = cacheRef.current.get(nameOrId) || nameOrId;
-          return { name: resolvedName, sessions, id: null };
-        }
-        // Plain text name
-        return { name: nameOrId, sessions, id: null };
-      })
-      .sort((a, b) => a.name.localeCompare(b.name));
+      .map(([name, sessions]) => ({ name, sessions, id: null }))
+      .sort((a, b) => b.sessions - a.sessions || a.name.localeCompare(b.name));
     
     // Collect notes with dates
     const notes = monthRecords
@@ -861,7 +884,29 @@ export function HomeSummary({
       <FormModal
         open={recordsDrawerOpen}
         onOpenChange={setRecordsDrawerOpen}
-        title="Monthly Records"
+        title={
+          selectedMonth ? (
+            <span className="flex w-full max-w-full items-center gap-1">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-9 w-9 shrink-0 -ml-1"
+                onClick={() => setSelectedMonth(null)}
+                aria-label="Back to month list"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+              <span className="min-w-0 flex-1 text-center text-base font-semibold leading-tight">
+                Monthly Records
+              </span>
+              <span className="h-9 w-9 shrink-0" aria-hidden />
+            </span>
+          ) : (
+            "Monthly Records"
+          )
+        }
+        headerClassName={selectedMonth ? "!p-3 !pb-2 w-full max-w-full text-left" : undefined}
       >
         <div className="space-y-4">
           {serviceYears.length > 0 ? (
@@ -870,23 +915,37 @@ export function HomeSummary({
                 <div className="bg-background/95 backdrop-blur-sm border p-0.1 rounded-lg shadow-lg w-full max-w-screen-sm relative overflow-hidden">
                   <div className="w-full overflow-x-auto no-scrollbar">
                     {selectedMonth ? (
-                      <div className="flex items-center gap-1 w-full h-12">
-                        {/* Back Button - Left */}
+                      <div className="flex items-center gap-0.5 w-full h-12 px-1">
                         <Button
+                          type="button"
                           variant="ghost"
                           size="sm"
-                          onClick={() => setSelectedMonth(null)}
-                          className="flex-shrink-0 px-3 h-12 flex items-center justify-center transition-colors hover:bg-muted"
+                          disabled={!canGoPrevMonth}
+                          onClick={goPrevMonth}
+                          className="flex-shrink-0 h-12 w-10 px-0 flex items-center justify-center transition-colors hover:bg-muted disabled:opacity-30"
+                          aria-label="Previous month"
                         >
                           <ChevronLeft className="h-4 w-4 flex-shrink-0" />
                         </Button>
-                        
-                        {/* Month and Year - Middle (wider, plain text, no button feel) */}
-                        <div className="flex-[2] min-w-0 px-3 h-12 flex items-center justify-center bg-transparent border-none">
+                        <div className="flex-1 min-w-0 px-1 h-12 flex items-center justify-center">
                           <span className="text-sm font-semibold text-foreground truncate w-full text-center pointer-events-none">
                             {formatFullMonth(selectedMonth)}
                           </span>
                         </div>
+                        {canGoNextMonth ? (
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={goNextMonth}
+                            className="flex-shrink-0 h-12 w-10 px-0 flex items-center justify-center transition-colors hover:bg-muted"
+                            aria-label="Next month"
+                          >
+                            <ChevronRight className="h-4 w-4 flex-shrink-0" />
+                          </Button>
+                        ) : (
+                          <span className="h-12 w-10 shrink-0" aria-hidden />
+                        )}
                       </div>
                     ) : (
                       <ToggleGroup

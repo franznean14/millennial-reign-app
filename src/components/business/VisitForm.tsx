@@ -10,10 +10,10 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { X, Plus } from "lucide-react";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Drawer,
   DrawerContent,
+  DrawerFooter,
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
@@ -134,7 +134,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
     last_name: string;
     avatar_url?: string;
   }>>([]);
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   // To-dos: for new call they're local until save; for edit they're loaded and synced to server
   type TodoItem = { id?: string; body: string; is_done: boolean; deadline_date?: string | null };
@@ -844,45 +844,68 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
 
       <div className="flex justify-between py-4">
         {initialVisit?.id ? (
-          <Popover open={confirmOpen} onOpenChange={setConfirmOpen}>
-            <PopoverTrigger asChild>
-              <Button type="button" variant="destructive" disabled={saving}>Delete</Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-56" align="start">
-              <div className="space-y-3">
-                <p className="text-sm">Delete this call?</p>
-                <div className="flex justify-end gap-2">
-                  <Button type="button" variant="outline" size="sm" onClick={() => setConfirmOpen(false)}>Cancel</Button>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="sm"
-                    disabled={saving}
-                    onClick={async () => {
-                      if (!initialVisit?.id) return;
-                      setSaving(true);
-                      try {
-                        const ok = await deleteVisit(initialVisit.id);
-                        if (ok) {
-                          businessEventBus.emit('visit-deleted', { id: initialVisit.id });
-                          toast.success('Visit deleted');
-                          setConfirmOpen(false);
-                          onSaved();
-                        } else {
-                          toast.error('Failed to delete visit');
+          <>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={saving}
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              Delete
+            </Button>
+            <Drawer open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+              <DrawerContent
+                className="flex flex-col"
+                style={{ maxHeight: "50vh", height: "50vh" }}
+              >
+                <div className="flex min-h-0 flex-1 flex-col justify-center px-4">
+                  <DrawerHeader className="px-4 pb-2 pt-6 text-center">
+                    <DrawerTitle className="text-center">Delete this call?</DrawerTitle>
+                  </DrawerHeader>
+                  <DrawerFooter className="flex flex-col gap-3 p-0 pb-[calc(max(env(safe-area-inset-bottom),0px)+12px)] pt-4">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="lg"
+                      className="h-12 w-full"
+                      onClick={() => setShowDeleteConfirm(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="lg"
+                      className="h-12 w-full"
+                      disabled={saving}
+                      onClick={async () => {
+                        if (!initialVisit?.id) return;
+                        setSaving(true);
+                        try {
+                          const ok = await deleteVisit(initialVisit.id);
+                          if (ok) {
+                            businessEventBus.emit("visit-deleted", { id: initialVisit.id });
+                            toast.success("Visit deleted");
+                            setShowDeleteConfirm(false);
+                            onSaved();
+                          } else {
+                            toast.error("Failed to delete visit");
+                          }
+                        } finally {
+                          setSaving(false);
                         }
-                      } finally {
-                        setSaving(false);
-                      }
-                    }}
-                  >
-                    Confirm
-                  </Button>
+                      }}
+                    >
+                      {saving ? "Deleting..." : "Delete"}
+                    </Button>
+                  </DrawerFooter>
                 </div>
-              </div>
-            </PopoverContent>
-          </Popover>
-        ) : <span />}
+              </DrawerContent>
+            </Drawer>
+          </>
+        ) : (
+          <span />
+        )}
         <Button type="submit" disabled={saving}>
           {saving ? "Saving..." : (initialVisit?.id ? 'Update' : 'Save')}
         </Button>

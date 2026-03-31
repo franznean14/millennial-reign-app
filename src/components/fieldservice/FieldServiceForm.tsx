@@ -25,6 +25,9 @@ function toLocalStr(d: Date) {
   return `${y}-${m}-${day}`;
 }
 
+/** Note stored on `calls` when Field Service creates a visit for a Bible Study contact. */
+const BIBLE_STUDY_CALL_NOTE = "Bible Study";
+
 interface FieldServiceFormProps {
   userId: string;
   onClose: () => void;
@@ -629,7 +632,7 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
                 p_visit_date: date,
                 p_householder_id: householderId,
                 p_establishment_id: householder.establishment_id ?? null,
-                p_note: null,
+                p_note: BIBLE_STUDY_CALL_NOTE,
                 p_visit_id: visitId
               }
             });
@@ -641,7 +644,7 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
               p_visit_date: date,
               p_householder_id: householderId,
               p_establishment_id: householder.establishment_id ?? null,
-              p_note: null,
+              p_note: BIBLE_STUDY_CALL_NOTE,
               p_visit_id: null
             });
 
@@ -712,7 +715,7 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
               id: visitId,
               establishment_id: householder.establishment_id ?? null,
               householder_id: householderId,
-              note: null,
+              note: BIBLE_STUDY_CALL_NOTE,
               publisher_id: userId,
               partner_id: null,
               visit_date: date

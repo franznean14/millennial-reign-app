@@ -2,6 +2,7 @@
 
 import { cacheGet, cacheSet, outboxReadAll, outboxRemove } from "./store";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { normalizeDailyHours } from "@/lib/db/dailyRecords";
 
 export function initOfflineSync() {
   const supabase = createSupabaseBrowserClient();
@@ -82,7 +83,10 @@ export function initOfflineSync() {
       const chunkSize = 200;
       for (let i = 0; i < daily.length; i += chunkSize) {
         const chunk = daily.slice(i, i + chunkSize);
-        const payloads = chunk.map((c: any) => c.payload);
+        const payloads = chunk.map((c: any) => ({
+          ...c.payload,
+          hours: normalizeDailyHours(c.payload?.hours),
+        }));
         try {
           const { data } = await supabase
             .from("daily_records")
