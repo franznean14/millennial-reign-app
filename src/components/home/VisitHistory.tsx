@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useState, useRef } from "react";
 import { formatVisitDateLong, getVisitDisplayName } from "@/lib/utils/visit-history-ui";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FormModal } from "@/components/shared/FormModal";
 import { Building2, Calendar, ChevronRight, DoorOpen, UserRound } from "lucide-react";
@@ -147,6 +148,26 @@ export function VisitHistory({
     return result;
   }, [hookFilteredVisits, localSearchValue]);
 
+  const hasVisitFiltersApplied = useMemo(
+    () =>
+      filterBadges.length > 0 ||
+      filters.myUpdatesOnly ||
+      filters.bwiOnly ||
+      filters.householderOnly ||
+      filters.callDateFrom != null ||
+      filters.callDateTo != null ||
+      localSearchValue.trim().length > 0,
+    [
+      filterBadges,
+      filters.myUpdatesOnly,
+      filters.bwiOnly,
+      filters.householderOnly,
+      filters.callDateFrom,
+      filters.callDateTo,
+      localSearchValue,
+    ]
+  );
+
   // Apply all filters to visits (handled by hook)
 
   const handleSeeMore = () => {
@@ -159,6 +180,13 @@ export function VisitHistory({
       loadAllVisits(0, true);
     }
   };
+
+  // Fetch every paginated batch while the Calls drawer is open so client-side filters and the
+  // header count use the full list, not only rows from "Load More" so far.
+  useEffect(() => {
+    if (!showDrawer || !hasMore || loadingMore) return;
+    loadMore();
+  }, [showDrawer, hasMore, loadingMore, loadMore]);
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -832,9 +860,14 @@ export function VisitHistory({
           if (!open) setShowFiltersDrawer(false);
         }}
         title={
-          <span className="flex w-full items-center justify-center gap-2 text-center text-lg font-bold">
+          <span className="flex w-full flex-wrap items-center justify-center gap-2 text-center text-lg font-bold">
             <KnockingDoorIcon />
             Calls
+            {hasVisitFiltersApplied ? (
+              <Badge variant="secondary" className="font-normal tabular-nums text-xs">
+                {filteredVisits.length} {filteredVisits.length === 1 ? "call" : "calls"}
+              </Badge>
+            ) : null}
           </span>
         }
         headerClassName="px-4 pt-4 pb-2 items-center text-center"
