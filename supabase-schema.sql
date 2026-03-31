@@ -565,6 +565,10 @@ BEGIN
     RETURN NEW;
   END IF;
 
+  IF current_setting('app.allow_profile_congregation_update', true) = '1' THEN
+    RETURN NEW;
+  END IF;
+
   IF public.is_admin(NEW.id) OR OLD.role IN ('admin', 'superadmin') THEN
     RETURN NEW;
   END IF;
@@ -1268,7 +1272,12 @@ $$;
 GRANT EXECUTE ON FUNCTION public.has_encrypted_password() TO anon, authenticated;
 
 -- Congregation functions
-CREATE OR REPLACE FUNCTION public.transfer_user_to_congregation(target_user uuid, new_congregation uuid)
+CREATE OR REPLACE FUNCTION public.transfer_user_to_congregation(
+  target_user uuid,
+  new_congregation uuid,
+  p_is_congregation_guest boolean DEFAULT NULL,
+  p_group_name text DEFAULT NULL
+)
 RETURNS public.profiles LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   allowed boolean;
@@ -1282,7 +1291,11 @@ BEGIN
     public.is_admin(auth.uid()) OR EXISTS (
       SELECT 1 FROM public.profiles me, public.profiles p
       WHERE me.id = auth.uid() AND p.id = target_user
-      AND me.privileges @> array['Elder']::text[] AND me.congregation_id = p.congregation_id
+        AND me.privileges @> array['Elder']::text[]
+        AND (
+          (me.congregation_id IS NOT NULL AND me.congregation_id = p.congregation_id)
+          OR (p.congregation_id IS NULL AND me.congregation_id = new_congregation)
+        )
     )
   ) INTO allowed;
 
@@ -1290,13 +1303,28 @@ BEGIN
     RAISE EXCEPTION 'insufficient_privilege: only an elder of the user''s current congregation or an admin may transfer';
   END IF;
 
-  UPDATE public.profiles SET congregation_id = new_congregation, updated_at = now()
-  WHERE id = target_user RETURNING * INTO res;
+  PERFORM set_config('app.allow_profile_congregation_update', '1', true);
+
+  UPDATE public.profiles
+  SET
+    congregation_id = new_congregation,
+    is_congregation_guest = CASE
+      WHEN p_is_congregation_guest IS NOT NULL THEN p_is_congregation_guest
+      ELSE is_congregation_guest
+    END,
+    group_name = CASE
+      WHEN p_is_congregation_guest IS NOT NULL AND p_is_congregation_guest THEN NULL
+      WHEN p_group_name IS NOT NULL THEN p_group_name
+      ELSE group_name
+    END,
+    updated_at = now()
+  WHERE id = target_user
+  RETURNING * INTO res;
   RETURN res;
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION public.transfer_user_to_congregation(uuid, uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.transfer_user_to_congregation(uuid, uuid, boolean, text) TO authenticated;
 
 -- Remove publisher from current congregation (clears assignment; does not delete auth account)
 CREATE OR REPLACE FUNCTION public.remove_user_from_congregation(target_user uuid)
@@ -1336,6 +1364,8 @@ BEGIN
 
   DELETE FROM public.business_participants
   WHERE user_id = target_user AND congregation_id = target_cong;
+
+  PERFORM set_config('app.allow_profile_congregation_update', '1', true);
 
   UPDATE public.profiles SET
     congregation_id = NULL,

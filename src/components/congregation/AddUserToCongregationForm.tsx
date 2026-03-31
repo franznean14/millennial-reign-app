@@ -248,27 +248,16 @@ export function AddUserToCongregationForm({ congregationId, onUserAdded, onClose
     setAddingUser(true);
     try {
       const supabase = createSupabaseBrowserClient();
-      
-      // Use RPC function to transfer user to congregation
-      const { error } = await supabase.rpc('transfer_user_to_congregation', {
+
+      // Single RPC: congregation + guest flag + group (trigger allows this path via session GUC)
+      const { error } = await supabase.rpc("transfer_user_to_congregation", {
         target_user: searchResult.id,
-        new_congregation: congregationId
+        new_congregation: congregationId,
+        p_is_congregation_guest: addAsGuest,
+        p_group_name: addAsGuest ? null : selectedGroup,
       });
 
       if (error) throw error;
-      
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update(
-          addAsGuest
-            ? { group_name: null, is_congregation_guest: true }
-            : { group_name: selectedGroup, is_congregation_guest: false },
-        )
-        .eq('id', searchResult.id);
-
-      if (profileError) {
-        console.error('Error updating profile after transfer:', profileError);
-      }
 
       if (selectedGuestName.trim()) {
         const { error: inheritError } = await supabase.rpc("inherit_guest_name_on_profile", {
@@ -290,9 +279,15 @@ export function AddUserToCongregationForm({ congregationId, onUserAdded, onClose
       toast.success(`${searchResult.first_name} ${searchResult.last_name} added to congregation successfully!`);
       onUserAdded(searchResult);
       onClose();
-    } catch (error: any) {
-      console.error('Error adding user to congregation:', error);
-      toast.error(error.message || "Failed to add user to congregation");
+    } catch (error: unknown) {
+      const msg =
+        error && typeof error === "object" && "message" in error && typeof (error as { message?: string }).message === "string"
+          ? (error as { message: string }).message
+          : error instanceof Error
+            ? error.message
+            : "Failed to add user to congregation";
+      console.error("Error adding user to congregation:", msg, error);
+      toast.error(msg);
     } finally {
       setAddingUser(false);
     }
