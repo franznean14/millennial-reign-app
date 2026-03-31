@@ -191,15 +191,17 @@ const getStatusPriority = (status: string | null | undefined): number => {
       return 6;
     case "rack_pulled_out":
       return 7;
-    case "closed":
+    case "on_hold":
       return 8;
+    case "closed":
+      return 9;
     case "declined_rack":
     case "do_not_call":
-      return 9;
-    case "inappropriate":
       return 10;
-    default:
+    case "inappropriate":
       return 11;
+    default:
+      return 12;
   }
 };
 
@@ -223,6 +225,8 @@ const getStatusDotColorClass = (status: string): string => {
       return "bg-cyan-500";
     case "rack_pulled_out":
       return "bg-amber-500";
+    case "on_hold":
+      return "bg-stone-500";
     case "closed":
       return "bg-slate-500";
     case "declined_rack":

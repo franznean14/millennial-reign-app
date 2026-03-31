@@ -9,7 +9,8 @@ export const STATUS_HIERARCHY = [
   'for_scouting',       // Better
   'for_follow_up',      // Good
   'accepted_rack',      // Better
-  'has_bible_studies'   // Best
+  'has_bible_studies',  // Best
+  'on_hold'             // Pause — wins when set so UI shows “don’t work this for now”
 ] as const;
 
 // Helper function to get the best status from an array
@@ -51,6 +52,8 @@ export const getStatusColor = (status: string) => {
       return 'border-emerald-500/50 bg-emerald-500/10';
     case 'closed':
       return 'border-slate-500/50 bg-slate-500/5';
+    case 'on_hold':
+      return 'border-stone-600/45 bg-stone-800/12';
     case 'personal_territory':
       return 'border-pink-500/50 bg-pink-500/5';
     default:
@@ -84,6 +87,8 @@ export const getStatusTitleColor = (status: string): string => {
       return 'text-emerald-500';
     case 'closed':
       return 'text-slate-500';
+    case 'on_hold':
+      return 'text-stone-400';
     case 'personal_territory':
       return 'text-pink-500';
     /** Header title when establishment/contact is another publisher's personal territory */
@@ -141,6 +146,8 @@ export const getStatusTextColor = (status: string) => {
       return 'text-emerald-500 border-emerald-500/50';
     case 'closed':
       return 'text-slate-500 border-slate-500/50';
+    case 'on_hold':
+      return 'text-stone-400 border-stone-600/50';
     case 'personal_territory':
       return 'text-pink-500 border-pink-500/50';
     // Householder statuses

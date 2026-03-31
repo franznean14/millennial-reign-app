@@ -125,6 +125,7 @@ export function useBusinessFilterOptions({
         "for_follow_up",
         "for_scouting",
         "closed",
+        "on_hold",
         "rack_pulled_out",
         "inappropriate",
         "declined_rack",
@@ -139,6 +140,7 @@ export function useBusinessFilterOptions({
         declined_rack: "Rack Declined",
         rack_pulled_out: "Rack Pulled Out",
         closed: "Closed",
+        on_hold: "On Hold",
         inappropriate: "Inappropriate"
       };
 

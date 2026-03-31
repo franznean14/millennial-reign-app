@@ -415,6 +415,9 @@ export function EstablishmentDetails({
                             case "closed":
                               dotColor = "bg-slate-500";
                               break;
+                            case "on_hold":
+                              dotColor = "bg-stone-500";
+                              break;
                             default:
                               dotColor = "bg-gray-500";
                           }

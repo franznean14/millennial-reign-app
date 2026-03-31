@@ -163,6 +163,8 @@ export function EstablishmentList({
         return 'bg-emerald-500';
       case 'closed':
         return 'bg-slate-500';
+      case 'on_hold':
+        return 'bg-stone-500';
       case 'rack_pulled_out':
         return 'bg-amber-500';
       default:
@@ -274,6 +276,9 @@ export function EstablishmentList({
                                 break;
                               case 'has_bible_studies':
                                 dotColor = 'bg-emerald-500';
+                                break;
+                              case 'on_hold':
+                                dotColor = 'bg-stone-500';
                                 break;
                               default:
                                 dotColor = 'bg-gray-500';
@@ -419,6 +424,9 @@ export function EstablishmentList({
                               break;
                             case 'rack_pulled_out':
                               dotColor = 'bg-amber-500';
+                              break;
+                            case 'on_hold':
+                              dotColor = 'bg-stone-500';
                               break;
                             default:
                               dotColor = 'bg-gray-500';

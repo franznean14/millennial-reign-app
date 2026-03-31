@@ -464,6 +464,8 @@ function getStatusColorValue(status: string) {
       return '#10b981'; // emerald-500
     case 'closed':
       return '#64748b'; // slate-500
+    case 'on_hold':
+      return '#57534e'; // stone-600 (dark brown-gray, neutral)
     default:
       return '#6b7280'; // gray-500
   }
@@ -487,6 +489,8 @@ function getStatusDotColorClass(status: string) {
       return 'bg-amber-500';
     case 'closed':
       return 'bg-slate-500';
+    case 'on_hold':
+      return 'bg-stone-500';
     default:
       return 'bg-gray-500';
   }
@@ -527,6 +531,7 @@ function MapMarker({ establishment, onClick, isSelected, currentUserId }: MapMar
         case '#3b82f6': return '#2563eb'; // blue-600
         case '#a855f7': return '#9333ea'; // purple-600
         case '#10b981': return '#059669'; // emerald-600
+        case '#57534e': return '#44403c'; // stone-700 (darker brown-gray for on_hold fill)
         default: return '#4b5563'; // gray-600
       }
     };

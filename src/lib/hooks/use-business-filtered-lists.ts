@@ -128,10 +128,11 @@ export function useBusinessFilteredLists({
       if (statuses.includes("for_follow_up")) return 3;
       if (statuses.includes("accepted_rack")) return 4;
       if (statuses.includes("for_scouting")) return 5;
-      if (statuses.includes("rack_pulled_out")) return 6;
-      if (statuses.includes("closed")) return 7;
-      if (statuses.includes("declined_rack")) return 8;
-      return 9;
+      if (statuses.includes("on_hold")) return 6;
+      if (statuses.includes("rack_pulled_out")) return 7;
+      if (statuses.includes("closed")) return 8;
+      if (statuses.includes("declined_rack")) return 9;
+      return 10;
     };
 
     if (filters.nearMe && filters.userLocation) {

@@ -75,6 +75,7 @@ const ESTABLISHMENT_STATUS_OPTIONS: { value: string; label: string }[] = [
   { value: "declined_rack", label: "Rack Declined" },
   { value: "rack_pulled_out", label: "Rack Pulled Out" },
   { value: "closed", label: "Closed" },
+  { value: "on_hold", label: "On Hold" },
   { value: "inappropriate", label: "Inappropriate" }
 ];
 

@@ -67,7 +67,7 @@ END $$;
 
 DO $$ BEGIN
   CREATE TYPE public.business_establishment_status_t AS ENUM (
-    'for_scouting','for_follow_up','accepted_rack','declined_rack','has_bible_studies','inappropriate'
+    'for_scouting','for_follow_up','accepted_rack','declined_rack','has_bible_studies','inappropriate','on_hold'
   );
 EXCEPTION
   WHEN duplicate_object THEN null;

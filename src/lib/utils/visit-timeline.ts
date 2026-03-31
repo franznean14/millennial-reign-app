@@ -51,6 +51,8 @@ export function getStatusDotColor(status: string) {
       return "border-cyan-500";
     case "closed":
       return "border-slate-500";
+    case "on_hold":
+      return "border-stone-500";
     default:
       return "border-gray-500";
   }

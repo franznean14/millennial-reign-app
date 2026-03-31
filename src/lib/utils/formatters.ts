@@ -43,6 +43,8 @@ export function formatEstablishmentStatusCompactText(status: string): string {
       return "BS";
     case "closed":
       return "Closed";
+    case "on_hold":
+      return "On Hold";
     default:
       return formatStatusText(status);
   }
