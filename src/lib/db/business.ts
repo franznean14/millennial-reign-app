@@ -41,7 +41,14 @@ export type EstablishmentStatus =
   | 'has_bible_studies'
   | 'closed'
   | 'on_hold';
-export type HouseholderStatus = 'potential'|'interested'|'return_visit'|'bible_study'|'do_not_call';
+export type HouseholderStatus =
+  | 'potential'
+  | 'interested'
+  | 'return_visit'
+  | 'bible_study'
+  | 'do_not_call'
+  | 'moved_branch'
+  | 'resigned';
 
 export interface Establishment {
   id?: string;
@@ -612,6 +619,26 @@ export async function findEstablishmentDuplicates(name: string, area?: string | 
   return (data as any[]) ?? [];
 }
 
+/** Readable message for PostgREST errors (console/overlay often show `{}` for the raw object). */
+function formatHouseholderWriteError(
+  error: { message?: string; code?: string; details?: string; hint?: string } | null
+): string {
+  if (!error) return "Could not save contact.";
+  const msg = (error.message || "").trim();
+  const details = (error.details || "").trim();
+  const hint = (error.hint || "").trim();
+  const code = (error.code || "").trim();
+  const combined = [msg, details, hint].filter(Boolean).join(" — ");
+  if (combined) {
+    if (/householder_status|invalid input value for enum/i.test(combined)) {
+      return `${combined} Apply the migration that adds new contact statuses (e.g. supabase/migrations/20260331130000_add_householder_moved_resigned_status.sql) to your Supabase project.`;
+    }
+    return combined;
+  }
+  if (code) return `Database error (${code}). Try again or check Supabase logs.`;
+  return "Could not save contact.";
+}
+
 export async function upsertHouseholder(h: Householder): Promise<Householder | null> {
   const supabase = createSupabaseBrowserClient();
   await supabase.auth.getSession().catch(() => {});
@@ -632,15 +659,17 @@ export async function upsertHouseholder(h: Householder): Promise<Householder | n
   if (h.id) {
     const { data, error } = await supabase.from('householders').update(payload).eq('id', h.id).select().single();
     if (error) {
-      console.error('Error updating householder:', error);
-      return null;
+      const text = formatHouseholderWriteError(error);
+      console.error("Error updating householder:", text, { code: error.code, details: error.details, hint: error.hint });
+      throw new Error(text);
     }
     return data as any;
   }
   const { data, error } = await supabase.from('householders').insert(payload).select().single();
   if (error) {
-    console.error('Error inserting householder:', error);
-    return null;
+    const text = formatHouseholderWriteError(error);
+    console.error("Error inserting householder:", text, { code: error.code, details: error.details, hint: error.hint });
+    throw new Error(text);
   }
   return data as any;
 }

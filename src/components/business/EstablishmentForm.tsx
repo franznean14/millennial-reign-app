@@ -21,7 +21,11 @@ import { upsertEstablishment, getUniqueAreas, getUniqueFloors, findEstablishment
 import { businessEventBus } from "@/lib/events/business-events";
 import { useMobile } from "@/lib/hooks/use-mobile";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
+import {
+  getStatusTextColor,
+  normalizeEstablishmentStatusesForForm,
+  toggleEstablishmentStatusForForm,
+} from "@/lib/utils/status-hierarchy";
 import { cn } from "@/lib/utils";
 
 // Determine whether a draft object has any meaningful data
@@ -97,7 +101,11 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
   const [lat, setLat] = useState<number | null>(initialData?.lat || null);
   const [lng, setLng] = useState<number | null>(initialData?.lng || null);
   const [floor, setFloor] = useState(initialData?.floor || "Ground Floor");
-  const [status, setStatus] = useState<string[]>(initialData?.statuses || (isEditing ? [] : ['for_scouting']));
+  const [status, setStatus] = useState<string[]>(() =>
+    normalizeEstablishmentStatusesForForm(
+      initialData?.statuses ?? (isEditing ? [] : ["for_scouting"])
+    )
+  );
   const [statusDropdownOpen, setStatusDropdownOpen] = useState(false);
   const [note, setNote] = useState(initialData?.note || "");
   const [gps, setGps] = useState<string>(initialData?.lat && initialData?.lng ? `${initialData.lat}, ${initialData.lng}` : "");
@@ -131,7 +139,7 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
                 setArea(filters.areas[0]);
               }
               if (Array.isArray(filters.statuses) && filters.statuses.length > 0 && (!status || status.length === 0)) {
-                setStatus([...filters.statuses]);
+                setStatus(normalizeEstablishmentStatusesForForm([...filters.statuses]));
               }
             }
           }
@@ -153,7 +161,9 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
           if (typeof draft.lat === "number") setLat(draft.lat);
           if (typeof draft.lng === "number") setLng(draft.lng);
           if (typeof draft.floor === "string") setFloor(draft.floor);
-          if (Array.isArray(draft.statuses) && draft.statuses.length > 0) setStatus(draft.statuses);
+          if (Array.isArray(draft.statuses) && draft.statuses.length > 0) {
+            setStatus(normalizeEstablishmentStatusesForForm(draft.statuses));
+          }
           if (typeof draft.note === "string") setNote(draft.note);
           if (typeof draft.gps === "string") setGps(draft.gps);
         }
@@ -310,6 +320,9 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
     setSaving(true);
     
     try {
+      const statusesPayload = normalizeEstablishmentStatusesForForm(
+        status.length > 0 ? status : ["for_scouting"]
+      );
       const establishmentData = { 
         name, 
         description: description||null, 
@@ -317,7 +330,7 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
         lat, 
         lng, 
         floor: floor||null, 
-        statuses: status,
+        statuses: statusesPayload,
         note: note||null 
       };
 
@@ -363,7 +376,7 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
                   setArea(filters.areas[0]);
                 }
                 if (Array.isArray(filters.statuses) && filters.statuses.length > 0) {
-                  setStatus([...filters.statuses]);
+                  setStatus(normalizeEstablishmentStatusesForForm([...filters.statuses]));
                 }
               }
             }
@@ -529,11 +542,9 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
                   key={statusOption.value}
                   checked={isActive}
                   onCheckedChange={(checked) => {
-                    if (checked) {
-                      setStatus([...status, statusOption.value]);
-                    } else {
-                      setStatus(status.filter((s) => s !== statusOption.value));
-                    }
+                    setStatus((prev) =>
+                      toggleEstablishmentStatusForForm(prev, statusOption.value, !!checked)
+                    );
                   }}
                   onSelect={(e) => e.preventDefault()}
                   className={cn(

@@ -259,8 +259,12 @@ export function useBusinessFilteredLists({
         case 'declined_rack':
         case 'inappropriate':
           return 5;
-        default:
+        case 'moved_branch':
           return 6;
+        case 'resigned':
+          return 7;
+        default:
+          return 8;
       }
     };
 

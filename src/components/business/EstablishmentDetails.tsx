@@ -71,6 +71,9 @@ const getHouseholderStatusColorClass = (status: string) => {
       return 'text-orange-600 border-orange-200 bg-orange-50 dark:text-orange-400 dark:border-orange-800 dark:bg-orange-950';
     case 'bible_study':
       return 'text-emerald-600 border-emerald-200 bg-emerald-50 dark:text-emerald-400 dark:border-emerald-800 dark:bg-emerald-950';
+    case 'moved_branch':
+    case 'resigned':
+      return 'text-stone-600 border-stone-200 bg-stone-50 dark:text-stone-400 dark:border-stone-700 dark:bg-stone-950';
     default:
       return 'text-gray-600 border-gray-200 bg-gray-50 dark:text-gray-400 dark:border-gray-800 dark:bg-gray-950';
   }
@@ -915,7 +918,8 @@ export function EstablishmentDetails({
         description="Update establishment details"
         headerClassName="text-center"
       >
-              <EstablishmentForm 
+              <EstablishmentForm
+                key={establishment.id}
                 onSaved={handleEditSaved}
                 onDelete={handleDelete}
                 onArchive={handleArchive}

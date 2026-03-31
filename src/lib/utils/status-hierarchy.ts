@@ -31,6 +31,57 @@ export const getBestStatus = (statuses: string[]): string => {
   return bestStatus;
 };
 
+/**
+ * Establishment pipeline outcomes: only one may be stored at a time in the form.
+ * {@link STACKABLE_ESTABLISHMENT_STATUSES} can combine with any pipeline value.
+ */
+export const MUTUALLY_EXCLUSIVE_ESTABLISHMENT_PIPELINE_STATUSES = [
+  "for_scouting",
+  "for_follow_up",
+  "accepted_rack",
+  "for_replenishment",
+  "declined_rack",
+  "rack_pulled_out",
+  "closed",
+  "inappropriate",
+] as const;
+
+/** May appear alongside any pipeline status (and with each other). */
+export const STACKABLE_ESTABLISHMENT_STATUSES = ["has_bible_studies", "on_hold", "personal_territory"] as const;
+
+const EXCLUSIVE_PIPELINE_SET = new Set<string>(MUTUALLY_EXCLUSIVE_ESTABLISHMENT_PIPELINE_STATUSES);
+const STACKABLE_ESTABLISHMENT_SET = new Set<string>(STACKABLE_ESTABLISHMENT_STATUSES);
+
+/** Collapse multiple pipeline exclusives to one (best by hierarchy); keeps stackables and unknown keys. */
+export function normalizeEstablishmentStatusesForForm(statuses: string[]): string[] {
+  if (!statuses?.length) return statuses;
+  const stackable = statuses.filter((s) => STACKABLE_ESTABLISHMENT_SET.has(s));
+  const exclusive = statuses.filter((s) => EXCLUSIVE_PIPELINE_SET.has(s));
+  const other = statuses.filter((s) => !STACKABLE_ESTABLISHMENT_SET.has(s) && !EXCLUSIVE_PIPELINE_SET.has(s));
+  const primaryExclusive: string[] =
+    exclusive.length === 0 ? [] : exclusive.length === 1 ? exclusive : [getBestStatus(exclusive)];
+  const out: string[] = [];
+  const push = (s: string) => {
+    if (!out.includes(s)) out.push(s);
+  };
+  other.forEach(push);
+  stackable.forEach(push);
+  primaryExclusive.forEach(push);
+  return out;
+}
+
+/** Toggle one establishment status in the form: selecting a pipeline status clears other pipeline statuses. */
+export function toggleEstablishmentStatusForForm(prev: string[], value: string, checked: boolean): string[] {
+  if (!checked) {
+    return prev.filter((s) => s !== value);
+  }
+  if (prev.includes(value)) return prev;
+  if (EXCLUSIVE_PIPELINE_SET.has(value)) {
+    return [...prev.filter((s) => !EXCLUSIVE_PIPELINE_SET.has(s)), value];
+  }
+  return [...prev, value];
+}
+
 // Helper function to get status color based on hierarchy
 export const getStatusColor = (status: string) => {
   switch (status) {
@@ -88,6 +139,8 @@ export const getStatusTitleColor = (status: string): string => {
     case 'closed':
       return 'text-slate-500';
     case 'on_hold':
+    case 'moved_branch':
+    case 'resigned':
       return 'text-stone-400';
     case 'personal_territory':
       return 'text-pink-500';
@@ -161,6 +214,9 @@ export const getStatusTextColor = (status: string) => {
       return 'text-emerald-500 border-emerald-500/50';
     case 'do_not_call':
       return 'text-red-500 border-red-500/50';
+    case 'moved_branch':
+    case 'resigned':
+      return 'text-stone-400 border-stone-600/50';
     default:
       return 'text-gray-500 border-gray-500/50';
   }

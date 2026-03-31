@@ -173,7 +173,9 @@ export function useBusinessFilterOptions({
       interested: "Interested",
       return_visit: "Return Visit",
       bible_study: "Bible Study",
-      do_not_call: "Do Not Call"
+      do_not_call: "Do Not Call",
+      moved_branch: "Moved",
+      resigned: "Resigned"
     };
 
     const orderedHouseholderStatuses = [
@@ -182,6 +184,8 @@ export function useBusinessFilterOptions({
       "interested",
       "potential",
       "do_not_call",
+      "moved_branch",
+      "resigned",
     ];
 
     const availableStatuses = new Set(allHouseholderStatuses);

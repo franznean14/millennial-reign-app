@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "@/components/ui/sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Crosshair } from "lucide-react";
-import { upsertHouseholder } from "@/lib/db/business";
+import { upsertHouseholder, type HouseholderStatus } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { useMobile } from "@/lib/hooks/use-mobile";
 import { cn } from "@/lib/utils";
@@ -25,7 +25,7 @@ interface HouseholderFormProps {
     id: string;
     establishment_id?: string | null;
     name: string;
-    status: 'potential'|'interested'|'return_visit'|'bible_study'|'do_not_call';
+    status: HouseholderStatus;
     note?: string | null;
     lat?: number | null;
     lng?: number | null;
@@ -46,7 +46,7 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
       : selectedEstablishmentId || establishments[0]?.id || ""
   );
   const [name, setName] = useState(initialData?.name || "");
-  const [status, setStatus] = useState<'potential'|'interested'|'return_visit'|'bible_study'|'do_not_call'>(initialData?.status || "potential");
+  const [status, setStatus] = useState<HouseholderStatus>(initialData?.status || "potential");
   const [note, setNote] = useState(initialData?.note || "");
   
   // Convert lat/lng to numbers if they're strings (PostgreSQL numeric types can be returned as strings)
@@ -260,8 +260,14 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
         toast.error(isEditing ? "Failed to update householder" : "Failed to save householder");
       }
     } catch (error) {
-      toast.error(isEditing ? "Error updating householder" : "Error saving householder");
-      console.error('Error saving/updating householder:', error);
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : isEditing
+            ? "Error updating householder"
+            : "Error saving householder";
+      toast.error(message);
+      console.error("Error saving/updating householder:", error);
     } finally {
       setSaving(false);
     }
@@ -305,7 +311,7 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
       </div>
       <div className="grid gap-1">
         <Label>Status</Label>
-        <Select value={status} onValueChange={(v:any)=> setStatus(v)}>
+        <Select value={status} onValueChange={(v) => setStatus(v as HouseholderStatus)}>
           <SelectTrigger
             className={cn(
               "h-10 text-sm",
@@ -348,6 +354,18 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
               className={cn("py-2.5 text-sm", getStatusTextColor("do_not_call"))}
             >
               Do Not Call
+            </SelectItem>
+            <SelectItem
+              value="moved_branch"
+              className={cn("py-2.5 text-sm", getStatusTextColor("moved_branch"))}
+            >
+              Moved
+            </SelectItem>
+            <SelectItem
+              value="resigned"
+              className={cn("py-2.5 text-sm", getStatusTextColor("resigned"))}
+            >
+              Resigned
             </SelectItem>
           </SelectContent>
         </Select>

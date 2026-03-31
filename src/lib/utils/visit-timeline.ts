@@ -53,6 +53,9 @@ export function getStatusDotColor(status: string) {
       return "border-slate-500";
     case "on_hold":
       return "border-stone-500";
+    case "moved_branch":
+    case "resigned":
+      return "border-stone-500";
     default:
       return "border-gray-500";
   }

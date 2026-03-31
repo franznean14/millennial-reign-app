@@ -33,6 +33,9 @@ export function getFadedStatusColor(status: string) {
       return "text-emerald-500 border-emerald-500 bg-emerald-500/10";
     case "do_not_call":
       return "text-red-500 border-red-500 bg-red-500/5";
+    case "moved_branch":
+    case "resigned":
+      return "text-stone-400 border-stone-600 bg-stone-800/15";
     case "exclude_personal_territory":
       return "text-pink-500 border-pink-500 bg-pink-500/5";
     case "personal_territory":
@@ -75,6 +78,9 @@ export function getSelectedStatusColor(status: string) {
       return "text-white bg-emerald-600 border-emerald-600";
     case "do_not_call":
       return "text-white bg-red-600 border-red-600";
+    case "moved_branch":
+    case "resigned":
+      return "text-stone-100 bg-stone-600 border-stone-600";
     case "exclude_personal_territory":
       return "text-white bg-pink-600 border-pink-600";
     case "personal_territory":

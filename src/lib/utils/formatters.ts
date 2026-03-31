@@ -4,6 +4,12 @@ export function formatStatusText(status: string): string {
   if (status === "personal_territory") {
     return "Personal Territory";
   }
+  if (status === "moved_branch") {
+    return "Moved";
+  }
+  if (status === "resigned") {
+    return "Resigned";
+  }
   return status
     .split("_")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
@@ -20,6 +26,10 @@ export function formatHouseholderStatusCompactText(status: string): string {
       return "DNC";
     case "interested":
       return "Int";
+    case "moved_branch":
+      return "Moved";
+    case "resigned":
+      return "Resigned";
     default:
       return formatStatusText(status);
   }
