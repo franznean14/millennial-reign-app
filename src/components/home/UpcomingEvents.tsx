@@ -134,6 +134,7 @@ export function UpcomingEvents({ userId }: UpcomingEventsProps) {
     isDrawer: boolean
   ) => {
     const { event, nextDate } = row;
+    const isNextInLine = index === 0;
     const accent = eventTypeAccent(event.event_type);
     return (
       <VisitTimelineRow
@@ -158,22 +159,42 @@ export function UpcomingEvents({ userId }: UpcomingEventsProps) {
         contentClassName="ml-3"
       >
         <div className="min-w-0 pr-1">
-          <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-5 leading-none", accent)}>
+          <Badge
+            variant="outline"
+            className={cn(
+              "px-1.5 py-0 leading-none",
+              isNextInLine ? "text-xs h-6" : "text-[10px] h-5",
+              accent
+            )}
+          >
             {formatEventTypeLabel(event.event_type)}
           </Badge>
-          <div className="text-sm font-medium text-foreground line-clamp-2 mt-1">{event.title}</div>
           <div
             className={cn(
-              "flex items-center gap-1 text-xs text-muted-foreground mt-1",
+              "font-medium text-foreground line-clamp-2 mt-1",
+              isNextInLine ? "text-base" : "text-sm"
+            )}
+          >
+            {event.title}
+          </div>
+          <div
+            className={cn(
+              "flex items-center gap-1 text-muted-foreground mt-1",
+              isNextInLine ? "text-sm" : "text-xs",
               isDrawer && "mb-0.5"
             )}
           >
-            <Calendar className="h-3 w-3 shrink-0" aria-hidden />
+            <Calendar className={cn("shrink-0", isNextInLine ? "h-3.5 w-3.5" : "h-3 w-3")} aria-hidden />
             <span className="min-w-0">{formatEventListDateLine(event, nextDate)}</span>
           </div>
           {event.location?.trim() ? (
-            <div className="flex items-start gap-1 text-xs text-muted-foreground mt-1">
-              <MapPin className="h-3 w-3 shrink-0 mt-0.5" aria-hidden />
+            <div
+              className={cn(
+                "flex items-start gap-1 text-muted-foreground mt-1",
+                isNextInLine ? "text-sm" : "text-xs"
+              )}
+            >
+              <MapPin className={cn("shrink-0 mt-0.5", isNextInLine ? "h-3.5 w-3.5" : "h-3 w-3")} aria-hidden />
               <span className="line-clamp-2 break-words">{event.location.trim()}</span>
             </div>
           ) : null}
