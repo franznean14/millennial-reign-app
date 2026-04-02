@@ -104,7 +104,7 @@ export function HomeView({
         </>
       ) : (
         <div className="px-4">
-          <UpcomingEvents />
+          <UpcomingEvents userId={userId} />
         </div>
       )}
       {/* FAB handled by UnifiedFab */}

@@ -4,10 +4,10 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import type { Congregation } from "@/lib/db/congregations";
 import type { HouseholderWithDetails, VisitWithUser } from "@/lib/db/business";
-import { Settings } from "lucide-react";
 import { businessEventBus } from "@/lib/events/business-events";
 import { MeetingsSection } from "../congregation/MeetingsSection";
 import { MinistrySection } from "../congregation/MinistrySection";
+import { CongregationAdminEventsCard } from "../congregation/CongregationAdminEventsCard";
 
 // Dynamic import to avoid circular dependencies
 type CongregationMembersCardProps = {
@@ -195,14 +195,8 @@ export function CongregationView({ data, onEdit, canEdit, canManageCongregationU
         )
       )}
       
-      {congregationTab === 'admin' && isElder && (
-        <div className="space-y-4">
-          <div className="text-center py-8 text-muted-foreground">
-            <Settings className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>Admin Section</p>
-            <p className="text-sm">Admin features will appear here</p>
-          </div>
-        </div>
+      {congregationTab === 'admin' && isElder && data.id && (
+        <CongregationAdminEventsCard congregationId={data.id} canEdit={!!canEdit} />
       )}
       </div>
     </>

@@ -2,7 +2,30 @@
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
-export type EventType = 'ministry' | 'meeting' | 'memorial' | 'circuit_overseer' | 'other';
+export type EventType =
+  | 'ministry'
+  | 'meeting'
+  | 'memorial'
+  | 'circuit_overseer'
+  | 'cabr'
+  | 'caco'
+  | 'regional_convention'
+  | 'other';
+
+const EVENT_TYPE_LABELS: Record<EventType, string> = {
+  ministry: 'Ministry',
+  meeting: 'Meeting',
+  memorial: 'Memorial',
+  circuit_overseer: 'Circuit Overseer Visit',
+  cabr: 'CABR',
+  caco: 'CACO',
+  regional_convention: 'Regional Convention',
+  other: 'Other',
+};
+
+export function formatEventTypeLabel(type: EventType): string {
+  return EVENT_TYPE_LABELS[type] ?? type;
+}
 export type MinistryType = 'house_to_house' | 'business_witnessing' | 'memorial_campaign' | 'telephone' | 'letter_writing' | 'public_witnessing' | 'other';
 export type RecurrencePattern = 'none' | 'weekly' | 'monthly' | 'yearly' | 'custom';
 export type EventStatus = 'active' | 'cancelled' | 'completed' | 'postponed';
@@ -73,7 +96,7 @@ export async function upsertEventSchedule(event: EventSchedule): Promise<EventSc
       .select()
       .single();
     if (error) {
-      console.error('Error updating event schedule:', error);
+      console.error('Error updating event schedule:', error.message, error.code, error.details, error.hint, error);
       return null;
     }
     return data as EventSchedule;
@@ -86,7 +109,14 @@ export async function upsertEventSchedule(event: EventSchedule): Promise<EventSc
       .select()
       .single();
     if (error) {
-      console.error('Error inserting event schedule:', error);
+      console.error(
+        'Error inserting event schedule:',
+        error.message,
+        error.code,
+        error.details,
+        error.hint,
+        error
+      );
       return null;
     }
     return data as EventSchedule;

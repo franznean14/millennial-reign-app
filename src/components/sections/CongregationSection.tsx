@@ -104,6 +104,7 @@ export function CongregationSection({
             }}
             canEdit={canEdit}
             canManageCongregationUsers={admin || isElder}
+            isElder={isElder}
             initialTab={congregationInitialTab}
             congregationTab={congregationTab}
             onCongregationTabChange={setCongregationTab}

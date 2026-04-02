@@ -93,6 +93,38 @@ EXCEPTION
   WHEN duplicate_object THEN null;
 END $$;
 
+-- Additional event_type_t values (see migration 20260402120000_event_type_add_cabr_caco_regional_convention.sql)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_enum e
+    JOIN pg_type t ON e.enumtypid = t.oid
+    WHERE t.typname = 'event_type_t' AND e.enumlabel = 'cabr'
+  ) THEN
+    ALTER TYPE public.event_type_t ADD VALUE 'cabr';
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_enum e
+    JOIN pg_type t ON e.enumtypid = t.oid
+    WHERE t.typname = 'event_type_t' AND e.enumlabel = 'caco'
+  ) THEN
+    ALTER TYPE public.event_type_t ADD VALUE 'caco';
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_enum e
+    JOIN pg_type t ON e.enumtypid = t.oid
+    WHERE t.typname = 'event_type_t' AND e.enumlabel = 'regional_convention'
+  ) THEN
+    ALTER TYPE public.event_type_t ADD VALUE 'regional_convention';
+  END IF;
+END $$;
+
 DO $$ BEGIN
   CREATE TYPE public.ministry_type_t AS ENUM (
     'house_to_house',

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,11 +9,19 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/sonner";
 import { upsertEventSchedule, type EventSchedule, type EventType, type MinistryType, type RecurrencePattern } from "@/lib/db/eventSchedules";
+import {
+  readEventScheduleDraft,
+  writeEventScheduleDraft,
+  clearEventScheduleDraft,
+  type EventScheduleDraftV1,
+} from "@/lib/congregation/event-schedule-draft";
 import { formatTimeLabel } from "@/lib/utils/recurrence";
 import { Calendar, Clock, Crosshair } from "lucide-react";
 import { DateRangeSelectContent } from "@/components/ui/date-range-select-modal";
 import { TimeSelectModal } from "@/components/ui/time-select-modal";
 import { format } from "date-fns";
+
+const MEMORIAL_DEFAULT_TITLE = "Memorial of Jesus' Death";
 
 interface EventScheduleFormProps {
   congregationId: string;
@@ -23,6 +31,9 @@ interface EventScheduleFormProps {
 }
 
 export function EventScheduleForm({ congregationId, onSaved, initialData = null, isEditing = false }: EventScheduleFormProps) {
+  const isDraftMode = !isEditing && !initialData?.id;
+  const [draftHydrated, setDraftHydrated] = useState(() => !isDraftMode);
+
   const [eventType, setEventType] = useState<EventType>(initialData?.event_type || 'ministry');
   const [ministryType, setMinistryType] = useState<MinistryType | ''>(initialData?.ministry_type || '');
   const [title, setTitle] = useState(initialData?.title || "");
@@ -44,6 +55,122 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
   const [showLocationCoords, setShowLocationCoords] = useState(false);
   const [saving, setSaving] = useState(false);
   const [activePanel, setActivePanel] = useState<"form" | "date" | "time" | "recurrence">("form");
+  const prevEventTypeRef = useRef<EventType | undefined>(undefined);
+  const draftSnapshotRef = useRef<EventScheduleDraftV1 | null>(null);
+
+  // Format date as YYYY-MM-DD (used by submit + draft persistence; declared before effects).
+  const formatDate = (date: Date | null): string => {
+    if (!date) return "";
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  // Restore unsaved new-event draft when reopening the FAB drawer (cleared on successful submit).
+  useEffect(() => {
+    if (!isDraftMode) {
+      setDraftHydrated(true);
+      return;
+    }
+    const d = readEventScheduleDraft(congregationId);
+    if (d) {
+      setEventType(d.eventType);
+      setMinistryType(d.ministryType);
+      setTitle(d.title);
+      setDescription(d.description);
+      setStartDate(d.startDate ? new Date(`${d.startDate}T12:00:00`) : new Date());
+      setEndDate(d.endDate ? new Date(`${d.endDate}T12:00:00`) : null);
+      setStartTime(d.startTime);
+      setEndTime(d.endTime);
+      setIsAllDay(d.isAllDay);
+      setRecurrencePattern(d.recurrencePattern);
+      setRecurrenceEndDate(d.recurrenceEndDate ? new Date(`${d.recurrenceEndDate}T12:00:00`) : null);
+      setDayOfWeek(d.dayOfWeek);
+      setDayOfMonth(d.dayOfMonth);
+      setMonthOfYear(d.monthOfYear);
+      setRecurrenceInterval(d.recurrenceInterval);
+      setLocation(d.location);
+      setLocationLat(d.locationLat);
+      setLocationLng(d.locationLng);
+      setShowLocationCoords(d.showLocationCoords);
+      setActivePanel(d.activePanel);
+      prevEventTypeRef.current = d.eventType;
+    }
+    setDraftHydrated(true);
+  }, [congregationId, isDraftMode]);
+
+  // When switching to Memorial, default the title (matches standard memorial event naming).
+  useEffect(() => {
+    if (prevEventTypeRef.current === undefined) {
+      prevEventTypeRef.current = eventType;
+      return;
+    }
+    if (eventType === "memorial" && prevEventTypeRef.current !== "memorial") {
+      setTitle(MEMORIAL_DEFAULT_TITLE);
+    }
+    prevEventTypeRef.current = eventType;
+  }, [eventType]);
+
+  // Persist create-form draft while the drawer is closed (sessionStorage per congregation).
+  useEffect(() => {
+    if (!isDraftMode || !draftHydrated) return;
+    const draft: EventScheduleDraftV1 = {
+      v: 1,
+      eventType,
+      ministryType,
+      title,
+      description,
+      startDate: startDate ? formatDate(startDate) : null,
+      endDate: endDate ? formatDate(endDate) : null,
+      startTime,
+      endTime,
+      isAllDay,
+      recurrencePattern,
+      recurrenceEndDate: recurrenceEndDate ? formatDate(recurrenceEndDate) : null,
+      dayOfWeek,
+      dayOfMonth,
+      monthOfYear,
+      recurrenceInterval,
+      location,
+      locationLat,
+      locationLng,
+      showLocationCoords,
+      activePanel,
+    };
+    draftSnapshotRef.current = draft;
+    const t = window.setTimeout(() => writeEventScheduleDraft(congregationId, draft), 400);
+    return () => {
+      window.clearTimeout(t);
+      if (draftSnapshotRef.current) {
+        writeEventScheduleDraft(congregationId, draftSnapshotRef.current);
+      }
+    };
+  }, [
+    isDraftMode,
+    draftHydrated,
+    congregationId,
+    eventType,
+    ministryType,
+    title,
+    description,
+    startDate,
+    endDate,
+    startTime,
+    endTime,
+    isAllDay,
+    recurrencePattern,
+    recurrenceEndDate,
+    dayOfWeek,
+    dayOfMonth,
+    monthOfYear,
+    recurrenceInterval,
+    location,
+    locationLat,
+    locationLng,
+    showLocationCoords,
+    activePanel,
+  ]);
 
   // Ensure drawer scroll resets when switching panels to keep header visible
   useEffect(() => {
@@ -59,23 +186,15 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
     return () => clearTimeout(timer);
   }, [activePanel]);
 
-  // Reset ministry_type when event_type changes
+  // Reset ministry_type when event_type changes (after draft hydrate so restored drafts are not overwritten).
   useEffect(() => {
-    if (eventType !== 'ministry') {
-      setMinistryType('');
+    if (!draftHydrated) return;
+    if (eventType !== "ministry") {
+      setMinistryType("");
     } else if (!ministryType) {
-      setMinistryType('house_to_house');
+      setMinistryType("house_to_house");
     }
-  }, [eventType]);
-
-  // Format date as YYYY-MM-DD
-  const formatDate = (date: Date | null): string => {
-    if (!date) return "";
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
-  };
+  }, [eventType, draftHydrated, ministryType]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,10 +234,15 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
       const result = await upsertEventSchedule(eventData);
 
       if (result) {
+        if (isDraftMode) clearEventScheduleDraft(congregationId);
         toast.success(isEditing ? "Event schedule updated successfully!" : "Event schedule created successfully!");
         onSaved(result);
       } else {
-        toast.error(isEditing ? "Failed to update event schedule" : "Failed to create event schedule");
+        toast.error(
+          isEditing
+            ? "Failed to update event schedule"
+            : "Failed to create event schedule. If you chose a new event type, apply the latest database migration (event_type_t) to your Supabase project."
+        );
       }
     } catch (error) {
       toast.error(isEditing ? "Error updating event schedule" : "Error creating event schedule");
@@ -248,6 +372,9 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
             <SelectItem value="meeting">Meeting</SelectItem>
             <SelectItem value="memorial">Memorial</SelectItem>
             <SelectItem value="circuit_overseer">Circuit Overseer Visit</SelectItem>
+            <SelectItem value="cabr">CABR</SelectItem>
+            <SelectItem value="caco">CACO</SelectItem>
+            <SelectItem value="regional_convention">Regional Convention</SelectItem>
             <SelectItem value="other">Other</SelectItem>
           </SelectContent>
         </Select>
