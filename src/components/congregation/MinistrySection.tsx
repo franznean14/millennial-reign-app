@@ -241,12 +241,17 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
     return filtered;
   }, [allMinistryEvents, activeDay]);
 
-  // Set initial active day to "All"
+  // When opening Ministry Schedules, select today's weekday tab if it exists (day_of_week matches JS getDay() 0–6).
   useEffect(() => {
-    if (activeDay === null) {
+    if (!schedulesDrawerOpen) return;
+    const todayDow = new Date().getDay();
+    if (daysWithSchedules.includes(todayDow)) {
+      setActiveDay(String(todayDow));
+    } else {
       setActiveDay('All');
     }
-  }, [activeDay]);
+  }, [schedulesDrawerOpen, daysWithSchedules]);
+
   
   return (
     <div className="space-y-4">
