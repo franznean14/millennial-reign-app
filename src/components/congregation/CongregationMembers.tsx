@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cacheGet, cacheSet } from "@/lib/offline/store";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -55,64 +55,97 @@ export function CongregationMembers({
   const [activeGroup, setActiveGroup] = useState<string>("All");
   /** Active BWI participants in this congregation (for list badges). */
   const [bwiParticipantIds, setBwiParticipantIds] = useState<Set<string>>(() => new Set());
+  const previousCongregationIdRef = useRef<string | null>(null);
 
-  const MEMBERS_CACHE_KEY = `cong:members:${congregationId}`;
+  /**
+   * Cache-first: show IndexedDB immediately, refresh in background without a loading flash.
+   * `silent`: background refresh (e.g. after congregation-refresh) — no loading toggles.
+   */
+  const loadMembers = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      const silent = opts?.silent === true;
+      const membersCacheKey = `cong:members:${congregationId}`;
+      const bwiCacheKey = `cong:members:bwi:${congregationId}`;
+      let hadMembersCache = false;
 
-  // Load congregation members: cache-first for offline, then network
-  const loadMembers = async () => {
-    setLoading(true);
-    try {
-      const cached = await cacheGet<CongregationMember[]>(MEMBERS_CACHE_KEY);
-      if (cached?.length !== undefined) {
-        setMembers(cached);
-      }
-    } catch (_) {}
-
-    const supabase = createSupabaseBrowserClient();
-    try {
-      const [profilesRes, bwiRes] = await Promise.all([
-        supabase
-          .from("profiles")
-          .select(
-            "id, first_name, last_name, username, avatar_url, privileges, group_name, congregation_id, role, gender, is_congregation_guest",
-          )
-          .eq("congregation_id", congregationId)
-          .order("last_name")
-          .order("first_name"),
-        supabase
-          .from("business_participants")
-          .select("user_id")
-          .eq("congregation_id", congregationId)
-          .eq("active", true),
-      ]);
-
-      const { data: profiles, error: profilesError } = profilesRes;
-      if (profilesError) throw profilesError;
-
-      if (profiles) {
-        const list = profiles as CongregationMember[];
-        setMembers(list);
-        await cacheSet(MEMBERS_CACHE_KEY, list);
+      if (!silent) {
+        try {
+          const [cachedMembers, cachedBwi] = await Promise.all([
+            cacheGet<CongregationMember[]>(membersCacheKey),
+            cacheGet<string[]>(bwiCacheKey),
+          ]);
+          if (cachedMembers != null) {
+            hadMembersCache = true;
+            setMembers(cachedMembers);
+            if (Array.isArray(cachedBwi)) {
+              setBwiParticipantIds(new Set(cachedBwi));
+            }
+            setLoading(false);
+          }
+        } catch {
+          // ignore cache read errors
+        }
+        if (!hadMembersCache) {
+          setLoading(true);
+        }
       }
 
-      const bwiRows = bwiRes.data;
-      if (!bwiRes.error && bwiRows) {
-        setBwiParticipantIds(new Set(bwiRows.map((r) => r.user_id)));
-      } else if (bwiRes.error) {
-        console.warn("BWI participants list:", bwiRes.error);
-        setBwiParticipantIds(new Set());
+      const supabase = createSupabaseBrowserClient();
+      try {
+        const [profilesRes, bwiRes] = await Promise.all([
+          supabase
+            .from("profiles")
+            .select(
+              "id, first_name, last_name, username, avatar_url, privileges, group_name, congregation_id, role, gender, is_congregation_guest",
+            )
+            .eq("congregation_id", congregationId)
+            .order("last_name")
+            .order("first_name"),
+          supabase
+            .from("business_participants")
+            .select("user_id")
+            .eq("congregation_id", congregationId)
+            .eq("active", true),
+        ]);
+
+        const { data: profiles, error: profilesError } = profilesRes;
+        if (profilesError) throw profilesError;
+
+        if (profiles) {
+          const list = profiles as CongregationMember[];
+          setMembers(list);
+          await cacheSet(membersCacheKey, list);
+        }
+
+        const bwiRows = bwiRes.data;
+        if (!bwiRes.error && bwiRows) {
+          const ids = bwiRows.map((r) => r.user_id);
+          setBwiParticipantIds(new Set(ids));
+          await cacheSet(bwiCacheKey, ids);
+        } else if (bwiRes.error) {
+          console.warn("BWI participants list:", bwiRes.error);
+        }
+      } catch (error) {
+        console.error("Error loading congregation members:", error);
+      } finally {
+        if (!silent && !hadMembersCache) {
+          setLoading(false);
+        }
       }
-    } catch (error) {
-      console.error('Error loading congregation members:', error);
-      // Keep cached members if network failed
-    } finally {
-      setLoading(false);
-    }
-  };
+    },
+    [congregationId],
+  );
 
   useEffect(() => {
-    loadMembers();
-  }, [congregationId]);
+    const prev = previousCongregationIdRef.current;
+    previousCongregationIdRef.current = congregationId;
+    if (prev !== null && prev !== congregationId) {
+      setMembers([]);
+      setBwiParticipantIds(new Set());
+      setLoading(true);
+    }
+    void loadMembers();
+  }, [congregationId, loadMembers]);
 
   const groupTabValues = useMemo(() => {
     const set = new Set<string>();
@@ -145,20 +178,20 @@ export function CongregationMembers({
     if (!groupTabValues.includes(activeGroup)) setActiveGroup("All");
   }, [groupTabValues, activeGroup]);
 
-  // Listen for refresh events
+  // Listen for refresh events (silent = no loading flash; data already on screen)
   useEffect(() => {
     const handleRefresh = () => {
-      loadMembers();
+      void loadMembers({ silent: true });
     };
 
-    window.addEventListener('congregation-refresh', handleRefresh);
+    window.addEventListener("congregation-refresh", handleRefresh);
     return () => {
-      window.removeEventListener('congregation-refresh', handleRefresh);
+      window.removeEventListener("congregation-refresh", handleRefresh);
     };
-  }, []);
+  }, [loadMembers]);
 
   const handleUserUpdated = (updatedUser: any) => {
-    loadMembers();
+    void loadMembers({ silent: true });
     setUserManagementModalOpen(false);
     setSelectedUser(null);
   };

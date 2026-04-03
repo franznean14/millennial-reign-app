@@ -18,7 +18,7 @@ export function VisitAvatars({
   partner,
   publisherGuestName,
   partnerGuestName,
-  sizeClassName = "w-6 h-6",
+  sizeClassName = "h-5 w-5",
   textClassName = "text-[10px]"
 }: VisitAvatarsProps) {
   const hasFirst = !!publisher || !!publisherGuestName?.trim();

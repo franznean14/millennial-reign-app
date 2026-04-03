@@ -7,7 +7,8 @@ interface VisitRowContentProps {
   title: ReactNode;
   titleBadge?: ReactNode;
   metaIcon?: ReactNode;
-  metaText: string;
+  /** When omitted, the meta row (e.g. date/participants line) is not rendered. */
+  metaText?: string;
   metaClassName?: string;
   notes?: string | null;
   notesClassName?: string;
@@ -24,7 +25,12 @@ export function VisitRowContent({
 }: VisitRowContentProps) {
   return (
     <>
-      <div className="flex min-w-0 w-full items-center gap-2 mb-1">
+      <div
+        className={cn(
+          "flex min-w-0 w-full items-center gap-2",
+          metaText ? "mb-1" : "mb-3"
+        )}
+      >
         {typeof title === "string" ? (
           <span className="text-sm font-medium text-foreground">{title}</span>
         ) : (
@@ -32,12 +38,14 @@ export function VisitRowContent({
         )}
         {titleBadge}
       </div>
-      <div className={cn("flex items-center gap-1 text-xs text-muted-foreground", metaClassName)}>
-        {metaIcon}
-        {metaText}
-      </div>
+      {metaText ? (
+        <div className={cn("flex items-center gap-1 text-xs text-muted-foreground", metaClassName)}>
+          {metaIcon}
+          {metaText}
+        </div>
+      ) : null}
       {notes && (
-        <div className={cn("text-xs text-muted-foreground", notesClassName)}>{notes}</div>
+        <div className={cn("text-base leading-snug text-muted-foreground", notesClassName)}>{notes}</div>
       )}
     </>
   );

@@ -1453,66 +1453,71 @@ function BulkEditTodoListItem({
         className="mt-1 shrink-0 h-5 w-5"
       />
       <div className="min-w-0 flex-1 flex flex-col gap-2 pr-2.5">
-        <div className="flex items-center gap-1.5 overflow-hidden min-w-0">
-          {todo.context_name ? (
-            <>
-              {isHouseholder ? (
-                <span className="inline-flex items-center gap-1 w-fit max-w-[55%] min-w-0 shrink">
-                  <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
-                  <VisitStatusBadge
-                    status={householderStatus}
-                    label={truncateLabel(todo.context_name, 28)}
-                    className="truncate max-w-full whitespace-nowrap"
-                  />
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 w-fit max-w-[55%] min-w-0 shrink">
-                  <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
-                  <VisitStatusBadge
-                    status={establishmentStatus}
-                    label={truncateLabel(todo.context_name, 28)}
-                    className="truncate max-w-full whitespace-nowrap"
-                  />
-                </span>
-              )}
-              {isHouseholder && todo.context_establishment_name ? (
-                <VisitStatusBadge
-                  status={establishmentStatus}
-                  label={truncateLabel(todo.context_establishment_name, 24)}
-                  className="truncate max-w-[42%] whitespace-nowrap border-muted bg-muted/50"
-                />
+        {todo.context_name || assigneeIds.length > 0 ? (
+          <div className="flex items-center gap-1.5 min-w-0 w-full">
+            <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
+              {todo.context_name ? (
+                <>
+                  {isHouseholder ? (
+                    <span className="inline-flex items-center gap-1 min-w-0 max-w-[72%] shrink">
+                      <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                      <VisitStatusBadge
+                        status={householderStatus}
+                        label={truncateLabel(todo.context_name, 28)}
+                        className="truncate max-w-full whitespace-nowrap"
+                      />
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 min-w-0 max-w-[72%] shrink">
+                      <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                      <VisitStatusBadge
+                        status={establishmentStatus}
+                        label={truncateLabel(todo.context_name, 28)}
+                        className="truncate max-w-full whitespace-nowrap"
+                      />
+                    </span>
+                  )}
+                  {isHouseholder && todo.context_establishment_name ? (
+                    <VisitStatusBadge
+                      status={establishmentStatus}
+                      label={truncateLabel(todo.context_establishment_name, 24)}
+                      className="truncate min-w-0 max-w-[55%] whitespace-nowrap border-muted bg-muted/50"
+                    />
+                  ) : null}
+                </>
               ) : null}
-            </>
-          ) : null}
-          {assigneeIds.length > 0 ? (
-            <div className="inline-flex items-center gap-1 shrink-0">
-              {assigneeIds.map((id) => {
-                const profile = participantsById[id];
-                const fullName = profile ? `${profile.first_name} ${profile.last_name}`.trim() : "Assigned";
-                return (
-                  <Avatar key={`${todo.id}-${id}`} className="h-5 w-5 border border-border/70">
-                    {profile?.avatar_url ? <AvatarImage src={profile.avatar_url} alt={fullName} /> : null}
-                    <AvatarFallback className="text-[10px]">{getInitialsFromName(fullName || "A")}</AvatarFallback>
-                  </Avatar>
-                );
-              })}
             </div>
-          ) : null}
-          {displayDate ? (
-            <span className="text-xs text-muted-foreground shrink-0 ml-auto pl-2 text-right tabular-nums">
-              {formatTodoDate(displayDate)}
-            </span>
-          ) : null}
-        </div>
+            {assigneeIds.length > 0 ? (
+              <div className="inline-flex items-center gap-1 shrink-0 ml-auto pl-1">
+                {assigneeIds.map((id) => {
+                  const profile = participantsById[id];
+                  const fullName = profile ? `${profile.first_name} ${profile.last_name}`.trim() : "Assigned";
+                  return (
+                    <Avatar key={`${todo.id}-${id}`} className="h-5 w-5 border border-border/70">
+                      {profile?.avatar_url ? <AvatarImage src={profile.avatar_url} alt={fullName} /> : null}
+                      <AvatarFallback className="text-[10px]">{getInitialsFromName(fullName || "A")}</AvatarFallback>
+                    </Avatar>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
         <div className="flex items-start gap-2 w-full min-w-0">
           <p className="text-left text-base leading-snug line-clamp-2 flex-1 min-w-0">{todo.body}</p>
-          {areaLabel ? (
-            <span
-              className="text-xs text-muted-foreground shrink-0 max-w-[42%] text-right leading-snug pt-0.5"
-              title={areaLabel}
-            >
-              {truncateLabel(areaLabel, 36)}
-            </span>
+          {displayDate || areaLabel ? (
+            <div className="flex flex-col items-end gap-0.5 shrink-0 max-w-[45%] text-right">
+              {displayDate ? (
+                <span className="text-xs text-muted-foreground tabular-nums leading-snug pt-0.5">
+                  {formatTodoDate(displayDate)}
+                </span>
+              ) : null}
+              {areaLabel ? (
+                <span className="text-xs text-muted-foreground leading-snug" title={areaLabel}>
+                  {truncateLabel(areaLabel, 36)}
+                </span>
+              ) : null}
+            </div>
           ) : null}
         </div>
       </div>
@@ -1582,61 +1587,63 @@ function TodoRow({
         />
       )}
       <div className="min-w-0 flex-1 flex flex-col gap-2.5 pr-2.5">
-        <div className="flex items-center gap-1.5 overflow-hidden">
-          {todo.context_name ? (
-            <>
-              {isHouseholder ? (
-                hideHouseholderNameBadge ? null : (
-                <span className="inline-flex items-center gap-1 w-fit max-w-[55%] min-w-0 shrink">
-                  <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
-                  <VisitStatusBadge
-                    status={householderStatus}
-                    label={truncateLabel(todo.context_name, 28)}
-                    className={cn("truncate max-w-full whitespace-nowrap", isDone && "opacity-70")}
-                  />
-                </span>
-                )
-              ) : (
-                <span className="inline-flex items-center gap-1 w-fit max-w-[55%] min-w-0 shrink">
-                  <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
-                  <VisitStatusBadge
-                    status={establishmentStatus}
-                    label={truncateLabel(todo.context_name, 28)}
-                    className={cn("truncate max-w-full whitespace-nowrap", isDone && "opacity-70")}
-                  />
-                </span>
-              )}
-              {isHouseholder && todo.context_establishment_name ? (
-                <VisitStatusBadge
-                  status={establishmentStatus}
-                  label={truncateLabel(todo.context_establishment_name, 24)}
-                  className={cn("truncate max-w-[45%] whitespace-nowrap border-muted bg-muted/50", isDone && "opacity-70")}
-                />
+        {todo.context_name || (showAssigneeAvatars && assigneeIds.length > 0) ? (
+          <div className="flex items-center gap-1.5 min-w-0 w-full">
+            <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
+              {todo.context_name ? (
+                <>
+                  {isHouseholder ? (
+                    hideHouseholderNameBadge ? null : (
+                      <span className="inline-flex items-center gap-1 min-w-0 max-w-[72%] shrink">
+                        <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                        <VisitStatusBadge
+                          status={householderStatus}
+                          label={truncateLabel(todo.context_name, 28)}
+                          className={cn("truncate max-w-full whitespace-nowrap", isDone && "opacity-70")}
+                        />
+                      </span>
+                    )
+                  ) : (
+                    <span className="inline-flex items-center gap-1 min-w-0 max-w-[72%] shrink">
+                      <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                      <VisitStatusBadge
+                        status={establishmentStatus}
+                        label={truncateLabel(todo.context_name, 28)}
+                        className={cn("truncate max-w-full whitespace-nowrap", isDone && "opacity-70")}
+                      />
+                    </span>
+                  )}
+                  {isHouseholder && todo.context_establishment_name ? (
+                    <VisitStatusBadge
+                      status={establishmentStatus}
+                      label={truncateLabel(todo.context_establishment_name, 24)}
+                      className={cn(
+                        "truncate min-w-0 max-w-[55%] whitespace-nowrap border-muted bg-muted/50",
+                        isDone && "opacity-70"
+                      )}
+                    />
+                  ) : null}
+                </>
               ) : null}
-            </>
-          ) : null}
-          {showAssigneeAvatars && assigneeIds.length > 0 ? (
-            <div className="inline-flex items-center gap-1 shrink-0">
-              {assigneeIds.map((id) => {
-                const profile = participantsById[id];
-                const fullName = profile ? `${profile.first_name} ${profile.last_name}`.trim() : "Assigned";
-                return (
-                  <Avatar key={`${todo.id}-${id}`} className="h-5 w-5 border border-border/70">
-                    {profile?.avatar_url ? <AvatarImage src={profile.avatar_url} alt={fullName} /> : null}
-                    <AvatarFallback className="text-[10px]">
-                      {getInitialsFromName(fullName || "A")}
-                    </AvatarFallback>
-                  </Avatar>
-                );
-              })}
             </div>
-          ) : null}
-          {displayDate ? (
-            <span className="text-xs text-muted-foreground shrink-0 ml-auto pl-2 text-right tabular-nums">
-              {formatTodoDate(displayDate)}
-            </span>
-          ) : null}
-        </div>
+            {showAssigneeAvatars && assigneeIds.length > 0 ? (
+              <div className="inline-flex items-center gap-1 shrink-0 ml-auto pl-1">
+                {assigneeIds.map((id) => {
+                  const profile = participantsById[id];
+                  const fullName = profile ? `${profile.first_name} ${profile.last_name}`.trim() : "Assigned";
+                  return (
+                    <Avatar key={`${todo.id}-${id}`} className="h-5 w-5 border border-border/70">
+                      {profile?.avatar_url ? <AvatarImage src={profile.avatar_url} alt={fullName} /> : null}
+                      <AvatarFallback className="text-[10px]">
+                        {getInitialsFromName(fullName || "A")}
+                      </AvatarFallback>
+                    </Avatar>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
         <div className="flex items-start gap-2 w-full min-w-0">
           <button
             type="button"
@@ -1651,16 +1658,24 @@ function TodoRow({
           >
             {todo.body}
           </button>
-          {areaLabel ? (
-            <span
+          {displayDate || areaLabel ? (
+            <div
               className={cn(
-                "text-xs text-muted-foreground shrink-0 max-w-[42%] text-right leading-snug pt-0.5",
+                "flex flex-col items-end gap-0.5 shrink-0 max-w-[45%] text-right",
                 isDone && "opacity-70"
               )}
-              title={areaLabel}
             >
-              {truncateLabel(areaLabel, 36)}
-            </span>
+              {displayDate ? (
+                <span className="text-xs text-muted-foreground tabular-nums leading-snug pt-0.5">
+                  {formatTodoDate(displayDate)}
+                </span>
+              ) : null}
+              {areaLabel ? (
+                <span className="text-xs text-muted-foreground leading-snug" title={areaLabel}>
+                  {truncateLabel(areaLabel, 36)}
+                </span>
+              ) : null}
+            </div>
           ) : null}
         </div>
       </div>

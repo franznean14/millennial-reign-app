@@ -14,6 +14,17 @@ export function formatVisitDateShort(dateString: string): string {
   return date.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
 }
 
+/** Same compact pattern as home to-dos: `Mar 10, '26`. */
+export function formatVisitDateCompact(dateString: string | null | undefined): string {
+  if (!dateString) return "";
+  const d = new Date(dateString);
+  if (Number.isNaN(d.getTime())) return dateString;
+  const month = d.toLocaleDateString("en-US", { month: "short" });
+  const day = d.getDate();
+  const yearShort = String(d.getFullYear()).slice(-2);
+  return `${month} ${day}, '${yearShort}`;
+}
+
 /** Normalizes a visit's `visit_date` to `YYYY-MM-DD` for comparisons (date-only or ISO strings). */
 export function visitDayKey(visitDate: string): string {
   const t = visitDate.trim();

@@ -47,7 +47,7 @@ export function VisitUpdatesSection({
 
     const lineLengthClass = getTimelineLineClassWithPosition(isDrawer);
     const dotSizeClass = getTimelineDotSize();
-    const avatarSizeClass = 'w-6 h-6'; // Match BWI visit history avatar size
+    const avatarSizeClass = "h-5 w-5"; // Match home to-do assignee avatars
 
     return (
       <VisitTimelineRow
@@ -136,7 +136,7 @@ export function VisitUpdatesSection({
                 <div className="h-3 bg-muted/60 rounded w-full max-w-[200px] blur-[2px] animate-pulse" />
               </div>
               <div className="flex-shrink-0 ml-4">
-                <div className="w-6 h-6 bg-muted/60 rounded-full blur-[2px] animate-pulse" />
+                <div className="h-5 w-5 bg-muted/60 rounded-full blur-[2px] animate-pulse" />
               </div>
             </div>
           ))}
@@ -178,7 +178,7 @@ export function VisitUpdatesSection({
                     <div className="h-3 bg-muted/60 rounded w-full max-w-[250px] blur-[2px] animate-pulse" />
                   </div>
                   <div className="flex-shrink-0 ml-4">
-                    <div className="w-6 h-6 bg-muted/60 rounded-full blur-[2px] animate-pulse" />
+                    <div className="h-5 w-5 bg-muted/60 rounded-full blur-[2px] animate-pulse" />
                   </div>
                 </div>
               ))}

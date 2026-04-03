@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useState, useRef } from "react";
-import { formatVisitDateLong, getVisitDisplayName } from "@/lib/utils/visit-history-ui";
+import { formatVisitDateCompact, getVisitDisplayName } from "@/lib/utils/visit-history-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FormModal } from "@/components/shared/FormModal";
-import { Building2, Calendar, ChevronRight, DoorOpen, UserRound } from "lucide-react";
+import { Building2, ChevronRight, DoorOpen, UserRound } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { getTimelineLineStyle } from "@/lib/utils/visit-timeline";
 import type { VisitRecord } from "@/lib/utils/visit-history";
@@ -388,8 +388,6 @@ export function VisitHistory({
   };
 
 
-  const formatVisitDate = formatVisitDateLong;
-
   const navigateWithBwiArea = (tab: "establishments" | "householders", status: string) => {
     if (!onNavigateToBusinessWithStatus) return;
     const selectedAreas = bwiAreaFilter.map((area) => area.trim()).filter(Boolean);
@@ -418,6 +416,7 @@ export function VisitHistory({
 
     const hasEstablishmentBadge =
       visit.visit_type === "householder" && Boolean(visit.establishment_name);
+    const areaLabel = visit.establishment_area?.trim() ?? "";
 
     return (
       <VisitTimelineRow
@@ -452,9 +451,24 @@ export function VisitHistory({
             partner={visit.partner ?? null}
             publisherGuestName={visit.publisher_guest_name ?? null}
             partnerGuestName={visit.partner_guest_name ?? null}
-            sizeClassName="w-6 h-6"
+            sizeClassName="h-5 w-5"
             textClassName="text-[10px]"
           />
+        }
+        avatarFooter={
+          <div className="flex flex-col items-end gap-1 text-right max-w-[10rem]">
+            <span className="text-xs text-muted-foreground tabular-nums leading-tight">
+              {formatVisitDateCompact(visit.visit_date)}
+            </span>
+            {areaLabel ? (
+              <span
+                className="text-xs text-muted-foreground leading-snug break-words"
+                title={areaLabel}
+              >
+                {areaLabel}
+              </span>
+            ) : null}
+          </div>
         }
       >
         <VisitRowContent
@@ -483,11 +497,10 @@ export function VisitHistory({
               </span>
             ) : undefined
           }
-          metaIcon={<Calendar className="h-3 w-3" />}
-          metaText={formatVisitDate(visit.visit_date)}
-          metaClassName={isDrawer ? "mb-2" : ""}
           notes={visit.notes}
-          notesClassName={isDrawer ? "leading-relaxed" : "mt-1 line-clamp-1"}
+          notesClassName={
+            isDrawer ? "leading-relaxed line-clamp-4" : "mt-0 line-clamp-2"
+          }
         />
       </VisitTimelineRow>
     );

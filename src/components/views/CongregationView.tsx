@@ -163,18 +163,19 @@ export function CongregationView({ data, onEdit, canEdit, canManageCongregationU
     <>
       <div className="space-y-6">
       
-      {/* Tab Content */}
-      {congregationTab === 'meetings' && (
-        <>
-          <MeetingsSection congregationData={data} />
-          <CongregationMembers
-            congregationId={data.id!} // Add ! to assert non-null
-            currentUserId={userId ?? null}
-            canManageCongregationUsers={canManageCongregationUsers}
-          />
-        </>
-      )}
-      
+      {/* Meetings tab: keep mounted but hidden so member list state + cache path feel instant when switching tabs */}
+      <div
+        className={congregationTab === "meetings" ? "space-y-6" : "hidden"}
+        aria-hidden={congregationTab !== "meetings"}
+      >
+        <MeetingsSection congregationData={data} />
+        <CongregationMembers
+          congregationId={data.id!}
+          currentUserId={userId ?? null}
+          canManageCongregationUsers={canManageCongregationUsers}
+        />
+      </div>
+
       {congregationTab === 'ministry' && (
         selectedHouseholder ? (
           <HouseholderDetails
