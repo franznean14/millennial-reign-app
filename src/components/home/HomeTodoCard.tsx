@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { motion } from "motion/react";
-import { ListTodo, ChevronRight, ChevronDown, ChevronUp, User, Building2 } from "lucide-react";
+import { ListTodo, ChevronRight, ChevronDown, ChevronUp } from "lucide-react";
 import {
   getMyOpenCallTodos,
   getMyCompletedCallTodos,
@@ -1460,7 +1460,6 @@ function BulkEditTodoListItem({
                 <>
                   {isHouseholder ? (
                     <span className="inline-flex items-center gap-1 min-w-0 max-w-[72%] shrink">
-                      <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
                       <VisitStatusBadge
                         status={householderStatus}
                         label={truncateLabel(todo.context_name, 28)}
@@ -1469,7 +1468,6 @@ function BulkEditTodoListItem({
                     </span>
                   ) : (
                     <span className="inline-flex items-center gap-1 min-w-0 max-w-[72%] shrink">
-                      <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
                       <VisitStatusBadge
                         status={establishmentStatus}
                         label={truncateLabel(todo.context_name, 28)}
@@ -1595,7 +1593,6 @@ function TodoRow({
                   {isHouseholder ? (
                     hideHouseholderNameBadge ? null : (
                       <span className="inline-flex items-center gap-1 min-w-0 max-w-[72%] shrink">
-                        <User className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
                         <VisitStatusBadge
                           status={householderStatus}
                           label={truncateLabel(todo.context_name, 28)}
@@ -1605,7 +1602,6 @@ function TodoRow({
                     )
                   ) : (
                     <span className="inline-flex items-center gap-1 min-w-0 max-w-[72%] shrink">
-                      <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
                       <VisitStatusBadge
                         status={establishmentStatus}
                         label={truncateLabel(todo.context_name, 28)}
