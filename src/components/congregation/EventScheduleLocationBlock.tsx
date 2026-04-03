@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import type { EventSchedule } from "@/lib/db/eventSchedules";
 import {
   eventMapsDirectionsUrl,
+  eventTypeImpliesKingdomHall,
   formatEventLocationSummary,
 } from "@/lib/utils/event-location-display";
 
@@ -13,6 +14,8 @@ interface EventScheduleLocationBlockProps {
 }
 
 export function EventScheduleLocationBlock({ event }: EventScheduleLocationBlockProps) {
+  if (eventTypeImpliesKingdomHall(event.event_type)) return null;
+
   const summary = formatEventLocationSummary(event);
   const name = event.venue_name?.trim();
   const addr = event.venue_address?.trim();

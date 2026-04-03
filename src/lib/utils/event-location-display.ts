@@ -6,10 +6,16 @@ export const EVENT_TYPES_WITH_VENUE_DETAILS: readonly EventType[] = [
   "caco",
   "regional_convention",
   "memorial",
+  "annual_pioneers_meeting",
 ] as const;
 
 export function eventTypeUsesVenueDetails(eventType: EventType): boolean {
   return (EVENT_TYPES_WITH_VENUE_DETAILS as readonly string[]).includes(eventType);
+}
+
+/** Meeting and CO visits are held at the congregation Kingdom Hall — no separate location field. */
+export function eventTypeImpliesKingdomHall(eventType: EventType): boolean {
+  return eventType === "meeting" || eventType === "circuit_overseer";
 }
 
 /** Single block of text for compact lists (venue + address, or legacy `location`). */
@@ -24,9 +30,18 @@ export function formatEventLocationSummary(
   return event.location?.trim() ?? "";
 }
 
+/** Like {@link formatEventLocationSummary} but empty for types that are always at the Kingdom Hall. */
+export function formatEventLocationSummaryForDisplay(
+  event: Pick<EventSchedule, "event_type" | "location" | "venue_name" | "venue_address">
+): string {
+  if (eventTypeImpliesKingdomHall(event.event_type)) return "";
+  return formatEventLocationSummary(event).trim();
+}
+
 export function eventMapsDirectionsUrl(
-  event: Pick<EventSchedule, "location_lat" | "location_lng">
+  event: Pick<EventSchedule, "event_type" | "location_lat" | "location_lng">
 ): string | null {
+  if (eventTypeImpliesKingdomHall(event.event_type)) return null;
   const lat = event.location_lat;
   const lng = event.location_lng;
   if (lat == null || lng == null) return null;

@@ -22,8 +22,12 @@ import {
   formatEventListDateLine,
   isCalendarDateRange,
 } from "@/lib/utils/event-schedule-display";
-import { formatEventLocationSummary } from "@/lib/utils/event-location-display";
+import {
+  formatEventLocationSummaryForDisplay,
+  eventTypeImpliesKingdomHall,
+} from "@/lib/utils/event-location-display";
 import { EventScheduleLocationBlock } from "@/components/congregation/EventScheduleLocationBlock";
+import { EventScheduleDirectionsLink } from "@/components/congregation/EventScheduleDirectionsLink";
 
 const EventScheduleForm = dynamic(
   () => import("@/components/congregation/EventScheduleForm").then((m) => m.EventScheduleForm),
@@ -171,7 +175,7 @@ export function CongregationAdminEventsCard({ congregationId, canEdit }: Congreg
     isDrawer: boolean
   ) => {
     const { event, nextDate } = row;
-    const locSummary = formatEventLocationSummary(event).trim();
+    const locSummary = formatEventLocationSummaryForDisplay(event);
     const accent = eventTypeAccent(event.event_type);
     return (
       <VisitTimelineRow
@@ -196,9 +200,15 @@ export function CongregationAdminEventsCard({ congregationId, canEdit }: Congreg
         contentClassName="ml-3"
       >
         <div className="min-w-0 pr-1">
-          <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-5 leading-none", accent)}>
-            {formatEventTypeLabel(event.event_type)}
-          </Badge>
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <Badge
+              variant="outline"
+              className={cn("min-w-0 shrink truncate max-w-[min(100%,12rem)] text-[10px] px-1.5 py-0 h-5 leading-none", accent)}
+            >
+              {formatEventTypeLabel(event.event_type)}
+            </Badge>
+            <EventScheduleDirectionsLink event={event} />
+          </div>
           <div className="text-sm font-medium text-foreground line-clamp-2 mt-1">{event.title}</div>
           <div
             className={cn(
@@ -222,7 +232,7 @@ export function CongregationAdminEventsCard({ congregationId, canEdit }: Congreg
 
   const renderRowAll = (row: AdminRow, index: number, total: number, isDrawer: boolean) => {
     const { event, displayYmd, hasNext } = row;
-    const locSummary = formatEventLocationSummary(event).trim();
+    const locSummary = formatEventLocationSummaryForDisplay(event);
     const accent = eventTypeAccent(event.event_type);
     return (
       <VisitTimelineRow
@@ -247,9 +257,15 @@ export function CongregationAdminEventsCard({ congregationId, canEdit }: Congreg
         contentClassName="ml-3"
       >
         <div className="min-w-0 pr-1">
-          <Badge variant="outline" className={cn("text-[10px] px-1.5 py-0 h-5 leading-none", accent)}>
-            {formatEventTypeLabel(event.event_type)}
-          </Badge>
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <Badge
+              variant="outline"
+              className={cn("min-w-0 shrink truncate max-w-[min(100%,12rem)] text-[10px] px-1.5 py-0 h-5 leading-none", accent)}
+            >
+              {formatEventTypeLabel(event.event_type)}
+            </Badge>
+            <EventScheduleDirectionsLink event={event} />
+          </div>
           <div className="text-sm font-medium text-foreground line-clamp-2 mt-1">{event.title}</div>
           <div
             className={cn(
@@ -468,10 +484,12 @@ export function CongregationAdminEventsCard({ congregationId, canEdit }: Congreg
               ) : detailEvent.is_all_day ? (
                 <p className="text-sm text-muted-foreground">All day</p>
               ) : null}
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Location</p>
-                <EventScheduleLocationBlock event={detailEvent} />
-              </div>
+              {!eventTypeImpliesKingdomHall(detailEvent.event_type) ? (
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Location</p>
+                  <EventScheduleLocationBlock event={detailEvent} />
+                </div>
+              ) : null}
               {detailEvent.description?.trim() ? (
                 <div>
                   <p className="text-xs text-muted-foreground mb-1">Notes</p>

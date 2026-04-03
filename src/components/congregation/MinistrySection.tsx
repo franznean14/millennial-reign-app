@@ -8,7 +8,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { Congregation } from "@/lib/db/congregations";
 import { listEventSchedules, type EventSchedule } from "@/lib/db/eventSchedules";
-import { formatEventLocationSummary } from "@/lib/utils/event-location-display";
+import { formatEventLocationSummaryForDisplay } from "@/lib/utils/event-location-display";
 import { listHouseholders, type HouseholderWithDetails } from "@/lib/db/business";
 import { formatTimeLabel, isEventOccurringToday } from "@/lib/utils/recurrence";
 import { formatStatusText } from "@/lib/utils/formatters";
@@ -301,7 +301,7 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
           ) : (
             <div className="px-4 py-2 space-y-2">
               {todayEvents.map((event) => {
-                const locLine = formatEventLocationSummary(event).trim();
+                const locLine = formatEventLocationSummaryForDisplay(event);
                 return (
                 <div key={event.id} className="px-3 py-2.5 rounded-lg hover:bg-muted/50 transition-colors">
                   <div className="flex items-start justify-between gap-3">

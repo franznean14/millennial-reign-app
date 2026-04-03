@@ -11,12 +11,18 @@ import { toast } from "@/components/ui/sonner";
 import {
   upsertEventSchedule,
   EVENT_TYPE_SELECT_OPTIONS,
+  formatEventTypeLabel,
   type EventSchedule,
   type EventType,
   type MinistryType,
   type RecurrencePattern,
 } from "@/lib/db/eventSchedules";
-import { eventTypeUsesVenueDetails, formatEventLocationSummary } from "@/lib/utils/event-location-display";
+import {
+  eventTypeUsesVenueDetails,
+  formatEventLocationSummary,
+  eventTypeImpliesKingdomHall,
+} from "@/lib/utils/event-location-display";
+import { formatLatLngInputValue, parseLatLngString } from "@/lib/utils/lat-lng-parse";
 import {
   readEventScheduleDraft,
   writeEventScheduleDraft,
@@ -42,6 +48,10 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
   const isDraftMode = !isEditing && !initialData?.id;
   const [draftHydrated, setDraftHydrated] = useState(() => !isDraftMode);
 
+  const initialImplicitKh = initialData?.event_type
+    ? eventTypeImpliesKingdomHall(initialData.event_type)
+    : false;
+
   const [eventType, setEventType] = useState<EventType>(initialData?.event_type || 'ministry');
   const [ministryType, setMinistryType] = useState<MinistryType | ''>(initialData?.ministry_type || '');
   const [title, setTitle] = useState(initialData?.title || "");
@@ -57,11 +67,18 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
   const [dayOfMonth, setDayOfMonth] = useState<string>(initialData?.day_of_month?.toString() || "");
   const [monthOfYear, setMonthOfYear] = useState<string>(initialData?.month_of_year?.toString() || "");
   const [recurrenceInterval, setRecurrenceInterval] = useState(initialData?.recurrence_interval || 1);
-  const [location, setLocation] = useState(initialData?.location || "");
-  const [venueName, setVenueName] = useState(initialData?.venue_name ?? "");
-  const [venueAddress, setVenueAddress] = useState(initialData?.venue_address ?? "");
-  const [locationLat, setLocationLat] = useState<number | null>(initialData?.location_lat ?? null);
-  const [locationLng, setLocationLng] = useState<number | null>(initialData?.location_lng ?? null);
+  const [location, setLocation] = useState(initialImplicitKh ? "" : (initialData?.location || ""));
+  const [venueName, setVenueName] = useState(initialImplicitKh ? "" : (initialData?.venue_name ?? ""));
+  const [venueAddress, setVenueAddress] = useState(initialImplicitKh ? "" : (initialData?.venue_address ?? ""));
+  const [locationLat, setLocationLat] = useState<number | null>(initialImplicitKh ? null : (initialData?.location_lat ?? null));
+  const [locationLng, setLocationLng] = useState<number | null>(initialImplicitKh ? null : (initialData?.location_lng ?? null));
+  const [latLngInput, setLatLngInput] = useState(() => {
+    if (initialImplicitKh) return "";
+    const la = initialData?.location_lat;
+    const ln = initialData?.location_lng;
+    if (la != null && ln != null) return formatLatLngInputValue(Number(la), Number(ln));
+    return "";
+  });
   const [showLocationCoords, setShowLocationCoords] = useState(false);
   const [saving, setSaving] = useState(false);
   const [activePanel, setActivePanel] = useState<"form" | "date" | "time" | "recurrence">("form");
@@ -100,19 +117,34 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
       setDayOfMonth(d.dayOfMonth);
       setMonthOfYear(d.monthOfYear);
       setRecurrenceInterval(d.recurrenceInterval);
-      setLocation(d.location);
-      setVenueName(d.venueName ?? "");
-      setVenueAddress(d.venueAddress ?? "");
-      setLocationLat(d.locationLat);
-      setLocationLng(d.locationLng);
-      setShowLocationCoords(d.showLocationCoords);
+      if (eventTypeImpliesKingdomHall(d.eventType)) {
+        setLocation("");
+        setVenueName("");
+        setVenueAddress("");
+        setLocationLat(null);
+        setLocationLng(null);
+        setLatLngInput("");
+        setShowLocationCoords(false);
+      } else {
+        setLocation(d.location);
+        setVenueName(d.venueName ?? "");
+        setVenueAddress(d.venueAddress ?? "");
+        setLocationLat(d.locationLat);
+        setLocationLng(d.locationLng);
+        setLatLngInput(
+          d.locationLat != null && d.locationLng != null
+            ? formatLatLngInputValue(d.locationLat, d.locationLng)
+            : ""
+        );
+        setShowLocationCoords(d.showLocationCoords);
+      }
       setActivePanel(d.activePanel);
       prevEventTypeRef.current = d.eventType;
     }
     setDraftHydrated(true);
   }, [congregationId, isDraftMode]);
 
-  // When switching to Memorial, default the title (matches standard memorial event naming).
+  // Memorial title default; clear location when switching to Meeting / CO (Kingdom Hall is implicit).
   useEffect(() => {
     if (prevEventTypeRef.current === undefined) {
       prevEventTypeRef.current = eventType;
@@ -121,12 +153,38 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
     if (eventType === "memorial" && prevEventTypeRef.current !== "memorial") {
       setTitle(MEMORIAL_DEFAULT_TITLE);
     }
+    if (
+      eventTypeImpliesKingdomHall(eventType) &&
+      prevEventTypeRef.current !== eventType &&
+      !eventTypeImpliesKingdomHall(prevEventTypeRef.current)
+    ) {
+      setLocation("");
+      setVenueName("");
+      setVenueAddress("");
+      setLocationLat(null);
+      setLocationLng(null);
+      setLatLngInput("");
+      setShowLocationCoords(false);
+    }
     prevEventTypeRef.current = eventType;
   }, [eventType]);
 
   // Persist create-form draft while the drawer is closed (sessionStorage per congregation).
   useEffect(() => {
     if (!isDraftMode || !draftHydrated) return;
+    const implicitKh = eventTypeImpliesKingdomHall(eventType);
+    const venueParsed =
+      !implicitKh && eventTypeUsesVenueDetails(eventType) ? parseLatLngString(latLngInput.trim()) : null;
+    const draftLat = implicitKh
+      ? null
+      : eventTypeUsesVenueDetails(eventType)
+        ? (venueParsed?.lat ?? null)
+        : locationLat;
+    const draftLng = implicitKh
+      ? null
+      : eventTypeUsesVenueDetails(eventType)
+        ? (venueParsed?.lng ?? null)
+        : locationLng;
     const draft: EventScheduleDraftV1 = {
       v: 1,
       eventType,
@@ -147,8 +205,8 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
       location,
       venueName,
       venueAddress,
-      locationLat,
-      locationLng,
+      locationLat: draftLat,
+      locationLng: draftLng,
       showLocationCoords,
       activePanel,
     };
@@ -182,6 +240,7 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
     location,
     venueName,
     venueAddress,
+    latLngInput,
     locationLat,
     locationLng,
     showLocationCoords,
@@ -223,12 +282,34 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
         return;
       }
 
+      if (eventTypeUsesVenueDetails(eventType)) {
+        const t = latLngInput.trim();
+        if (t && !parseLatLngString(t)) {
+          toast.error(
+            "Latitude & longitude: enter two numbers separated by a comma or space (order is detected automatically)."
+          );
+          setSaving(false);
+          return;
+        }
+      }
+
+      const trimmedTitle = title.trim();
+      if (eventType !== "annual_pioneers_meeting" && !trimmedTitle) {
+        toast.error("Title is required");
+        setSaving(false);
+        return;
+      }
+      const resolvedTitle =
+        eventType === "annual_pioneers_meeting" && !trimmedTitle
+          ? formatEventTypeLabel("annual_pioneers_meeting")
+          : trimmedTitle;
+
       const eventData: EventSchedule = {
         id: initialData?.id,
         congregation_id: congregationId,
         event_type: eventType,
         ministry_type: eventType === 'ministry' ? (ministryType as MinistryType) : null,
-        title: title.trim(),
+        title: resolvedTitle,
         description: description.trim() || null,
         start_date: formatDate(startDate),
         end_date: endDate ? formatDate(endDate) : null,
@@ -241,25 +322,41 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
         day_of_month: recurrencePattern === 'monthly' ? (dayOfMonth ? parseInt(dayOfMonth) : null) : null,
         month_of_year: recurrencePattern === 'yearly' ? (monthOfYear ? parseInt(monthOfYear) : null) : null,
         recurrence_interval: recurrenceInterval,
-        venue_name: eventTypeUsesVenueDetails(eventType) ? venueName.trim() || null : null,
-        venue_address: eventTypeUsesVenueDetails(eventType) ? venueAddress.trim() || null : null,
-        location: eventTypeUsesVenueDetails(eventType)
-          ? formatEventLocationSummary({
-              venue_name: venueName,
-              venue_address: venueAddress,
-              location: null,
-            }) || null
-          : location.trim() || null,
-        location_lat: eventTypeUsesVenueDetails(eventType)
-          ? locationLat
-          : showLocationCoords
-            ? locationLat
-            : (initialData?.location_lat ?? null),
-        location_lng: eventTypeUsesVenueDetails(eventType)
-          ? locationLng
-          : showLocationCoords
-            ? locationLng
-            : (initialData?.location_lng ?? null),
+        venue_name: eventTypeImpliesKingdomHall(eventType)
+          ? null
+          : eventTypeUsesVenueDetails(eventType)
+            ? venueName.trim() || null
+            : null,
+        venue_address: eventTypeImpliesKingdomHall(eventType)
+          ? null
+          : eventTypeUsesVenueDetails(eventType)
+            ? venueAddress.trim() || null
+            : null,
+        location: eventTypeImpliesKingdomHall(eventType)
+          ? null
+          : eventTypeUsesVenueDetails(eventType)
+            ? formatEventLocationSummary({
+                venue_name: venueName,
+                venue_address: venueAddress,
+                location: null,
+              }) || null
+            : location.trim() || null,
+        location_lat: (() => {
+          if (eventTypeImpliesKingdomHall(eventType)) return null;
+          if (eventTypeUsesVenueDetails(eventType)) {
+            const p = parseLatLngString(latLngInput.trim());
+            return p?.lat ?? null;
+          }
+          return showLocationCoords ? locationLat : (initialData?.location_lat ?? null);
+        })(),
+        location_lng: (() => {
+          if (eventTypeImpliesKingdomHall(eventType)) return null;
+          if (eventTypeUsesVenueDetails(eventType)) {
+            const p = parseLatLngString(latLngInput.trim());
+            return p?.lng ?? null;
+          }
+          return showLocationCoords ? locationLng : (initialData?.location_lng ?? null);
+        })(),
         status: 'active',
       };
 
@@ -428,8 +525,13 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
       )}
 
       <div className="grid gap-1">
-        <Label>Title</Label>
-        <Input value={title} onChange={(e) => setTitle(e.target.value)} required />
+        <Label>Title{eventType === "annual_pioneers_meeting" ? " (optional)" : ""}</Label>
+        <Input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          required={eventType !== "annual_pioneers_meeting"}
+          placeholder={eventType === "annual_pioneers_meeting" ? "Optional" : undefined}
+        />
       </div>
 
       <div className="grid gap-1">
@@ -608,41 +710,27 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
           </div>
           <div className="grid gap-1">
             <Label>Latitude & longitude</Label>
-            <p className="text-xs text-muted-foreground -mt-0.5">
-              Used for map directions. Enter manually or use your current position.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex items-center gap-2">
               <Input
-                type="number"
-                step="any"
-                inputMode="decimal"
-                placeholder="Latitude"
-                value={locationLat ?? ""}
-                onChange={(e) => {
-                  const v = e.target.value.trim();
-                  if (v === "") {
+                value={latLngInput}
+                onChange={(e) => setLatLngInput(e.target.value)}
+                onBlur={() => {
+                  const t = latLngInput.trim();
+                  if (!t) {
                     setLocationLat(null);
-                    return;
-                  }
-                  const n = Number(v);
-                  setLocationLat(Number.isFinite(n) ? n : null);
-                }}
-              />
-              <Input
-                type="number"
-                step="any"
-                inputMode="decimal"
-                placeholder="Longitude"
-                value={locationLng ?? ""}
-                onChange={(e) => {
-                  const v = e.target.value.trim();
-                  if (v === "") {
                     setLocationLng(null);
                     return;
                   }
-                  const n = Number(v);
-                  setLocationLng(Number.isFinite(n) ? n : null);
+                  const p = parseLatLngString(t);
+                  if (p) {
+                    setLocationLat(p.lat);
+                    setLocationLng(p.lng);
+                    setLatLngInput(formatLatLngInputValue(p.lat, p.lng));
+                  }
                 }}
+                placeholder="e.g. 10.714535, 122.545075"
+                className="min-w-0 flex-1"
+                autoComplete="off"
               />
               <Button
                 type="button"
@@ -660,6 +748,7 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
                       const { latitude, longitude } = position.coords;
                       setLocationLat(latitude);
                       setLocationLng(longitude);
+                      setLatLngInput(formatLatLngInputValue(latitude, longitude));
                       toast.success("Coordinates captured");
                     },
                     (error) => {
@@ -674,7 +763,7 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
             </div>
           </div>
         </div>
-      ) : (
+      ) : !eventTypeImpliesKingdomHall(eventType) ? (
         <div className="grid gap-1">
           <Label>Location</Label>
           <div className="flex items-center gap-2">
@@ -725,7 +814,7 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
             </div>
           )}
         </div>
-      )}
+      ) : null}
 
       <div className="flex justify-end py-4">
         <Button type="submit" disabled={saving}>
