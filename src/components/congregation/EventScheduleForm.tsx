@@ -8,7 +8,15 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "@/components/ui/sonner";
-import { upsertEventSchedule, type EventSchedule, type EventType, type MinistryType, type RecurrencePattern } from "@/lib/db/eventSchedules";
+import {
+  upsertEventSchedule,
+  EVENT_TYPE_SELECT_OPTIONS,
+  type EventSchedule,
+  type EventType,
+  type MinistryType,
+  type RecurrencePattern,
+} from "@/lib/db/eventSchedules";
+import { eventTypeUsesVenueDetails, formatEventLocationSummary } from "@/lib/utils/event-location-display";
 import {
   readEventScheduleDraft,
   writeEventScheduleDraft,
@@ -50,6 +58,8 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
   const [monthOfYear, setMonthOfYear] = useState<string>(initialData?.month_of_year?.toString() || "");
   const [recurrenceInterval, setRecurrenceInterval] = useState(initialData?.recurrence_interval || 1);
   const [location, setLocation] = useState(initialData?.location || "");
+  const [venueName, setVenueName] = useState(initialData?.venue_name ?? "");
+  const [venueAddress, setVenueAddress] = useState(initialData?.venue_address ?? "");
   const [locationLat, setLocationLat] = useState<number | null>(initialData?.location_lat ?? null);
   const [locationLng, setLocationLng] = useState<number | null>(initialData?.location_lng ?? null);
   const [showLocationCoords, setShowLocationCoords] = useState(false);
@@ -91,6 +101,8 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
       setMonthOfYear(d.monthOfYear);
       setRecurrenceInterval(d.recurrenceInterval);
       setLocation(d.location);
+      setVenueName(d.venueName ?? "");
+      setVenueAddress(d.venueAddress ?? "");
       setLocationLat(d.locationLat);
       setLocationLng(d.locationLng);
       setShowLocationCoords(d.showLocationCoords);
@@ -133,6 +145,8 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
       monthOfYear,
       recurrenceInterval,
       location,
+      venueName,
+      venueAddress,
       locationLat,
       locationLng,
       showLocationCoords,
@@ -166,6 +180,8 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
     monthOfYear,
     recurrenceInterval,
     location,
+    venueName,
+    venueAddress,
     locationLat,
     locationLng,
     showLocationCoords,
@@ -225,9 +241,25 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
         day_of_month: recurrencePattern === 'monthly' ? (dayOfMonth ? parseInt(dayOfMonth) : null) : null,
         month_of_year: recurrencePattern === 'yearly' ? (monthOfYear ? parseInt(monthOfYear) : null) : null,
         recurrence_interval: recurrenceInterval,
-        location: location.trim() || null,
-        location_lat: showLocationCoords ? locationLat : (initialData?.location_lat ?? null),
-        location_lng: showLocationCoords ? locationLng : (initialData?.location_lng ?? null),
+        venue_name: eventTypeUsesVenueDetails(eventType) ? venueName.trim() || null : null,
+        venue_address: eventTypeUsesVenueDetails(eventType) ? venueAddress.trim() || null : null,
+        location: eventTypeUsesVenueDetails(eventType)
+          ? formatEventLocationSummary({
+              venue_name: venueName,
+              venue_address: venueAddress,
+              location: null,
+            }) || null
+          : location.trim() || null,
+        location_lat: eventTypeUsesVenueDetails(eventType)
+          ? locationLat
+          : showLocationCoords
+            ? locationLat
+            : (initialData?.location_lat ?? null),
+        location_lng: eventTypeUsesVenueDetails(eventType)
+          ? locationLng
+          : showLocationCoords
+            ? locationLng
+            : (initialData?.location_lng ?? null),
         status: 'active',
       };
 
@@ -368,14 +400,11 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
         <Select value={eventType} onValueChange={(v) => setEventType(v as EventType)}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="ministry">Ministry</SelectItem>
-            <SelectItem value="meeting">Meeting</SelectItem>
-            <SelectItem value="memorial">Memorial</SelectItem>
-            <SelectItem value="circuit_overseer">Circuit Overseer Visit</SelectItem>
-            <SelectItem value="cabr">CABR</SelectItem>
-            <SelectItem value="caco">CACO</SelectItem>
-            <SelectItem value="regional_convention">Regional Convention</SelectItem>
-            <SelectItem value="other">Other</SelectItem>
+            {EVENT_TYPE_SELECT_OPTIONS.map(({ value, label }) => (
+              <SelectItem key={value} value={value}>
+                {label}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
@@ -557,56 +586,146 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
         </>
       )}
 
-      <div className="grid gap-1">
-        <Label>Location</Label>
-        <div className="flex items-center gap-2">
-          <Input
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-            placeholder="e.g., Kingdom Hall"
-          />
-          <Button
-            type="button"
-            variant="outline"
-            size="icon"
-            aria-label="Use current location"
-            onClick={() => {
-              if (!navigator.geolocation) {
-                toast.error("Geolocation is not supported on this device");
-                return;
-              }
-              navigator.geolocation.getCurrentPosition(
-                (position) => {
-                  const { latitude, longitude } = position.coords;
-                  setLocationLat(latitude);
-                  setLocationLng(longitude);
-                  setShowLocationCoords(true);
-                  toast.success("Location captured");
-                },
-                (error) => {
-                  toast.error(error.message || "Unable to get location");
-                },
-                { enableHighAccuracy: true, timeout: 10000 }
-              );
-            }}
-          >
-            <Crosshair className="h-4 w-4" />
-          </Button>
-        </div>
-        {showLocationCoords && (
+      {eventTypeUsesVenueDetails(eventType) ? (
+        <div className="grid gap-3">
           <div className="grid gap-1">
-            <Label className="text-xs text-muted-foreground">Lat / Long</Label>
+            <Label>Venue name</Label>
             <Input
-              readOnly
-              value={
-                locationLat !== null && locationLng !== null
-                  ? `${locationLat.toFixed(6)}, ${locationLng.toFixed(6)}`
-                  : ""
-              }
+              value={venueName}
+              onChange={(e) => setVenueName(e.target.value)}
+              placeholder="e.g., Iloilo Convention Center"
             />
           </div>
-        )}
-      </div>
+          <div className="grid gap-1">
+            <Label>Address</Label>
+            <Textarea
+              value={venueAddress}
+              onChange={(e) => setVenueAddress(e.target.value)}
+              placeholder="Street, barangay, city, postal code"
+              rows={4}
+              className="min-h-[88px] resize-y"
+            />
+          </div>
+          <div className="grid gap-1">
+            <Label>Latitude & longitude</Label>
+            <p className="text-xs text-muted-foreground -mt-0.5">
+              Used for map directions. Enter manually or use your current position.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Input
+                type="number"
+                step="any"
+                inputMode="decimal"
+                placeholder="Latitude"
+                value={locationLat ?? ""}
+                onChange={(e) => {
+                  const v = e.target.value.trim();
+                  if (v === "") {
+                    setLocationLat(null);
+                    return;
+                  }
+                  const n = Number(v);
+                  setLocationLat(Number.isFinite(n) ? n : null);
+                }}
+              />
+              <Input
+                type="number"
+                step="any"
+                inputMode="decimal"
+                placeholder="Longitude"
+                value={locationLng ?? ""}
+                onChange={(e) => {
+                  const v = e.target.value.trim();
+                  if (v === "") {
+                    setLocationLng(null);
+                    return;
+                  }
+                  const n = Number(v);
+                  setLocationLng(Number.isFinite(n) ? n : null);
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="icon"
+                className="shrink-0"
+                aria-label="Use current location for coordinates"
+                onClick={() => {
+                  if (!navigator.geolocation) {
+                    toast.error("Geolocation is not supported on this device");
+                    return;
+                  }
+                  navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                      const { latitude, longitude } = position.coords;
+                      setLocationLat(latitude);
+                      setLocationLng(longitude);
+                      toast.success("Coordinates captured");
+                    },
+                    (error) => {
+                      toast.error(error.message || "Unable to get location");
+                    },
+                    { enableHighAccuracy: true, timeout: 10000 }
+                  );
+                }}
+              >
+                <Crosshair className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="grid gap-1">
+          <Label>Location</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g., Kingdom Hall"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              aria-label="Use current location"
+              onClick={() => {
+                if (!navigator.geolocation) {
+                  toast.error("Geolocation is not supported on this device");
+                  return;
+                }
+                navigator.geolocation.getCurrentPosition(
+                  (position) => {
+                    const { latitude, longitude } = position.coords;
+                    setLocationLat(latitude);
+                    setLocationLng(longitude);
+                    setShowLocationCoords(true);
+                    toast.success("Location captured");
+                  },
+                  (error) => {
+                    toast.error(error.message || "Unable to get location");
+                  },
+                  { enableHighAccuracy: true, timeout: 10000 }
+                );
+              }}
+            >
+              <Crosshair className="h-4 w-4" />
+            </Button>
+          </div>
+          {showLocationCoords && (
+            <div className="grid gap-1">
+              <Label className="text-xs text-muted-foreground">Lat / Long</Label>
+              <Input
+                readOnly
+                value={
+                  locationLat !== null && locationLng !== null
+                    ? `${locationLat.toFixed(6)}, ${locationLng.toFixed(6)}`
+                    : ""
+                }
+              />
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex justify-end py-4">
         <Button type="submit" disabled={saving}>

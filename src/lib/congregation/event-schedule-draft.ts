@@ -22,6 +22,8 @@ export interface EventScheduleDraftV1 {
   monthOfYear: string;
   recurrenceInterval: number;
   location: string;
+  venueName: string;
+  venueAddress: string;
   locationLat: number | null;
   locationLng: number | null;
   showLocationCoords: boolean;

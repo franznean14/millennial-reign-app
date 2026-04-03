@@ -22,6 +22,8 @@ import {
   formatEventListDateLine,
   isCalendarDateRange,
 } from "@/lib/utils/event-schedule-display";
+import { formatEventLocationSummary } from "@/lib/utils/event-location-display";
+import { EventScheduleLocationBlock } from "@/components/congregation/EventScheduleLocationBlock";
 
 const PREVIEW_LIMIT = 5;
 
@@ -39,6 +41,8 @@ function eventTypeAccent(eventType: EventType): string {
       return "border-cyan-500 bg-cyan-500/15 text-cyan-200";
     case "regional_convention":
       return "border-fuchsia-500 bg-fuchsia-500/15 text-fuchsia-200";
+    case "annual_pioneers_meeting":
+      return "border-indigo-500 bg-indigo-500/15 text-indigo-200";
     default:
       return "border-muted-foreground/50 bg-muted/40 text-muted-foreground";
   }
@@ -134,6 +138,7 @@ export function UpcomingEvents({ userId }: UpcomingEventsProps) {
     isDrawer: boolean
   ) => {
     const { event, nextDate } = row;
+    const locSummary = formatEventLocationSummary(event).trim();
     const isNextInLine = index === 0;
     const accent = eventTypeAccent(event.event_type);
     return (
@@ -187,7 +192,7 @@ export function UpcomingEvents({ userId }: UpcomingEventsProps) {
             <Calendar className={cn("shrink-0", isNextInLine ? "h-3.5 w-3.5" : "h-3 w-3")} aria-hidden />
             <span className="min-w-0">{formatEventListDateLine(event, nextDate)}</span>
           </div>
-          {event.location?.trim() ? (
+          {locSummary ? (
             <div
               className={cn(
                 "flex items-start gap-1 text-muted-foreground mt-1",
@@ -195,7 +200,7 @@ export function UpcomingEvents({ userId }: UpcomingEventsProps) {
               )}
             >
               <MapPin className={cn("shrink-0 mt-0.5", isNextInLine ? "h-3.5 w-3.5" : "h-3 w-3")} aria-hidden />
-              <span className="line-clamp-2 break-words">{event.location.trim()}</span>
+              <span className="line-clamp-2 break-words">{locSummary}</span>
             </div>
           ) : null}
         </div>
@@ -204,16 +209,6 @@ export function UpcomingEvents({ userId }: UpcomingEventsProps) {
   };
 
   const previewRows = upcomingRows.slice(0, PREVIEW_LIMIT);
-
-  const locationLine = (event: EventSchedule) =>
-    event.location?.trim() ? (
-      <div className="flex items-start gap-2 text-sm text-muted-foreground">
-        <MapPin className="h-4 w-4 shrink-0 mt-0.5" aria-hidden />
-        <span>{event.location.trim()}</span>
-      </div>
-    ) : (
-      <p className="text-sm text-muted-foreground">No location set</p>
-    );
 
   const detailNext =
     detailEvent &&
@@ -382,7 +377,7 @@ export function UpcomingEvents({ userId }: UpcomingEventsProps) {
             ) : null}
             <div>
               <p className="text-xs text-muted-foreground mb-1">Location</p>
-              {locationLine(detailEvent)}
+              <EventScheduleLocationBlock event={detailEvent} />
             </div>
             {detailEvent.description?.trim() ? (
               <div>

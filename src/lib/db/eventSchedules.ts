@@ -10,6 +10,7 @@ export type EventType =
   | 'cabr'
   | 'caco'
   | 'regional_convention'
+  | 'annual_pioneers_meeting'
   | 'other';
 
 const EVENT_TYPE_LABELS: Record<EventType, string> = {
@@ -20,8 +21,16 @@ const EVENT_TYPE_LABELS: Record<EventType, string> = {
   cabr: 'CABR',
   caco: 'CACO',
   regional_convention: 'Regional Convention',
+  annual_pioneers_meeting: 'Annual Pioneers Meeting',
   other: 'Other',
 };
+
+/** Event type dropdown options sorted alphabetically by label. */
+export const EVENT_TYPE_SELECT_OPTIONS: { value: EventType; label: string }[] = (
+  Object.entries(EVENT_TYPE_LABELS) as [EventType, string][]
+)
+  .map(([value, label]) => ({ value, label }))
+  .sort((a, b) => a.label.localeCompare(b.label));
 
 export function formatEventTypeLabel(type: EventType): string {
   return EVENT_TYPE_LABELS[type] ?? type;
@@ -49,6 +58,8 @@ export interface EventSchedule {
   month_of_year?: number | null; // 1-12
   recurrence_interval: number;
   location?: string | null;
+  venue_name?: string | null;
+  venue_address?: string | null;
   location_lat?: number | null;
   location_lng?: number | null;
   status: EventStatus;
@@ -81,6 +92,8 @@ export async function upsertEventSchedule(event: EventSchedule): Promise<EventSc
     month_of_year: event.recurrence_pattern === 'yearly' ? event.month_of_year : null,
     recurrence_interval: event.recurrence_interval,
     location: event.location ?? null,
+    venue_name: event.venue_name ?? null,
+    venue_address: event.venue_address ?? null,
     location_lat: event.location_lat ?? null,
     location_lng: event.location_lng ?? null,
     status: event.status,

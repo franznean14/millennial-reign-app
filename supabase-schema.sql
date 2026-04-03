@@ -93,7 +93,7 @@ EXCEPTION
   WHEN duplicate_object THEN null;
 END $$;
 
--- Additional event_type_t values (see migration 20260402120000_event_type_add_cabr_caco_regional_convention.sql)
+-- Additional event_type_t values (see migrations 20260402120000_event_type_add_cabr_caco_regional_convention.sql, 20260402150000_event_type_add_annual_pioneers_meeting.sql)
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -122,6 +122,16 @@ BEGIN
     WHERE t.typname = 'event_type_t' AND e.enumlabel = 'regional_convention'
   ) THEN
     ALTER TYPE public.event_type_t ADD VALUE 'regional_convention';
+  END IF;
+END $$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_enum e
+    JOIN pg_type t ON e.enumtypid = t.oid
+    WHERE t.typname = 'event_type_t' AND e.enumlabel = 'annual_pioneers_meeting'
+  ) THEN
+    ALTER TYPE public.event_type_t ADD VALUE 'annual_pioneers_meeting';
   END IF;
 END $$;
 
@@ -542,7 +552,9 @@ CREATE TABLE IF NOT EXISTS public.event_schedules (
   recurrence_interval integer NOT NULL DEFAULT 1, -- e.g., every 2 weeks = 2
   
   -- Location
-  location text,
+  location text, -- Denormalized summary; may mirror venue + address for list views
+  venue_name text,
+  venue_address text,
   location_lat numeric(9,6),
   location_lng numeric(11,8),
   
