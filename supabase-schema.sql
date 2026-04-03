@@ -611,7 +611,25 @@ BEGIN
 
   IF NEW.congregation_id IS DISTINCT FROM OLD.congregation_id
      OR COALESCE(NEW.is_congregation_guest, false) IS DISTINCT FROM COALESCE(OLD.is_congregation_guest, false) THEN
-    RAISE EXCEPTION 'congregation assignment cannot be changed from profile';
+    IF OLD.id = auth.uid() THEN
+      RAISE EXCEPTION 'congregation assignment cannot be changed from profile';
+    END IF;
+
+    IF NOT (
+      public.is_admin(auth.uid())
+      OR (
+        NEW.congregation_id IS NOT DISTINCT FROM OLD.congregation_id
+        AND EXISTS (
+          SELECT 1 FROM public.profiles me
+          WHERE me.id = auth.uid()
+            AND me.privileges @> array['Elder']::text[]
+            AND me.congregation_id IS NOT NULL
+            AND me.congregation_id = OLD.congregation_id
+        )
+      )
+    ) THEN
+      RAISE EXCEPTION 'congregation assignment cannot be changed from profile';
+    END IF;
   END IF;
 
   IF NEW.privileges IS DISTINCT FROM OLD.privileges THEN

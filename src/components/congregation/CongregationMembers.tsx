@@ -11,6 +11,12 @@ import { Crown, Shield, Users, ChevronRight } from "lucide-react";
 import { UserManagementForm } from "./UserManagementForm";
 import { FormModal } from "@/components/shared/FormModal";
 import type { Profile } from "@/lib/db/types";
+import { cn } from "@/lib/utils";
+import {
+  CONG_BWI_BADGE_CLASS,
+  CONG_ROLE_BADGE_CLASSES,
+  getPrimaryRoleDisplay,
+} from "@/lib/utils/congregation-member-roles";
 
 const GUEST_MEMBERS_TAB = "__cong_guest_members__";
 
@@ -47,6 +53,8 @@ export function CongregationMembers({
   const [userManagementModalOpen, setUserManagementModalOpen] = useState(false);
   const [membersDrawerOpen, setMembersDrawerOpen] = useState(false);
   const [activeGroup, setActiveGroup] = useState<string>("All");
+  /** Active BWI participants in this congregation (for list badges). */
+  const [bwiParticipantIds, setBwiParticipantIds] = useState<Set<string>>(() => new Set());
 
   const MEMBERS_CACHE_KEY = `cong:members:${congregationId}`;
 
@@ -62,19 +70,37 @@ export function CongregationMembers({
 
     const supabase = createSupabaseBrowserClient();
     try {
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select(
-          "id, first_name, last_name, username, avatar_url, privileges, group_name, congregation_id, role, gender, is_congregation_guest",
-        )
-        .eq('congregation_id', congregationId)
-        .order('last_name')
-        .order('first_name');
+      const [profilesRes, bwiRes] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select(
+            "id, first_name, last_name, username, avatar_url, privileges, group_name, congregation_id, role, gender, is_congregation_guest",
+          )
+          .eq("congregation_id", congregationId)
+          .order("last_name")
+          .order("first_name"),
+        supabase
+          .from("business_participants")
+          .select("user_id")
+          .eq("congregation_id", congregationId)
+          .eq("active", true),
+      ]);
+
+      const { data: profiles, error: profilesError } = profilesRes;
+      if (profilesError) throw profilesError;
 
       if (profiles) {
         const list = profiles as CongregationMember[];
         setMembers(list);
         await cacheSet(MEMBERS_CACHE_KEY, list);
+      }
+
+      const bwiRows = bwiRes.data;
+      if (!bwiRes.error && bwiRows) {
+        setBwiParticipantIds(new Set(bwiRows.map((r) => r.user_id)));
+      } else if (bwiRes.error) {
+        console.warn("BWI participants list:", bwiRes.error);
+        setBwiParticipantIds(new Set());
       }
     } catch (error) {
       console.error('Error loading congregation members:', error);
@@ -143,22 +169,6 @@ export function CongregationMembers({
     return null;
   };
 
-  const getPrimaryPrivilege = (privileges: string[]) => {
-    if (privileges.includes("Elder")) return "Elder";
-    if (privileges.includes("Ministerial Servant")) return "MS";
-    if (privileges.includes("Regular Pioneer")) return "RP";
-    if (privileges.includes("Auxiliary Pioneer")) return "AP";
-    return "";
-  };
-
-  const getPrivilegeBadge = (privileges: string[]) => {
-    if (privileges.includes('Elder')) return <Badge variant="default" className="text-xs">Elder</Badge>;
-    if (privileges.includes('Ministerial Servant')) return <Badge variant="secondary" className="text-xs">MS</Badge>;
-    if (privileges.includes('Regular Pioneer')) return <Badge variant="outline" className="text-xs">Regular Pioneer</Badge>;
-    if (privileges.includes('Auxiliary Pioneer')) return <Badge variant="outline" className="text-xs">Aux Pioneer</Badge>;
-    return null;
-  };
-
   const filteredMembers =
     activeGroup === GUEST_MEMBERS_TAB
       ? members.filter((m) => !!m.is_congregation_guest)
@@ -189,7 +199,8 @@ export function CongregationMembers({
 
   const MembersRow = ({ member, compact }: { member: CongregationMember; compact?: boolean }) => {
     const initials = `${member.first_name?.[0] || ""}${member.last_name?.[0] || ""}`.toUpperCase() || "U";
-    const primary = getPrimaryPrivilege(member.privileges);
+    const role = getPrimaryRoleDisplay(member.privileges);
+    const showBwi = bwiParticipantIds.has(member.id);
     return (
       <div className={compact ? "" : "px-3 py-2"} role="row">
         <div className="flex items-center gap-3">
@@ -215,10 +226,31 @@ export function CongregationMembers({
                 ) : null}
                 {getPrivilegeIcon(member.privileges)}
               </div>
-              {primary ? (
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 leading-none flex-shrink-0">
-                  {primary}
-                </Badge>
+              {(role || showBwi) ? (
+                <div className="flex flex-wrap gap-1 justify-end shrink-0 max-w-[50%]">
+                  {role ? (
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-[10px] px-1.5 py-0 h-4 leading-none font-medium border",
+                        CONG_ROLE_BADGE_CLASSES[role.tone],
+                      )}
+                    >
+                      {role.label}
+                    </Badge>
+                  ) : null}
+                  {showBwi ? (
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-[10px] px-1.5 py-0 h-4 leading-none font-medium border",
+                        CONG_BWI_BADGE_CLASS,
+                      )}
+                    >
+                      BWI
+                    </Badge>
+                  ) : null}
+                </div>
               ) : null}
             </div>
           </div>
@@ -328,7 +360,8 @@ export function CongregationMembers({
                 <tbody>
                   {filteredMembers.map((member) => {
                     const initials = `${member.first_name?.[0] || ""}${member.last_name?.[0] || ""}`.toUpperCase() || "U";
-                    const primary = getPrimaryPrivilege(member.privileges);
+                    const role = getPrimaryRoleDisplay(member.privileges);
+                    const showBwi = bwiParticipantIds.has(member.id);
                     return (
                       <tr
                         key={member.id}
@@ -362,12 +395,32 @@ export function CongregationMembers({
                             </div>
                           </div>
                         </td>
-                        <td className="p-3 w-[30%]">
-                          {primary ? (
-                            <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 leading-none">
-                              {primary}
-                            </Badge>
-                          ) : null}
+                        <td className="p-3 w-[30%] align-top">
+                          <div className="flex flex-wrap gap-1 justify-end">
+                            {role ? (
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "text-[10px] px-1.5 py-0 h-4 leading-none font-medium border",
+                                  CONG_ROLE_BADGE_CLASSES[role.tone],
+                                )}
+                              >
+                                {role.label}
+                              </Badge>
+                            ) : null}
+                            {showBwi ? (
+                              <Badge
+                                variant="outline"
+                                className={cn(
+                                  "text-[10px] px-1.5 py-0 h-4 leading-none font-medium border",
+                                  CONG_BWI_BADGE_CLASS,
+                                )}
+                                title="Business Witnessing Initiative participant"
+                              >
+                                BWI
+                              </Badge>
+                            ) : null}
+                          </div>
                         </td>
                       </tr>
                     );
