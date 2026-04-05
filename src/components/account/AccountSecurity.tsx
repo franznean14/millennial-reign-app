@@ -4,6 +4,8 @@ import { useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { toast } from "@/components/ui/sonner";
 import { Input } from "@/components/ui/input";
+import { PasskeyManager } from "@/components/account/PasskeyManager";
+import { BiometricToggle } from "@/components/account/BiometricToggle";
 
 export function AccountSecurity({ currentEmail }: { currentEmail?: string | null }) {
   const [email, setEmail] = useState(currentEmail ?? "");
@@ -104,10 +106,15 @@ export function AccountSecurity({ currentEmail }: { currentEmail?: string | null
           </button>
         </div>
       </div>
-      <div className="pt-2 border-t">
-        <h3 className="text-sm font-medium mb-2">Biometrics</h3>
-        {/* Lazy import to avoid SSR issues is unnecessary here */}
-        {require("react").createElement(require("@/components/account/BiometricToggle").BiometricToggle)}
+      <div className="pt-2 border-t space-y-4">
+        <div>
+          <h3 className="text-sm font-medium mb-2">Passkeys (sign-in)</h3>
+          <PasskeyManager />
+        </div>
+        <div>
+          <h3 className="text-sm font-medium mb-2">Biometrics (offline unlock)</h3>
+          <BiometricToggle />
+        </div>
       </div>
     </section>
   );

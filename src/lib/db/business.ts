@@ -2008,11 +2008,11 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
 export async function getHouseholderDetails(householderId: string): Promise<{
   householder: HouseholderWithDetails;
   visits: VisitWithUser[];
-  establishment?: { id: string; name: string } | null;
+  establishment?: { id: string; name: string; area?: string | null } | null;
 } | null> {
   const supabase = createSupabaseBrowserClient();
   await supabase.auth.getSession().catch(() => {});
-  const cacheKey = `householder:details:v2:${householderId}`;
+  const cacheKey = `householder:details:v3:${householderId}`;
   
   try {
     // If offline, serve from cache
@@ -2020,7 +2020,7 @@ export async function getHouseholderDetails(householderId: string): Promise<{
       const cached = await cacheGet<{
         householder: HouseholderWithDetails;
         visits: VisitWithUser[];
-        establishment?: { id: string; name: string } | null;
+        establishment?: { id: string; name: string; area?: string | null } | null;
       }>(cacheKey);
       return cached ?? null;
     }
@@ -2032,7 +2032,7 @@ export async function getHouseholderDetails(householderId: string): Promise<{
   // Fetch householder without publisher join (more reliable). Exclude soft-deleted (deleted_at / is_deleted).
   const { data: hh, error: hhError } = await supabase
     .from('householders')
-    .select('id,name,status,note,establishment_id,publisher_id,lat,lng,created_at, establishment:business_establishments(id,name,statuses)')
+    .select('id,name,status,note,establishment_id,publisher_id,lat,lng,created_at, establishment:business_establishments(id,name,area,statuses)')
     .eq('id', householderId)
     .eq('is_deleted', false)
     .eq('is_archived', false)
@@ -2048,7 +2048,7 @@ export async function getHouseholderDetails(householderId: string): Promise<{
     const cached = await cacheGet<{
       householder: HouseholderWithDetails;
       visits: VisitWithUser[];
-      establishment?: { id: string; name: string } | null;
+      establishment?: { id: string; name: string; area?: string | null } | null;
     }>(cacheKey);
     return cached ?? null;
   }
@@ -2098,7 +2098,13 @@ export async function getHouseholderDetails(householderId: string): Promise<{
   const result = {
     householder,
     visits: transformedVisits,
-    establishment: establishment ? { id: establishment.id, name: establishment.name } : null,
+    establishment: establishment
+      ? {
+          id: establishment.id,
+          name: establishment.name,
+          area: establishment.area ?? null,
+        }
+      : null,
   };
   
   // Cache the results
@@ -2109,7 +2115,7 @@ export async function getHouseholderDetails(householderId: string): Promise<{
     const cached = await cacheGet<{
       householder: HouseholderWithDetails;
       visits: VisitWithUser[];
-      establishment?: { id: string; name: string } | null;
+      establishment?: { id: string; name: string; area?: string | null } | null;
     }>(cacheKey);
     return cached ?? null;
   }

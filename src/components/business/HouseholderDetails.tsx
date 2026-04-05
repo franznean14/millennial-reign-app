@@ -5,8 +5,8 @@ import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, User2, Archive, FilePlus2, UserPlus, Minus } from "lucide-react";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Calendar, MapPinned, Archive, FilePlus2, UserPlus, Minus } from "lucide-react";
 import { FormModal } from "@/components/shared/FormModal";
 import { toast } from "@/components/ui/sonner";
 import { HouseholderForm } from "@/components/business/HouseholderForm";
@@ -35,7 +35,7 @@ import { getPersonalTerritoryDetailsCardClass } from "@/lib/utils/status-hierarc
 interface HouseholderDetailsProps {
   householder: HouseholderWithDetails;
   visits: VisitWithUser[];
-  establishment?: { id: string; name: string } | null;
+  establishment?: { id: string; name: string; area?: string | null } | null;
   establishments: Array<{ id: string; name: string; area?: string | null }>;
   onBackClick: () => void;
   context?: "bwi" | "congregation";
@@ -242,7 +242,7 @@ export function HouseholderDetails({
         };
         // Clear cache to force fresh fetch on next load
         if (updated.id) {
-          await cacheDelete(`householder:details:v2:${updated.id}`);
+          await cacheDelete(`householder:details:v3:${updated.id}`);
         }
         toast.success("Added as personal contact");
         businessEventBus.emit('householder-updated', updatedWithUser);
@@ -281,7 +281,7 @@ export function HouseholderDetails({
         };
         // Clear cache to force fresh fetch on next load
         if (updated.id) {
-          await cacheDelete(`householder:details:v2:${updated.id}`);
+          await cacheDelete(`householder:details:v3:${updated.id}`);
         }
         toast.success("Removed as personal contact");
         businessEventBus.emit('householder-updated', updatedWithUser);
@@ -302,6 +302,20 @@ export function HouseholderDetails({
   const detailsCardSurfaceClass = householder.publisher_id
     ? getPersonalTerritoryDetailsCardClass(!!isCurrentUserPublisher)
     : getHouseholderCardColor(householder.status);
+
+  const hasCoordinates = householder.lat != null && householder.lng != null;
+  /** BWI: directions only after "Take as personal contact"; congregation unchanged. */
+  const showDirections =
+    context !== "bwi" || !!isCurrentUserPublisher;
+
+  const linkedEstablishment = useMemo(
+    () => establishments.find((e) => e.id === householder.establishment_id),
+    [establishments, householder.establishment_id]
+  );
+  const areaFromEstablishment =
+    establishment?.area?.trim() || linkedEstablishment?.area?.trim();
+  const establishmentDisplayName =
+    (establishment?.name?.trim() || householder.establishment_name?.trim() || "") || "";
 
   // Handle click outside to restore avatar when minus button is shown (don't close when remove-confirm popover is open)
   useEffect(() => {
@@ -378,173 +392,216 @@ export function HouseholderDetails({
           }}
           className={cn("w-full cursor-pointer transition-colors hover:bg-muted/30", detailsCardSurfaceClass)}
         >
-          <CardHeader>
-            <CardTitle className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <User2 className="h-5 w-5 flex-shrink-0" />
-                Details
-              </div>
-              {/* User+ button or Avatar on the same row */}
-              <div className="flex-shrink-0">
-                {isLoading ? (
-                  // Skeleton loading for user+ button/avatar
-                  <div className="h-8 w-8 rounded-full bg-muted/60 blur-[2px] animate-pulse" />
-                ) : assignedUser && isCurrentUserPublisher ? (
-                // Show avatar that animates to minus button on tap; tap outside animates back; minus opens remove confirmation
-                <div
-                  ref={avatarButtonRef}
-                  className="flex-shrink-0 cursor-pointer h-8 w-8 flex items-center justify-center"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                    if (!showMinusButton) setShowMinusButton(true);
-                  }}
+          <CardHeader className="flex flex-row items-center justify-between gap-2">
+            <div className="flex w-full min-w-0 flex-1 flex-wrap items-center gap-2 pr-1">
+              {isLoading ? (
+                <div className="h-6 w-28 rounded-full bg-muted/60 blur-[1px] animate-pulse" />
+              ) : householder.status?.trim() ? (
+                <Badge
+                  variant="outline"
+                  className={cn("flex-shrink-0 capitalize", getHouseholderStatusColorClass(householder.status))}
                 >
-                  <AnimatePresence mode="wait">
-                    {showMinusButton ? (
-                      <motion.div
-                        key="minus"
-                        initial={{ scale: 0.8, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0.8, opacity: 0 }}
-                        transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="h-8 w-8 flex items-center justify-center"
-                      >
-                        <Button
-                          type="button"
-                          variant="destructive"
-                          size="icon"
-                          className="h-8 w-8 min-h-8 min-w-8 rounded-full p-0"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            setShowRemoveConfirm(true);
-                          }}
-                        >
-                          <Minus className="h-4 w-4" />
-                        </Button>
-                      </motion.div>
-                    ) : (
-                      <motion.div
-                        key="avatar"
-                        initial={{ scale: 0.8, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0.8, opacity: 0 }}
-                        transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="h-8 w-8 flex items-center justify-center"
-                      >
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8 min-h-8 min-w-8 rounded-full p-0"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            setShowMinusButton(true);
-                          }}
-                        >
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage src={assignedUser.avatar_url || undefined} alt={`${assignedUser.first_name} ${assignedUser.last_name}`} />
-                            <AvatarFallback className="text-xs">
-                              {getInitials(`${assignedUser.first_name} ${assignedUser.last_name}`)}
-                            </AvatarFallback>
-                          </Avatar>
-                        </Button>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              ) : assignedUser ? (
-                // Show avatar if someone else is the publisher (not clickable)
-                <Avatar className="h-8 w-8">
-                  <AvatarImage src={assignedUser.avatar_url || undefined} alt={`${assignedUser.first_name} ${assignedUser.last_name}`} />
-                  <AvatarFallback className="text-xs">
-                    {getInitials(`${assignedUser.first_name} ${assignedUser.last_name}`)}
-                  </AvatarFallback>
-                </Avatar>
+                  {formatStatusText(householder.status)}
+                </Badge>
+              ) : null}
+            </div>
+            <div className="flex flex-shrink-0 items-center gap-2">
+              {isLoading ? (
+                <>
+                  {showDirections ? (
+                    <div className="h-8 w-8 rounded-full bg-muted/60 blur-[2px] animate-pulse" />
+                  ) : null}
+                  <div className="h-8 w-8 rounded-full bg-muted/60 blur-[2px] animate-pulse" />
+                </>
               ) : (
-                // Show user+ button if no publisher
-                <div onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    className="h-8 w-8 rounded-full"
-                    disabled={!effectivePublisherId || updatingPublisher}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowAddConfirm(true);
-                    }}
-                  >
-                    <UserPlus className="h-4 w-4" />
-                  </Button>
-                </div>
-                )}
-              </div>
-            </CardTitle>
+                <>
+                  {showDirections ? (
+                    hasCoordinates ? (
+                      <a
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-primary/60 bg-primary/10 text-primary shadow-sm transition-all hover:bg-primary/20 hover:border-primary hover:scale-[1.03] active:scale-100"
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${householder.lat},${householder.lng}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label="Open directions"
+                        title="Open directions"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <MapPinned className="h-4 w-4" />
+                      </a>
+                    ) : (
+                      <button
+                        type="button"
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-dashed border-muted-foreground/45 text-muted-foreground/85 hover:bg-muted/30"
+                        aria-label="Set location"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setIsEditing(true);
+                        }}
+                      >
+                        <MapPinned className="h-4 w-4" />
+                      </button>
+                    )
+                  ) : null}
+                  {assignedUser && isCurrentUserPublisher ? (
+                    <div
+                      ref={avatarButtonRef}
+                      className="flex h-8 w-8 flex-shrink-0 cursor-pointer items-center justify-center"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        if (!showMinusButton) setShowMinusButton(true);
+                      }}
+                    >
+                      <AnimatePresence mode="wait">
+                        {showMinusButton ? (
+                          <motion.div
+                            key="minus"
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.8, opacity: 0 }}
+                            transition={{ duration: 0.2, ease: "easeOut" }}
+                            className="flex h-8 w-8 items-center justify-center"
+                          >
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="icon"
+                              className="h-8 w-8 min-h-8 min-w-8 rounded-full p-0"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                setShowRemoveConfirm(true);
+                              }}
+                            >
+                              <Minus className="h-4 w-4" />
+                            </Button>
+                          </motion.div>
+                        ) : (
+                          <motion.div
+                            key="avatar"
+                            initial={{ scale: 0.8, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ scale: 0.8, opacity: 0 }}
+                            transition={{ duration: 0.2, ease: "easeOut" }}
+                            className="flex h-8 w-8 items-center justify-center"
+                          >
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8 min-h-8 min-w-8 rounded-full p-0"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                setShowMinusButton(true);
+                              }}
+                            >
+                              <Avatar className="h-8 w-8">
+                                <AvatarImage
+                                  src={assignedUser.avatar_url || undefined}
+                                  alt={`${assignedUser.first_name} ${assignedUser.last_name}`}
+                                />
+                                <AvatarFallback className="text-xs">
+                                  {getInitials(`${assignedUser.first_name} ${assignedUser.last_name}`)}
+                                </AvatarFallback>
+                              </Avatar>
+                            </Button>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  ) : assignedUser ? (
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage
+                        src={assignedUser.avatar_url || undefined}
+                        alt={`${assignedUser.first_name} ${assignedUser.last_name}`}
+                      />
+                      <AvatarFallback className="text-xs">
+                        {getInitials(`${assignedUser.first_name} ${assignedUser.last_name}`)}
+                      </AvatarFallback>
+                    </Avatar>
+                  ) : (
+                    <div onClick={(e) => e.stopPropagation()} className="flex-shrink-0">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 rounded-full border border-dashed border-muted-foreground/45 text-muted-foreground/85 hover:bg-muted/30"
+                        disabled={!effectivePublisherId || updatingPublisher}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowAddConfirm(true);
+                        }}
+                      >
+                        <UserPlus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             {isLoading ? (
-              <>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <div className="h-3 bg-muted/60 rounded w-16 mb-2 animate-pulse" />
-                    <div className="h-6 bg-muted/60 rounded w-20 animate-pulse" />
-                  </div>
-                  {showEstablishment && (
-                    <div>
-                      <div className="h-3 bg-muted/60 rounded w-24 mb-2 animate-pulse" />
-                      <div className="h-4 bg-muted/60 rounded w-32 animate-pulse" />
-                    </div>
-                  )}
-                </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <div className="h-3 bg-muted/60 rounded w-16 mb-2 animate-pulse" />
-                  <div className="h-4 bg-muted/60 rounded w-full max-w-[300px] animate-pulse" />
-                  <div className="h-4 bg-muted/60 rounded w-full max-w-[200px] mt-2 animate-pulse" />
+                  <div className="mb-2 h-3 w-12 animate-pulse rounded bg-muted/60" />
+                  <div className="h-4 w-24 animate-pulse rounded bg-muted/60" />
                 </div>
-              </>
+                {showEstablishment && (
+                  <div>
+                    <div className="mb-2 h-3 w-24 animate-pulse rounded bg-muted/60" />
+                    <div className="h-4 w-32 animate-pulse rounded bg-muted/60" />
+                  </div>
+                )}
+                <div className="col-span-2">
+                  <div className="mb-2 h-3 w-14 animate-pulse rounded bg-muted/60" />
+                  <div className="h-4 max-w-[300px] animate-pulse rounded bg-muted/60" />
+                  <div className="mt-2 h-4 max-w-[200px] animate-pulse rounded bg-muted/60" />
+                </div>
+              </div>
             ) : (
-              <>
-                <div className="grid grid-cols-2 gap-4">
-                  {householder.status?.trim() && (
-                    <motion.div
-                      custom={0}
-                      initial="hidden"
-                      animate="visible"
-                      variants={itemVariants}
-                    >
-                      <p className="text-sm font-medium text-muted-foreground">Status</p>
-                      <Badge variant="outline" className={cn("text-xs capitalize", getHouseholderStatusColorClass(householder.status))}>
-                        {formatStatusText(householder.status)}
-                      </Badge>
-                    </motion.div>
-                  )}
-                  {showEstablishment && establishment?.name?.trim() && (
-                    <motion.div
-                      custom={1}
-                      initial="hidden"
-                      animate="visible"
-                      variants={itemVariants}
-                    >
-                      <p className="text-sm font-medium text-muted-foreground">Establishment</p>
-                      <p className="truncate">{establishment.name.trim()}</p>
-                    </motion.div>
-                  )}
-                </div>
-                {householder.note?.trim() && (
+              <div className="grid grid-cols-2 gap-4">
+                {showEstablishment && areaFromEstablishment && (
                   <motion.div
+                    custom={0}
                     initial="hidden"
                     animate="visible"
                     variants={itemVariants}
+                  >
+                    <p className="text-sm font-medium text-muted-foreground">Area</p>
+                    <p>{areaFromEstablishment}</p>
+                  </motion.div>
+                )}
+                {showEstablishment && establishmentDisplayName && (
+                  <motion.div
+                    custom={1}
+                    initial="hidden"
+                    animate="visible"
+                    variants={itemVariants}
+                    className={
+                      showEstablishment && areaFromEstablishment && establishmentDisplayName
+                        ? undefined
+                        : "col-span-2"
+                    }
+                  >
+                    <p className="text-sm font-medium text-muted-foreground">Establishment</p>
+                    <p className="break-words">{establishmentDisplayName}</p>
+                  </motion.div>
+                )}
+                {householder.note?.trim() && (
+                  <motion.div
                     custom={2}
+                    initial="hidden"
+                    animate="visible"
+                    variants={itemVariants}
+                    className="col-span-2"
                   >
                     <p className="text-sm font-medium text-muted-foreground">Note</p>
                     <p className="text-sm break-words">{householder.note.trim()}</p>
                   </motion.div>
                 )}
-              </>
+              </div>
             )}
           </CardContent>
         </Card>

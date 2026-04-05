@@ -16,6 +16,7 @@ const getSupabaseClient = async () => {
 import { motion } from "motion/react";
 import { toast } from "@/components/ui/sonner";
 import { LoginView } from "@/components/views/LoginView";
+import { MfaPasskeyGate } from "@/components/auth/MfaPasskeyGate";
 import { LoadingView } from "@/components/views/LoadingView";
 import { UnifiedPortaledControls } from "@/components/UnifiedPortaledControls";
 import { useSPA } from "@/components/SPAProvider";
@@ -615,8 +616,8 @@ export function AppClient() {
       // Invalidate detail caches first so detail fetches never see stale cache (list and details both get fresh data)
       await Promise.all([
         estId ? cacheDelete(`establishment:details:${estId}`) : Promise.resolve(),
-        hhId ? cacheDelete(`householder:details:v2:${hhId}`) : Promise.resolve(),
-        congHhId ? cacheDelete(`householder:details:v2:${congHhId}`) : Promise.resolve(),
+        hhId ? cacheDelete(`householder:details:v3:${hhId}`) : Promise.resolve(),
+        congHhId ? cacheDelete(`householder:details:v3:${congHhId}`) : Promise.resolve(),
       ]);
       const [establishmentsData, householdersData] = await Promise.all([
         getEstablishmentsWithDetails(),
@@ -1269,6 +1270,7 @@ export function AppClient() {
     case 'home':
       return (
         <>
+        <MfaPasskeyGate />
         <HomeSection
           portaledControls={portaledControls}
           userId={userId}
@@ -1297,6 +1299,7 @@ export function AppClient() {
     case 'business':
       return (
         <>
+        <MfaPasskeyGate />
         <BusinessSectionView
           userId={userId}
           portaledControls={portaledControls}
@@ -1346,6 +1349,7 @@ export function AppClient() {
     case 'congregation':
       return (
         <>
+        <MfaPasskeyGate />
         <CongregationSectionView
           portaledControls={portaledControls}
           profileCongregationId={(profile as any)?.congregation_id}
@@ -1383,6 +1387,7 @@ export function AppClient() {
     case 'account':
       return (
         <>
+          <MfaPasskeyGate />
           {portaledControls}
           {unifiedFab}
           <AccountSection
@@ -1413,23 +1418,26 @@ export function AppClient() {
 
     default:
       return (
-        <motion.div
-          key="home"
-          initial={{ opacity: 0, filter: "blur(6px)" }}
-          animate={{ opacity: 1, filter: "blur(0px)" }}
-          exit={{ opacity: 0, filter: "blur(6px)" }}
-          transition={{ duration: 0.3 }}
-          className="space-y-6 pb-20" // Add bottom padding for navbar
-        >
-          <HomeSummary
-            userId={userId}
-            monthStart={dateRanges.monthStart}
-            nextMonthStart={dateRanges.nextMonthStart}
-            serviceYearStart={dateRanges.serviceYearStart}
-            serviceYearEnd={dateRanges.serviceYearEnd}
-          />
-          {unifiedFab}
-        </motion.div>
+        <>
+          <MfaPasskeyGate />
+          <motion.div
+            key="home"
+            initial={{ opacity: 0, filter: "blur(6px)" }}
+            animate={{ opacity: 1, filter: "blur(0px)" }}
+            exit={{ opacity: 0, filter: "blur(6px)" }}
+            transition={{ duration: 0.3 }}
+            className="space-y-6 pb-20" // Add bottom padding for navbar
+          >
+            <HomeSummary
+              userId={userId}
+              monthStart={dateRanges.monthStart}
+              nextMonthStart={dateRanges.nextMonthStart}
+              serviceYearStart={dateRanges.serviceYearStart}
+              serviceYearEnd={dateRanges.serviceYearEnd}
+            />
+            {unifiedFab}
+          </motion.div>
+        </>
       );
   }
 }

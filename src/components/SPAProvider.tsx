@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
+import { computeMfaPasskeyRequired } from '@/lib/auth/mfa-passkey';
 
 interface SPAContextType {
   currentSection: string;
@@ -12,6 +13,8 @@ interface SPAContextType {
   };
   onSectionChange: (section: string) => void;
   isAuthenticated: boolean;
+  /** Session is AAL1 but verified WebAuthn MFA factors exist — user must complete passkey step. */
+  mfaPasskeyRequired: boolean;
   refreshAuth: () => void;
   isAppReady: boolean;
   setContentLoading: (loading: boolean) => void;
@@ -37,7 +40,8 @@ export function SPAProvider({ children }: { children: ReactNode }) {
   
   // Navigation stack for SPA back navigation
   const [navigationStack, setNavigationStack] = useState<string[]>(['home']);
-  
+  const [mfaPasskeyRequired, setMfaPasskeyRequired] = useState(false);
+
   const isAppReady = !authLoading && !navigationLoading && !contentLoading;
 
   const pushNavigation = (section: string) => {
@@ -89,6 +93,7 @@ export function SPAProvider({ children }: { children: ReactNode }) {
           console.log('Refresh token invalid, clearing session...');
           await supabase.auth.signOut();
           setIsAuthenticated(false);
+          setMfaPasskeyRequired(false);
           setUserPermissions({
             showCongregation: false,
             showBusiness: false,
@@ -101,7 +106,10 @@ export function SPAProvider({ children }: { children: ReactNode }) {
       
       if (session?.user) {
         setIsAuthenticated(true);
-        
+
+        const mfaPending = await computeMfaPasskeyRequired(supabase).catch(() => false);
+        setMfaPasskeyRequired(mfaPending);
+
         // Check user permissions
         const { data: profile } = await supabase
           .from('profiles')
@@ -121,10 +129,10 @@ export function SPAProvider({ children }: { children: ReactNode }) {
           });
         }
 
-        // If we just signed in from /login, reset to home and clean URL/state
+        // If we just signed in from /login, reset to home and clean URL/state (skip until passkey MFA completes)
         if (typeof window !== 'undefined') {
           const path = window.location.pathname;
-          if (path === '/login' || currentSection === 'login') {
+          if (!mfaPending && (path === '/login' || currentSection === 'login')) {
             setCurrentSection('home');
             setNavigationStack(['home']);
             const url = new URL(window.location.href);
@@ -134,6 +142,7 @@ export function SPAProvider({ children }: { children: ReactNode }) {
         }
       } else {
         setIsAuthenticated(false);
+        setMfaPasskeyRequired(false);
         setUserPermissions({
           showCongregation: false,
           showBusiness: false,
@@ -142,6 +151,7 @@ export function SPAProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('Auth check error:', error);
       setIsAuthenticated(false);
+      setMfaPasskeyRequired(false);
       setUserPermissions({
         showCongregation: false,
         showBusiness: false,
@@ -169,9 +179,12 @@ export function SPAProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         
-        if (event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
-          checkAuth();
-        } else if (event === 'SIGNED_IN') {
+        if (
+          event === 'SIGNED_OUT' ||
+          event === 'TOKEN_REFRESHED' ||
+          event === 'SIGNED_IN' ||
+          event === 'MFA_CHALLENGE_VERIFIED'
+        ) {
           checkAuth();
         }
       }
@@ -203,6 +216,7 @@ export function SPAProvider({ children }: { children: ReactNode }) {
     userPermissions,
     onSectionChange: handleSectionChange,
     isAuthenticated,
+    mfaPasskeyRequired,
     refreshAuth,
     isAppReady,
     setContentLoading,
