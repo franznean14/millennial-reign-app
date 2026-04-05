@@ -371,7 +371,7 @@ export function HouseholderList({
       
       {/* Scrollable Table Body */}
       <div
-        className="flex-1 overflow-y-auto no-scrollbar overscroll-none pb-[calc(max(env(safe-area-inset-bottom),0px)+5px)]"
+        className="flex-1 overflow-y-auto no-scrollbar overscroll-none pb-[calc(max(env(safe-area-inset-bottom),0px)+175px)]"
         style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
       >
         <table className="w-full text-sm table-fixed">

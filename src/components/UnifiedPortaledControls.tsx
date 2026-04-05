@@ -295,7 +295,7 @@ function BusinessControlsContent({
                   }
                 }}
                 myActive={filters.myEstablishments}
-                myLabel={businessTab === "householders" ? "My Householders" : "My Personal Territory"}
+                myLabel={businessTab === "householders" ? "My Contacts" : "My Personal Territory"}
                 onMyActivate={() => onFiltersChange({ ...filters, myEstablishments: true })}
                 onMyClear={onClearMyEstablishments}
                 filterBadges={badges}
@@ -350,7 +350,7 @@ function BusinessControlsContent({
                     }
                   }}
                   myActive={filters.myEstablishments}
-                  myLabel={businessTab === "householders" ? "My Householders" : "My Personal Territory"}
+                  myLabel={businessTab === "householders" ? "My Contacts" : "My Personal Territory"}
                   onMyActivate={() => onFiltersChange({ ...filters, myEstablishments: true })}
                   onMyClear={onClearMyEstablishments}
                   filterBadges={badges}

@@ -102,7 +102,7 @@ export function BusinessTabToggle({
                 className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 w-full flex flex-col items-center justify-center gap-1 transition-colors"
               >
                 <Users className="h-4 w-4 flex-shrink-0" />
-                <span className="text-[10px] font-medium text-center">Householders</span>
+                <span className="text-[10px] font-medium text-center">Contacts</span>
               </ToggleGroupItem>
               <ToggleGroupItem 
                 value="map" 
