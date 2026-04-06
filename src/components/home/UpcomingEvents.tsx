@@ -28,8 +28,17 @@ import {
 } from "@/lib/utils/event-location-display";
 import { EventScheduleLocationBlock } from "@/components/congregation/EventScheduleLocationBlock";
 import { EventScheduleDirectionsLink } from "@/components/congregation/EventScheduleDirectionsLink";
+import { cacheGet, cacheSet } from "@/lib/offline/store";
 
 const PREVIEW_LIMIT = 5;
+
+const UPCOMING_EVENTS_CACHE_PREFIX = "home:upcoming-events:v1:";
+
+type UpcomingEventsCachePayload = {
+  congregationId: string | null;
+  events: EventSchedule[];
+  updatedAt: number;
+};
 
 function eventTypeAccent(eventType: EventType): string {
   switch (eventType) {
@@ -79,27 +88,68 @@ export function UpcomingEvents({ userId }: UpcomingEventsProps) {
     return rows;
   }, [events]);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (opts?: { force?: boolean }) => {
     if (!userId) {
       setLoading(false);
       setEvents([]);
       setCongregationId(null);
       return;
     }
-    setLoading(true);
+    const force = opts?.force ?? false;
+    const cacheKey = `${UPCOMING_EVENTS_CACHE_PREFIX}${userId}`;
+    let hydratedFromCache = false;
+
+    if (!force) {
+      try {
+        const cached = await cacheGet<UpcomingEventsCachePayload>(cacheKey);
+        if (cached && Array.isArray(cached.events)) {
+          setEvents(cached.events);
+          setCongregationId(cached.congregationId ?? null);
+          setLoading(false);
+          hydratedFromCache = true;
+        }
+      } catch {
+        /* ignore bad cache */
+      }
+    }
+
+    if (!hydratedFromCache && !force) {
+      setLoading(true);
+    }
+
     try {
       const profile = await getProfile(userId);
       const cid = profile?.congregation_id ?? null;
       setCongregationId(cid);
       if (!cid) {
         setEvents([]);
+        try {
+          await cacheSet(cacheKey, {
+            congregationId: null,
+            events: [],
+            updatedAt: Date.now(),
+          } satisfies UpcomingEventsCachePayload);
+        } catch {
+          /* ignore */
+        }
         return;
       }
       const list = await listEventSchedules(cid);
       setEvents(list);
+      try {
+        await cacheSet(cacheKey, {
+          congregationId: cid,
+          events: list,
+          updatedAt: Date.now(),
+        } satisfies UpcomingEventsCachePayload);
+      } catch {
+        /* ignore */
+      }
     } catch (e) {
       console.error("UpcomingEvents: load failed", e);
-      setEvents([]);
+      if (!hydratedFromCache && !force) {
+        setEvents([]);
+      }
     } finally {
       setLoading(false);
     }
@@ -110,7 +160,7 @@ export function UpcomingEvents({ userId }: UpcomingEventsProps) {
   }, [load]);
 
   useEffect(() => {
-    const onRefresh = () => void load();
+    const onRefresh = () => void load({ force: true });
     window.addEventListener("event-schedule-refresh", onRefresh);
     return () => window.removeEventListener("event-schedule-refresh", onRefresh);
   }, [load]);

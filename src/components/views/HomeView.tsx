@@ -68,45 +68,50 @@ export function HomeView({
 
   return (
     <div className="space-y-6 w-full max-w-full overflow-x-hidden">
-      {homeTab === 'summary' ? (
-        <>
-          {/* Mobile: Hours card, BWI summary card, To-Do card — consistent gap between all three */}
-          <div className="lg:hidden space-y-6">
-            <HomeSummary
-              userId={userId}
-              monthStart={dateRanges.monthStart}
-              nextMonthStart={dateRanges.nextMonthStart}
-              serviceYearStart={dateRanges.serviceYearStart}
-              serviceYearEnd={dateRanges.serviceYearEnd}
-              onNavigateToCongregation={onNavigateToCongregation}
-            />
-            <VisitHistory 
-              userId={userId} 
-              onVisitClick={onVisitClick}
-              onNavigateToBusinessWithStatus={onNavigateToBusinessWithStatus}
-              bwiAreaFilter={bwiAreaFilter}
-              onBwiAreaChange={onBwiAreaChange}
-            />
-            <HomeTodoCard userId={userId} onNavigateToTodoCall={onNavigateToTodoCall} />
-          </div>
-
-          {/* Desktop: Desktop Home Summary with Calendar and Form */}
-          <div className="hidden lg:block">
-            <DesktopHomeSummary
-              userId={userId}
-              monthStart={dateRanges.monthStart}
-              nextMonthStart={dateRanges.nextMonthStart}
-              serviceYearStart={dateRanges.serviceYearStart}
-              serviceYearEnd={dateRanges.serviceYearEnd}
-              onNavigateToCongregation={onNavigateToCongregation}
-            />
-          </div>
-        </>
-      ) : (
-        <div className="px-4">
-          <UpcomingEvents userId={userId} />
+      {/* Keep both panels mounted so Events does not remount/refetch on Summary ↔ Events; hide inactive tab */}
+      <div
+        className={homeTab === "summary" ? "block" : "hidden"}
+        aria-hidden={homeTab !== "summary"}
+      >
+        {/* Mobile: Hours card, BWI summary card, To-Do card — consistent gap between all three */}
+        <div className="lg:hidden space-y-6">
+          <HomeSummary
+            userId={userId}
+            monthStart={dateRanges.monthStart}
+            nextMonthStart={dateRanges.nextMonthStart}
+            serviceYearStart={dateRanges.serviceYearStart}
+            serviceYearEnd={dateRanges.serviceYearEnd}
+            onNavigateToCongregation={onNavigateToCongregation}
+          />
+          <VisitHistory
+            userId={userId}
+            onVisitClick={onVisitClick}
+            onNavigateToBusinessWithStatus={onNavigateToBusinessWithStatus}
+            bwiAreaFilter={bwiAreaFilter}
+            onBwiAreaChange={onBwiAreaChange}
+          />
+          <HomeTodoCard userId={userId} onNavigateToTodoCall={onNavigateToTodoCall} />
         </div>
-      )}
+
+        {/* Desktop: Desktop Home Summary with Calendar and Form */}
+        <div className="hidden lg:block">
+          <DesktopHomeSummary
+            userId={userId}
+            monthStart={dateRanges.monthStart}
+            nextMonthStart={dateRanges.nextMonthStart}
+            serviceYearStart={dateRanges.serviceYearStart}
+            serviceYearEnd={dateRanges.serviceYearEnd}
+            onNavigateToCongregation={onNavigateToCongregation}
+          />
+        </div>
+      </div>
+
+      <div
+        className={homeTab === "events" ? "block px-4" : "hidden"}
+        aria-hidden={homeTab !== "events"}
+      >
+        <UpcomingEvents userId={userId} />
+      </div>
       {/* FAB handled by UnifiedFab */}
     </div>
   );
