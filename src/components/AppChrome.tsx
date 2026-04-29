@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { AppTopbar } from "@/components/AppTopbar";
@@ -42,11 +41,18 @@ interface AppChromeProps {
 export function AppChrome({ children }: AppChromeProps) {
   const pathname = usePathname();
   const { currentSection, userPermissions, onSectionChange, isAuthenticated, isAppReady } = useSPA();
-  const hideChrome = pathname === "/login" || pathname.startsWith("/auth/") || !isAuthenticated;
+  const isUtilityRoute =
+    pathname === "/diag" ||
+    pathname.startsWith("/diag/") ||
+    pathname === "/offline" ||
+    pathname.startsWith("/offline/") ||
+    pathname === "/privacy" ||
+    pathname.startsWith("/tools/");
+  const hideChrome = pathname === "/login" || pathname.startsWith("/auth/") || isUtilityRoute || !isAuthenticated;
 
 
-  // If not authenticated, just show the children (login view)
-  if (!isAuthenticated) {
+  // Utility/auth routes render without app shell and app-ready overlay.
+  if (hideChrome) {
     return (
       <>
         <OfflineInit />
