@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // Dev-only: allow HMR / _next dev assets when the browser uses another host
   // (e.g. phone on LAN hitting this machine’s IP instead of localhost).
-  allowedDevOrigins: ["192.168.254.102"],
+  allowedDevOrigins: ["192.168.254.102", "192.168.254.105"],
   // Speed up CI/Vercel deploys by skipping type errors during build.
   // We will still catch these locally via `npm run lint` and editor tooling.
   // Note: eslint config is now handled via CLI flags or .eslintrc, not next.config.ts

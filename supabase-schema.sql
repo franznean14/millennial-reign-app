@@ -829,6 +829,8 @@ ALTER TABLE public.business_establishments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.householders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.calls ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.call_todos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.congregation_guest_name_inheritances ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.event_schedules ENABLE ROW LEVEL SECURITY;
 
 -- Must exist before "Profiles: Read BWI call participants" policy (avoids 42P17 recursion via calls RLS).
 CREATE OR REPLACE FUNCTION public.profile_visible_via_bwi_calls(target_profile_id uuid)
@@ -1247,6 +1249,47 @@ DROP POLICY IF EXISTS "Event schedules: admin write" ON public.event_schedules;
 CREATE POLICY "Event schedules: admin write" ON public.event_schedules FOR ALL 
 USING (public.is_admin(auth.uid())) 
 WITH CHECK (public.is_admin(auth.uid()));
+
+-- Congregation guest-name inheritance mapping RLS policies
+DROP POLICY IF EXISTS "Guest inheritances: read" ON public.congregation_guest_name_inheritances;
+CREATE POLICY "Guest inheritances: read"
+ON public.congregation_guest_name_inheritances
+FOR SELECT
+USING (
+  public.is_admin(auth.uid())
+  OR EXISTS (
+    SELECT 1
+    FROM public.profiles me
+    WHERE me.id = auth.uid()
+      AND me.privileges @> array['Elder']::text[]
+      AND me.congregation_id = public.congregation_guest_name_inheritances.congregation_id
+  )
+);
+
+DROP POLICY IF EXISTS "Guest inheritances: write" ON public.congregation_guest_name_inheritances;
+CREATE POLICY "Guest inheritances: write"
+ON public.congregation_guest_name_inheritances
+FOR ALL
+USING (
+  public.is_admin(auth.uid())
+  OR EXISTS (
+    SELECT 1
+    FROM public.profiles me
+    WHERE me.id = auth.uid()
+      AND me.privileges @> array['Elder']::text[]
+      AND me.congregation_id = public.congregation_guest_name_inheritances.congregation_id
+  )
+)
+WITH CHECK (
+  public.is_admin(auth.uid())
+  OR EXISTS (
+    SELECT 1
+    FROM public.profiles me
+    WHERE me.id = auth.uid()
+      AND me.privileges @> array['Elder']::text[]
+      AND me.congregation_id = public.congregation_guest_name_inheritances.congregation_id
+  )
+);
 
 -- ==============================================
 -- Helper Functions

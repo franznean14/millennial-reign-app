@@ -14,6 +14,11 @@ export function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
+  // Allow diagnostics page without auth for troubleshooting user devices.
+  if (pathname === "/diag" || pathname.startsWith("/diag/")) {
+    return NextResponse.next();
+  }
+
   // Heuristic: Supabase sets cookies containing 'sb-' and '-auth-token' with JSON value including access_token
   const authCookie = req.cookies
     .getAll()
