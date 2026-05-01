@@ -93,6 +93,11 @@ type TargetOption = {
   subtitle: string;
   status?: string;
   avatars: PersonAvatar[];
+  latestText?: string;
+  latestDateValue?: string | null;
+  latestSource?: "call" | "todo";
+  latestActors?: PersonAvatar[];
+  latestActorNames?: string[];
   searchText: string;
 };
 
@@ -155,6 +160,11 @@ const formatTodoDate = (dateStr: string | null | undefined): string => {
   const day = d.getDate();
   const yearShort = String(d.getFullYear()).slice(-2);
   return `${month} ${day}, '${yearShort}`;
+};
+
+const getPersonDisplayName = (person: Pick<PersonAvatar, "first_name" | "last_name">): string => {
+  const fullName = `${person.first_name || ""} ${person.last_name || ""}`.trim();
+  return fullName || "Publisher";
 };
 
 const getDateAgeColorClass = (dateStr: string | null | undefined): string => {
@@ -575,38 +585,109 @@ export function BulkTodoForm({
             !!establishment.id && !establishment.publisher_id
         )
         .map((establishment) => ({
+          ...(() => {
+            const targetKey = `establishment:${establishment.id}`;
+            const insight = latestInsightByTarget[targetKey];
+            const fallbackAvatars = (establishment.top_visitors || []).slice(0, 2).map((visitor) => ({
+              id: visitor.user_id,
+              first_name: visitor.first_name,
+              last_name: visitor.last_name,
+              avatar_url: visitor.avatar_url,
+            }));
+            const chosenAvatars = insight?.avatars?.length ? insight.avatars : fallbackAvatars;
+            const latestActorNames = chosenAvatars
+              .map((person) => getPersonDisplayName(person))
+              .filter((name, index, arr) => name.length > 0 && arr.indexOf(name) === index)
+              .slice(0, 2);
+            return {
+              targetKey,
+              insight,
+              fallbackAvatars,
+              chosenAvatars,
+              latestActorNames,
+            };
+          })(),
           key: `establishment:${establishment.id}`,
           label: establishment.name,
           typeLabel: "Establishment" as const,
           subtitle: establishment.area || "",
           status: establishment.publisher_id ? "personal_territory" : getBestStatus(establishment.statuses || []),
-          avatars: latestInsightByTarget[`establishment:${establishment.id}`]?.avatars?.length
-            ? latestInsightByTarget[`establishment:${establishment.id}`]?.avatars
-            : (establishment.top_visitors || []).slice(0, 2).map((visitor) => ({
-                id: visitor.user_id,
-                first_name: visitor.first_name,
-                last_name: visitor.last_name,
-                avatar_url: visitor.avatar_url,
-              })),
-          searchText: `${establishment.name} establishment ${establishment.area || ""}`.toLowerCase(),
+          avatars: (() => {
+            const targetKey = `establishment:${establishment.id}`;
+            const insight = latestInsightByTarget[targetKey];
+            return insight?.avatars?.length
+              ? insight.avatars
+              : (establishment.top_visitors || []).slice(0, 2).map((visitor) => ({
+                  id: visitor.user_id,
+                  first_name: visitor.first_name,
+                  last_name: visitor.last_name,
+                  avatar_url: visitor.avatar_url,
+                }));
+          })(),
+          latestDateValue: latestInsightByTarget[`establishment:${establishment.id}`]?.dateValue ?? null,
+          latestSource: latestInsightByTarget[`establishment:${establishment.id}`]?.source,
+          latestText: latestInsightByTarget[`establishment:${establishment.id}`]?.text || "",
+          latestActors: latestInsightByTarget[`establishment:${establishment.id}`]?.avatars?.slice(0, 2) || [],
+          latestActorNames: (() => {
+            const targetKey = `establishment:${establishment.id}`;
+            const insight = latestInsightByTarget[targetKey];
+            const chosen = insight?.avatars?.length
+              ? insight.avatars
+              : (establishment.top_visitors || []).slice(0, 2).map((visitor) => ({
+                  id: visitor.user_id,
+                  first_name: visitor.first_name,
+                  last_name: visitor.last_name,
+                  avatar_url: visitor.avatar_url,
+                }));
+            return chosen
+              .map((person) => getPersonDisplayName(person))
+              .filter((name, index, arr) => name.length > 0 && arr.indexOf(name) === index)
+              .slice(0, 2);
+          })(),
+          searchText: `${establishment.name} establishment ${establishment.area || ""} ${(
+            latestInsightByTarget[`establishment:${establishment.id}`]?.source || ""
+          )} ${latestInsightByTarget[`establishment:${establishment.id}`]?.text || ""} ${(() => {
+            const targetKey = `establishment:${establishment.id}`;
+            const insight = latestInsightByTarget[targetKey];
+            const chosen = insight?.avatars?.length
+              ? insight.avatars
+              : (establishment.top_visitors || []).slice(0, 2).map((visitor) => ({
+                  id: visitor.user_id,
+                  first_name: visitor.first_name,
+                  last_name: visitor.last_name,
+                  avatar_url: visitor.avatar_url,
+                }));
+            return chosen.map((person) => getPersonDisplayName(person)).join(" ");
+          })()}`.toLowerCase(),
         })),
       ...sortedHouseholders.map((householder) => {
         const parentName = householder.establishment_name || "";
+        const targetKey = `householder:${householder.id}`;
+        const insight = latestInsightByTarget[targetKey];
+        const fallbackAvatars = (householder.top_visitors || []).slice(0, 2).map((visitor) => ({
+          id: visitor.user_id,
+          first_name: visitor.first_name,
+          last_name: visitor.last_name,
+          avatar_url: visitor.avatar_url,
+        }));
+        const chosenAvatars = insight?.avatars?.length ? insight.avatars : fallbackAvatars;
+        const latestActorNames = chosenAvatars
+          .map((person) => getPersonDisplayName(person))
+          .filter((name, index, arr) => name.length > 0 && arr.indexOf(name) === index)
+          .slice(0, 2);
         return {
           key: `householder:${householder.id}`,
           label: householder.name,
           typeLabel: "Contact" as const,
           subtitle: parentName,
           status: householder.status || undefined,
-          avatars: latestInsightByTarget[`householder:${householder.id}`]?.avatars?.length
-            ? latestInsightByTarget[`householder:${householder.id}`]?.avatars
-            : (householder.top_visitors || []).slice(0, 2).map((visitor) => ({
-                id: visitor.user_id,
-                first_name: visitor.first_name,
-                last_name: visitor.last_name,
-                avatar_url: visitor.avatar_url,
-              })),
-          searchText: `${householder.name} ${parentName} householder contact`.toLowerCase(),
+          avatars: chosenAvatars,
+          latestDateValue: insight?.dateValue ?? null,
+          latestSource: insight?.source,
+          latestText: insight?.text || "",
+          latestActors: insight?.avatars?.slice(0, 2) || [],
+          latestActorNames,
+          searchText: `${householder.name} ${parentName} householder contact ${insight?.source || ""} ${insight?.text || ""} ${latestActorNames.join(" ")}`.toLowerCase(),
         };
       }),
     ].sort((a, b) => {
@@ -645,17 +726,68 @@ export function BulkTodoForm({
     [targetOptions]
   );
 
-  const insightTargetKeys = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          rows
-            .map((row) => row.targetKey)
-            .filter((targetKey): targetKey is string => !!targetKey && targetKey !== "none")
-        )
-      ),
-    [rows]
+  const activeTargetPickerRowId = useMemo(
+    () => Object.entries(targetPickerOpenByRow).find(([, open]) => !!open)?.[0] ?? null,
+    [targetPickerOpenByRow]
   );
+
+  const insightTargetKeys = useMemo(() => {
+    // If a picker is open, fetch insights only for the currently visible/filtered options.
+    if (activeTargetPickerRowId) {
+      const filters = targetFiltersByRow[activeTargetPickerRowId] ?? DEFAULT_TARGET_PICKER_FILTERS;
+      const term = (targetSearchByRow[activeTargetPickerRowId] || "").trim().toLowerCase();
+
+      const establishmentKeys = sortedEstablishments
+        .filter((establishment): establishment is EstablishmentWithDetails & { id: string } => !!establishment.id)
+        .filter((establishment) => {
+          if (establishment.publisher_id) return false;
+          if (filters.householderOnly) return false;
+          const status = getBestStatus(establishment.statuses || []);
+          if (filters.statuses.length > 0 && (!status || !filters.statuses.includes(status))) return false;
+          const area = (establishment.area || "").trim();
+          if (filters.areas.length > 0 && (!area || !filters.areas.includes(area))) return false;
+          if (term) {
+            const searchText = `${establishment.name} establishment ${establishment.area || ""}`.toLowerCase();
+            if (!searchText.includes(term)) return false;
+          }
+          return true;
+        })
+        .map((establishment) => `establishment:${establishment.id}`);
+
+      const householderKeys = sortedHouseholders
+        .filter((householder): householder is HouseholderWithDetails & { id: string } => !!householder.id)
+        .filter((householder) => {
+          if (filters.bwiOnly) return false;
+          const status = householder.status || undefined;
+          if (filters.statuses.length > 0 && (!status || !filters.statuses.includes(status))) return false;
+          if (filters.areas.length > 0) return false;
+          if (term) {
+            const searchText = `${householder.name} ${householder.establishment_name || ""} householder contact`.toLowerCase();
+            if (!searchText.includes(term)) return false;
+          }
+          return true;
+        })
+        .map((householder) => `householder:${householder.id}`);
+
+      return Array.from(new Set([...establishmentKeys, ...householderKeys])).slice(0, 180);
+    }
+
+    // When picker is closed, keep insight loading lightweight: only selected draft targets.
+    return Array.from(
+      new Set(
+        rows
+          .map((row) => row.targetKey)
+          .filter((targetKey): targetKey is string => !!targetKey && targetKey !== "none")
+      )
+    );
+  }, [
+    activeTargetPickerRowId,
+    rows,
+    targetFiltersByRow,
+    targetSearchByRow,
+    sortedEstablishments,
+    sortedHouseholders,
+  ]);
 
   useEffect(() => {
     const establishmentIds = insightTargetKeys
@@ -802,42 +934,6 @@ export function BulkTodoForm({
           console.warn("[BulkTodoForm] openTodoByHouseholder query failed:", openTodoByHouseholderError);
         }
 
-        const callIds = Array.from(
-          new Set(
-            [...(callByEstablishment || []), ...(callByHouseholder || [])]
-              .map((row: any) => row?.id)
-              .filter((id: unknown): id is string => typeof id === "string" && id.length > 0)
-          )
-        );
-        const doneTodoByCallPromise = callIds.length
-          ? supabase
-              .from("call_todos")
-              .select(
-                "id, call_id, establishment_id, householder_id, body, created_at, publisher_id, partner_id, call:calls!call_todos_call_id_fkey(establishment_id, householder_id, publisher_id, partner_id)"
-              )
-              .eq("is_done", true)
-              .in("call_id", callIds)
-          : Promise.resolve({ data: [], error: null } as any);
-        const openTodoByCallPromise = callIds.length
-          ? supabase
-              .from("call_todos")
-              .select(
-                "id, call_id, establishment_id, householder_id, body, created_at, deadline_date, publisher_id, partner_id, call:calls!call_todos_call_id_fkey(establishment_id, householder_id, publisher_id, partner_id)"
-              )
-              .eq("is_done", false)
-              .in("call_id", callIds)
-          : Promise.resolve({ data: [], error: null } as any);
-        const [doneTodoByCallResult, openTodoByCallResult] = await Promise.all([
-          doneTodoByCallPromise,
-          openTodoByCallPromise,
-        ]);
-        if (doneTodoByCallResult.error) {
-          console.warn("[BulkTodoForm] doneTodoByCall query failed:", doneTodoByCallResult.error);
-        }
-        if (openTodoByCallResult.error) {
-          console.warn("[BulkTodoForm] openTodoByCall query failed:", openTodoByCallResult.error);
-        }
-
         const insights: Record<string, TargetLatestInsight> = {};
         const upsertInsight = (targetKey: string, insight: TargetLatestInsight) => {
           const current = insights[targetKey];
@@ -874,7 +970,7 @@ export function BulkTodoForm({
         });
 
         const doneTodosById = new Map<string, any>();
-        [...(doneTodoByEstablishment || []), ...(doneTodoByHouseholder || []), ...((doneTodoByCallResult.data || []) as any[])].forEach((row: any) => {
+        [...(doneTodoByEstablishment || []), ...(doneTodoByHouseholder || [])].forEach((row: any) => {
           if (row?.id) doneTodosById.set(row.id, row);
         });
         Array.from(doneTodosById.values()).forEach((row: any) => {
@@ -912,7 +1008,7 @@ export function BulkTodoForm({
         };
 
         const openTodosById = new Map<string, any>();
-        [...(openTodoByEstablishment || []), ...(openTodoByHouseholder || []), ...((openTodoByCallResult.data || []) as any[])].forEach((row: any) => {
+        [...(openTodoByEstablishment || []), ...(openTodoByHouseholder || [])].forEach((row: any) => {
           if (row?.id) openTodosById.set(row.id, row);
         });
         Array.from(openTodosById.values()).forEach((row: any) => {
@@ -1579,6 +1675,17 @@ export function BulkTodoForm({
                 {option.typeLabel}
                 {option.subtitle ? ` - ${option.subtitle}` : ""}
               </div>
+              {(option.latestText || option.latestDateValue) ? (
+                <div className="mt-1 space-y-0.5 text-[11px] text-muted-foreground/90">
+                  {option.latestText ? (
+                    <p className="line-clamp-1 break-words">
+                      Last {option.latestSource === "todo" ? "to-do" : "call"}: {option.latestText}
+                      {option.latestDateValue ? ` · ${formatTodoDate(option.latestDateValue)}` : ""}
+                    </p>
+                  ) : null}
+                  {!option.latestText && option.latestDateValue ? <p>{formatTodoDate(option.latestDateValue)}</p> : null}
+                </div>
+              ) : null}
             </div>
           </div>
         );
@@ -1859,7 +1966,6 @@ export function BulkTodoForm({
 
       removeRow(row.id);
       setInsightRefreshKey((k) => k + 1);
-      onSaved();
     } finally {
       setSubmittingRowId(null);
     }
