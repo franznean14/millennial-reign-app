@@ -31,8 +31,8 @@ export function FabMenu({
   mainIconOpen,
   mainClassName,
   actionClassName,
-  actionOffsetStart = 144,
-  actionOffsetStep = 52,
+  actionOffsetStart = 150,
+  actionOffsetStep = 62,
   portalContainerId = "fab-root"
 }: FabMenuProps) {
   const [expanded, setExpanded] = useState(false);
@@ -74,7 +74,7 @@ export function FabMenu({
         >
           <Button
             variant={action.variant ?? "default"}
-            className={`fixed right-4 z-40 rounded-full shadow-lg md:right-6 ${actionClassName ?? ""}`.trim()}
+            className={`fixed right-4 z-40 rounded-full shadow-lg md:right-6 text-xl font-semibold px-6 py-6 ${actionClassName ?? ""}`.trim()}
             style={{
               bottom: `calc(max(env(safe-area-inset-bottom),0px) + ${actionOffsetStart + actionOffsetStep * index}px)`,
               opacity: expanded ? 1 : 0,
@@ -91,7 +91,7 @@ export function FabMenu({
             data-fab-menu={menuId}
           >
             <span className="flex items-center">
-              {action.icon ? <span className="mr-2">{action.icon}</span> : null}
+              {action.icon ? <span className="mr-3 [&_svg]:h-7 [&_svg]:w-7">{action.icon}</span> : null}
               {action.label}
             </span>
           </Button>

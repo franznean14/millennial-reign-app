@@ -118,39 +118,39 @@ export function UnifiedFab({
     if (currentSection === "business" || currentSection.startsWith("business-")) {
       if (showExpandableButtons) {
         items.push(
-          { key: "business-visit", label: "New Call", icon: <FilePlus2 className="h-4 w-4" /> },
-          { key: "business-todo", label: "New To-Do", icon: <ListTodo className="h-4 w-4" /> },
-          { key: "business-householder", label: "New Contact", icon: <UserPlus className="h-4 w-4" />, variant: "outline" }
+          { key: "business-visit", label: "New Call", icon: <FilePlus2 className="size-6" /> },
+          { key: "business-todo", label: "New To-Do", icon: <ListTodo className="size-6" /> },
+          { key: "business-householder", label: "New Contact", icon: <UserPlus className="size-6" /> }
         );
       } else if (showEstablishmentForm) {
-        items.push({ key: "business-establishment", label: "New Establishment", icon: <Building2 className="h-4 w-4" /> });
+        items.push({ key: "business-establishment", label: "New Establishment", icon: <Building2 className="size-6" /> });
         if (isElder) {
-          items.push({ key: "business-bulk-todos", label: "New To-Dos", icon: <ListTodo className="h-4 w-4" /> });
+          items.push({ key: "business-bulk-todos", label: "New To-Dos", icon: <ListTodo className="size-6" /> });
         }
       } else if (showHouseholderForm) {
-        items.push({ key: "business-householder", label: "New Contact", icon: <UserPlus className="h-4 w-4" />, variant: "outline" });
+        items.push({ key: "business-householder", label: "New Contact", icon: <UserPlus className="size-6" />, variant: "outline" });
       } else if (showVisitForm) {
         items.push(
-          { key: "business-visit", label: "New Call", icon: <FilePlus2 className="h-4 w-4" /> },
-          { key: "business-todo", label: "New To-Do", icon: <ListTodo className="h-4 w-4" /> }
+          { key: "business-visit", label: "New Call", icon: <FilePlus2 className="size-6" /> },
+          { key: "business-todo", label: "New To-Do", icon: <ListTodo className="size-6" /> }
         );
       }
     }
 
     if (currentSection === "congregation" && canManageCongregation) {
       if (isCongregationAdminTab) {
-        items.push({ key: "congregation-schedule", label: "New Schedule", icon: <Calendar className="h-4 w-4" /> });
+        items.push({ key: "congregation-schedule", label: "New Schedule", icon: <Calendar className="size-6" /> });
       } else if (isCongregationMinistryTab && isCongregationDetails) {
-        items.push({ key: "congregation-visit", label: "New Call", icon: <FilePlus2 className="h-4 w-4" /> });
+        items.push({ key: "congregation-visit", label: "New Call", icon: <FilePlus2 className="size-6" /> });
       } else if (isCongregationMinistryTab) {
-        items.push({ key: "congregation-householder", label: "Add Householder", icon: <UserPlus className="h-4 w-4" /> });
+        items.push({ key: "congregation-householder", label: "Add Householder", icon: <UserPlus className="size-6" /> });
       } else {
-        items.push({ key: "congregation-user", label: "Add Publisher", icon: <UserPlus className="h-4 w-4" /> });
+        items.push({ key: "congregation-user", label: "Add Publisher", icon: <UserPlus className="size-6" /> });
       }
     }
 
     if (currentSection === "home") {
-      items.push({ key: "field-service", label: "Field Service", icon: <FilePlus2 className="h-4 w-4" /> });
+      items.push({ key: "field-service", label: "Field Service", icon: <FilePlus2 className="size-6" /> });
     }
 
     return items;
@@ -170,8 +170,8 @@ export function UnifiedFab({
 
   if (actions.length === 0) return null;
 
-  const mainIcon = actions.length === 1 ? actions[0].icon : <Plus className="h-6 w-6" />;
-  const mainIconOpen = actions.length === 1 ? actions[0].icon : <X className="h-6 w-6" />;
+  const mainIcon = actions.length === 1 ? actions[0].icon : <Plus className="size-6" />;
+  const mainIconOpen = actions.length === 1 ? actions[0].icon : <X className="size-6" />;
 
   return (
     <>
