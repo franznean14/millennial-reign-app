@@ -269,6 +269,8 @@ export function HomeTodoCard({
   const [completedTodos, setCompletedTodos] = useState<MyOpenCallTodoItem[]>([]);
   const [timeZone, setTimeZone] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [drawerTodoExpanded, setDrawerTodoExpanded] = useState(true);
+  const [drawerOpenSectionExpanded, setDrawerOpenSectionExpanded] = useState(false);
   const [drawerDoneExpanded, setDrawerDoneExpanded] = useState(false);
   const hasLoadedRef = useRef(false);
   const lastSyncedAtRef = useRef(0);
@@ -1368,26 +1370,24 @@ export function HomeTodoCard({
   const doneCount = filteredCompletedTodos.length;
   const hasNavigation = !!(onNavigateToTodoCall || onTodoTap);
   const showAssigneeAvatars = Boolean(userId || establishmentId || householderId);
-  const hasChangedFromDefaultFilters = Boolean(
-    userId &&
-      !establishmentId &&
-      !householderId &&
-      (
-        searchValue.trim().length > 0 ||
-        !!dueDateFilter ||
-        filters.statuses.length > 0 ||
-        filters.areas.length > 0 ||
-        filters.assigneeIds.length > 0 ||
-        !filters.myUpdatesOnly ||
-        filters.bwiOnly ||
-        filters.householderOnly
-      )
-  );
   const showOtherPublisherDecorations = Boolean(
     userId && !establishmentId && !householderId && !filters.myUpdatesOnly
   );
-  const showDoneSection = Boolean(
-    filteredCompletedTodos.length > 0 && (!hasChangedFromDefaultFilters || !!dueDateFilter)
+  const isTodoAssigned = useCallback((todo: MyOpenCallTodoItem) => {
+    return Boolean(
+      todo.publisher_id ||
+      todo.partner_id ||
+      todo.publisher_guest_name?.trim() ||
+      todo.partner_guest_name?.trim()
+    );
+  }, []);
+  const filteredAssignedOpenTodos = useMemo(
+    () => filteredOpenTodos.filter(isTodoAssigned),
+    [filteredOpenTodos, isTodoAssigned]
+  );
+  const filteredUnassignedOpenTodos = useMemo(
+    () => filteredOpenTodos.filter((todo) => !isTodoAssigned(todo)),
+    [filteredOpenTodos, isTodoAssigned]
   );
   const emptyText = userId
     ? "No open to-dos from your calls"
@@ -1574,6 +1574,8 @@ export function HomeTodoCard({
         onOpenChange={(open) => {
           setDrawerOpen(open);
           if (!open) {
+            setDrawerTodoExpanded(true);
+            setDrawerOpenSectionExpanded(false);
             setDrawerDoneExpanded(false);
             setFilterDrawerOpen(false);
           }
@@ -1699,39 +1701,96 @@ export function HomeTodoCard({
                 <p className="text-sm text-muted-foreground py-4">{emptyDrawerText}</p>
               ) : (
                 <>
-                  {filteredOpenTodos.length > 0 && (
-                    <ul className="space-y-3 pb-2">
-                      {filteredOpenTodos.map((todo, index) => (
-                        <TodoRow
-                          key={todo.id}
-                          todo={todo}
-                          timeZone={timeZone}
-                          onMarkDone={handleMarkDone}
-                          onTap={hasNavigation ? handleTodoTap : undefined}
-                          showCheckbox
-                          currentUserId={userId}
-                          showAssigneeAvatars={showAssigneeAvatars}
-                          highlightOtherPublishers={showOtherPublisherDecorations}
-                          participantsById={participantsById}
-                          rowIndex={index}
-                          layoutId={`${layoutScopeId}-drawer-${todo.id}`}
-                          layoutTransition={todoLayoutTransition}
-                          clampBody={false}
-                          hideHouseholderNameBadge={!!householderId}
-                        />
-                      ))}
-                    </ul>
+                  <div className="mt-2 mb-3">
+                    <button
+                      type="button"
+                      onClick={() => setDrawerTodoExpanded((prev) => !prev)}
+                      className="w-full flex items-center justify-between text-sm text-muted-foreground font-bold hover:text-foreground transition-colors"
+                    >
+                      <span>To-Do ({filteredAssignedOpenTodos.length})</span>
+                      {drawerTodoExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                    </button>
+                  </div>
+                  {drawerTodoExpanded && (
+                    filteredAssignedOpenTodos.length > 0 ? (
+                      <ul className="space-y-3 pb-2">
+                        {filteredAssignedOpenTodos.map((todo, index) => (
+                          <TodoRow
+                            key={todo.id}
+                            todo={todo}
+                            timeZone={timeZone}
+                            onMarkDone={handleMarkDone}
+                            onTap={hasNavigation ? handleTodoTap : undefined}
+                            showCheckbox
+                            currentUserId={userId}
+                            showAssigneeAvatars={showAssigneeAvatars}
+                            highlightOtherPublishers={showOtherPublisherDecorations}
+                            participantsById={participantsById}
+                            rowIndex={index}
+                            layoutId={`${layoutScopeId}-drawer-${todo.id}`}
+                            layoutTransition={todoLayoutTransition}
+                            clampBody={false}
+                            hideHouseholderNameBadge={!!householderId}
+                          />
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-muted-foreground py-1 mb-2">No assigned to-dos.</p>
+                    )
                   )}
-                  {showDoneSection && (
-                    <>
-                      <div className="text-xs text-muted-foreground mt-5 mb-2 font-medium">
-                        Done
-                      </div>
+
+                  <div className="mt-4 mb-3">
+                    <button
+                      type="button"
+                      onClick={() => setDrawerOpenSectionExpanded((prev) => !prev)}
+                      className="w-full flex items-center justify-between text-sm text-muted-foreground font-bold hover:text-foreground transition-colors"
+                    >
+                      <span>Open ({filteredUnassignedOpenTodos.length})</span>
+                      {drawerOpenSectionExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                    </button>
+                  </div>
+                  {drawerOpenSectionExpanded && (
+                    filteredUnassignedOpenTodos.length > 0 ? (
+                      <ul className="space-y-3 pb-2">
+                        {filteredUnassignedOpenTodos.map((todo, index) => (
+                          <TodoRow
+                            key={todo.id}
+                            todo={todo}
+                            timeZone={timeZone}
+                            onMarkDone={handleMarkDone}
+                            onTap={hasNavigation ? handleTodoTap : undefined}
+                            showCheckbox
+                            currentUserId={userId}
+                            showAssigneeAvatars={showAssigneeAvatars}
+                            highlightOtherPublishers={showOtherPublisherDecorations}
+                            participantsById={participantsById}
+                            rowIndex={index}
+                            layoutId={`${layoutScopeId}-drawer-${todo.id}`}
+                            layoutTransition={todoLayoutTransition}
+                            clampBody={false}
+                            hideHouseholderNameBadge={!!householderId}
+                          />
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="text-xs text-muted-foreground py-1 mb-2">No unassigned to-dos.</p>
+                    )
+                  )}
+
+                  <div className="mt-4 mb-3">
+                    <button
+                      type="button"
+                      onClick={() => setDrawerDoneExpanded((prev) => !prev)}
+                      className="w-full flex items-center justify-between text-sm text-muted-foreground font-bold hover:text-foreground transition-colors"
+                    >
+                      <span>Done ({filteredCompletedTodos.length})</span>
+                      {drawerDoneExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+                    </button>
+                  </div>
+                  {drawerDoneExpanded && (
+                    filteredCompletedTodos.length > 0 ? (
                       <ul className="space-y-3">
-                        {(drawerDoneExpanded
-                          ? filteredCompletedTodos
-                          : filteredCompletedTodos.slice(0, 3)
-                        ).map((todo, index) => (
+                        {filteredCompletedTodos.map((todo, index) => (
                           <TodoRow
                             key={todo.id}
                             todo={{ ...todo, is_done: true }}
@@ -1751,28 +1810,9 @@ export function HomeTodoCard({
                           />
                         ))}
                       </ul>
-                      {filteredCompletedTodos.length > 3 && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="mt-2 w-full text-muted-foreground hover:text-foreground"
-                          onClick={() => setDrawerDoneExpanded((prev) => !prev)}
-                        >
-                          {drawerDoneExpanded ? (
-                            <>
-                              <ChevronUp className="h-4 w-4 mr-1" />
-                              Show less
-                            </>
-                          ) : (
-                            <>
-                              <ChevronDown className="h-4 w-4 mr-1" />
-                              Show more (
-                              {filteredCompletedTodos.length - 3} more)
-                            </>
-                          )}
-                        </Button>
-                      )}
-                    </>
+                    ) : (
+                      <p className="text-xs text-muted-foreground py-1">No done to-dos.</p>
+                    )
                   )}
                 </>
               )}
