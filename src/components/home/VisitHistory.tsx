@@ -128,6 +128,10 @@ export function VisitHistory({
   const [selectedCallsHouseholderDetails, setSelectedCallsHouseholderDetails] =
     useState<CallsHouseholderSnapshot | null>(null);
   const [isLoadingCallsDetails, setIsLoadingCallsDetails] = useState(false);
+  const [callsContactSubdrawerOpen, setCallsContactSubdrawerOpen] = useState(false);
+  const [selectedCallsContactDetails, setSelectedCallsContactDetails] =
+    useState<CallsHouseholderSnapshot | null>(null);
+  const [isLoadingCallsContactDetails, setIsLoadingCallsContactDetails] = useState(false);
   const callsEstablishmentCacheRef = useRef(new Map<string, CallsEstablishmentSnapshot>());
   const callsHouseholderCacheRef = useRef(new Map<string, CallsHouseholderSnapshot>());
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -706,6 +710,55 @@ export function VisitHistory({
     if (target.kind === "visit" && onVisitClick) {
       onVisitClick(target.visit);
     }
+  }
+
+  function openCallsContactSubdrawer(householder: HouseholderWithDetails) {
+    const householderId = householder.id;
+    if (!householderId) return;
+    const cached = callsHouseholderCacheRef.current.get(householderId);
+
+    if (cached) {
+      setSelectedCallsContactDetails(cached);
+    } else {
+      const establishment =
+        selectedCallsEstablishmentDetails?.establishment &&
+        selectedCallsEstablishmentDetails.establishment.id === householder.establishment_id
+          ? selectedCallsEstablishmentDetails.establishment
+          : null;
+      const fallbackEstablishmentName =
+        establishment?.name ?? householder.establishment_name ?? null;
+      const fallbackStatuses =
+        establishment?.statuses && establishment.statuses.length > 0
+          ? establishment.statuses
+          : null;
+      setSelectedCallsContactDetails({
+        householder,
+        visits: [],
+        establishment: householder.establishment_id
+          ? {
+              id: householder.establishment_id,
+              name: fallbackEstablishmentName ?? "",
+              area: establishment?.area ?? null,
+              statuses: fallbackStatuses,
+            }
+          : null,
+      });
+    }
+
+    setCallsContactSubdrawerOpen(true);
+    setIsLoadingCallsContactDetails(!cached);
+    getHouseholderDetails(householderId)
+      .then((details) => {
+        if (!details) return;
+        const nextSnapshot: CallsHouseholderSnapshot = {
+          householder: details.householder,
+          visits: details.visits,
+          establishment: details.establishment,
+        };
+        callsHouseholderCacheRef.current.set(householderId, nextSnapshot);
+        setSelectedCallsContactDetails(nextSnapshot);
+      })
+      .finally(() => setIsLoadingCallsContactDetails(false));
   }
 
   const renderVisitRow = (item: CallsStreamItem, index: number, total: number, isDrawer: boolean) => {
@@ -1460,6 +1513,8 @@ export function VisitHistory({
           if (!open) {
             setSelectedCallsEstablishmentDetails(null);
             setSelectedCallsHouseholderDetails(null);
+            setCallsContactSubdrawerOpen(false);
+            setSelectedCallsContactDetails(null);
           }
         }}
       >
@@ -1488,6 +1543,39 @@ export function VisitHistory({
                 householders={selectedCallsEstablishmentDetails.householders}
                 isLoading={isLoadingCallsDetails}
                 onBackClick={() => setCallsDetailsDrawerOpen(false)}
+                onHouseholderClick={openCallsContactSubdrawer}
+              />
+            ) : null}
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      <Drawer
+        open={callsContactSubdrawerOpen}
+        onOpenChange={(open) => {
+          setCallsContactSubdrawerOpen(open);
+          if (!open) {
+            setSelectedCallsContactDetails(null);
+          }
+        }}
+      >
+        <DrawerContent className="max-h-[90vh]">
+          <DrawerHeader className="sr-only">
+            <DrawerTitle>Contact details</DrawerTitle>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-3">
+            {selectedCallsContactDetails ? (
+              <HouseholderDetails
+                householder={selectedCallsContactDetails.householder}
+                visits={selectedCallsContactDetails.visits}
+                establishment={selectedCallsContactDetails.establishment ?? null}
+                establishments={
+                  selectedCallsContactDetails.establishment
+                    ? [selectedCallsContactDetails.establishment]
+                    : []
+                }
+                isLoading={isLoadingCallsContactDetails}
+                onBackClick={() => setCallsContactSubdrawerOpen(false)}
               />
             ) : null}
           </div>
