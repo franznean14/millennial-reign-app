@@ -30,13 +30,29 @@ import { getProfile } from "@/lib/db/profiles";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cacheDelete } from "@/lib/offline/store";
 import { HomeTodoCard } from "@/components/home/HomeTodoCard";
-import { getPersonalTerritoryDetailsCardClass } from "@/lib/utils/status-hierarchy";
+import {
+  getBestStatus,
+  getPersonalTerritoryDetailsCardClass,
+  getStatusTextColor,
+} from "@/lib/utils/status-hierarchy";
 
 interface HouseholderDetailsProps {
   householder: HouseholderWithDetails;
   visits: VisitWithUser[];
-  establishment?: { id: string; name: string; area?: string | null } | null;
-  establishments: Array<{ id: string; name: string; area?: string | null }>;
+  establishment?: {
+    id: string;
+    name: string;
+    area?: string | null;
+    statuses?: string[] | null;
+    status?: string | null;
+  } | null;
+  establishments: Array<{
+    id: string;
+    name: string;
+    area?: string | null;
+    statuses?: string[] | null;
+    status?: string | null;
+  }>;
   onBackClick: () => void;
   context?: "bwi" | "congregation";
   showEstablishment?: boolean;
@@ -314,8 +330,30 @@ export function HouseholderDetails({
   );
   const areaFromEstablishment =
     establishment?.area?.trim() || linkedEstablishment?.area?.trim();
+  const householderNote = householder.note?.trim() ?? "";
+  const householderDetailFieldCount =
+    Number(Boolean(showEstablishment && areaFromEstablishment)) + Number(Boolean(householderNote));
+  const householderDetailGridClass =
+    householderDetailFieldCount >= 2 ? "grid-cols-2" : "grid-cols-1";
   const establishmentDisplayName =
     (establishment?.name?.trim() || householder.establishment_name?.trim() || "") || "";
+  const visitLinkedEstablishmentStatus =
+    visits.find((visit) => visit.establishment_id === householder.establishment_id)?.establishment?.status ?? null;
+  const resolvedEstablishmentStatuses =
+    establishment?.statuses?.length
+      ? establishment.statuses
+      : linkedEstablishment?.statuses?.length
+        ? linkedEstablishment.statuses
+        : establishment?.status
+          ? [establishment.status]
+          : linkedEstablishment?.status
+            ? [linkedEstablishment.status]
+            : visitLinkedEstablishmentStatus
+              ? [visitLinkedEstablishmentStatus]
+              : [];
+  const establishmentBadgeStatus = getBestStatus(
+    resolvedEstablishmentStatuses
+  );
 
   // Handle click outside to restore avatar when minus button is shown (don't close when remove-confirm popover is open)
   useEffect(() => {
@@ -396,14 +434,26 @@ export function HouseholderDetails({
             <div className="flex w-full min-w-0 flex-1 flex-wrap items-center gap-2 pr-1">
               {isLoading ? (
                 <div className="h-6 w-28 rounded-full bg-muted/60 blur-[1px] animate-pulse" />
-              ) : householder.status?.trim() ? (
-                <Badge
-                  variant="outline"
-                  className={cn("flex-shrink-0 capitalize", getHouseholderStatusColorClass(householder.status))}
-                >
-                  {formatStatusText(householder.status)}
-                </Badge>
-              ) : null}
+              ) : (
+                <>
+                  {householder.status?.trim() ? (
+                    <Badge
+                      variant="outline"
+                      className={cn("flex-shrink-0 capitalize", getHouseholderStatusColorClass(householder.status))}
+                    >
+                      {formatStatusText(householder.status)}
+                    </Badge>
+                  ) : null}
+                  {showEstablishment && establishmentDisplayName ? (
+                    <Badge
+                      variant="outline"
+                      className={cn("flex-shrink-0", getStatusTextColor(establishmentBadgeStatus))}
+                    >
+                      {establishmentDisplayName}
+                    </Badge>
+                  ) : null}
+                </>
+              )}
             </div>
             <div className="flex flex-shrink-0 items-center gap-2">
               {isLoading ? (
@@ -543,7 +593,7 @@ export function HouseholderDetails({
           </CardHeader>
           <CardContent className="space-y-4">
             {isLoading ? (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <div className="mb-2 h-3 w-12 animate-pulse rounded bg-muted/60" />
                   <div className="h-4 w-24 animate-pulse rounded bg-muted/60" />
@@ -554,14 +604,14 @@ export function HouseholderDetails({
                     <div className="h-4 w-32 animate-pulse rounded bg-muted/60" />
                   </div>
                 )}
-                <div className="col-span-2">
+                <div>
                   <div className="mb-2 h-3 w-14 animate-pulse rounded bg-muted/60" />
                   <div className="h-4 max-w-[300px] animate-pulse rounded bg-muted/60" />
                   <div className="mt-2 h-4 max-w-[200px] animate-pulse rounded bg-muted/60" />
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-4">
+              <div className={cn("grid gap-4", householderDetailGridClass)}>
                 {showEstablishment && areaFromEstablishment && (
                   <motion.div
                     custom={0}
@@ -573,32 +623,15 @@ export function HouseholderDetails({
                     <p>{areaFromEstablishment}</p>
                   </motion.div>
                 )}
-                {showEstablishment && establishmentDisplayName && (
+                {householderNote && (
                   <motion.div
                     custom={1}
                     initial="hidden"
                     animate="visible"
                     variants={itemVariants}
-                    className={
-                      showEstablishment && areaFromEstablishment && establishmentDisplayName
-                        ? undefined
-                        : "col-span-2"
-                    }
-                  >
-                    <p className="text-sm font-medium text-muted-foreground">Establishment</p>
-                    <p className="break-words">{establishmentDisplayName}</p>
-                  </motion.div>
-                )}
-                {householder.note?.trim() && (
-                  <motion.div
-                    custom={2}
-                    initial="hidden"
-                    animate="visible"
-                    variants={itemVariants}
-                    className="col-span-2"
                   >
                     <p className="text-sm font-medium text-muted-foreground">Note</p>
-                    <p className="text-sm break-words">{householder.note.trim()}</p>
+                    <p className="text-sm break-words">{householderNote}</p>
                   </motion.div>
                 )}
               </div>

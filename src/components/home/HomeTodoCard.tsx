@@ -52,6 +52,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useMobile } from "@/lib/hooks/use-mobile";
 import { getBestStatus, getStatusColor, getStatusTextColor } from "@/lib/utils/status-hierarchy";
 import { VisitUpdatesSection } from "@/components/business/VisitUpdatesSection";
+import { TodoForm } from "@/components/business/TodoForm";
 
 const todoLayoutTransition = {
   type: "spring",
@@ -73,7 +74,28 @@ type EstablishmentDetailsSnapshot = {
 type HouseholderDetailsSnapshot = {
   householder: HouseholderWithDetails;
   visits: VisitWithUser[];
-  establishment?: { id: string; name: string; area?: string | null } | null;
+  establishment?: { id: string; name: string; area?: string | null; statuses?: string[] | null } | null;
+};
+
+type TodoEditorItem = MyOpenCallTodoItem & {
+  call_note?: string | null;
+  call_visit_date?: string | null;
+  call_publishers?: string[];
+};
+
+type TodoEditorContext = {
+  initialTodo: TodoEditorItem;
+  establishments: Array<{ id?: string; name: string }>;
+  selectedEstablishmentId?: string;
+  householderId?: string;
+  householderName?: string;
+  disableEstablishmentSelect?: boolean;
+};
+
+type TodoMutationEventDetail = {
+  kind: "upsert" | "delete" | "mark_done";
+  todo?: Partial<MyOpenCallTodoItem> & { id: string };
+  todoId?: string;
 };
 
 function readLocalTodosCache(
@@ -207,6 +229,31 @@ function getTodoAgeBorderClass(
   return "bg-green-500/[0.03] dark:bg-green-500/[0.05]";
 }
 
+type TodoAssigneeSlot =
+  | { type: "publisher"; id: string }
+  | { type: "guest"; name: string };
+
+function getTodoAssigneeSlots(todo: MyOpenCallTodoItem): TodoAssigneeSlot[] {
+  const slots: TodoAssigneeSlot[] = [];
+  if (todo.publisher_id) {
+    slots.push({ type: "publisher", id: todo.publisher_id });
+  } else if (todo.publisher_guest_name?.trim()) {
+    slots.push({ type: "guest", name: todo.publisher_guest_name.trim() });
+  }
+
+  if (todo.partner_id) {
+    if (!slots.some((slot) => slot.type === "publisher" && slot.id === todo.partner_id)) {
+      slots.push({ type: "publisher", id: todo.partner_id });
+    }
+  } else if (todo.partner_guest_name?.trim()) {
+    const guestName = todo.partner_guest_name.trim();
+    if (!slots.some((slot) => slot.type === "guest" && slot.name === guestName)) {
+      slots.push({ type: "guest", name: guestName });
+    }
+  }
+  return slots.slice(0, 2);
+}
+
 function getHouseholderStatusColorClass(status: string) {
   switch (status) {
     case "potential":
@@ -251,6 +298,9 @@ interface HomeTodoCardProps {
   userId?: string;
   establishmentId?: string;
   householderId?: string;
+  prefillScopeKey?: string;
+  prefillOpenTodos?: MyOpenCallTodoItem[];
+  prefillCompletedTodos?: MyOpenCallTodoItem[];
   onTodoTap?: (todo: MyOpenCallTodoItem) => void;
   onNavigateToTodoCall?: (params: {
     establishmentId?: string;
@@ -262,19 +312,23 @@ export function HomeTodoCard({
   userId,
   establishmentId,
   householderId,
+  prefillScopeKey,
+  prefillOpenTodos,
+  prefillCompletedTodos,
   onTodoTap,
   onNavigateToTodoCall,
 }: HomeTodoCardProps) {
-  const [openTodos, setOpenTodos] = useState<MyOpenCallTodoItem[]>([]);
-  const [completedTodos, setCompletedTodos] = useState<MyOpenCallTodoItem[]>([]);
+  const [openTodos, setOpenTodos] = useState<MyOpenCallTodoItem[]>(() => prefillOpenTodos ?? []);
+  const [completedTodos, setCompletedTodos] = useState<MyOpenCallTodoItem[]>(() => prefillCompletedTodos ?? []);
   const [timeZone, setTimeZone] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerTodoExpanded, setDrawerTodoExpanded] = useState(true);
-  const [drawerOpenSectionExpanded, setDrawerOpenSectionExpanded] = useState(false);
+  const [drawerOpenSectionExpanded, setDrawerOpenSectionExpanded] = useState(true);
   const [drawerDoneExpanded, setDrawerDoneExpanded] = useState(false);
   const hasLoadedRef = useRef(false);
   const lastSyncedAtRef = useRef(0);
   const inFlightRef = useRef(false);
+  const queuedForceRefreshRef = useRef(false);
   /** Bumps on scope change so stale IndexedDB / network results never overwrite the active list. */
   const loadGenRef = useRef(0);
   const [filters, setFilters] = useState<VisitFilters>({
@@ -311,6 +365,7 @@ export function HomeTodoCard({
     useState<HouseholderWithDetails | null>(null);
   const [contactSubdrawerDetails, setContactSubdrawerDetails] = useState<HouseholderDetailsSnapshot | null>(null);
   const [isLoadingContactSubdrawerDetails, setIsLoadingContactSubdrawerDetails] = useState(false);
+  const [todoEditorContext, setTodoEditorContext] = useState<TodoEditorContext | null>(null);
   const layoutScopeId = useId();
   const establishmentDetailsCacheRef = useRef(new Map<string, EstablishmentDetailsSnapshot>());
   const householderDetailsCacheRef = useRef(new Map<string, HouseholderDetailsSnapshot>());
@@ -385,7 +440,10 @@ export function HomeTodoCard({
     }
 
     if (!forceNetwork && Date.now() - lastSyncedAtRef.current < TODOS_FRESH_MS) return;
-    if (inFlightRef.current) return;
+    if (inFlightRef.current) {
+      if (forceNetwork) queuedForceRefreshRef.current = true;
+      return;
+    }
     const genAtFetch = loadGenRef.current;
     inFlightRef.current = true;
     const mergeById = (...groups: MyOpenCallTodoItem[][]): MyOpenCallTodoItem[] => {
@@ -397,6 +455,14 @@ export function HomeTodoCard({
       }
       return Array.from(byId.values());
     };
+    const isUnassignedTodo = (item: MyOpenCallTodoItem): boolean => {
+      return (
+        !item.publisher_id &&
+        !item.partner_id &&
+        !(item.publisher_guest_name?.trim()) &&
+        !(item.partner_guest_name?.trim())
+      );
+    };
 
     const openQuery = establishmentId
       ? getEstablishmentOpenCallTodos(establishmentId, 50)
@@ -404,7 +470,11 @@ export function HomeTodoCard({
         ? getHouseholderOpenCallTodos(householderId, 50)
         : userId
           ? (filters.myUpdatesOnly
-              ? getMyOpenCallTodos(userId, 80)
+              ? Promise.all([
+                  getMyOpenCallTodos(userId, 120),
+                  getCongregationOpenCallTodos(220),
+                ]).then(([mine, congregation]) =>
+                  mergeById(mine, congregation.filter(isUnassignedTodo)))
               : Promise.all([
                   getMyOpenCallTodos(userId, 120),
                   getCongregationOpenCallTodos(180),
@@ -434,6 +504,12 @@ export function HomeTodoCard({
       .finally(() => {
         if (genAtFetch === loadGenRef.current) {
           inFlightRef.current = false;
+          if (queuedForceRefreshRef.current) {
+            queuedForceRefreshRef.current = false;
+            setTimeout(() => {
+              loadTodos({ useCache: false, forceNetwork: true, trustFreshLocalCache: false });
+            }, 0);
+          }
         }
       });
   }, [scopeKey, establishmentId, householderId, userId, filters.myUpdatesOnly]);
@@ -445,9 +521,15 @@ export function HomeTodoCard({
     lastSyncedAtRef.current = 0;
     inFlightRef.current = false;
     const snap = readLocalTodosCache(scopeKey);
-    setOpenTodos(snap?.open ?? []);
-    setCompletedTodos(snap?.completed ?? []);
-  }, [scopeKey]);
+    if (snap) {
+      setOpenTodos(snap.open);
+      setCompletedTodos(snap.completed);
+      return;
+    }
+    const canUsePrefill = prefillScopeKey === scopeKey;
+    setOpenTodos(canUsePrefill ? (prefillOpenTodos ?? []) : []);
+    setCompletedTodos(canUsePrefill ? (prefillCompletedTodos ?? []) : []);
+  }, [scopeKey, prefillScopeKey, prefillOpenTodos, prefillCompletedTodos]);
 
   useEffect(() => {
     if (!filterScopeKey) return;
@@ -807,7 +889,8 @@ export function HomeTodoCard({
       }
       if (filters.myUpdatesOnly && userId) {
         const isMine = todo.publisher_id === userId || todo.partner_id === userId;
-        if (!isMine) return false;
+        const isUnassigned = getTodoAssigneeSlots(todo).length === 0;
+        if (!isMine && !isUnassigned) return false;
       }
       return true;
     });
@@ -964,6 +1047,48 @@ export function HomeTodoCard({
     };
   }, [scopeKey, loadTodos]);
 
+  // Fallback live-update channel for local mutations (e.g., bulk submit)
+  useEffect(() => {
+    const handleTodosMutated = (event: Event) => {
+      const detail = (event as CustomEvent<TodoMutationEventDetail | undefined>).detail;
+      const matchesScope = (todo: Partial<MyOpenCallTodoItem> & { id: string }) => {
+        if (establishmentId) return todo.establishment_id === establishmentId;
+        if (householderId) return todo.householder_id === householderId;
+        if (!userId) return false;
+        if (filters.myUpdatesOnly) {
+          return todo.publisher_id === userId || todo.partner_id === userId;
+        }
+        return true;
+      };
+
+      if (detail?.kind === "upsert" && detail.todo && matchesScope(detail.todo)) {
+        const optimisticTodo = detail.todo as MyOpenCallTodoItem;
+        setOpenTodos((prev) => {
+          const next = [optimisticTodo, ...prev.filter((item) => item.id !== optimisticTodo.id)];
+          return next.slice(0, 300);
+        });
+        setCompletedTodos((prev) => prev.filter((item) => item.id !== optimisticTodo.id));
+      } else if (detail?.kind === "delete" && detail.todoId) {
+        setOpenTodos((prev) => prev.filter((item) => item.id !== detail.todoId));
+        setCompletedTodos((prev) => prev.filter((item) => item.id !== detail.todoId));
+      } else if (detail?.kind === "mark_done" && detail.todoId) {
+        setOpenTodos((prevOpen) => {
+          const target = prevOpen.find((item) => item.id === detail.todoId);
+          if (!target) return prevOpen;
+          setCompletedTodos((prevCompleted) => [{ ...target, is_done: true }, ...prevCompleted.filter((x) => x.id !== target.id)]);
+          return prevOpen.filter((item) => item.id !== detail.todoId);
+        });
+      }
+
+      // Always revalidate after optimistic patch so server state wins.
+      loadTodos({ useCache: false, forceNetwork: true });
+    };
+    window.addEventListener("business-todos-mutated", handleTodosMutated);
+    return () => {
+      window.removeEventListener("business-todos-mutated", handleTodosMutated);
+    };
+  }, [loadTodos, establishmentId, householderId, userId, filters.myUpdatesOnly]);
+
   const handleMarkDone = (todo: MyOpenCallTodoItem, checked: boolean) => {
     // Optimistic update: move todo immediately, then revert on failure
     const prevOpen = openTodos;
@@ -1091,7 +1216,8 @@ export function HomeTodoCard({
         // My To-Dos toggle
         if (filters.myUpdatesOnly && userId) {
           const isMine = todo.publisher_id === userId || todo.partner_id === userId;
-          if (!isMine) return false;
+          const isUnassigned = getTodoAssigneeSlots(todo).length === 0;
+          if (!isMine && !isUnassigned) return false;
         }
 
         return true;
@@ -1416,10 +1542,20 @@ export function HomeTodoCard({
     : "";
   const householderArea =
     selectedHouseholderEstablishment?.area?.trim() ?? "";
+  const householderNote = selectedHouseholder?.note?.trim() ?? "";
+  const householderDetailFieldCount = Number(Boolean(householderArea)) + Number(Boolean(householderNote));
+  const householderDetailGridClass =
+    householderDetailFieldCount >= 2 ? "grid-cols-2" : "grid-cols-1";
   const householderEstablishmentName =
     selectedHouseholderEstablishment?.name?.trim() ||
     selectedHouseholder?.establishment_name?.trim() ||
     "";
+  const householderEstablishmentStatus = getBestStatus(
+    selectedHouseholderEstablishment?.statuses ??
+      (selectedTodoForDetails?.context_establishment_status
+        ? [selectedTodoForDetails.context_establishment_status]
+        : [])
+  );
   const selectedDetailVisits = useMemo(
     () =>
       [...(isHouseholderDetail ? selectedHouseholderDetails?.visits ?? [] : selectedTodoDetails?.visits ?? [])].sort(
@@ -1428,8 +1564,50 @@ export function HomeTodoCard({
     [isHouseholderDetail, selectedHouseholderDetails?.visits, selectedTodoDetails?.visits]
   );
   const selectedDetailHouseholders = selectedTodoDetails?.householders ?? [];
+  const establishmentPrefillOpenTodos = useMemo(
+    () =>
+      selectedEstablishmentDetails?.id
+        ? openTodos.filter((todo) => todo.establishment_id === selectedEstablishmentDetails.id)
+        : [],
+    [openTodos, selectedEstablishmentDetails?.id]
+  );
+  const establishmentPrefillCompletedTodos = useMemo(
+    () =>
+      selectedEstablishmentDetails?.id
+        ? completedTodos.filter((todo) => todo.establishment_id === selectedEstablishmentDetails.id)
+        : [],
+    [completedTodos, selectedEstablishmentDetails?.id]
+  );
+  const householderPrefillOpenTodos = useMemo(
+    () =>
+      selectedHouseholder?.id
+        ? openTodos.filter((todo) => todo.householder_id === selectedHouseholder.id)
+        : [],
+    [openTodos, selectedHouseholder?.id]
+  );
+  const householderPrefillCompletedTodos = useMemo(
+    () =>
+      selectedHouseholder?.id
+        ? completedTodos.filter((todo) => todo.householder_id === selectedHouseholder.id)
+        : [],
+    [completedTodos, selectedHouseholder?.id]
+  );
   const contactSubdrawerHouseholder = contactSubdrawerDetails?.householder ?? selectedContactFromEstablishment;
   const contactSubdrawerEstablishment = contactSubdrawerDetails?.establishment ?? null;
+  const contactSubdrawerPrefillOpenTodos = useMemo(
+    () =>
+      contactSubdrawerHouseholder?.id
+        ? openTodos.filter((todo) => todo.householder_id === contactSubdrawerHouseholder.id)
+        : [],
+    [openTodos, contactSubdrawerHouseholder?.id]
+  );
+  const contactSubdrawerPrefillCompletedTodos = useMemo(
+    () =>
+      contactSubdrawerHouseholder?.id
+        ? completedTodos.filter((todo) => todo.householder_id === contactSubdrawerHouseholder.id)
+        : [],
+    [completedTodos, contactSubdrawerHouseholder?.id]
+  );
   const contactSubdrawerVisits = useMemo(
     () =>
       [...(contactSubdrawerDetails?.visits ?? [])].sort(
@@ -1443,10 +1621,18 @@ export function HomeTodoCard({
         : getHouseholderCardColor(contactSubdrawerHouseholder.status))
     : "";
   const contactSubdrawerArea = contactSubdrawerEstablishment?.area?.trim() ?? "";
+  const contactSubdrawerNote = contactSubdrawerHouseholder?.note?.trim() ?? "";
+  const contactSubdrawerDetailFieldCount =
+    Number(Boolean(contactSubdrawerArea)) + Number(Boolean(contactSubdrawerNote));
+  const contactSubdrawerDetailGridClass =
+    contactSubdrawerDetailFieldCount >= 2 ? "grid-cols-2" : "grid-cols-1";
   const contactSubdrawerEstablishmentName =
     contactSubdrawerEstablishment?.name?.trim() ||
     contactSubdrawerHouseholder?.establishment_name?.trim() ||
     "";
+  const contactSubdrawerEstablishmentStatus = getBestStatus(
+    contactSubdrawerEstablishment?.statuses ?? []
+  );
   const openContactDetailsSubdrawer = useCallback((householder: HouseholderWithDetails) => {
     const cached = householderDetailsCacheRef.current.get(householder.id);
     if (cached) {
@@ -1460,6 +1646,7 @@ export function HomeTodoCard({
               id: householder.establishment_id,
               name: householder.establishment_name ?? "",
               area: null,
+              statuses: null,
             }
           : null,
       });
@@ -1476,6 +1663,46 @@ export function HomeTodoCard({
     setSelectedContactFromEstablishment(householder);
     setContactDetailsSubdrawerOpen(true);
   }, [openTodos, completedTodos]);
+  const openTodoEditorFromDetails = useCallback(
+    (
+      todo: MyOpenCallTodoItem,
+      visits: VisitWithUser[],
+      options: {
+        establishments: Array<{ id?: string; name: string }>;
+        selectedEstablishmentId?: string;
+        householderId?: string;
+        householderName?: string;
+        disableEstablishmentSelect?: boolean;
+      }
+    ) => {
+      const matchedVisit = todo.call_id ? visits.find((visit) => visit.id === todo.call_id) : null;
+      const callPublishers = [matchedVisit?.publisher, matchedVisit?.partner]
+        .filter((person): person is NonNullable<typeof person> => !!person)
+        .map((person) => `${person.first_name} ${person.last_name}`.trim())
+        .filter(Boolean);
+      if (matchedVisit?.publisher_guest_name?.trim()) {
+        callPublishers.push(matchedVisit.publisher_guest_name.trim());
+      }
+      if (matchedVisit?.partner_guest_name?.trim()) {
+        callPublishers.push(matchedVisit.partner_guest_name.trim());
+      }
+
+      setTodoEditorContext({
+        initialTodo: {
+          ...todo,
+          call_note: matchedVisit?.note ?? null,
+          call_visit_date: matchedVisit?.visit_date ?? todo.visit_date ?? null,
+          call_publishers: Array.from(new Set(callPublishers)),
+        },
+        establishments: options.establishments,
+        selectedEstablishmentId: options.selectedEstablishmentId,
+        householderId: options.householderId,
+        householderName: options.householderName,
+        disableEstablishmentSelect: options.disableEstablishmentSelect,
+      });
+    },
+    []
+  );
   useEffect(() => {
     if (!todoDetailsDrawerOpen || isHouseholderDetail) return;
     if (selectedDetailHouseholders.length === 0) return;
@@ -1518,7 +1745,7 @@ export function HomeTodoCard({
             <ChevronRight className="h-3.5 w-3.5 ml-auto opacity-70" />
           </button>
           <ul className="space-y-2.5">
-            {cardOpenTodos.length === 0 ? (
+            {cardOpenTodos.length === 0 && cardCompletedTodos.length === 0 ? (
               <li className="text-sm text-muted-foreground py-1">{emptyText}</li>
             ) : (
               displayTodos.map((todo, index) => (
@@ -1537,33 +1764,45 @@ export function HomeTodoCard({
                   layoutId={`${layoutScopeId}-card-${todo.id}`}
                   layoutTransition={todoLayoutTransition}
                   hideHouseholderNameBadge={!!householderId}
+                  hideHouseholderEstablishmentBadge={!!householderId}
                 />
               ))
             )}
           </ul>
           {cardCompletedTodos.length > 0 && (
             <>
-              <div className="text-xs text-muted-foreground mt-4 mb-2 font-medium">Done</div>
-              <ul className="space-y-2.5">
-                {cardCompletedTodos.slice(0, 3).map((todo, index) => (
-                  <TodoRow
-                    key={todo.id}
-                    todo={{ ...todo, is_done: true }}
-                    timeZone={timeZone}
-                    onMarkDone={handleMarkDone}
-                    onTap={hasNavigation ? handleTodoTap : undefined}
-                    showCheckbox
-                    currentUserId={userId}
-                    showAssigneeAvatars={showAssigneeAvatars}
-                    highlightOtherPublishers={showOtherPublisherDecorations}
-                    participantsById={participantsById}
-                    rowIndex={index}
-                    layoutId={`${layoutScopeId}-card-${todo.id}`}
-                    layoutTransition={todoLayoutTransition}
-                    hideHouseholderNameBadge={!!householderId}
-                  />
-                ))}
-              </ul>
+              <div className="text-xs text-muted-foreground mt-4 mb-2 font-medium inline-flex items-center gap-1.5">
+                <span>Done</span>
+                <Badge
+                  variant="secondary"
+                  className="h-4 rounded-full px-1.5 text-[10px] leading-none"
+                >
+                  {cardCompletedTodos.length}
+                </Badge>
+              </div>
+              {cardOpenTodos.length === 0 && (
+                <ul className="space-y-2.5">
+                  {cardCompletedTodos.slice(0, 1).map((todo, index) => (
+                    <TodoRow
+                      key={todo.id}
+                      todo={{ ...todo, is_done: true }}
+                      timeZone={timeZone}
+                      onMarkDone={handleMarkDone}
+                      onTap={hasNavigation ? handleTodoTap : undefined}
+                      showCheckbox
+                      currentUserId={userId}
+                      showAssigneeAvatars={showAssigneeAvatars}
+                      highlightOtherPublishers={showOtherPublisherDecorations}
+                      participantsById={participantsById}
+                      rowIndex={index}
+                      layoutId={`${layoutScopeId}-card-${todo.id}`}
+                      layoutTransition={todoLayoutTransition}
+                      hideHouseholderNameBadge={!!householderId}
+                      hideHouseholderEstablishmentBadge={!!householderId}
+                    />
+                  ))}
+                </ul>
+              )}
             </>
           )}
         </div>
@@ -1575,7 +1814,7 @@ export function HomeTodoCard({
           setDrawerOpen(open);
           if (!open) {
             setDrawerTodoExpanded(true);
-            setDrawerOpenSectionExpanded(false);
+            setDrawerOpenSectionExpanded(true);
             setDrawerDoneExpanded(false);
             setFilterDrawerOpen(false);
           }
@@ -1731,6 +1970,7 @@ export function HomeTodoCard({
                             layoutTransition={todoLayoutTransition}
                             clampBody={false}
                             hideHouseholderNameBadge={!!householderId}
+                            hideHouseholderEstablishmentBadge={!!householderId}
                           />
                         ))}
                       </ul>
@@ -1769,6 +2009,7 @@ export function HomeTodoCard({
                             layoutTransition={todoLayoutTransition}
                             clampBody={false}
                             hideHouseholderNameBadge={!!householderId}
+                            hideHouseholderEstablishmentBadge={!!householderId}
                           />
                         ))}
                       </ul>
@@ -1807,6 +2048,7 @@ export function HomeTodoCard({
                             layoutTransition={todoLayoutTransition}
                             clampBody={false}
                             hideHouseholderNameBadge={!!householderId}
+                            hideHouseholderEstablishmentBadge={!!householderId}
                           />
                         ))}
                       </ul>
@@ -1894,6 +2136,14 @@ export function HomeTodoCard({
                           {formatStatusText(selectedHouseholder.status)}
                         </Badge>
                       ) : null}
+                      {householderEstablishmentName ? (
+                        <Badge
+                          variant="outline"
+                          className={cn("flex-shrink-0", getStatusTextColor(householderEstablishmentStatus))}
+                        >
+                          {householderEstablishmentName}
+                        </Badge>
+                      ) : null}
                     </div>
                     {selectedHouseholder?.lat != null && selectedHouseholder?.lng != null ? (
                       <a
@@ -1909,23 +2159,17 @@ export function HomeTodoCard({
                     ) : null}
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className={cn("grid gap-4", householderDetailGridClass)}>
                       {householderArea ? (
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">Area</p>
                           <p>{householderArea}</p>
                         </div>
                       ) : null}
-                      {householderEstablishmentName ? (
-                        <div className={householderArea ? undefined : "col-span-2"}>
-                          <p className="text-sm font-medium text-muted-foreground">Establishment</p>
-                          <p className="break-words">{householderEstablishmentName}</p>
-                        </div>
-                      ) : null}
-                      {selectedHouseholder?.note?.trim() ? (
-                        <div className="col-span-2">
+                      {householderNote ? (
+                        <div>
                           <p className="text-sm font-medium text-muted-foreground">Note</p>
-                          <p className="text-sm break-words">{selectedHouseholder.note.trim()}</p>
+                          <p className="text-sm break-words">{householderNote}</p>
                         </div>
                       ) : null}
                     </div>
@@ -1972,7 +2216,7 @@ export function HomeTodoCard({
                     ) : null}
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       {detailArea ? (
                         <div>
                           <p className="text-sm font-medium text-muted-foreground">Area</p>
@@ -1980,7 +2224,7 @@ export function HomeTodoCard({
                         </div>
                       ) : null}
                       {detailDescription ? (
-                        <div className={detailFloor ? undefined : "col-span-2"}>
+                        <div>
                           <p className="text-sm font-medium text-muted-foreground">Description</p>
                           <p className="break-words">{detailDescription}</p>
                         </div>
@@ -1992,7 +2236,7 @@ export function HomeTodoCard({
                         </div>
                       ) : null}
                       {!detailDescription && detailNote ? (
-                        <div className={detailFloor ? undefined : "col-span-2"}>
+                        <div>
                           <p className="text-sm font-medium text-muted-foreground">Note</p>
                           <p className="text-sm break-words">
                             {detailNote.length > 100 ? `${detailNote.slice(0, 100)}...` : detailNote}
@@ -2006,7 +2250,7 @@ export function HomeTodoCard({
                         </div>
                       ) : null}
                       {detailDescription && detailNote ? (
-                        <div className="col-span-2">
+                        <div>
                           <p className="text-sm font-medium text-muted-foreground">Note</p>
                           <p className="text-sm break-words">
                             {detailNote.length > 100 ? `${detailNote.slice(0, 100)}...` : detailNote}
@@ -2026,10 +2270,38 @@ export function HomeTodoCard({
             )}
 
             {isHouseholderDetail && selectedHouseholder?.id ? (
-              <HomeTodoCard householderId={selectedHouseholder.id} />
+              <HomeTodoCard
+                householderId={selectedHouseholder.id}
+                prefillScopeKey={`householder:${selectedHouseholder.id}`}
+                prefillOpenTodos={householderPrefillOpenTodos}
+                prefillCompletedTodos={householderPrefillCompletedTodos}
+                onTodoTap={(todo) =>
+                  openTodoEditorFromDetails(todo, selectedDetailVisits, {
+                    establishments: selectedHouseholderEstablishment
+                      ? [{ id: selectedHouseholderEstablishment.id, name: selectedHouseholderEstablishment.name }]
+                      : [],
+                    selectedEstablishmentId: selectedHouseholderEstablishment?.id,
+                    householderId: selectedHouseholder.id,
+                    householderName: selectedHouseholder.name,
+                    disableEstablishmentSelect: true,
+                  })
+                }
+              />
             ) : null}
             {!isHouseholderDetail && selectedEstablishmentDetails?.id ? (
-              <HomeTodoCard establishmentId={selectedEstablishmentDetails.id} />
+              <HomeTodoCard
+                establishmentId={selectedEstablishmentDetails.id}
+                prefillScopeKey={`establishment:${selectedEstablishmentDetails.id}`}
+                prefillOpenTodos={establishmentPrefillOpenTodos}
+                prefillCompletedTodos={establishmentPrefillCompletedTodos}
+                onTodoTap={(todo) =>
+                  openTodoEditorFromDetails(todo, selectedDetailVisits, {
+                    establishments: [{ id: selectedEstablishmentDetails.id, name: selectedEstablishmentDetails.name }],
+                    selectedEstablishmentId: selectedEstablishmentDetails.id,
+                    disableEstablishmentSelect: true,
+                  })
+                }
+              />
             ) : null}
 
             {selectedDetailVisits.length > 0 ? (
@@ -2158,6 +2430,17 @@ export function HomeTodoCard({
                         {formatStatusText(contactSubdrawerHouseholder.status)}
                       </Badge>
                     ) : null}
+                    {contactSubdrawerEstablishmentName ? (
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "flex-shrink-0",
+                          getStatusTextColor(contactSubdrawerEstablishmentStatus)
+                        )}
+                      >
+                        {contactSubdrawerEstablishmentName}
+                      </Badge>
+                    ) : null}
                   </div>
                   {contactSubdrawerHouseholder.lat != null && contactSubdrawerHouseholder.lng != null ? (
                     <a
@@ -2173,23 +2456,17 @@ export function HomeTodoCard({
                   ) : null}
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className={cn("grid gap-4", contactSubdrawerDetailGridClass)}>
                     {contactSubdrawerArea ? (
                       <div>
                         <p className="text-sm font-medium text-muted-foreground">Area</p>
                         <p>{contactSubdrawerArea}</p>
                       </div>
                     ) : null}
-                    {contactSubdrawerEstablishmentName ? (
-                      <div className={contactSubdrawerArea ? undefined : "col-span-2"}>
-                        <p className="text-sm font-medium text-muted-foreground">Establishment</p>
-                        <p className="break-words">{contactSubdrawerEstablishmentName}</p>
-                      </div>
-                    ) : null}
-                    {contactSubdrawerHouseholder.note?.trim() ? (
-                      <div className="col-span-2">
+                    {contactSubdrawerNote ? (
+                      <div>
                         <p className="text-sm font-medium text-muted-foreground">Note</p>
-                        <p className="text-sm break-words">{contactSubdrawerHouseholder.note.trim()}</p>
+                        <p className="text-sm break-words">{contactSubdrawerNote}</p>
                       </div>
                     ) : null}
                   </div>
@@ -2198,7 +2475,23 @@ export function HomeTodoCard({
             ) : null}
 
             {contactSubdrawerHouseholder?.id ? (
-              <HomeTodoCard householderId={contactSubdrawerHouseholder.id} />
+              <HomeTodoCard
+                householderId={contactSubdrawerHouseholder.id}
+                prefillScopeKey={`householder:${contactSubdrawerHouseholder.id}`}
+                prefillOpenTodos={contactSubdrawerPrefillOpenTodos}
+                prefillCompletedTodos={contactSubdrawerPrefillCompletedTodos}
+                onTodoTap={(todo) =>
+                  openTodoEditorFromDetails(todo, contactSubdrawerVisits, {
+                    establishments: contactSubdrawerEstablishment
+                      ? [{ id: contactSubdrawerEstablishment.id, name: contactSubdrawerEstablishment.name }]
+                      : [],
+                    selectedEstablishmentId: contactSubdrawerEstablishment?.id,
+                    householderId: contactSubdrawerHouseholder.id,
+                    householderName: contactSubdrawerHouseholder.name,
+                    disableEstablishmentSelect: true,
+                  })
+                }
+              />
             ) : null}
 
             {contactSubdrawerVisits.length > 0 ? (
@@ -2219,6 +2512,32 @@ export function HomeTodoCard({
           </div>
         </DrawerContent>
       </Drawer>
+
+      <FormModal
+        open={!!todoEditorContext}
+        onOpenChange={(open) => {
+          if (!open) setTodoEditorContext(null);
+        }}
+        title="Edit To-Do"
+        headerClassName="text-center"
+      >
+        {todoEditorContext ? (
+          <TodoForm
+            establishments={todoEditorContext.establishments}
+            selectedEstablishmentId={todoEditorContext.selectedEstablishmentId}
+            initialTodo={todoEditorContext.initialTodo}
+            householderId={todoEditorContext.householderId}
+            householderName={todoEditorContext.householderName}
+            disableEstablishmentSelect={todoEditorContext.disableEstablishmentSelect}
+            onSaved={() => {
+              setTodoEditorContext(null);
+              try {
+                window.dispatchEvent(new CustomEvent("business-todos-mutated"));
+              } catch {}
+            }}
+          />
+        ) : null}
+      </FormModal>
 
       <FormModal
         open={bulkEditPromptOpen}
@@ -2336,10 +2655,7 @@ function BulkEditTodoListItem({
   const householderStatus = todo.context_status || "for_scouting";
   const establishmentStatus = todo.context_establishment_status || "for_scouting";
   const isHouseholder = !!todo.householder_id;
-  const assigneeIds = [todo.publisher_id, todo.partner_id]
-    .filter((value): value is string => !!value)
-    .filter((value, idx, arr) => arr.indexOf(value) === idx)
-    .slice(0, 2);
+  const assigneeSlots = getTodoAssigneeSlots(todo);
   const areaLabel = todo.context_area?.trim() ?? "";
   const displayDate = todo.deadline_date;
 
@@ -2351,7 +2667,7 @@ function BulkEditTodoListItem({
         className="mt-1 shrink-0 h-5 w-5"
       />
       <div className="min-w-0 flex-1 flex flex-col gap-2 pr-2.5">
-        {todo.context_name || assigneeIds.length > 0 ? (
+        {todo.context_name || assigneeSlots.length > 0 ? (
           <div className="flex items-center gap-1.5 min-w-0 w-full">
             <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
               {todo.context_name ? (
@@ -2383,13 +2699,18 @@ function BulkEditTodoListItem({
                 </>
               ) : null}
             </div>
-            {assigneeIds.length > 0 ? (
+            {assigneeSlots.length > 0 ? (
               <div className="inline-flex items-center gap-1 shrink-0 ml-auto pl-1">
-                {assigneeIds.map((id) => {
-                  const profile = participantsById[id];
-                  const fullName = profile ? `${profile.first_name} ${profile.last_name}`.trim() : "Assigned";
+                {assigneeSlots.map((slot, idx) => {
+                  const isPublisher = slot.type === "publisher";
+                  const profile = isPublisher ? participantsById[slot.id] : undefined;
+                  const fullName = isPublisher
+                    ? profile
+                      ? `${profile.first_name} ${profile.last_name}`.trim()
+                      : "Assigned"
+                    : slot.name;
                   return (
-                    <Avatar key={`${todo.id}-${id}`} className="h-5 w-5 border border-border/70">
+                    <Avatar key={`${todo.id}-${isPublisher ? slot.id : `guest-${slot.name}-${idx}`}`} className="h-5 w-5 border border-border/70">
                       {profile?.avatar_url ? <AvatarImage src={profile.avatar_url} alt={fullName} /> : null}
                       <AvatarFallback className="text-[10px]">{getInitialsFromName(fullName || "A")}</AvatarFallback>
                     </Avatar>
@@ -2436,6 +2757,7 @@ function TodoRow({
   rowIndex,
   clampBody = true,
   hideHouseholderNameBadge = false,
+  hideHouseholderEstablishmentBadge = false,
 }: {
   todo: MyOpenCallTodoItem;
   timeZone: string | null;
@@ -2451,6 +2773,7 @@ function TodoRow({
   rowIndex?: number;
   clampBody?: boolean;
   hideHouseholderNameBadge?: boolean;
+  hideHouseholderEstablishmentBadge?: boolean;
 }) {
   const canNavigate = !!onTap && (!!todo.call_id || !!todo.establishment_id || !!todo.householder_id);
   const householderStatus = todo.context_status || "for_scouting";
@@ -2462,11 +2785,35 @@ function TodoRow({
   const isMine = !currentUserId || todo.publisher_id === currentUserId || todo.partner_id === currentUserId;
   const hasOtherPublisherHighlight = highlightOtherPublishers && !isMine;
   const ageBorderClass = isDone ? "" : getTodoAgeBorderClass(displayDate, hasOtherPublisherHighlight);
-  const assigneeIds = [todo.publisher_id, todo.partner_id]
-    .filter((value): value is string => !!value)
-    .filter((value, idx, arr) => arr.indexOf(value) === idx)
-    .slice(0, 2);
+  const assigneeSlots = getTodoAssigneeSlots(todo);
   const areaLabel = todo.context_area?.trim() ?? "";
+  const hasNameBadge = isHouseholder ? !hideHouseholderNameBadge && !!todo.context_name : !!todo.context_name;
+  const hasEstablishmentBadge =
+    isHouseholder && !!todo.context_establishment_name && !hideHouseholderEstablishmentBadge;
+  const hasVisibleBadges = hasNameBadge || hasEstablishmentBadge;
+  const collapseHeaderRow = !hasVisibleBadges;
+  const assigneeAvatarsNode =
+    showAssigneeAvatars && assigneeSlots.length > 0 ? (
+      <div className="inline-flex items-center gap-1 shrink-0 ml-auto pl-1">
+        {assigneeSlots.map((slot, idx) => {
+          const isPublisher = slot.type === "publisher";
+          const profile = isPublisher ? participantsById[slot.id] : undefined;
+          const fullName = isPublisher
+            ? profile
+              ? `${profile.first_name} ${profile.last_name}`.trim()
+              : "Assigned"
+            : slot.name;
+          return (
+            <Avatar key={`${todo.id}-${isPublisher ? slot.id : `guest-${slot.name}-${idx}`}`} className="h-5 w-5 border border-border/70">
+              {profile?.avatar_url ? <AvatarImage src={profile.avatar_url} alt={fullName} /> : null}
+              <AvatarFallback className="text-[10px]">
+                {getInitialsFromName(fullName || "A")}
+              </AvatarFallback>
+            </Avatar>
+          );
+        })}
+      </div>
+    ) : null;
   const content = (
     <>
       {showCheckbox ? (
@@ -2483,7 +2830,7 @@ function TodoRow({
         />
       )}
       <div className="min-w-0 flex-1 flex flex-col gap-2.5 pr-2.5">
-        {todo.context_name || (showAssigneeAvatars && assigneeIds.length > 0) ? (
+        {!collapseHeaderRow && (todo.context_name || (showAssigneeAvatars && assigneeSlots.length > 0)) ? (
           <div className="flex items-center gap-1.5 min-w-0 w-full">
             <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
               {todo.context_name ? (
@@ -2507,7 +2854,7 @@ function TodoRow({
                       />
                     </span>
                   )}
-                  {isHouseholder && todo.context_establishment_name ? (
+                  {isHouseholder && todo.context_establishment_name && !hideHouseholderEstablishmentBadge ? (
                     <VisitStatusBadge
                       status={establishmentStatus}
                       label={truncateLabel(todo.context_establishment_name, 24)}
@@ -2520,25 +2867,10 @@ function TodoRow({
                 </>
               ) : null}
             </div>
-            {showAssigneeAvatars && assigneeIds.length > 0 ? (
-              <div className="inline-flex items-center gap-1 shrink-0 ml-auto pl-1">
-                {assigneeIds.map((id) => {
-                  const profile = participantsById[id];
-                  const fullName = profile ? `${profile.first_name} ${profile.last_name}`.trim() : "Assigned";
-                  return (
-                    <Avatar key={`${todo.id}-${id}`} className="h-5 w-5 border border-border/70">
-                      {profile?.avatar_url ? <AvatarImage src={profile.avatar_url} alt={fullName} /> : null}
-                      <AvatarFallback className="text-[10px]">
-                        {getInitialsFromName(fullName || "A")}
-                      </AvatarFallback>
-                    </Avatar>
-                  );
-                })}
-              </div>
-            ) : null}
+            {assigneeAvatarsNode}
           </div>
         ) : null}
-        <div className="flex items-start gap-2 w-full min-w-0">
+        <div className={cn("flex gap-2 w-full min-w-0", collapseHeaderRow ? "items-center" : "items-start")}>
           <button
             type="button"
             onClick={() => onTap?.(todo)}
@@ -2552,13 +2884,14 @@ function TodoRow({
           >
             {todo.body}
           </button>
-          {displayDate || areaLabel ? (
+          {displayDate || areaLabel || (collapseHeaderRow && assigneeAvatarsNode) ? (
             <div
               className={cn(
                 "flex flex-col items-end gap-0.5 shrink-0 max-w-[45%] text-right",
                 isDone && "opacity-70"
               )}
             >
+              {collapseHeaderRow ? assigneeAvatarsNode : null}
               {displayDate ? (
                 <span className="text-xs text-muted-foreground tabular-nums leading-snug pt-0.5">
                   {formatTodoDate(displayDate)}

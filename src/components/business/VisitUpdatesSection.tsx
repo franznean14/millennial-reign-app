@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState } from 'react';
-import { ChevronRight, Calendar } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { FormModal } from '@/components/shared/FormModal';
 import { type VisitWithUser } from '@/lib/db/business';
 import { VisitForm } from './VisitForm';
-import { formatVisitDateShort, getVisitParticipantsDisplayName } from '@/lib/utils/visit-history-ui';
+import { formatVisitDateShort } from '@/lib/utils/visit-history-ui';
 import { getStatusDotColor, getTimelineDotSize, getTimelineLineClassWithPosition } from '@/lib/utils/visit-timeline';
 import { VisitTimelineRow } from '@/components/visit/VisitTimelineRow';
 import { VisitList } from '@/components/visit/VisitList';
@@ -43,8 +43,6 @@ export function VisitUpdatesSection({
   const mainVisits = visits.slice(0, 3);
 
   const renderVisitEntry = (visit: VisitWithUser, index: number, isDrawer: boolean, total: number) => {
-    const participantsName = getVisitParticipantsDisplayName(visit);
-
     const lineLengthClass = getTimelineLineClassWithPosition(isDrawer);
     const dotSizeClass = getTimelineDotSize();
     const avatarSizeClass = "h-5 w-5"; // Match home to-do assignee avatars
@@ -87,16 +85,8 @@ export function VisitUpdatesSection({
                 status={visit.householder.status || "potential"}
                 label={visit.householder.name}
               />
-            ) : visit.establishment_id && visit.establishment?.name && isHouseholderContext ? (
-              <VisitStatusBadge
-                status={visit.establishment.status || "for_scouting"}
-                label={visit.establishment.name}
-              />
             ) : undefined
           }
-          metaIcon={<Calendar className="h-3 w-3" />}
-          metaText={participantsName}
-          metaClassName="mb-2"
           notes={visit.note}
           notesClassName={!isDrawer ? "leading-relaxed line-clamp-1" : "leading-relaxed"}
         />

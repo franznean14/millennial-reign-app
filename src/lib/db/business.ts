@@ -1427,14 +1427,14 @@ export async function getMyOpenCallTodos(userId: string, limit = 15): Promise<My
     const linkedPromise = callIds.length
       ? supabase
           .from("call_todos")
-          .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, deadline_date, created_at")
+          .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, publisher_guest_name, partner_guest_name, deadline_date, created_at")
           .eq("is_done", false)
           .in("call_id", callIds)
           .limit(limit)
       : Promise.resolve({ data: [], error: null } as any);
     const standalonePromise = supabase
       .from("call_todos")
-      .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, deadline_date, created_at")
+      .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, publisher_guest_name, partner_guest_name, deadline_date, created_at")
       .eq("is_done", false)
       .is("call_id", null)
       .or(`publisher_id.eq.${userId},partner_id.eq.${userId}`)
@@ -1473,14 +1473,14 @@ export async function getMyCompletedCallTodos(userId: string, limit = 20): Promi
     const linkedPromise = callIds.length
       ? supabase
           .from("call_todos")
-          .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, deadline_date, created_at")
+          .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, publisher_guest_name, partner_guest_name, deadline_date, created_at")
           .eq("is_done", true)
           .in("call_id", callIds)
           .limit(limit)
       : Promise.resolve({ data: [], error: null } as any);
     const standalonePromise = supabase
       .from("call_todos")
-      .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, deadline_date, created_at")
+      .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, publisher_guest_name, partner_guest_name, deadline_date, created_at")
       .eq("is_done", true)
       .is("call_id", null)
       .or(`publisher_id.eq.${userId},partner_id.eq.${userId}`)
@@ -1512,7 +1512,7 @@ async function getCongregationCallTodos(isDone: boolean, limit = 50): Promise<My
 
     const { data, error } = await supabase
       .from("call_todos")
-      .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, deadline_date, created_at")
+      .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, publisher_guest_name, partner_guest_name, deadline_date, created_at")
       .eq("congregation_id", profile.congregation_id)
       .eq("is_done", isDone)
       .limit(limit);
@@ -1559,7 +1559,7 @@ async function getScopedCallTodos(options: {
     const linkedPromise = callIds.length
       ? supabase
           .from("call_todos")
-          .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, deadline_date, created_at")
+          .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, publisher_guest_name, partner_guest_name, deadline_date, created_at")
           .eq("is_done", isDone)
           .in("call_id", callIds)
           .limit(limit)
@@ -1567,7 +1567,7 @@ async function getScopedCallTodos(options: {
 
     let standaloneQuery = supabase
       .from("call_todos")
-      .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, deadline_date, created_at")
+      .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, publisher_guest_name, partner_guest_name, deadline_date, created_at")
       .eq("is_done", isDone)
       .is("call_id", null)
       .limit(limit);
@@ -1885,15 +1885,13 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
   const cacheKey = `establishment:details:${establishmentId}`;
   
   try {
-    // If offline, serve from cache
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      const cached = await cacheGet<{
-        establishment: EstablishmentWithDetails;
-        visits: VisitWithUser[];
-        householders: HouseholderWithDetails[];
-      }>(cacheKey);
-      return cached ?? null;
-    }
+    // Cache-first for instant rendering (online and offline).
+    const cached = await cacheGet<{
+      establishment: EstablishmentWithDetails;
+      visits: VisitWithUser[];
+      householders: HouseholderWithDetails[];
+    }>(cacheKey);
+    if (cached) return cached;
   
   // Get establishment details — exclude soft-deleted/archived (same filter as list so details detect delete)
   const { data: establishment } = await supabase
@@ -2008,22 +2006,20 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
 export async function getHouseholderDetails(householderId: string): Promise<{
   householder: HouseholderWithDetails;
   visits: VisitWithUser[];
-  establishment?: { id: string; name: string; area?: string | null } | null;
+  establishment?: { id: string; name: string; area?: string | null; statuses?: string[] | null } | null;
 } | null> {
   const supabase = createSupabaseBrowserClient();
   await supabase.auth.getSession().catch(() => {});
   const cacheKey = `householder:details:v3:${householderId}`;
   
   try {
-    // If offline, serve from cache
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      const cached = await cacheGet<{
-        householder: HouseholderWithDetails;
-        visits: VisitWithUser[];
-        establishment?: { id: string; name: string; area?: string | null } | null;
-      }>(cacheKey);
-      return cached ?? null;
-    }
+    // Cache-first for instant rendering (online and offline).
+    const cached = await cacheGet<{
+      householder: HouseholderWithDetails;
+      visits: VisitWithUser[];
+        establishment?: { id: string; name: string; area?: string | null; statuses?: string[] | null } | null;
+    }>(cacheKey);
+    if (cached) return cached;
 
   // Householder with establishment and publisher profile
   // Fetch visits first to ensure they're always loaded, even if householder query fails
@@ -2048,7 +2044,7 @@ export async function getHouseholderDetails(householderId: string): Promise<{
     const cached = await cacheGet<{
       householder: HouseholderWithDetails;
       visits: VisitWithUser[];
-      establishment?: { id: string; name: string; area?: string | null } | null;
+      establishment?: { id: string; name: string; area?: string | null; statuses?: string[] | null } | null;
     }>(cacheKey);
     return cached ?? null;
   }
@@ -2103,6 +2099,7 @@ export async function getHouseholderDetails(householderId: string): Promise<{
           id: establishment.id,
           name: establishment.name,
           area: establishment.area ?? null,
+          statuses: establishment.statuses ?? null,
         }
       : null,
   };
@@ -2115,7 +2112,7 @@ export async function getHouseholderDetails(householderId: string): Promise<{
     const cached = await cacheGet<{
       householder: HouseholderWithDetails;
       visits: VisitWithUser[];
-      establishment?: { id: string; name: string; area?: string | null } | null;
+      establishment?: { id: string; name: string; area?: string | null; statuses?: string[] | null } | null;
     }>(cacheKey);
     return cached ?? null;
   }

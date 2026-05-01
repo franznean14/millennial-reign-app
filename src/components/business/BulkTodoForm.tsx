@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "@/components/ui/sonner";
-import { ChevronDown, ChevronUp, Plus, Search, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, Plus, Search, Trash2, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Drawer, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
@@ -298,6 +298,7 @@ export function BulkTodoForm({
   const [duplicateAddPrompt, setDuplicateAddPrompt] = useState<DuplicateAddPromptState | null>(null);
   const [insightRefreshKey, setInsightRefreshKey] = useState(0);
   const [deletingSourceTodoRowId, setDeletingSourceTodoRowId] = useState<string | null>(null);
+  const [submittingRowId, setSubmittingRowId] = useState<string | null>(null);
 
   useEffect(() => {
     const loadParticipants = async () => {
@@ -1686,9 +1687,181 @@ export function BulkTodoForm({
       toast.success("To-do deleted.");
       removeRow(row.id);
       setInsightRefreshKey((k) => k + 1);
+      try {
+        window.dispatchEvent(
+          new CustomEvent("business-todos-mutated", {
+            detail: { kind: "delete", todoId: row.sourceTodoId },
+          })
+        );
+      } catch {}
       onSaved();
     } finally {
       setDeletingSourceTodoRowId(null);
+    }
+  };
+
+  const handleSubmitSingleRow = async (row: BulkTodoDraftRow) => {
+    if (saving || submittingRowId) return;
+    if (row.sourceTodoId && !hasRowChanged(row)) {
+      toast.error("No changes to submit for this to-do.");
+      return;
+    }
+    if (!isRowComplete(row)) {
+      toast.error("This to-do is incomplete.");
+      return;
+    }
+    if (!!row.sourceCallId && !!row.original && row.targetKey !== row.original.targetKey) {
+      toast.error("Target cannot be changed for call-linked to-dos.");
+      return;
+    }
+
+    setSubmittingRowId(row.id);
+    try {
+      const [targetType, targetId] = row.targetKey.split(":");
+      const selectedHouseholder = targetType === "householder" ? householdersById.get(targetId) : undefined;
+      const selectedEstablishment = targetType === "establishment" ? establishmentById.get(targetId) : undefined;
+      const slot0 = row.slots[0] ?? "";
+      const slot1 = row.slots[1] ?? "";
+      const publisherId = slot0 && !isGuestSlotToken(slot0) ? slot0 : null;
+      const partnerId = slot1 && !isGuestSlotToken(slot1) ? slot1 : null;
+      const publisherGuestName = slot0 && isGuestSlotToken(slot0) ? getGuestNameFromSlot(slot0) : null;
+      const partnerGuestName = slot1 && isGuestSlotToken(slot1) ? getGuestNameFromSlot(slot1) : null;
+      const establishment_id =
+        targetType === "establishment"
+          ? targetId || null
+          : selectedHouseholder?.establishment_id ?? null;
+      const householder_id =
+        targetType === "householder" ? targetId || null : null;
+      const optimisticContextName =
+        targetType === "establishment"
+          ? selectedEstablishment?.name ?? null
+          : selectedHouseholder?.name ?? null;
+      const optimisticContextEstablishmentName =
+        targetType === "householder"
+          ? selectedHouseholder?.establishment_name ?? null
+          : null;
+      const optimisticContextStatus =
+        targetType === "establishment"
+          ? (selectedEstablishment
+              ? (selectedEstablishment.publisher_id
+                  ? "personal_territory"
+                  : getBestStatus(selectedEstablishment.statuses || []))
+              : null)
+          : selectedHouseholder?.status ?? null;
+      const optimisticContextEstablishmentStatus =
+        targetType === "householder" && selectedHouseholder?.establishment_id
+          ? (() => {
+              const est = establishmentById.get(selectedHouseholder.establishment_id);
+              return est
+                ? (est.publisher_id
+                    ? "personal_territory"
+                    : getBestStatus(est.statuses || []))
+                : null;
+            })()
+          : null;
+      const optimisticContextArea =
+        targetType === "establishment"
+          ? selectedEstablishment?.area ?? null
+          : selectedHouseholder?.establishment_id
+            ? establishmentById.get(selectedHouseholder.establishment_id)?.area ?? null
+            : null;
+
+      if (row.sourceTodoId) {
+        const ok = await updateTodoForBulkEdit(row.sourceTodoId, {
+          establishment_id,
+          householder_id,
+          body: row.body.trim(),
+          deadline_date: row.dueDate ?? null,
+          publisher_id: publisherId,
+          partner_id: partnerId,
+          publisher_guest_name: publisherGuestName,
+          partner_guest_name: partnerGuestName,
+        });
+
+        if (!ok) {
+          toast.error("Failed to update this to-do.");
+          return;
+        }
+
+        toast.success("To-do updated.");
+        try {
+          window.dispatchEvent(
+            new CustomEvent("business-todos-mutated", {
+              detail: {
+                kind: "upsert",
+                todo: {
+                  id: row.sourceTodoId,
+                  call_id: row.sourceCallId ?? null,
+                  establishment_id,
+                  householder_id,
+                  body: row.body.trim(),
+                  is_done: false,
+                  publisher_id: publisherId,
+                  partner_id: partnerId,
+                  publisher_guest_name: publisherGuestName,
+                  partner_guest_name: partnerGuestName,
+                  deadline_date: row.dueDate ?? null,
+                  context_name: optimisticContextName,
+                  context_establishment_name: optimisticContextEstablishmentName,
+                  context_status: optimisticContextStatus,
+                  context_establishment_status: optimisticContextEstablishmentStatus,
+                  context_area: optimisticContextArea,
+                },
+              },
+            })
+          );
+        } catch {}
+      } else {
+        const created = await addStandaloneTodo({
+          establishment_id,
+          householder_id,
+          body: row.body.trim(),
+          deadline_date: row.dueDate ?? null,
+          publisher_id: publisherId,
+          partner_id: partnerId,
+          publisher_guest_name: publisherGuestName,
+          partner_guest_name: partnerGuestName,
+        });
+        if (!created) {
+          toast.error("Failed to add this to-do.");
+          return;
+        }
+        toast.success("To-do added.");
+        try {
+          window.dispatchEvent(
+            new CustomEvent("business-todos-mutated", {
+              detail: {
+                kind: "upsert",
+                todo: {
+                  ...(created as unknown as Record<string, unknown>),
+                  id: created.id,
+                  call_id: null,
+                  establishment_id,
+                  householder_id,
+                  body: row.body.trim(),
+                  is_done: false,
+                  publisher_id: publisherId,
+                  partner_id: partnerId,
+                  publisher_guest_name: publisherGuestName,
+                  partner_guest_name: partnerGuestName,
+                  deadline_date: row.dueDate ?? null,
+                  context_name: optimisticContextName,
+                  context_establishment_name: optimisticContextEstablishmentName,
+                  context_status: optimisticContextStatus,
+                  context_establishment_status: optimisticContextEstablishmentStatus,
+                  context_area: optimisticContextArea,
+                },
+              },
+            })
+          );
+        } catch {}
+      }
+
+      removeRow(row.id);
+      setInsightRefreshKey((k) => k + 1);
+      onSaved();
+    } finally {
+      setSubmittingRowId(null);
     }
   };
 
@@ -1700,8 +1873,7 @@ export function BulkTodoForm({
 
   const isRowComplete = (row: BulkTodoDraftRow) =>
     row.targetKey !== "none" &&
-    !!row.body.trim() &&
-    row.slots.length >= 1;
+    !!row.body.trim();
 
   const normalizeRowForCompare = (row: BulkTodoDraftRow) => ({
     targetKey: row.targetKey,
@@ -1894,6 +2066,12 @@ export function BulkTodoForm({
         toast.error(`${failedCount} ready to-do${failedCount > 1 ? "s" : ""} failed. Failed and ignored items are kept.`);
       }
 
+      if (successCount > 0) {
+        try {
+          window.dispatchEvent(new CustomEvent("business-todos-mutated", { detail: undefined }));
+        } catch {}
+      }
+
       if (remainingRows.length === 0) {
         window.localStorage.removeItem(DRAFT_STORAGE_KEY);
         onSaved();
@@ -1986,6 +2164,13 @@ export function BulkTodoForm({
       return;
     }
     setInsightRefreshKey((prev) => prev + 1);
+    try {
+      window.dispatchEvent(
+        new CustomEvent("business-todos-mutated", {
+          detail: { kind: "mark_done", todoId },
+        })
+      );
+    } catch {}
   };
 
   const getParticipantById = (id: string) => participants.find((participant) => participant.id === id);
@@ -2040,20 +2225,42 @@ export function BulkTodoForm({
           >
             <div className="min-w-0 pr-2">
               <div className="flex items-center gap-1.5 min-w-0">
+                {(() => {
+                  const [targetType, targetId] = row.targetKey.split(":");
+                  const householder = targetType === "householder" ? householdersById.get(targetId) : null;
+                  const linkedEstablishment =
+                    householder?.establishment_id ? establishmentById.get(householder.establishment_id) : null;
+                  const establishmentStatus = linkedEstablishment
+                    ? (linkedEstablishment.publisher_id
+                        ? "personal_territory"
+                        : getBestStatus(linkedEstablishment.statuses || []))
+                    : "for_scouting";
+                  return (
+                    <>
                 <p className="text-sm font-medium truncate min-w-0">
                   {getRowTargetLabel(row, "Select establishment or contact")}
                 </p>
                 {getRowHeaderStatuses(row).length > 0 ? (
                   <div className="flex items-center gap-1 shrink-0">
                     {getRowHeaderStatuses(row).map((status) => (
-                      <span
-                        key={`${row.id}-status-dot-${status}`}
-                        className={`h-1.5 w-1.5 rounded-full ${getStatusDotColorClass(status)}`}
-                        title={formatStatusText(status)}
+                      <VisitStatusBadge
+                        key={`${row.id}-status-badge-${status}`}
+                        status={status}
+                        label={formatStatusText(status)}
                       />
                     ))}
+                    {householder?.establishment_name ? (
+                      <VisitStatusBadge
+                        status={establishmentStatus}
+                        label={householder.establishment_name}
+                        className="border-muted bg-muted/50"
+                      />
+                    ) : null}
                   </div>
                 ) : null}
+                    </>
+                  );
+                })()}
               </div>
               <p
                 className={`text-[11px] ${
@@ -2099,20 +2306,8 @@ export function BulkTodoForm({
                 const [targetType, targetId] = row.targetKey.split(":");
                 const establishment = targetType === "establishment" ? establishmentById.get(targetId) : null;
                 const householder = targetType === "householder" ? householdersById.get(targetId) : null;
-                const status = establishment
-                  ? (establishment.publisher_id ? "personal_territory" : getBestStatus(establishment.statuses || []))
-                  : householder?.status || "";
-                const targetName = establishment
-                  ? establishment.name
-                  : householder
-                    ? `${householder.name}${householder.establishment_name ? ` - ${householder.establishment_name}` : ""}`
-                    : "No target selected";
                 return (
                   <>
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="truncate">{targetName}</p>
-                      {status ? <VisitStatusBadge status={status} label={formatStatusText(status)} /> : null}
-                    </div>
                     <p className="text-muted-foreground break-words">
                       {row.body.trim() || "No to-do text yet"}
                     </p>
@@ -2147,7 +2342,7 @@ export function BulkTodoForm({
                   )}
                 </div>
                 <span className="text-xs text-muted-foreground">
-                  {row.dueDate ? `Due ${new Date(`${row.dueDate}T00:00:00`).toLocaleDateString()}` : "No due date"}
+                  {row.dueDate ? `Due ${formatTodoDate(row.dueDate)}` : "No due date"}
                 </span>
               </div>
             </div>
@@ -2434,24 +2629,48 @@ export function BulkTodoForm({
                 </div>
               ) : null}
 
-              {row.sourceTodoId ? (
+              {(row.sourceTodoId || !isRowBlank(row)) ? (
                 <div className="mt-3 flex justify-end border-t border-border/60 pt-2">
+                  {row.sourceTodoId ? (
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="h-8 w-8 shrink-0 mr-2"
+                      disabled={deletingSourceTodoRowId === row.id || submittingRowId === row.id}
+                      aria-label={
+                        deletingSourceTodoRowId === row.id ? "Deleting to-do" : "Delete to-do permanently"
+                      }
+                      title="Delete to-do"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleDeleteSourceTodoRow(row);
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  ) : null}
                   <Button
                     type="button"
-                    variant="destructive"
-                    size="icon"
-                    className="h-8 w-8 shrink-0"
-                    disabled={deletingSourceTodoRowId === row.id}
-                    aria-label={
-                      deletingSourceTodoRowId === row.id ? "Deleting to-do" : "Delete to-do permanently"
+                    variant="default"
+                    size="sm"
+                    className="h-8 shrink-0"
+                    disabled={
+                      saving ||
+                      deletingSourceTodoRowId === row.id ||
+                      submittingRowId === row.id ||
+                      (row.sourceTodoId ? !hasRowChanged(row) : isRowBlank(row)) ||
+                      !isRowComplete(row)
                     }
-                    title="Delete to-do"
+                    aria-label={submittingRowId === row.id ? "Submitting to-do" : "Submit this to-do only"}
+                    title="Submit this to-do only"
                     onClick={(e) => {
                       e.stopPropagation();
-                      void handleDeleteSourceTodoRow(row);
+                      void handleSubmitSingleRow(row);
                     }}
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
+                    <Check className="h-3.5 w-3.5 mr-1" />
+                    {submittingRowId === row.id ? "Submitting..." : "Submit"}
                   </Button>
                 </div>
               ) : null}
