@@ -592,9 +592,13 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
 
       <div className="grid gap-1">
         <Label>Publishers</Label>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2">
           {slots.map((slot, index) => (
-            <div key={index} className="flex items-center gap-2 bg-muted px-2 py-1.5 rounded-md">
+            <div
+              key={index}
+              className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-border/70 bg-muted/50 px-2 py-1.5"
+              title={getSlotDisplayName(slot)}
+            >
               <Avatar className="h-6 w-6 shrink-0">
                 {slot.type === "publisher" && getSelectedUser(slot.id)?.avatar_url && (
                   <AvatarImage src={getSelectedUser(slot.id)!.avatar_url} alt={getSlotDisplayName(slot)} />
@@ -611,7 +615,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
                     : getInitialsFromName(slot.type === "guest" ? slot.name : "?")}
                 </AvatarFallback>
               </Avatar>
-              <span className="text-sm">{getSlotDisplayName(slot)}</span>
+              <span className="min-w-0 flex-1 truncate text-sm">{getSlotDisplayName(slot)}</span>
               <Button
                 type="button"
                 variant="ghost"
@@ -629,9 +633,9 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
               <DrawerTrigger asChild>
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="default"
                   size="icon"
-                  className="h-9 w-9 rounded-full shrink-0"
+                  className="h-9 w-9 rounded-full shrink-0 bg-emerald-600/95 text-white shadow-sm hover:bg-emerald-500 hover:shadow-md hover:scale-[1.03] active:scale-100 transition-all"
                   aria-label="Add publisher or guest"
                 >
                   <Plus className="h-4 w-4" />

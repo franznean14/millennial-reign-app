@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef, useMemo, useId } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo, useId, type ReactNode } from "react";
 import { motion } from "motion/react";
 import { ListTodo, ChevronRight, ChevronDown, ChevronUp, MapPinned, BookOpen } from "lucide-react";
 import {
@@ -16,6 +16,7 @@ import {
   getBwiParticipants,
   getEstablishmentDetails,
   updateCallTodo,
+  updateStandaloneTodo,
   type MyOpenCallTodoItem,
   type EstablishmentWithDetails,
   type VisitWithUser,
@@ -35,6 +36,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import {
   Drawer,
   DrawerContent,
+  DrawerFooter,
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
@@ -366,6 +368,9 @@ export function HomeTodoCard({
   const [contactSubdrawerDetails, setContactSubdrawerDetails] = useState<HouseholderDetailsSnapshot | null>(null);
   const [isLoadingContactSubdrawerDetails, setIsLoadingContactSubdrawerDetails] = useState(false);
   const [todoEditorContext, setTodoEditorContext] = useState<TodoEditorContext | null>(null);
+  const [takeTodoConfirmOpen, setTakeTodoConfirmOpen] = useState(false);
+  const [todoPendingTake, setTodoPendingTake] = useState<MyOpenCallTodoItem | null>(null);
+  const [takingTodoId, setTakingTodoId] = useState<string | null>(null);
   const layoutScopeId = useId();
   const establishmentDetailsCacheRef = useRef(new Map<string, EstablishmentDetailsSnapshot>());
   const householderDetailsCacheRef = useRef(new Map<string, HouseholderDetailsSnapshot>());
@@ -411,10 +416,6 @@ export function HomeTodoCard({
         localCachedItemCount = localCached.open.length + localCached.completed.length;
         usedFreshLocalCache =
           localCached.syncedAt > 0 && Date.now() - localCached.syncedAt < TODOS_FRESH_MS;
-      } else if (isCurrent()) {
-        // Avoid showing the previous scope's rows while this scope has no snapshot yet.
-        setOpenTodos([]);
-        setCompletedTodos([]);
       }
 
       // Prefer localStorage as source of truth when it has data; IndexedDB is only a fallback
@@ -527,8 +528,10 @@ export function HomeTodoCard({
       return;
     }
     const canUsePrefill = prefillScopeKey === scopeKey;
-    setOpenTodos(canUsePrefill ? (prefillOpenTodos ?? []) : []);
-    setCompletedTodos(canUsePrefill ? (prefillCompletedTodos ?? []) : []);
+    if (canUsePrefill) {
+      setOpenTodos(prefillOpenTodos ?? []);
+      setCompletedTodos(prefillCompletedTodos ?? []);
+    }
   }, [scopeKey, prefillScopeKey, prefillOpenTodos, prefillCompletedTodos]);
 
   useEffect(() => {
@@ -1111,6 +1114,50 @@ export function HomeTodoCard({
     });
   };
 
+  const handleTakeTodoPrompt = useCallback((todo: MyOpenCallTodoItem) => {
+    if (!userId) return;
+    setTodoPendingTake(todo);
+    setTakeTodoConfirmOpen(true);
+  }, [userId]);
+
+  const handleConfirmTakeTodo = useCallback(async () => {
+    if (!userId || !todoPendingTake || takingTodoId) return;
+    const target = todoPendingTake;
+    setTakingTodoId(target.id);
+    const previousOpen = openTodos;
+    const previousCompleted = completedTodos;
+    const optimistic: MyOpenCallTodoItem = {
+      ...target,
+      publisher_id: userId,
+      partner_id: null,
+      publisher_guest_name: null,
+      partner_guest_name: null,
+    };
+    setOpenTodos((prev) => [optimistic, ...prev.filter((item) => item.id !== target.id)]);
+    setTakeTodoConfirmOpen(false);
+    setTodoPendingTake(null);
+    const ok = await updateStandaloneTodo(target.id, {
+      publisher_id: userId,
+      partner_id: null,
+      publisher_guest_name: null,
+      partner_guest_name: null,
+    });
+    if (!ok) {
+      setOpenTodos(previousOpen);
+      setCompletedTodos(previousCompleted);
+    } else {
+      try {
+        window.dispatchEvent(
+          new CustomEvent("business-todos-mutated", {
+            detail: { kind: "upsert", todo: optimistic },
+          })
+        );
+      } catch {}
+      loadTodos({ useCache: false, forceNetwork: true, trustFreshLocalCache: false });
+    }
+    setTakingTodoId(null);
+  }, [userId, todoPendingTake, takingTodoId, openTodos, completedTodos, loadTodos]);
+
   const handleTodoTap = (todo: MyOpenCallTodoItem) => {
     const primeScopedTodoCaches = (targetTodo: MyOpenCallTodoItem) => {
       const now = Date.now();
@@ -1361,9 +1408,25 @@ export function HomeTodoCard({
     () => [...completedTodos].sort(compareLatestDesc),
     [completedTodos]
   );
+  const isTodoAssigned = useCallback((todo: MyOpenCallTodoItem) => {
+    return Boolean(
+      todo.publisher_id ||
+      todo.partner_id ||
+      todo.publisher_guest_name?.trim() ||
+      todo.partner_guest_name?.trim()
+    );
+  }, []);
+  const selectableAssignedTodos = useMemo(
+    () => filteredOpenTodos.filter(isTodoAssigned),
+    [filteredOpenTodos, isTodoAssigned]
+  );
+  const selectableUnassignedTodos = useMemo(
+    () => filteredOpenTodos.filter((todo) => !isTodoAssigned(todo)),
+    [filteredOpenTodos, isTodoAssigned]
+  );
   const selectableTodos = useMemo(
-    () => [...filteredOpenTodos],
-    [filteredOpenTodos]
+    () => [...selectableAssignedTodos, ...selectableUnassignedTodos],
+    [selectableAssignedTodos, selectableUnassignedTodos]
   );
 
   const openBulkEditPrompt = useCallback(() => {
@@ -1443,12 +1506,48 @@ export function HomeTodoCard({
     const selectedSet = new Set(selectedTodoIds);
     const chosen = selectableTodos.filter((todo) => selectedSet.has(todo.id));
     if (chosen.length === 0) return;
+    const allKnownTodos = [...openTodos, ...completedTodos];
 
     const prefilledRows = chosen.map((todo, index) => {
-      const targetKey = todo.householder_id
-        ? `householder:${todo.householder_id}`
-        : todo.establishment_id
-          ? `establishment:${todo.establishment_id}`
+      let resolvedHouseholderId = todo.householder_id ?? null;
+      let resolvedEstablishmentId = todo.establishment_id ?? null;
+
+      // Fallback #1: infer from same call context already loaded in memory.
+      if (!resolvedHouseholderId && !resolvedEstablishmentId && todo.call_id) {
+        const callMatch = allKnownTodos.find(
+          (item) =>
+            item.call_id === todo.call_id &&
+            (item.householder_id || item.establishment_id)
+        );
+        resolvedHouseholderId = callMatch?.householder_id ?? null;
+        resolvedEstablishmentId = callMatch?.establishment_id ?? null;
+      }
+
+      // Fallback #2: infer from matching context labels/status/area when call_id is absent.
+      if (!resolvedHouseholderId && !resolvedEstablishmentId) {
+        const contextMatch = allKnownTodos.find((item) => {
+          if (!item.householder_id && !item.establishment_id) return false;
+          return (
+            (item.context_name ?? "") === (todo.context_name ?? "") &&
+            (item.context_establishment_name ?? "") === (todo.context_establishment_name ?? "") &&
+            (item.context_status ?? "") === (todo.context_status ?? "") &&
+            (item.context_area ?? "") === (todo.context_area ?? "")
+          );
+        });
+        resolvedHouseholderId = contextMatch?.householder_id ?? null;
+        resolvedEstablishmentId = contextMatch?.establishment_id ?? null;
+      }
+
+      // Fallback #3: when already scoped, use current scope target.
+      if (!resolvedHouseholderId && !resolvedEstablishmentId) {
+        if (householderId) resolvedHouseholderId = householderId;
+        else if (establishmentId) resolvedEstablishmentId = establishmentId;
+      }
+
+      const targetKey = resolvedHouseholderId
+        ? `householder:${resolvedHouseholderId}`
+        : resolvedEstablishmentId
+          ? `establishment:${resolvedEstablishmentId}`
           : "none";
       const slots = [todo.publisher_id, todo.partner_id]
         .filter((value): value is string => !!value)
@@ -1489,7 +1588,7 @@ export function HomeTodoCard({
     } catch {}
 
     applyBulkEditRows(prefilledRows, "overwrite");
-  }, [selectedTodoIds, selectableTodos, applyBulkEditRows]);
+  }, [selectedTodoIds, selectableTodos, applyBulkEditRows, openTodos, completedTodos, householderId, establishmentId]);
 
   const displayTodos = cardOpenTodos.slice(0, 5);
   const openCount = filteredOpenTodos.length;
@@ -1499,14 +1598,6 @@ export function HomeTodoCard({
   const showOtherPublisherDecorations = Boolean(
     userId && !establishmentId && !householderId && !filters.myUpdatesOnly
   );
-  const isTodoAssigned = useCallback((todo: MyOpenCallTodoItem) => {
-    return Boolean(
-      todo.publisher_id ||
-      todo.partner_id ||
-      todo.publisher_guest_name?.trim() ||
-      todo.partner_guest_name?.trim()
-    );
-  }, []);
   const filteredAssignedOpenTodos = useMemo(
     () => filteredOpenTodos.filter(isTodoAssigned),
     [filteredOpenTodos, isTodoAssigned]
@@ -2010,6 +2101,24 @@ export function HomeTodoCard({
                             clampBody={false}
                             hideHouseholderNameBadge={!!householderId}
                             hideHouseholderEstablishmentBadge={!!householderId}
+                            headerAction={
+                              userId ? (
+                                <Button
+                                  type="button"
+                                  variant="default"
+                                  size="sm"
+                                  className="h-7 rounded-full px-3 text-xs font-semibold bg-emerald-600/95 text-white shadow-sm hover:bg-emerald-500 hover:shadow-md hover:scale-[1.02] active:scale-100 transition-all"
+                                  disabled={takingTodoId === todo.id}
+                                  onClick={(event) => {
+                                    event.preventDefault();
+                                    event.stopPropagation();
+                                    handleTakeTodoPrompt(todo);
+                                  }}
+                                >
+                                  Take
+                                </Button>
+                              ) : null
+                            }
                           />
                         ))}
                       </ul>
@@ -2058,6 +2167,39 @@ export function HomeTodoCard({
                   )}
                 </>
               )}
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      <Drawer open={takeTodoConfirmOpen} onOpenChange={setTakeTodoConfirmOpen}>
+        <DrawerContent className="flex flex-col" style={{ maxHeight: "50vh", height: "50vh" }}>
+          <div className="flex flex-1 flex-col justify-center px-4 min-h-0">
+            <DrawerHeader className="pt-6 px-4 pb-2 text-center">
+              <DrawerTitle className="text-center">Take this To-Do?</DrawerTitle>
+            </DrawerHeader>
+            <DrawerFooter className="flex flex-col gap-3 p-0 pt-4 pb-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                className="w-full h-12"
+                onClick={() => {
+                  setTakeTodoConfirmOpen(false);
+                  setTodoPendingTake(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="lg"
+                className="w-full h-12 bg-green-600 hover:bg-green-700 text-white"
+                disabled={!todoPendingTake || !userId || takingTodoId === todoPendingTake?.id}
+                onClick={handleConfirmTakeTodo}
+              >
+                {takingTodoId === todoPendingTake?.id ? "Taking..." : "Take"}
+              </Button>
+            </DrawerFooter>
           </div>
         </DrawerContent>
       </Drawer>
@@ -2569,16 +2711,39 @@ export function HomeTodoCard({
                     Select all
                   </Label>
                 </div>
-                <div className="max-h-[50vh] overflow-y-auto space-y-2 p-2">
-                  {selectableTodos.map((todo) => (
-                    <BulkEditTodoListItem
-                      key={todo.id}
-                      todo={todo}
-                      checked={selectedTodoIds.includes(todo.id)}
-                      participantsById={participantsById}
-                      onCheckedChange={(next) => toggleSelectedTodo(todo.id, next)}
-                    />
-                  ))}
+                <div className="max-h-[50vh] overflow-y-auto space-y-3 p-2">
+                  {selectableAssignedTodos.length > 0 ? (
+                    <div className="space-y-2">
+                      <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        To-Do ({selectableAssignedTodos.length})
+                      </p>
+                      {selectableAssignedTodos.map((todo) => (
+                        <BulkEditTodoListItem
+                          key={todo.id}
+                          todo={todo}
+                          checked={selectedTodoIds.includes(todo.id)}
+                          participantsById={participantsById}
+                          onCheckedChange={(next) => toggleSelectedTodo(todo.id, next)}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+                  {selectableUnassignedTodos.length > 0 ? (
+                    <div className="space-y-2">
+                      <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        Open ({selectableUnassignedTodos.length})
+                      </p>
+                      {selectableUnassignedTodos.map((todo) => (
+                        <BulkEditTodoListItem
+                          key={todo.id}
+                          todo={todo}
+                          checked={selectedTodoIds.includes(todo.id)}
+                          participantsById={participantsById}
+                          onCheckedChange={(next) => toggleSelectedTodo(todo.id, next)}
+                        />
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               </>
             )}
@@ -2693,7 +2858,10 @@ function BulkEditTodoListItem({
                     <VisitStatusBadge
                       status={establishmentStatus}
                       label={truncateLabel(todo.context_establishment_name, 24)}
-                      className="truncate min-w-0 max-w-[55%] whitespace-nowrap border-muted bg-muted/50"
+                      className={cn(
+                        "truncate min-w-0 max-w-[55%] whitespace-nowrap",
+                        getStatusTextColor(establishmentStatus)
+                      )}
                     />
                   ) : null}
                 </>
@@ -2758,6 +2926,7 @@ function TodoRow({
   clampBody = true,
   hideHouseholderNameBadge = false,
   hideHouseholderEstablishmentBadge = false,
+  headerAction,
 }: {
   todo: MyOpenCallTodoItem;
   timeZone: string | null;
@@ -2774,6 +2943,7 @@ function TodoRow({
   clampBody?: boolean;
   hideHouseholderNameBadge?: boolean;
   hideHouseholderEstablishmentBadge?: boolean;
+  headerAction?: ReactNode;
 }) {
   const canNavigate = !!onTap && (!!todo.call_id || !!todo.establishment_id || !!todo.householder_id);
   const householderStatus = todo.context_status || "for_scouting";
@@ -2791,7 +2961,7 @@ function TodoRow({
   const hasEstablishmentBadge =
     isHouseholder && !!todo.context_establishment_name && !hideHouseholderEstablishmentBadge;
   const hasVisibleBadges = hasNameBadge || hasEstablishmentBadge;
-  const collapseHeaderRow = !hasVisibleBadges;
+  const collapseHeaderRow = !hasVisibleBadges && !headerAction;
   const assigneeAvatarsNode =
     showAssigneeAvatars && assigneeSlots.length > 0 ? (
       <div className="inline-flex items-center gap-1 shrink-0 ml-auto pl-1">
@@ -2830,7 +3000,7 @@ function TodoRow({
         />
       )}
       <div className="min-w-0 flex-1 flex flex-col gap-2.5 pr-2.5">
-        {!collapseHeaderRow && (todo.context_name || (showAssigneeAvatars && assigneeSlots.length > 0)) ? (
+        {!collapseHeaderRow && (todo.context_name || (showAssigneeAvatars && assigneeSlots.length > 0) || !!headerAction) ? (
           <div className="flex items-center gap-1.5 min-w-0 w-full">
             <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
               {todo.context_name ? (
@@ -2859,7 +3029,8 @@ function TodoRow({
                       status={establishmentStatus}
                       label={truncateLabel(todo.context_establishment_name, 24)}
                       className={cn(
-                        "truncate min-w-0 max-w-[55%] whitespace-nowrap border-muted bg-muted/50",
+                        "truncate min-w-0 max-w-[55%] whitespace-nowrap",
+                        getStatusTextColor(establishmentStatus),
                         isDone && "opacity-70"
                       )}
                     />
@@ -2867,7 +3038,7 @@ function TodoRow({
                 </>
               ) : null}
             </div>
-            {assigneeAvatarsNode}
+            {headerAction ?? assigneeAvatarsNode}
           </div>
         ) : null}
         <div className={cn("flex gap-2 w-full min-w-0", collapseHeaderRow ? "items-center" : "items-start")}>

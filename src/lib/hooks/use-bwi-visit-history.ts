@@ -53,6 +53,8 @@ export function useBwiVisitHistory({
       try {
       const sortedVisits = await getRecentBwiVisits(recentLimit, forceRefresh);
         setVisits(sortedVisits);
+        // Seed full-list state so Calls drawer opens with immediate rows.
+        setAllVisitsRaw((prev) => (prev.length > 0 ? prev : sortedVisits));
       } catch (error) {
         console.error("Error loading visit history:", error);
       } finally {

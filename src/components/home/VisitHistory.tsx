@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useState, useRef } from "react";
-import { formatVisitDateCompact, getVisitDisplayName } from "@/lib/utils/visit-history-ui";
+import { formatVisitDateCompact, getVisitDisplayName, visitDayKey } from "@/lib/utils/visit-history-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FormModal } from "@/components/shared/FormModal";
-import { Building2, ChevronRight, DoorOpen, UserRound } from "lucide-react";
+import { Building2, ChevronRight, DoorOpen, ListTodo, UserRound } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { getTimelineLineStyle } from "@/lib/utils/visit-timeline";
 import type { VisitRecord } from "@/lib/utils/visit-history";
@@ -21,12 +21,25 @@ import { cn } from "@/lib/utils";
 import { getVisitSearchText } from "@/lib/utils/visit-history-ui";
 import { useMemo } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { getEstablishmentsWithDetails, listHouseholders, type EstablishmentWithDetails, type HouseholderWithDetails } from "@/lib/db/business";
+import {
+  getEstablishmentDetails,
+  getEstablishmentsWithDetails,
+  getHouseholderDetails,
+  getMyCompletedCallTodos,
+  listHouseholders,
+  type EstablishmentWithDetails,
+  type HouseholderWithDetails,
+  type MyOpenCallTodoItem,
+  type VisitWithUser,
+} from "@/lib/db/business";
 import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
 import { getSelectedStatusColor } from "@/lib/utils/status-filter-styles";
 import NumberFlow from "@number-flow/react";
 import { cacheGet, cacheSet } from "@/lib/offline/store";
 import { businessEventBus, type BusinessEventType } from "@/lib/events/business-events";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { EstablishmentDetails } from "@/components/business/EstablishmentDetails";
+import { HouseholderDetails } from "@/components/business/HouseholderDetails";
 
 interface VisitHistoryProps {
   userId: string;
@@ -39,6 +52,22 @@ interface VisitHistoryProps {
   bwiAreaFilter: string[];
   onBwiAreaChange: (areas: string[]) => void;
 }
+
+type CallsStreamItem =
+  | { kind: "visit"; key: string; dayKey: string; timeMs: number; visit: VisitRecord }
+  | { kind: "todo"; key: string; dayKey: string; timeMs: number; todo: MyOpenCallTodoItem };
+
+type CallsEstablishmentSnapshot = {
+  establishment: EstablishmentWithDetails;
+  visits: VisitWithUser[];
+  householders: HouseholderWithDetails[];
+};
+
+type CallsHouseholderSnapshot = {
+  householder: HouseholderWithDetails;
+  visits: VisitWithUser[];
+  establishment?: { id: string; name: string; area?: string | null; statuses?: string[] | null } | null;
+};
 
 function KnockingDoorIcon() {
   return (
@@ -92,6 +121,15 @@ export function VisitHistory({
   const [bwiLabelFlash, setBwiLabelFlash] = useState(true);
   const [bwiEstablishments, setBwiEstablishments] = useState<EstablishmentWithDetails[]>([]);
   const [bwiHouseholders, setBwiHouseholders] = useState<HouseholderWithDetails[]>([]);
+  const [callTodos, setCallTodos] = useState<MyOpenCallTodoItem[]>([]);
+  const [callsDetailsDrawerOpen, setCallsDetailsDrawerOpen] = useState(false);
+  const [selectedCallsEstablishmentDetails, setSelectedCallsEstablishmentDetails] =
+    useState<CallsEstablishmentSnapshot | null>(null);
+  const [selectedCallsHouseholderDetails, setSelectedCallsHouseholderDetails] =
+    useState<CallsHouseholderSnapshot | null>(null);
+  const [isLoadingCallsDetails, setIsLoadingCallsDetails] = useState(false);
+  const callsEstablishmentCacheRef = useRef(new Map<string, CallsEstablishmentSnapshot>());
+  const callsHouseholderCacheRef = useRef(new Map<string, CallsHouseholderSnapshot>());
   const searchInputRef = useRef<HTMLInputElement>(null);
   const hasFocusedRef = useRef(false);
   const searchDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -114,6 +152,34 @@ export function VisitHistory({
     loadingMore,
     hasMore
   } = useBwiVisitHistory({ userId });
+
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    const cacheKey = `home-calls-done-todos:${userId}`;
+    const loadTodos = async () => {
+      try {
+        const cached = await cacheGet<{ todos?: MyOpenCallTodoItem[] }>(cacheKey);
+        if (!cancelled && Array.isArray(cached?.todos)) {
+          setCallTodos(cached.todos);
+        }
+      } catch {
+        // cache read best-effort
+      }
+      try {
+        const latest = await getMyCompletedCallTodos(userId, 200);
+        if (cancelled) return;
+        setCallTodos(latest);
+        await cacheSet(cacheKey, { todos: latest, timestamp: new Date().toISOString() });
+      } catch {
+        // network best-effort
+      }
+    };
+    loadTodos();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
 
   // Client-side search filtering - filters locally without updating hook state
   // This prevents all items from unmounting/remounting, only items that don't match will exit
@@ -172,12 +238,12 @@ export function VisitHistory({
 
   const handleSeeMore = () => {
     setShowDrawer(true);
-    // Only load if we don't have data yet
-    // If data already exists, don't reload to avoid the snap/re-render
+    // Cache-first open for instant drawer rows, then revalidate in background.
     if (allVisitsRawCount === 0) {
-      // Always force a fresh fetch for the drawer's initial load so it's fully up to date
-      // (card preview uses recent data; this keeps the drawer in sync with it)
-      loadAllVisits(0, true);
+      loadAllVisits(0, false);
+      setTimeout(() => {
+        loadAllVisits(0, true);
+      }, 0);
     }
   };
 
@@ -406,8 +472,360 @@ export function VisitHistory({
       onClearFilters={clearFilters}
     />
   );
+  const assigneeById = useMemo(() => {
+    const map = new Map<string, (typeof assigneeFilterOptions)[number]>();
+    assigneeFilterOptions.forEach((option) => map.set(option.id, option));
+    return map;
+  }, [assigneeFilterOptions]);
 
-  const renderVisitRow = (visit: VisitRecord, index: number, total: number, isDrawer: boolean) => {
+  const getSortMs = (dateValue?: string | null, fallbackValue?: string | null): number => {
+    const primary = dateValue ? new Date(dateValue).getTime() : Number.NaN;
+    if (!Number.isNaN(primary)) return primary;
+    const fallback = fallbackValue ? new Date(fallbackValue).getTime() : Number.NaN;
+    if (!Number.isNaN(fallback)) return fallback;
+    return 0;
+  };
+  const getTodoDisplayDate = (todo: MyOpenCallTodoItem): string => {
+    return (
+      todo.visit_date ||
+      todo.deadline_date ||
+      todo.call_created_at ||
+      todo.created_at ||
+      ""
+    );
+  };
+  const filteredCallTodos = useMemo(() => {
+    const searchLower = localSearchValue.trim().toLowerCase();
+    return callTodos.filter((todo) => {
+      if (searchLower) {
+        const haystack = `${todo.body ?? ""} ${todo.context_name ?? ""} ${todo.context_establishment_name ?? ""}`.toLowerCase();
+        if (!haystack.includes(searchLower)) return false;
+      }
+      if (filters.statuses.length > 0) {
+        const status = todo.context_status ?? null;
+        if (!status || !filters.statuses.includes(status)) return false;
+      }
+      if (filters.areas.length > 0) {
+        const area = todo.context_area?.trim() ?? "";
+        if (!area || !filters.areas.includes(area)) return false;
+      }
+      if (filters.assigneeIds.length > 0) {
+        const pub = todo.publisher_id ?? null;
+        const part = todo.partner_id ?? null;
+        const matches =
+          (pub && filters.assigneeIds.includes(pub)) ||
+          (part && filters.assigneeIds.includes(part));
+        if (!matches) return false;
+      }
+      if (filters.callDateFrom || filters.callDateTo) {
+        const day = visitDayKey(getTodoDisplayDate(todo));
+        if (!day) return false;
+        if (filters.callDateFrom && day < filters.callDateFrom) return false;
+        if (filters.callDateTo && day > filters.callDateTo) return false;
+      }
+      if (filters.myUpdatesOnly) {
+        const isMine = todo.publisher_id === userId || todo.partner_id === userId;
+        if (!isMine) return false;
+      }
+      if (filters.bwiOnly && !todo.establishment_id) return false;
+      if (filters.householderOnly && !todo.householder_id) return false;
+      return true;
+    });
+  }, [callTodos, filters, localSearchValue, userId]);
+  const buildCallsStreamItems = useMemo(() => {
+    const dayKeyMs = (dayKey: string): number => {
+      if (!dayKey) return 0;
+      const ms = new Date(`${dayKey}T00:00:00`).getTime();
+      return Number.isNaN(ms) ? 0 : ms;
+    };
+    const toItems = (callItems: VisitRecord[]): CallsStreamItem[] => {
+      const callRows: CallsStreamItem[] = callItems.map((visit) => ({
+        kind: "visit",
+        key: `visit:${visit.id}`,
+        dayKey: visitDayKey(visit.visit_date),
+        timeMs: getSortMs(visit.updated_at ?? visit.created_at, visit.visit_date),
+        visit,
+      }));
+      const callDays = new Set(callRows.map((row) => row.dayKey).filter(Boolean));
+      const todoRows: CallsStreamItem[] = filteredCallTodos
+        .map((todo) => {
+          const displayDate = getTodoDisplayDate(todo);
+          return {
+            kind: "todo" as const,
+            key: `todo:${todo.id}`,
+            dayKey: visitDayKey(displayDate),
+            timeMs: getSortMs(todo.call_created_at ?? todo.created_at, displayDate),
+            todo,
+          };
+        })
+        .filter((row) => row.dayKey && !callDays.has(row.dayKey));
+      return [...callRows, ...todoRows].sort((a, b) => {
+        const byDay = dayKeyMs(b.dayKey) - dayKeyMs(a.dayKey);
+        if (byDay !== 0) return byDay;
+        if (a.timeMs !== b.timeMs) return b.timeMs - a.timeMs;
+        return b.key.localeCompare(a.key);
+      });
+    };
+    return {
+      preview: toItems(visits).slice(0, 5),
+      drawer: toItems(filteredVisits),
+    };
+  }, [visits, filteredVisits, filteredCallTodos]);
+
+  function openCallsDetailsDrawer(
+    target:
+      | {
+          kind: "visit";
+          visit: VisitRecord;
+        }
+      | {
+          kind: "todo";
+          todo: MyOpenCallTodoItem;
+        }
+  ) {
+    const householderId =
+      target.kind === "visit" ? target.visit.householder_id : target.todo.householder_id;
+    const establishmentId =
+      target.kind === "visit" ? target.visit.establishment_id : target.todo.establishment_id;
+
+    if (householderId) {
+      const cached = callsHouseholderCacheRef.current.get(householderId);
+      if (cached) {
+        setSelectedCallsHouseholderDetails(cached);
+      } else {
+        const fallbackName =
+          target.kind === "visit"
+            ? target.visit.householder_name ?? "Contact"
+            : target.todo.context_name ?? "Contact";
+        const fallbackStatus =
+          target.kind === "visit"
+            ? (target.visit.householder_status as HouseholderWithDetails["status"] | undefined) ?? "potential"
+            : (target.todo.context_status as HouseholderWithDetails["status"] | undefined) ?? "potential";
+        const fallbackEstablishmentName =
+          target.kind === "visit"
+            ? target.visit.establishment_name ?? null
+            : target.todo.context_establishment_name ?? null;
+        const fallbackEstablishmentStatus =
+          target.kind === "visit"
+            ? target.visit.establishment_status ?? null
+            : target.todo.context_establishment_status ?? null;
+        setSelectedCallsHouseholderDetails({
+          householder: {
+            id: householderId,
+            name: fallbackName,
+            status: fallbackStatus,
+            note: null,
+            establishment_id: establishmentId ?? null,
+            establishment_name: fallbackEstablishmentName,
+            publisher_id: null,
+            lat: null,
+            lng: null,
+          },
+          visits: [],
+          establishment: establishmentId
+            ? {
+                id: establishmentId,
+                name: fallbackEstablishmentName ?? "",
+                area: null,
+                statuses: fallbackEstablishmentStatus ? [fallbackEstablishmentStatus] : null,
+              }
+            : null,
+        });
+      }
+      setSelectedCallsEstablishmentDetails(null);
+      setCallsDetailsDrawerOpen(true);
+      setIsLoadingCallsDetails(!cached);
+      getHouseholderDetails(householderId)
+        .then((details) => {
+          if (!details) return;
+          const nextSnapshot: CallsHouseholderSnapshot = {
+            householder: details.householder,
+            visits: details.visits,
+            establishment: details.establishment,
+          };
+          callsHouseholderCacheRef.current.set(householderId, nextSnapshot);
+          setSelectedCallsHouseholderDetails(nextSnapshot);
+        })
+        .finally(() => setIsLoadingCallsDetails(false));
+      return;
+    }
+
+    if (establishmentId) {
+      const cached = callsEstablishmentCacheRef.current.get(establishmentId);
+      if (cached) {
+        setSelectedCallsEstablishmentDetails(cached);
+      } else {
+        const fallbackName =
+          target.kind === "visit"
+            ? target.visit.establishment_name ?? "Establishment"
+            : target.todo.context_name ?? "Establishment";
+        const fallbackStatus =
+          target.kind === "visit"
+            ? target.visit.establishment_status ?? "for_scouting"
+            : target.todo.context_establishment_status ||
+              target.todo.context_status ||
+              "for_scouting";
+        const fallbackArea =
+          target.kind === "visit"
+            ? target.visit.establishment_area ?? null
+            : target.todo.context_area ?? null;
+        setSelectedCallsEstablishmentDetails({
+          establishment: {
+            id: establishmentId,
+            name: fallbackName,
+            area: fallbackArea,
+            description: null,
+            floor: null,
+            note: null,
+            statuses: [fallbackStatus],
+            lat: null,
+            lng: null,
+          },
+          visits: [],
+          householders: [],
+        });
+      }
+      setSelectedCallsHouseholderDetails(null);
+      setCallsDetailsDrawerOpen(true);
+      setIsLoadingCallsDetails(!cached);
+      getEstablishmentDetails(establishmentId)
+        .then((details) => {
+          if (!details) return;
+          const nextSnapshot: CallsEstablishmentSnapshot = {
+            establishment: details.establishment,
+            visits: details.visits,
+            householders: details.householders,
+          };
+          callsEstablishmentCacheRef.current.set(establishmentId, nextSnapshot);
+          setSelectedCallsEstablishmentDetails(nextSnapshot);
+        })
+        .finally(() => setIsLoadingCallsDetails(false));
+      return;
+    }
+
+    if (target.kind === "visit" && onVisitClick) {
+      onVisitClick(target.visit);
+    }
+  }
+
+  const renderVisitRow = (item: CallsStreamItem, index: number, total: number, isDrawer: boolean) => {
+    if (item.kind === "todo") {
+      const todo = item.todo;
+      const isHouseholderTodo = !!todo.householder_id;
+      const primaryLabel =
+        todo.context_name ||
+        (isHouseholderTodo ? "Contact To-Do" : "Establishment To-Do");
+      const primaryStatus = isHouseholderTodo
+        ? todo.context_status || "potential"
+        : todo.context_establishment_status || todo.context_status || "for_scouting";
+      const hasEstablishmentBadge =
+        isHouseholderTodo && Boolean(todo.context_establishment_name);
+      const areaLabel = todo.context_area?.trim() ?? "";
+      const displayDate = getTodoDisplayDate(todo);
+      const publisherOption = todo.publisher_id ? assigneeById.get(todo.publisher_id) : undefined;
+      const partnerOption = todo.partner_id ? assigneeById.get(todo.partner_id) : undefined;
+
+      return (
+        <VisitTimelineRow
+          onClick={() => openCallsDetailsDrawer({ kind: "todo", todo })}
+          index={index}
+          total={total}
+          rootClassName="hover:opacity-80 transition-opacity"
+          lineStyle={{
+            ...getTimelineLineStyle(isDrawer),
+            left: 11,
+          }}
+          dot={
+            <div
+              className={cn(
+                "w-6 h-6 rounded-full border relative z-10 flex-shrink-0 flex items-center justify-center",
+                getSelectedStatusColor(primaryStatus)
+              )}
+            >
+              <ListTodo className="h-3.5 w-3.5" aria-hidden />
+            </div>
+          }
+          contentClassName="ml-3"
+          avatarClassName="ml-4"
+          avatar={
+            <VisitAvatars
+              publisher={
+                publisherOption
+                  ? {
+                      first_name: publisherOption.first_name,
+                      last_name: publisherOption.last_name,
+                      avatar_url: publisherOption.avatar_url,
+                    }
+                  : null
+              }
+              partner={
+                partnerOption
+                  ? {
+                      first_name: partnerOption.first_name,
+                      last_name: partnerOption.last_name,
+                      avatar_url: partnerOption.avatar_url,
+                    }
+                  : null
+              }
+              publisherGuestName={todo.publisher_guest_name ?? null}
+              partnerGuestName={todo.partner_guest_name ?? null}
+              sizeClassName="h-5 w-5"
+              textClassName="text-[10px]"
+            />
+          }
+          avatarFooter={
+            <div className="flex flex-col items-end gap-1 text-right max-w-[10rem]">
+              {displayDate ? (
+                <span className="text-xs text-muted-foreground tabular-nums leading-tight">
+                  {formatVisitDateCompact(displayDate)}
+                </span>
+              ) : null}
+              {areaLabel ? (
+                <span
+                  className="text-xs text-muted-foreground leading-snug break-words"
+                  title={areaLabel}
+                >
+                  {areaLabel}
+                </span>
+              ) : null}
+            </div>
+          }
+        >
+          <VisitRowContent
+            title={
+              <span
+                className={cn(
+                  "inline-flex min-w-0 items-center",
+                  hasEstablishmentBadge ? "max-w-[50%] min-w-0 shrink" : "min-w-0 flex-1"
+                )}
+              >
+                <VisitStatusBadge
+                  status={primaryStatus}
+                  label={primaryLabel}
+                  className="truncate max-w-full min-w-0 whitespace-nowrap"
+                />
+              </span>
+            }
+            titleBadge={
+              hasEstablishmentBadge ? (
+                <span className="min-w-0 flex-1 overflow-hidden">
+                  <VisitStatusBadge
+                    status={todo.context_establishment_status || "for_scouting"}
+                    label={todo.context_establishment_name!}
+                    className="w-fit max-w-full min-w-0 truncate whitespace-nowrap"
+                  />
+                </span>
+              ) : undefined
+            }
+            notes={todo.body}
+            notesClassName={
+              isDrawer ? "leading-relaxed line-clamp-4" : "mt-0 line-clamp-2"
+            }
+          />
+        </VisitTimelineRow>
+      );
+    }
+    const visit = item.visit;
     const isHouseholderVisit = visit.visit_type === "householder";
     const primaryLabel = (isHouseholderVisit ? visit.householder_name : visit.establishment_name) || "Unknown";
     const primaryStatus = isHouseholderVisit
@@ -420,7 +838,7 @@ export function VisitHistory({
 
     return (
       <VisitTimelineRow
-        onClick={() => handleVisitClick(visit)}
+        onClick={() => openCallsDetailsDrawer({ kind: "visit", visit })}
         index={index}
         total={total}
         rootClassName="hover:opacity-80 transition-opacity"
@@ -504,12 +922,6 @@ export function VisitHistory({
         />
       </VisitTimelineRow>
     );
-  };
-
-  const handleVisitClick = (visit: VisitRecord) => {
-    if (onVisitClick) {
-      onVisitClick(visit);
-    }
   };
 
   // Auto-focus search input when search becomes active (only once, and only if not already focused)
@@ -863,12 +1275,12 @@ export function VisitHistory({
           <TabsContent value="visit-history" className="mt-0 rounded-b-lg bg-background p-4">
             <div className="relative">
               <VisitList
-                items={visits}
-                getKey={(visit) => visit.id}
-                renderItem={(visit, index, total) => renderVisitRow(visit, index, total, false)}
+                items={buildCallsStreamItems.preview}
+                getKey={(item) => item.key}
+                renderItem={(item, index, total) => renderVisitRow(item, index, total, false)}
                 className="space-y-6"
-                isEmpty={visits.length === 0}
-                emptyText="No calls recorded yet."
+                isEmpty={buildCallsStreamItems.preview.length === 0}
+                emptyText="No calls or to-dos recorded yet."
               />
             </div>
           </TabsContent>
@@ -888,7 +1300,7 @@ export function VisitHistory({
             Calls
             {hasVisitFiltersApplied ? (
               <Badge variant="secondary" className="font-normal tabular-nums text-xs">
-                {filteredVisits.length} {filteredVisits.length === 1 ? "call" : "calls"}
+                {buildCallsStreamItems.drawer.length} {buildCallsStreamItems.drawer.length === 1 ? "item" : "items"}
               </Badge>
             ) : null}
           </span>
@@ -996,9 +1408,9 @@ export function VisitHistory({
               transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
             >
               <AnimatePresence mode="popLayout" initial={false}>
-                {filteredVisits.map((visit, index) => (
+                {buildCallsStreamItems.drawer.map((item, index) => (
                   <motion.div
-                    key={visit.id}
+                    key={item.key}
                     layout={!isTyping}
                     initial={false}
                     animate={{ opacity: 1, height: "auto", y: 0 }}
@@ -1009,7 +1421,7 @@ export function VisitHistory({
                       layout: { duration: 0.3, ease: [0.4, 0, 0.2, 1] }
                     }}
                   >
-                    {renderVisitRow(visit, index, filteredVisits.length, true)}
+                    {renderVisitRow(item, index, buildCallsStreamItems.drawer.length, true)}
                   </motion.div>
                 ))}
               </AnimatePresence>
@@ -1032,7 +1444,7 @@ export function VisitHistory({
               </Button>
             )}
             
-            {!hasMore && filteredVisits.length > 0 && (
+            {!hasMore && buildCallsStreamItems.drawer.length > 0 && (
               <div className="text-center py-4">
                 <div className="text-sm opacity-70">No more visits to load</div>
               </div>
@@ -1040,6 +1452,47 @@ export function VisitHistory({
           </div>
         </>
       </FormModal>
+
+      <Drawer
+        open={callsDetailsDrawerOpen}
+        onOpenChange={(open) => {
+          setCallsDetailsDrawerOpen(open);
+          if (!open) {
+            setSelectedCallsEstablishmentDetails(null);
+            setSelectedCallsHouseholderDetails(null);
+          }
+        }}
+      >
+        <DrawerContent className="max-h-[90vh]">
+          <DrawerHeader className="sr-only">
+            <DrawerTitle>Call details</DrawerTitle>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-3">
+            {selectedCallsHouseholderDetails ? (
+              <HouseholderDetails
+                householder={selectedCallsHouseholderDetails.householder}
+                visits={selectedCallsHouseholderDetails.visits}
+                establishment={selectedCallsHouseholderDetails.establishment ?? null}
+                establishments={
+                  selectedCallsHouseholderDetails.establishment
+                    ? [selectedCallsHouseholderDetails.establishment]
+                    : []
+                }
+                isLoading={isLoadingCallsDetails}
+                onBackClick={() => setCallsDetailsDrawerOpen(false)}
+              />
+            ) : selectedCallsEstablishmentDetails ? (
+              <EstablishmentDetails
+                establishment={selectedCallsEstablishmentDetails.establishment}
+                visits={selectedCallsEstablishmentDetails.visits}
+                householders={selectedCallsEstablishmentDetails.householders}
+                isLoading={isLoadingCallsDetails}
+                onBackClick={() => setCallsDetailsDrawerOpen(false)}
+              />
+            ) : null}
+          </div>
+        </DrawerContent>
+      </Drawer>
 
       {/* Sub-drawer: call date, status, area, publisher */}
       <FormModal
@@ -1052,7 +1505,6 @@ export function VisitHistory({
           </span>
         }
         headerClassName="px-4 pt-4 pb-2 items-center text-center"
-        description="Filter by call date, status, area, and publisher"
       >
         <div className="pb-[calc(max(env(safe-area-inset-bottom),0px)+40px)]">
           {filterForm}

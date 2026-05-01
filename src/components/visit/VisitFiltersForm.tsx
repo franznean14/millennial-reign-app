@@ -129,14 +129,11 @@ export function VisitFiltersForm({
           <>
             <div className="space-y-2">
               <Label>Call date</Label>
-              <p className="text-xs text-muted-foreground -mt-1">
-                Include visits on and between these dates.
-              </p>
               <Button
                 type="button"
-                variant="default"
+                variant="outline"
                 size="sm"
-                className="h-auto min-h-9 w-fit max-w-md rounded-full px-3 py-1.5 font-normal text-primary-foreground inline-flex items-center gap-1.5 justify-start"
+                className="h-9 w-full justify-start rounded-md px-3 font-normal text-left"
                 aria-label={
                   callDateButtonLabel ? `Call date: ${callDateButtonLabel}` : "Select call date or range"
                 }
@@ -146,11 +143,11 @@ export function VisitFiltersForm({
                   setCallDateModalOpen(true);
                 }}
               >
-                <Calendar className="h-4 w-4 shrink-0 text-primary-foreground" aria-hidden />
+                <Calendar className="h-4 w-4 shrink-0" aria-hidden />
                 <span
                   className={cn(
                     "text-sm min-w-0 flex-1 truncate text-left",
-                    !callDateButtonLabel && "text-primary-foreground/85"
+                    !callDateButtonLabel && "text-muted-foreground"
                   )}
                 >
                   {callDateButtonLabel ?? "Select date"}
@@ -182,7 +179,7 @@ export function VisitFiltersForm({
                     tabIndex={0}
                     aria-label="Clear call date"
                   >
-                    <X className="h-4 w-4 text-primary-foreground pointer-events-none" />
+                    <X className="h-4 w-4 pointer-events-none" />
                   </div>
                 ) : null}
               </Button>

@@ -24,7 +24,7 @@ import {
   type HouseholderWithDetails,
 } from "@/lib/db/business";
 import { getInitialsFromName } from "@/lib/utils/visit-history-ui";
-import { getBestStatus, getStatusTitleColor } from "@/lib/utils/status-hierarchy";
+import { getBestStatus, getStatusTextColor, getStatusTitleColor } from "@/lib/utils/status-hierarchy";
 import { formatStatusText } from "@/lib/utils/formatters";
 import { VisitStatusBadge } from "@/components/visit/VisitStatusBadge";
 import { FilterControls, type FilterBadge } from "@/components/shared/FilterControls";
@@ -2247,13 +2247,17 @@ export function BulkTodoForm({
                         key={`${row.id}-status-badge-${status}`}
                         status={status}
                         label={formatStatusText(status)}
+                        className="max-w-[140px] truncate whitespace-nowrap"
                       />
                     ))}
                     {householder?.establishment_name ? (
                       <VisitStatusBadge
                         status={establishmentStatus}
                         label={householder.establishment_name}
-                        className="border-muted bg-muted/50"
+                        className={cn(
+                          "max-w-[160px] truncate whitespace-nowrap",
+                          getStatusTextColor(establishmentStatus)
+                        )}
                       />
                     ) : null}
                   </div>
@@ -2367,7 +2371,7 @@ export function BulkTodoForm({
 
               <div className="grid gap-1">
                 <Label>Publishers</Label>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex items-center gap-2 min-w-0">
                   {row.slots.map((slotValue, slotIndex) => {
                     const isGuest = isGuestSlotToken(slotValue);
                     const guestName = getGuestNameFromSlot(slotValue);
@@ -2378,7 +2382,11 @@ export function BulkTodoForm({
                         ? `${selected.first_name} ${selected.last_name}`
                         : "Publisher";
                     return (
-                      <div key={`${row.id}-slot-${slotValue}-${slotIndex}`} className="flex items-center gap-2 bg-muted px-2 py-1.5 rounded-md">
+                      <div
+                        key={`${row.id}-slot-${slotValue}-${slotIndex}`}
+                        className="flex min-w-0 flex-1 items-center gap-2 rounded-md bg-muted px-2 py-1.5"
+                        title={fullName}
+                      >
                         <Avatar className="h-6 w-6 shrink-0">
                           {!isGuest && selected?.avatar_url ? <AvatarImage src={selected.avatar_url} alt={fullName} /> : null}
                           <AvatarFallback
@@ -2387,7 +2395,7 @@ export function BulkTodoForm({
                             {getInitialsFromName(fullName)}
                           </AvatarFallback>
                         </Avatar>
-                        <span className="text-sm">{fullName}</span>
+                        <span className="min-w-0 flex-1 truncate text-sm">{fullName}</span>
                         <Button
                           type="button"
                           variant="ghost"
@@ -2416,9 +2424,9 @@ export function BulkTodoForm({
                       <DrawerTrigger asChild>
                         <Button
                           type="button"
-                          variant="outline"
+                          variant="default"
                           size="icon"
-                          className="h-9 w-9 rounded-full shrink-0"
+                          className="h-9 w-9 rounded-full shrink-0 bg-emerald-600/95 text-white shadow-sm hover:bg-emerald-500 hover:shadow-md hover:scale-[1.03] active:scale-100 transition-all"
                           aria-label="Add publisher"
                         >
                           <Plus className="h-4 w-4" />
