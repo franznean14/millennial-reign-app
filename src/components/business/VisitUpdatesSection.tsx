@@ -1,43 +1,55 @@
 "use client";
 
-import React, { useState } from 'react';
-import { ChevronRight } from 'lucide-react';
-import { FormModal } from '@/components/shared/FormModal';
-import { type VisitWithUser } from '@/lib/db/business';
-import { VisitForm } from './VisitForm';
-import { formatVisitDateShort } from '@/lib/utils/visit-history-ui';
-import { getStatusDotColor, getTimelineDotSize, getTimelineLineClassWithPosition } from '@/lib/utils/visit-timeline';
-import { VisitTimelineRow } from '@/components/visit/VisitTimelineRow';
-import { VisitList } from '@/components/visit/VisitList';
-import { VisitAvatars } from '@/components/visit/VisitAvatars';
-import { VisitRowContent } from '@/components/visit/VisitRowContent';
-import { VisitStatusBadge } from '@/components/visit/VisitStatusBadge';
+import React, { useState } from "react";
+import { ChevronRight } from "lucide-react";
+import { FormModal } from "@/components/shared/FormModal";
+import { type VisitWithUser } from "@/lib/db/business";
+import { VisitForm } from "./VisitForm";
+import { formatVisitDateShort } from "@/lib/utils/visit-history-ui";
+import { getStatusDotColor, getTimelineDotSize, getTimelineLineClassWithPosition } from "@/lib/utils/visit-timeline";
+import { VisitTimelineRow } from "@/components/visit/VisitTimelineRow";
+import { VisitList } from "@/components/visit/VisitList";
+import { VisitAvatars } from "@/components/visit/VisitAvatars";
+import { VisitRowContent } from "@/components/visit/VisitRowContent";
+import { VisitStatusBadge } from "@/components/visit/VisitStatusBadge";
+import {
+  Drawer,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerWideLeftContent,
+} from "@/components/ui/drawer";
+import { useMediaQuery } from "@/hooks/use-media-query";
 
 interface VisitUpdatesSectionProps {
   visits: VisitWithUser[];
   isHouseholderContext?: boolean;
-  establishments?: any[];
+  establishments?: Array<{ id?: string; name: string }>;
   selectedEstablishmentId?: string;
   householderId?: string;
   householderName?: string;
   householderStatus?: string;
   onVisitUpdated?: () => void;
   isLoading?: boolean;
+  /** On tablet+, open full calls list in a left sheet (single column) instead of centered dialog / bottom sheet. */
+  preferLeftDetailPanel?: boolean;
 }
 
-export function VisitUpdatesSection({ 
-  visits, 
-  isHouseholderContext = false, 
-  establishments = [], 
-  selectedEstablishmentId, 
-  householderId, 
+export function VisitUpdatesSection({
+  visits,
+  isHouseholderContext = false,
+  establishments = [],
+  selectedEstablishmentId,
+  householderId,
   householderName,
   householderStatus,
   onVisitUpdated,
-  isLoading = false
+  isLoading = false,
+  preferLeftDetailPanel = false,
 }: VisitUpdatesSectionProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editVisit, setEditVisit] = useState<VisitWithUser | null>(null);
+  const isMdUp = useMediaQuery("(min-width: 768px)");
+  const useLeftPanel = Boolean(preferLeftDetailPanel && isMdUp);
 
   // Show only first 3 visits in main view
   const mainVisits = visits.slice(0, 3);
@@ -94,9 +106,67 @@ export function VisitUpdatesSection({
     );
   };
 
+  const callsListExpandedBody = (forDrawer: boolean) => (
+    <div className={forDrawer ? "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2" : "flex-1 overflow-y-auto p-4 pb-20"}>
+      {isLoading ? (
+        <div className="space-y-2">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="relative flex items-start w-full">
+              {i < 5 && (
+                <div className="absolute left-[5px] top-[12px] w-0.5 h-[calc(100%+1.5rem)] bg-gray-500/60 z-0" />
+              )}
+              <div className="relative flex-shrink-0 z-10">
+                <div className="w-3 h-3 bg-muted/60 rounded-full border-2 border-muted/60 blur-[2px] animate-pulse" />
+              </div>
+              <div className="flex-1 min-w-0 ml-4">
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="h-4 bg-muted/60 rounded w-24 blur-[2px] animate-pulse" />
+                  <div className="h-4 bg-muted/60 rounded w-16 blur-[2px] animate-pulse" />
+                </div>
+                <div className="flex items-center gap-1 mb-2">
+                  <div className="h-3 w-3 bg-muted/60 rounded blur-[2px] animate-pulse" />
+                  <div className="h-3 bg-muted/60 rounded w-32 blur-[2px] animate-pulse" />
+                </div>
+                <div className="h-3 bg-muted/60 rounded w-full max-w-[250px] blur-[2px] animate-pulse" />
+              </div>
+              <div className="flex-shrink-0 ml-4">
+                <div className="h-5 w-5 bg-muted/60 rounded-full blur-[2px] animate-pulse" />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <VisitList
+          items={visits}
+          getKey={(visit) => visit.id}
+          renderItem={(visit, index, total) => renderVisitEntry(visit, index, true, total)}
+          emptyText="No calls found."
+        />
+      )}
+    </div>
+  );
+
+  const visitForm =
+    editVisit ? (
+      <VisitForm
+        establishments={establishments}
+        selectedEstablishmentId={selectedEstablishmentId}
+        initialVisit={editVisit}
+        householderId={householderId}
+        householderName={householderName}
+        householderStatus={householderStatus}
+        disableEstablishmentSelect={!!selectedEstablishmentId || !!householderId}
+        onSaved={() => {
+          setEditVisit(null);
+          onVisitUpdated?.();
+        }}
+      />
+    ) : null;
+
   return (
     <div className="bg-card p-4 rounded-lg shadow-md border">
       <button
+        type="button"
         onClick={() => setDrawerOpen(true)}
         className="flex items-center gap-2 text-base font-bold text-foreground hover:opacity-80 transition-opacity mb-4"
       >
@@ -140,76 +210,62 @@ export function VisitUpdatesSection({
         />
       )}
 
-      <FormModal
-        open={drawerOpen}
-        onOpenChange={setDrawerOpen}
-        title="Calls"
-      >
-        <div className="flex-1 overflow-y-auto p-4 pb-20">
-          {isLoading ? (
-            <div className="space-y-2">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="relative flex items-start w-full">
-                  {i < 5 && (
-                    <div className="absolute left-[5px] top-[12px] w-0.5 h-[calc(100%+1.5rem)] bg-gray-500/60 z-0" />
-                  )}
-                  <div className="relative flex-shrink-0 z-10">
-                    <div className="w-3 h-3 bg-muted/60 rounded-full border-2 border-muted/60 blur-[2px] animate-pulse" />
-                  </div>
-                  <div className="flex-1 min-w-0 ml-4">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="h-4 bg-muted/60 rounded w-24 blur-[2px] animate-pulse" />
-                      <div className="h-4 bg-muted/60 rounded w-16 blur-[2px] animate-pulse" />
-                    </div>
-                    <div className="flex items-center gap-1 mb-2">
-                      <div className="h-3 w-3 bg-muted/60 rounded blur-[2px] animate-pulse" />
-                      <div className="h-3 bg-muted/60 rounded w-32 blur-[2px] animate-pulse" />
-                    </div>
-                    <div className="h-3 bg-muted/60 rounded w-full max-w-[250px] blur-[2px] animate-pulse" />
-                  </div>
-                  <div className="flex-shrink-0 ml-4">
-                    <div className="h-5 w-5 bg-muted/60 rounded-full blur-[2px] animate-pulse" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <VisitList
-              items={visits}
-              getKey={(visit) => visit.id}
-              renderItem={(visit, index, total) => renderVisitEntry(visit, index, true, total)}
-              emptyText="No calls found."
-            />
-          )}
-        </div>
-      </FormModal>
+      {useLeftPanel ? (
+        <Drawer
+          open={drawerOpen}
+          onOpenChange={setDrawerOpen}
+          direction="left"
+          modal
+          nested
+          shouldScaleBackground={false}
+        >
+          <DrawerWideLeftContent>
+            <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left">
+              <DrawerTitle className="text-lg font-bold">Calls</DrawerTitle>
+            </DrawerHeader>
+            {callsListExpandedBody(true)}
+          </DrawerWideLeftContent>
+        </Drawer>
+      ) : (
+        <FormModal open={drawerOpen} onOpenChange={setDrawerOpen} title="Calls">
+          {callsListExpandedBody(false)}
+        </FormModal>
+      )}
 
-      <FormModal
-        open={!!editVisit}
-        onOpenChange={(open) => {
-          if (!open) {
-                    setEditVisit(null);
-          }
-        }}
-        title="Edit Call"
-        headerClassName="text-center"
-      >
-              {editVisit && (
-                <VisitForm
-                  establishments={establishments}
-                  selectedEstablishmentId={selectedEstablishmentId}
-                  initialVisit={editVisit}
-                  householderId={householderId}
-                  householderName={householderName}
-                  householderStatus={householderStatus}
-                  disableEstablishmentSelect={!!selectedEstablishmentId || !!householderId}
-                  onSaved={() => {
-                    setEditVisit(null);
-                    onVisitUpdated?.();
-                  }}
-                />
-              )}
-      </FormModal>
+      {useLeftPanel ? (
+        <Drawer
+          open={!!editVisit}
+          onOpenChange={(open) => {
+            if (!open) setEditVisit(null);
+          }}
+          direction="left"
+          modal
+          nested
+          shouldScaleBackground={false}
+        >
+          <DrawerWideLeftContent overlayClassName="!z-[106]" className="!z-[106]">
+            <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left">
+              <DrawerTitle className="text-lg font-bold">Edit Call</DrawerTitle>
+            </DrawerHeader>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
+              {visitForm}
+            </div>
+          </DrawerWideLeftContent>
+        </Drawer>
+      ) : (
+        <FormModal
+          open={!!editVisit}
+          onOpenChange={(open) => {
+            if (!open) {
+              setEditVisit(null);
+            }
+          }}
+          title="Edit Call"
+          headerClassName="text-center"
+        >
+          {visitForm}
+        </FormModal>
+      )}
     </div>
   );
 }

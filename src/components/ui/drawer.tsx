@@ -158,6 +158,84 @@ export const DrawerThinRightContent = React.forwardRef<
 ));
 DrawerThinRightContent.displayName = "DrawerThinRightContent";
 
+/**
+ * Wider right sheet for read-only detail panels (establishment/contact from a to-do).
+ * Same stacking as thin variant; more width for cards + nested lists.
+ */
+export const DrawerWideRightContent = React.forwardRef<
+  React.ElementRef<typeof DrawerPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content> & {
+    overlayClassName?: string;
+  }
+>(({ className, overlayClassName, children, ...props }, ref) => (
+  <DrawerPortal>
+    <DrawerOverlay className={cn("z-[100]", overlayClassName)} />
+    <DrawerPrimitive.Content
+      ref={ref}
+      className={cn(
+        "fixed inset-y-0 right-0 z-[100] flex h-full max-h-[100dvh] w-[min(100vw,36rem)] flex-col overflow-hidden rounded-l-xl border-l bg-background shadow-lg outline-none",
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </DrawerPrimitive.Content>
+  </DrawerPortal>
+));
+DrawerWideRightContent.displayName = "DrawerWideRightContent";
+
+/**
+ * Wide left sheet for companion panels (e.g. calls / to-dos / forms beside a right-side detail drawer on tablet).
+ * Stacks above {@link DrawerWideRightContent} (z-[100]) so it can open on top while details stay underneath.
+ */
+export const DrawerWideLeftContent = React.forwardRef<
+  React.ElementRef<typeof DrawerPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content> & {
+    overlayClassName?: string;
+  }
+>(({ className, overlayClassName, children, ...props }, ref) => (
+  <DrawerPortal>
+    <DrawerOverlay className={cn("z-[102]", overlayClassName)} />
+    <DrawerPrimitive.Content
+      ref={ref}
+      className={cn(
+        "fixed inset-y-0 left-0 z-[102] flex h-full max-h-[100dvh] w-[min(100vw,36rem)] flex-col overflow-hidden rounded-r-xl border-r bg-background shadow-lg outline-none",
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </DrawerPrimitive.Content>
+  </DrawerPortal>
+));
+DrawerWideLeftContent.displayName = "DrawerWideLeftContent";
+
+/**
+ * Same as {@link DrawerWideLeftContent} but with a higher z-index for modals that must sit above
+ * other left/right sheets (e.g. edit forms opened while to-do list + details drawers are open).
+ */
+export const DrawerWideLeftContentTop = React.forwardRef<
+  React.ElementRef<typeof DrawerPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content> & {
+    overlayClassName?: string;
+  }
+>(({ className, overlayClassName, children, ...props }, ref) => (
+  <DrawerPortal>
+    <DrawerOverlay className={cn("z-[130]", overlayClassName)} />
+    <DrawerPrimitive.Content
+      ref={ref}
+      className={cn(
+        "fixed inset-y-0 left-0 z-[130] flex h-full max-h-[100dvh] w-[min(100vw,36rem)] flex-col overflow-hidden rounded-r-xl border-r bg-background shadow-lg outline-none",
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </DrawerPrimitive.Content>
+  </DrawerPortal>
+));
+DrawerWideLeftContentTop.displayName = "DrawerWideLeftContentTop";
+
 export function DrawerHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div className={cn("grid gap-1.5 p-4 text-center sm:text-left", className)} {...props} />

@@ -21,8 +21,9 @@ import {
   type EstablishmentWithDetails,
   type VisitWithUser,
   type HouseholderWithDetails,
+  type HouseholderStatus,
 } from "@/lib/db/business";
-import { cacheGet, cacheSet } from "@/lib/offline/store";
+import { cacheGet, cacheSet, cacheDelete } from "@/lib/offline/store";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { FilterControls, type FilterBadge } from "@/components/shared/FilterControls";
 import {
@@ -39,6 +40,9 @@ import {
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
+  DrawerWideRightContent,
+  DrawerWideLeftContent,
+  DrawerWideLeftContentTop,
 } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -55,6 +59,9 @@ import { useMobile } from "@/lib/hooks/use-mobile";
 import { getBestStatus, getStatusColor, getStatusTextColor } from "@/lib/utils/status-hierarchy";
 import { VisitUpdatesSection } from "@/components/business/VisitUpdatesSection";
 import { TodoForm } from "@/components/business/TodoForm";
+import { EstablishmentForm } from "@/components/business/EstablishmentForm";
+import { HouseholderForm } from "@/components/business/HouseholderForm";
+import { useMediaQuery } from "@/hooks/use-media-query";
 
 const todoLayoutTransition = {
   type: "spring",
@@ -308,6 +315,8 @@ interface HomeTodoCardProps {
     establishmentId?: string;
     householderId?: string;
   }) => void;
+  /** When true (home to-do details companion), open scoped to-do list in a left sheet on tablet+ with a single column. */
+  preferLeftCompanionDrawer?: boolean;
 }
 
 export function HomeTodoCard({
@@ -319,6 +328,7 @@ export function HomeTodoCard({
   prefillCompletedTodos,
   onTodoTap,
   onNavigateToTodoCall,
+  preferLeftCompanionDrawer = false,
 }: HomeTodoCardProps) {
   const [openTodos, setOpenTodos] = useState<MyOpenCallTodoItem[]>(() => prefillOpenTodos ?? []);
   const [completedTodos, setCompletedTodos] = useState<MyOpenCallTodoItem[]>(() => prefillCompletedTodos ?? []);
@@ -368,6 +378,8 @@ export function HomeTodoCard({
   const [contactSubdrawerDetails, setContactSubdrawerDetails] = useState<HouseholderDetailsSnapshot | null>(null);
   const [isLoadingContactSubdrawerDetails, setIsLoadingContactSubdrawerDetails] = useState(false);
   const [todoEditorContext, setTodoEditorContext] = useState<TodoEditorContext | null>(null);
+  const [todoEditorUseLeftPanel, setTodoEditorUseLeftPanel] = useState(false);
+  const [detailsEntityEditOpen, setDetailsEntityEditOpen] = useState(false);
   const [takeTodoConfirmOpen, setTakeTodoConfirmOpen] = useState(false);
   const [todoPendingTake, setTodoPendingTake] = useState<MyOpenCallTodoItem | null>(null);
   const [takingTodoId, setTakingTodoId] = useState<string | null>(null);
@@ -382,6 +394,7 @@ export function HomeTodoCard({
   const householderDetailsCacheRef = useRef(new Map<string, HouseholderDetailsSnapshot>());
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const isMobile = useMobile();
+  const isTodoDetailsSideLayout = useMediaQuery("(min-width: 768px)");
   const userScopeMode =
     userId && !establishmentId && !householderId
       ? (filters.myUpdatesOnly ? "my" : "all")
@@ -1185,13 +1198,13 @@ export function HomeTodoCard({
         writeLocalTodosCache(scopedKey, scopedOpen, scopedCompleted, now);
       }
     };
-    const shouldOpenMobileSubdrawer =
-      isMobile &&
+    const shouldOpenTodoContextDetails =
       userId &&
       !establishmentId &&
       !householderId &&
-      (!!todo.establishment_id || !!todo.householder_id);
-    if (shouldOpenMobileSubdrawer) {
+      (!!todo.establishment_id || !!todo.householder_id) &&
+      !onTodoTap;
+    if (shouldOpenTodoContextDetails) {
       primeScopedTodoCaches(todo);
       setSelectedTodoForDetails(todo);
       setTodoDetailsDrawerOpen(true);
@@ -1604,6 +1617,10 @@ export function HomeTodoCard({
   const showOtherPublisherDecorations = Boolean(
     userId && !establishmentId && !householderId && !filters.myUpdatesOnly
   );
+  const prefersCompanionLeftTodoDrawer = Boolean(
+    preferLeftCompanionDrawer && isTodoDetailsSideLayout && (!!establishmentId || !!householderId)
+  );
+  const useSingleColumnTodoDrawerBody = prefersCompanionLeftTodoDrawer;
   const filteredAssignedOpenTodos = useMemo(
     () => filteredOpenTodos.filter(isTodoAssigned),
     [filteredOpenTodos, isTodoAssigned]
@@ -1784,6 +1801,7 @@ export function HomeTodoCard({
         callPublishers.push(matchedVisit.partner_guest_name.trim());
       }
 
+      setTodoEditorUseLeftPanel(isTodoDetailsSideLayout);
       setTodoEditorContext({
         initialTodo: {
           ...todo,
@@ -1798,7 +1816,7 @@ export function HomeTodoCard({
         disableEstablishmentSelect: options.disableEstablishmentSelect,
       });
     },
-    []
+    [isTodoDetailsSideLayout]
   );
   useEffect(() => {
     if (!todoDetailsDrawerOpen || isHouseholderDetail) return;
@@ -1819,6 +1837,802 @@ export function HomeTodoCard({
       // prewarm only
     });
   }, [todoDetailsDrawerOpen, isHouseholderDetail, selectedDetailHouseholders]);
+
+  const handleTodoDetailsDrawerChange = useCallback((open: boolean) => {
+    setTodoDetailsDrawerOpen(open);
+    if (!open) {
+      setSelectedTodoForDetails(null);
+      setSelectedTodoDetails(null);
+      setSelectedHouseholderDetails(null);
+      setSelectedContactFromEstablishment(null);
+      setContactDetailsSubdrawerOpen(false);
+      setDetailsEntityEditOpen(false);
+    }
+  }, []);
+
+  const refreshTodoDetailEntity = useCallback(async () => {
+    const hhTarget = selectedTodoForDetails?.householder_id;
+    const estTarget = selectedTodoForDetails?.establishment_id;
+    if (hhTarget) {
+      await cacheDelete(`householder:details:v3:${hhTarget}`);
+      const result = await getHouseholderDetails(hhTarget);
+      if (result) {
+        const snap: HouseholderDetailsSnapshot = {
+          householder: result.householder,
+          visits: result.visits,
+          establishment: result.establishment,
+        };
+        householderDetailsCacheRef.current.set(hhTarget, snap);
+        setSelectedHouseholderDetails(snap);
+      }
+    } else if (estTarget) {
+      await cacheDelete(`establishment:details:${estTarget}`);
+      const result = await getEstablishmentDetails(estTarget);
+      if (result) {
+        const snap: EstablishmentDetailsSnapshot = {
+          establishment: result.establishment,
+          visits: result.visits,
+          householders: result.householders,
+        };
+        establishmentDetailsCacheRef.current.set(estTarget, snap);
+        setSelectedTodoDetails(snap);
+      }
+    }
+    loadTodos({ useCache: false, forceNetwork: true, trustFreshLocalCache: false });
+  }, [selectedTodoForDetails?.householder_id, selectedTodoForDetails?.establishment_id, loadTodos]);
+
+  const canDetailSummaryEdit =
+    (isTodoDetailsSideLayout || !!onNavigateToTodoCall) &&
+    (isHouseholderDetail ? !!selectedHouseholder?.id : !!selectedEstablishmentDetails?.id);
+
+  const openEntityEditorFromDetailsSidebar = useCallback(() => {
+    const canInline =
+      isTodoDetailsSideLayout &&
+      (isHouseholderDetail ? !!selectedHouseholder?.id : !!selectedEstablishmentDetails?.id);
+    if (canInline) {
+      setDetailsEntityEditOpen(true);
+      return;
+    }
+    if (!onNavigateToTodoCall) return;
+    if (isHouseholderDetail && selectedHouseholder?.id) {
+      onNavigateToTodoCall({ householderId: selectedHouseholder.id });
+    } else if (!isHouseholderDetail && selectedEstablishmentDetails?.id) {
+      onNavigateToTodoCall({ establishmentId: selectedEstablishmentDetails.id });
+    } else {
+      return;
+    }
+    setDrawerOpen(false);
+    handleTodoDetailsDrawerChange(false);
+  }, [
+    isTodoDetailsSideLayout,
+    onNavigateToTodoCall,
+    isHouseholderDetail,
+    selectedHouseholder?.id,
+    selectedEstablishmentDetails?.id,
+    handleTodoDetailsDrawerChange,
+  ]);
+
+  const renderTodoDetailsBody = () => (
+    <>
+      {isLoadingTodoDetails && !selectedTodoDetails && !selectedHouseholderDetails ? (
+        <div className="rounded-lg border p-4 text-sm text-muted-foreground">Loading details...</div>
+      ) : (
+        isHouseholderDetail ? (
+          <div
+            className={cn(
+              canDetailSummaryEdit &&
+                "cursor-pointer rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            )}
+            role={canDetailSummaryEdit ? "button" : undefined}
+            tabIndex={canDetailSummaryEdit ? 0 : undefined}
+            onClick={canDetailSummaryEdit ? openEntityEditorFromDetailsSidebar : undefined}
+            onKeyDown={
+              canDetailSummaryEdit
+                ? (e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      openEntityEditorFromDetailsSidebar();
+                    }
+                  }
+                : undefined
+            }
+            aria-label={
+              canDetailSummaryEdit
+                ? isTodoDetailsSideLayout
+                  ? `Edit ${selectedHouseholder?.name ?? "contact"}`
+                  : `Open ${selectedHouseholder?.name ?? "contact"} in Business to edit`
+                : undefined
+            }
+          >
+            <Card
+              className={cn(
+                "w-full",
+                householderSurfaceClass,
+                canDetailSummaryEdit && "hover:opacity-95 transition-opacity"
+              )}
+            >
+            <CardHeader className="flex flex-row items-center justify-between gap-2">
+              <div className="flex w-full min-w-0 flex-1 flex-wrap items-center gap-2 pr-1">
+                {selectedHouseholder?.status?.trim() ? (
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "flex-shrink-0 capitalize",
+                      getHouseholderStatusColorClass(selectedHouseholder.status)
+                    )}
+                  >
+                    {formatStatusText(selectedHouseholder.status)}
+                  </Badge>
+                ) : null}
+                {householderEstablishmentName ? (
+                  <Badge
+                    variant="outline"
+                    className={cn("flex-shrink-0", getStatusTextColor(householderEstablishmentStatus))}
+                  >
+                    {householderEstablishmentName}
+                  </Badge>
+                ) : null}
+              </div>
+              {selectedHouseholder?.lat != null && selectedHouseholder?.lng != null ? (
+                <a
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-primary/60 bg-primary/10 text-primary shadow-sm transition-all hover:bg-primary/20 hover:border-primary hover:scale-[1.03] active:scale-100"
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${selectedHouseholder.lat},${selectedHouseholder.lng}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Open directions"
+                  title="Open directions"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
+                  <MapPinned className="h-4 w-4" />
+                </a>
+              ) : null}
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className={cn("grid gap-4", householderDetailGridClass)}>
+                {householderArea ? (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Area</p>
+                    <p>{householderArea}</p>
+                  </div>
+                ) : null}
+                {householderNote ? (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Note</p>
+                    <p className="text-sm break-words">{householderNote}</p>
+                  </div>
+                ) : null}
+              </div>
+            </CardContent>
+          </Card>
+          </div>
+        ) : (
+          <div
+            className={cn(
+              canDetailSummaryEdit &&
+                "cursor-pointer rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            )}
+            role={canDetailSummaryEdit ? "button" : undefined}
+            tabIndex={canDetailSummaryEdit ? 0 : undefined}
+            onClick={canDetailSummaryEdit ? openEntityEditorFromDetailsSidebar : undefined}
+            onKeyDown={
+              canDetailSummaryEdit
+                ? (e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      openEntityEditorFromDetailsSidebar();
+                    }
+                  }
+                : undefined
+            }
+            aria-label={
+              canDetailSummaryEdit
+                ? isTodoDetailsSideLayout
+                  ? `Edit ${selectedEstablishmentDetails?.name ?? "establishment"}`
+                  : `Open ${selectedEstablishmentDetails?.name ?? "establishment"} in Business to edit`
+                : undefined
+            }
+          >
+          <Card
+            className={cn(
+              "w-full",
+              detailSurfaceClass,
+              canDetailSummaryEdit && "hover:opacity-95 transition-opacity"
+            )}
+          >
+            <CardHeader className="flex flex-row items-center justify-between gap-2">
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                {selectedEstablishmentDetails ? (
+                  <>
+                    <Badge
+                      variant="outline"
+                      className={cn("flex-shrink-0", getStatusTextColor(detailPrimaryStatus))}
+                    >
+                      {formatStatusText(detailPrimaryStatus)}
+                    </Badge>
+                    {(selectedEstablishmentDetails.statuses || [])
+                      .filter((status) => status !== detailPrimaryStatus)
+                      .slice(0, 2)
+                      .map((status) => (
+                        <Badge
+                          key={status}
+                          variant="outline"
+                          className={getStatusTextColor(status)}
+                        >
+                          {formatStatusText(status)}
+                        </Badge>
+                      ))}
+                  </>
+                ) : null}
+              </div>
+              {selectedEstablishmentDetails?.lat != null && selectedEstablishmentDetails?.lng != null ? (
+                <a
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-primary/60 bg-primary/10 text-primary shadow-sm transition-all hover:bg-primary/20 hover:border-primary hover:scale-[1.03] active:scale-100"
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${selectedEstablishmentDetails.lat},${selectedEstablishmentDetails.lng}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Open directions"
+                  title="Open directions"
+                  onClick={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
+                >
+                  <MapPinned className="h-4 w-4" />
+                </a>
+              ) : null}
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {detailArea ? (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Area</p>
+                    <p>{detailArea}</p>
+                  </div>
+                ) : null}
+                {detailDescription ? (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Description</p>
+                    <p className="break-words">{detailDescription}</p>
+                  </div>
+                ) : null}
+                {detailDescription && detailFloor ? (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Floor</p>
+                    <p>{detailFloor}</p>
+                  </div>
+                ) : null}
+                {!detailDescription && detailNote ? (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Note</p>
+                    <p className="text-sm break-words">
+                      {detailNote.length > 100 ? `${detailNote.slice(0, 100)}...` : detailNote}
+                    </p>
+                  </div>
+                ) : null}
+                {!detailDescription && detailNote && detailFloor ? (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Floor</p>
+                    <p>{detailFloor}</p>
+                  </div>
+                ) : null}
+                {detailDescription && detailNote ? (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Note</p>
+                    <p className="text-sm break-words">
+                      {detailNote.length > 100 ? `${detailNote.slice(0, 100)}...` : detailNote}
+                    </p>
+                  </div>
+                ) : null}
+                {!detailDescription && !detailNote && detailFloor ? (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Floor</p>
+                    <p>{detailFloor}</p>
+                  </div>
+                ) : null}
+              </div>
+            </CardContent>
+          </Card>
+          </div>
+        )
+      )}
+
+      {isHouseholderDetail && selectedHouseholder?.id ? (
+        <HomeTodoCard
+          householderId={selectedHouseholder.id}
+          prefillScopeKey={`householder:${selectedHouseholder.id}`}
+          prefillOpenTodos={householderPrefillOpenTodos}
+          prefillCompletedTodos={householderPrefillCompletedTodos}
+          preferLeftCompanionDrawer
+          onTodoTap={(todo) =>
+            openTodoEditorFromDetails(todo, selectedDetailVisits, {
+              establishments: selectedHouseholderEstablishment
+                ? [{ id: selectedHouseholderEstablishment.id, name: selectedHouseholderEstablishment.name }]
+                : [],
+              selectedEstablishmentId: selectedHouseholderEstablishment?.id,
+              householderId: selectedHouseholder.id,
+              householderName: selectedHouseholder.name,
+              disableEstablishmentSelect: true,
+            })
+          }
+        />
+      ) : null}
+      {!isHouseholderDetail && selectedEstablishmentDetails?.id ? (
+        <HomeTodoCard
+          establishmentId={selectedEstablishmentDetails.id}
+          prefillScopeKey={`establishment:${selectedEstablishmentDetails.id}`}
+          prefillOpenTodos={establishmentPrefillOpenTodos}
+          prefillCompletedTodos={establishmentPrefillCompletedTodos}
+          preferLeftCompanionDrawer
+          onTodoTap={(todo) =>
+            openTodoEditorFromDetails(todo, selectedDetailVisits, {
+              establishments: [{ id: selectedEstablishmentDetails.id, name: selectedEstablishmentDetails.name }],
+              selectedEstablishmentId: selectedEstablishmentDetails.id,
+              disableEstablishmentSelect: true,
+            })
+          }
+        />
+      ) : null}
+
+      {selectedDetailVisits.length > 0 ? (
+        <VisitUpdatesSection
+          visits={selectedDetailVisits}
+          isHouseholderContext={isHouseholderDetail}
+          establishments={
+            isHouseholderDetail
+              ? (selectedHouseholderEstablishment
+                  ? [selectedHouseholderEstablishment]
+                  : [])
+              : (selectedEstablishmentDetails
+                  ? [{ id: selectedEstablishmentDetails.id ?? "", name: selectedEstablishmentDetails.name }]
+                  : [])
+          }
+          selectedEstablishmentId={
+            isHouseholderDetail
+              ? selectedHouseholderEstablishment?.id
+              : selectedEstablishmentDetails?.id
+          }
+          householderId={isHouseholderDetail ? selectedHouseholder?.id : undefined}
+          householderName={isHouseholderDetail ? selectedHouseholder?.name : undefined}
+          householderStatus={isHouseholderDetail ? selectedHouseholder?.status : undefined}
+          isLoading={false}
+          onVisitUpdated={() => {
+            // parent snapshots refresh via cache/network flow
+          }}
+          preferLeftDetailPanel={isTodoDetailsSideLayout}
+        />
+      ) : null}
+
+      {!isHouseholderDetail && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BookOpen className="h-5 w-5 flex-shrink-0" />
+              <span>Contacts{selectedDetailHouseholders.length ? ` (${selectedDetailHouseholders.length})` : ""}</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            {selectedDetailHouseholders.length > 0 ? (
+              <div className="px-4 py-2 space-y-2">
+                {selectedDetailHouseholders
+                  .filter((householder, index, self) =>
+                    index === self.findIndex((h) => h.id === householder.id)
+                  )
+                  .map((householder) => (
+                    <button
+                      key={householder.id}
+                      type="button"
+                      onClick={() => openContactDetailsSubdrawer(householder)}
+                      className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-muted/50 transition-colors flex items-center gap-3"
+                    >
+                      <Avatar className="h-9 w-9">
+                        <AvatarFallback className="text-[11px] font-semibold">
+                          {getInitialsFromName(householder.name) || "HH"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center justify-between gap-3">
+                          <p className="text-sm font-medium truncate">{householder.name}</p>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-xs px-2 py-0.5 h-5 leading-none",
+                              getHouseholderStatusColorClass(householder.status)
+                            )}
+                          >
+                            {formatStatusText(householder.status)}
+                          </Badge>
+                        </div>
+                        {householder.note && (
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+                            {householder.note}
+                          </p>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground px-4">
+                <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                <p>No contacts yet</p>
+                <p className="text-sm">Contacts will appear here when calls are added</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+    </>
+  );
+
+  const renderTodoDrawerBody = () => (
+    <>
+      {userId && !establishmentId && !householderId && (
+        <div className="mb-4 w-full overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+          <div className="w-max min-w-full flex justify-center">
+            <FilterControls
+            isSearchActive={isSearchActive}
+            searchValue={searchValue}
+            searchInputRef={searchInputRef}
+            onSearchActivate={() => setIsSearchActive(true)}
+            onSearchChange={(value) => setSearchValue(value)}
+            onSearchClear={() => {
+              setSearchValue("");
+              setIsSearchActive(false);
+            }}
+            onSearchBlur={() => {
+              if (!searchValue.trim()) setIsSearchActive(false);
+            }}
+            showMyFilter={Boolean(userId)}
+            myActive={Boolean(userId) && filters.myUpdatesOnly}
+            myLabel="My To-Dos"
+            onMyActivate={() =>
+              setFilters((prev) => ({
+                ...prev,
+                myUpdatesOnly: true,
+              }))
+            }
+            onMyClear={() =>
+              setFilters((prev) => ({
+                ...prev,
+                myUpdatesOnly: false,
+              }))
+            }
+            bwiActive={filters.bwiOnly}
+            bwiLabel="Establishments Only"
+            onBwiActivate={() =>
+              setFilters((prev) => ({
+                ...prev,
+                bwiOnly: true,
+                householderOnly: false,
+              }))
+            }
+            onBwiClear={() =>
+              setFilters((prev) => ({ ...prev, bwiOnly: false }))
+            }
+            householderActive={filters.householderOnly}
+            householderLabel="Contacts Only"
+            onHouseholderActivate={() =>
+              setFilters((prev) => ({
+                ...prev,
+                householderOnly: true,
+                bwiOnly: false,
+              }))
+            }
+            onHouseholderClear={() =>
+              setFilters((prev) => ({
+                ...prev,
+                householderOnly: false,
+              }))
+            }
+            filterBadges={filterBadges}
+            onOpenFilters={() => setFilterDrawerOpen(true)}
+            onClearFilters={clearFilters}
+            preserveActionButtonsWhenTogglesActive
+            showEditButton
+            editLabel="Edit To-Dos"
+            onEditClick={openBulkEditPrompt}
+            onRemoveBadge={(badge) => {
+              if (badge.type === "status") {
+                setFilters((prev) => ({
+                  ...prev,
+                  statuses: prev.statuses.filter(
+                    (s) => s !== badge.value
+                  ),
+                }));
+              } else if (badge.type === "area") {
+                setFilters((prev) => ({
+                  ...prev,
+                  areas: prev.areas.filter((a) => a !== badge.value),
+                }));
+              } else if (badge.type === "assignee") {
+                setFilters((prev) => ({
+                  ...prev,
+                  assigneeIds: prev.assigneeIds.filter((id) => id !== badge.value),
+                }));
+              } else if (badge.type === "due_date") {
+                setDueDateFilter(null);
+              }
+            }}
+            containerClassName={
+              isSearchActive ? "w-full !max-w-none !px-0" : "justify-center whitespace-nowrap"
+            }
+            maxWidthClassName={isSearchActive ? "" : "mx-4"}
+          />
+          </div>
+        </div>
+      )}
+
+      {filteredOpenTodos.length === 0 && filteredCompletedTodos.length === 0 ? (
+        <p className="text-sm text-muted-foreground py-4">{emptyDrawerText}</p>
+      ) : (
+        <>
+          {/* Phone: stacked collapsible sections (also used for scoped left companion drawer on tablet) */}
+          <div className={cn(useSingleColumnTodoDrawerBody ? "block" : "md:hidden")}>
+          <div className="mt-2 mb-3">
+            <button
+              type="button"
+              onClick={() => setDrawerTodoExpanded((prev) => !prev)}
+              className="w-full flex items-center justify-between text-sm text-muted-foreground font-bold hover:text-foreground transition-colors"
+            >
+              <span>To-Do ({filteredAssignedOpenTodos.length})</span>
+              {drawerTodoExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+            </button>
+          </div>
+          {drawerTodoExpanded && (
+            filteredAssignedOpenTodos.length > 0 ? (
+              <ul className="space-y-3 pb-2">
+                {filteredAssignedOpenTodos.map((todo, index) => (
+                  <TodoRow
+                    key={todo.id}
+                    todo={todo}
+                    timeZone={timeZone}
+                    onMarkDone={handleMarkDone}
+                    onTap={hasNavigation ? handleTodoTap : undefined}
+                    showCheckbox
+                    currentUserId={userId}
+                    showAssigneeAvatars={showAssigneeAvatars}
+                    highlightOtherPublishers={showOtherPublisherDecorations}
+                    participantsById={participantsById}
+                    rowIndex={index}
+                    layoutId={`${layoutScopeId}-drawer-${todo.id}`}
+                    layoutTransition={todoLayoutTransition}
+                    clampBody={false}
+                    hideHouseholderNameBadge={!!householderId}
+                    hideHouseholderEstablishmentBadge={!!householderId}
+                  />
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-muted-foreground py-1 mb-2">No assigned to-dos.</p>
+            )
+          )}
+
+          <div className="mt-4 mb-3">
+            <button
+              type="button"
+              onClick={() => setDrawerOpenSectionExpanded((prev) => !prev)}
+              className="w-full flex items-center justify-between text-sm text-muted-foreground font-bold hover:text-foreground transition-colors"
+            >
+              <span>Open ({filteredUnassignedOpenTodos.length})</span>
+              {drawerOpenSectionExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+            </button>
+          </div>
+          {drawerOpenSectionExpanded && (
+            filteredUnassignedOpenTodos.length > 0 ? (
+              <ul className="space-y-3 pb-2">
+                {filteredUnassignedOpenTodos.map((todo, index) => (
+                  <TodoRow
+                    key={todo.id}
+                    todo={todo}
+                    timeZone={timeZone}
+                    onMarkDone={handleMarkDone}
+                    onTap={hasNavigation ? handleTodoTap : undefined}
+                    showCheckbox
+                    currentUserId={userId}
+                    showAssigneeAvatars={showAssigneeAvatars}
+                    highlightOtherPublishers={showOtherPublisherDecorations}
+                    participantsById={participantsById}
+                    rowIndex={index}
+                    layoutId={`${layoutScopeId}-drawer-${todo.id}`}
+                    layoutTransition={todoLayoutTransition}
+                    clampBody={false}
+                    hideHouseholderNameBadge={!!householderId}
+                    hideHouseholderEstablishmentBadge={!!householderId}
+                    headerAction={
+                      userId ? (
+                        <Button
+                          type="button"
+                          variant="default"
+                          size="sm"
+                          className="h-7 rounded-full px-3 text-xs font-semibold bg-emerald-600/95 text-white shadow-sm hover:bg-emerald-500 hover:shadow-md hover:scale-[1.02] active:scale-100 transition-all"
+                          disabled={takingTodoId === todo.id}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            handleTakeTodoPrompt(todo);
+                          }}
+                        >
+                          Take
+                        </Button>
+                      ) : null
+                    }
+                  />
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-muted-foreground py-1 mb-2">No unassigned to-dos.</p>
+            )
+          )}
+
+          <div className="mt-4 mb-3">
+            <button
+              type="button"
+              onClick={() => setDrawerDoneExpanded((prev) => !prev)}
+              className="w-full flex items-center justify-between text-sm text-muted-foreground font-bold hover:text-foreground transition-colors"
+            >
+              <span>Done ({filteredCompletedTodos.length})</span>
+              {drawerDoneExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+            </button>
+          </div>
+          {drawerDoneExpanded && (
+            filteredCompletedTodos.length > 0 ? (
+              <ul className="space-y-3">
+                {filteredCompletedTodos.map((todo, index) => (
+                  <TodoRow
+                    key={todo.id}
+                    todo={{ ...todo, is_done: true }}
+                    timeZone={timeZone}
+                    onMarkDone={handleMarkDone}
+                    onTap={hasNavigation ? handleTodoTap : undefined}
+                    showCheckbox
+                    currentUserId={userId}
+                    showAssigneeAvatars={showAssigneeAvatars}
+                    highlightOtherPublishers={showOtherPublisherDecorations}
+                    participantsById={participantsById}
+                    rowIndex={index}
+                    layoutId={`${layoutScopeId}-drawer-${todo.id}`}
+                    layoutTransition={todoLayoutTransition}
+                    clampBody={false}
+                    hideHouseholderNameBadge={!!householderId}
+                    hideHouseholderEstablishmentBadge={!!householderId}
+                  />
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-muted-foreground py-1">No done to-dos.</p>
+            )
+          )}
+          </div>
+
+          {/* iPad / md+: three columns with independent scroll */}
+          <div
+            className={cn(
+              useSingleColumnTodoDrawerBody
+                ? "hidden"
+                : "hidden md:grid md:h-[calc(80dvh-10rem)] md:min-h-[320px] md:grid-cols-3 md:gap-3 md:items-stretch"
+            )}
+          >
+            <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-muted/15">
+              <div className="shrink-0 border-b border-border px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                To-Do ({filteredAssignedOpenTodos.length})
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3">
+                {filteredAssignedOpenTodos.length > 0 ? (
+                  <ul className="space-y-3">
+                    {filteredAssignedOpenTodos.map((todo, index) => (
+                      <TodoRow
+                        key={todo.id}
+                        todo={todo}
+                        timeZone={timeZone}
+                        onMarkDone={handleMarkDone}
+                        onTap={hasNavigation ? handleTodoTap : undefined}
+                        showCheckbox
+                        currentUserId={userId}
+                        showAssigneeAvatars={showAssigneeAvatars}
+                        highlightOtherPublishers={showOtherPublisherDecorations}
+                        participantsById={participantsById}
+                        rowIndex={index}
+                        layoutId={`${layoutScopeId}-drawer-md-to-${todo.id}`}
+                        layoutTransition={todoLayoutTransition}
+                        clampBody={false}
+                        hideHouseholderNameBadge={!!householderId}
+                        hideHouseholderEstablishmentBadge={!!householderId}
+                      />
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-muted-foreground py-1">No assigned to-dos.</p>
+                )}
+              </div>
+            </div>
+            <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-muted/15">
+              <div className="shrink-0 border-b border-border px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Open ({filteredUnassignedOpenTodos.length})
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3">
+                {filteredUnassignedOpenTodos.length > 0 ? (
+                  <ul className="space-y-3">
+                    {filteredUnassignedOpenTodos.map((todo, index) => (
+                      <TodoRow
+                        key={todo.id}
+                        todo={todo}
+                        timeZone={timeZone}
+                        onMarkDone={handleMarkDone}
+                        onTap={hasNavigation ? handleTodoTap : undefined}
+                        showCheckbox
+                        currentUserId={userId}
+                        showAssigneeAvatars={showAssigneeAvatars}
+                        highlightOtherPublishers={showOtherPublisherDecorations}
+                        participantsById={participantsById}
+                        rowIndex={index}
+                        layoutId={`${layoutScopeId}-drawer-md-open-${todo.id}`}
+                        layoutTransition={todoLayoutTransition}
+                        clampBody={false}
+                        hideHouseholderNameBadge={!!householderId}
+                        hideHouseholderEstablishmentBadge={!!householderId}
+                        headerAction={
+                          userId ? (
+                            <Button
+                              type="button"
+                              variant="default"
+                              size="sm"
+                              className="h-7 rounded-full px-3 text-xs font-semibold bg-emerald-600/95 text-white shadow-sm hover:bg-emerald-500 hover:shadow-md hover:scale-[1.02] active:scale-100 transition-all"
+                              disabled={takingTodoId === todo.id}
+                              onClick={(event) => {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                handleTakeTodoPrompt(todo);
+                              }}
+                            >
+                              Take
+                            </Button>
+                          ) : null
+                        }
+                      />
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-muted-foreground py-1">No unassigned to-dos.</p>
+                )}
+              </div>
+            </div>
+            <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-muted/15">
+              <div className="shrink-0 border-b border-border px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Done ({filteredCompletedTodos.length})
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3">
+                {filteredCompletedTodos.length > 0 ? (
+                  <ul className="space-y-3">
+                    {filteredCompletedTodos.map((todo, index) => (
+                      <TodoRow
+                        key={todo.id}
+                        todo={{ ...todo, is_done: true }}
+                        timeZone={timeZone}
+                        onMarkDone={handleMarkDone}
+                        onTap={hasNavigation ? handleTodoTap : undefined}
+                        showCheckbox
+                        currentUserId={userId}
+                        showAssigneeAvatars={showAssigneeAvatars}
+                        highlightOtherPublishers={showOtherPublisherDecorations}
+                        participantsById={participantsById}
+                        rowIndex={index}
+                        layoutId={`${layoutScopeId}-drawer-md-done-${todo.id}`}
+                        layoutTransition={todoLayoutTransition}
+                        clampBody={false}
+                        hideHouseholderNameBadge={!!householderId}
+                        hideHouseholderEstablishmentBadge={!!householderId}
+                      />
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-muted-foreground py-1">No done to-dos.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </>
+  );
 
   return (
     <>
@@ -1916,389 +2730,59 @@ export function HomeTodoCard({
             setFilterDrawerOpen(false);
           }
         }}
+        {...(prefersCompanionLeftTodoDrawer
+          ? { direction: "left" as const, modal: true, nested: true, shouldScaleBackground: false }
+          : {})}
       >
-        <DrawerContent className="max-h-[85vh] md:max-h-[80dvh]">
-          <DrawerHeader className="px-4 pt-4 pb-2 items-center">
-            <DrawerTitle className="flex w-full flex-wrap items-center justify-center gap-2 text-center text-lg font-bold">
-              <ListTodo className="h-4 w-4 shrink-0" />
-              To-Do
-              <Badge
-                variant="secondary"
-                className="h-5 rounded-full px-2 text-[11px] leading-none"
-              >
-                Open {openCount}
-              </Badge>
-              <Badge
-                variant="outline"
-                className="h-5 rounded-full px-2 text-[11px] leading-none"
-              >
-                Done {doneCount}
-              </Badge>
-            </DrawerTitle>
-          </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] md:overflow-visible md:pb-[calc(max(env(safe-area-inset-bottom),0px)+24px)]">
-              {userId && !establishmentId && !householderId && (
-                <div className="mb-4 w-full overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-                  <div className="w-max min-w-full flex justify-center">
-                    <FilterControls
-                    isSearchActive={isSearchActive}
-                    searchValue={searchValue}
-                    searchInputRef={searchInputRef}
-                    onSearchActivate={() => setIsSearchActive(true)}
-                    onSearchChange={(value) => setSearchValue(value)}
-                    onSearchClear={() => {
-                      setSearchValue("");
-                      setIsSearchActive(false);
-                    }}
-                    onSearchBlur={() => {
-                      if (!searchValue.trim()) setIsSearchActive(false);
-                    }}
-                    showMyFilter={Boolean(userId)}
-                    myActive={Boolean(userId) && filters.myUpdatesOnly}
-                    myLabel="My To-Dos"
-                    onMyActivate={() =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        myUpdatesOnly: true,
-                      }))
-                    }
-                    onMyClear={() =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        myUpdatesOnly: false,
-                      }))
-                    }
-                    bwiActive={filters.bwiOnly}
-                    bwiLabel="Establishments Only"
-                    onBwiActivate={() =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        bwiOnly: true,
-                        householderOnly: false,
-                      }))
-                    }
-                    onBwiClear={() =>
-                      setFilters((prev) => ({ ...prev, bwiOnly: false }))
-                    }
-                    householderActive={filters.householderOnly}
-                    householderLabel="Contacts Only"
-                    onHouseholderActivate={() =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        householderOnly: true,
-                        bwiOnly: false,
-                      }))
-                    }
-                    onHouseholderClear={() =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        householderOnly: false,
-                      }))
-                    }
-                    filterBadges={filterBadges}
-                    onOpenFilters={() => setFilterDrawerOpen(true)}
-                    onClearFilters={clearFilters}
-                    preserveActionButtonsWhenTogglesActive
-                    showEditButton
-                    editLabel="Edit To-Dos"
-                    onEditClick={openBulkEditPrompt}
-                    onRemoveBadge={(badge) => {
-                      if (badge.type === "status") {
-                        setFilters((prev) => ({
-                          ...prev,
-                          statuses: prev.statuses.filter(
-                            (s) => s !== badge.value
-                          ),
-                        }));
-                      } else if (badge.type === "area") {
-                        setFilters((prev) => ({
-                          ...prev,
-                          areas: prev.areas.filter((a) => a !== badge.value),
-                        }));
-                      } else if (badge.type === "assignee") {
-                        setFilters((prev) => ({
-                          ...prev,
-                          assigneeIds: prev.assigneeIds.filter((id) => id !== badge.value),
-                        }));
-                      } else if (badge.type === "due_date") {
-                        setDueDateFilter(null);
-                      }
-                    }}
-                    containerClassName={
-                      isSearchActive ? "w-full !max-w-none !px-0" : "justify-center whitespace-nowrap"
-                    }
-                    maxWidthClassName={isSearchActive ? "" : "mx-4"}
-                  />
-                  </div>
-                </div>
-              )}
-
-              {filteredOpenTodos.length === 0 && filteredCompletedTodos.length === 0 ? (
-                <p className="text-sm text-muted-foreground py-4">{emptyDrawerText}</p>
-              ) : (
-                <>
-                  {/* Phone: stacked collapsible sections */}
-                  <div className="md:hidden">
-                  <div className="mt-2 mb-3">
-                    <button
-                      type="button"
-                      onClick={() => setDrawerTodoExpanded((prev) => !prev)}
-                      className="w-full flex items-center justify-between text-sm text-muted-foreground font-bold hover:text-foreground transition-colors"
-                    >
-                      <span>To-Do ({filteredAssignedOpenTodos.length})</span>
-                      {drawerTodoExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                    </button>
-                  </div>
-                  {drawerTodoExpanded && (
-                    filteredAssignedOpenTodos.length > 0 ? (
-                      <ul className="space-y-3 pb-2">
-                        {filteredAssignedOpenTodos.map((todo, index) => (
-                          <TodoRow
-                            key={todo.id}
-                            todo={todo}
-                            timeZone={timeZone}
-                            onMarkDone={handleMarkDone}
-                            onTap={hasNavigation ? handleTodoTap : undefined}
-                            showCheckbox
-                            currentUserId={userId}
-                            showAssigneeAvatars={showAssigneeAvatars}
-                            highlightOtherPublishers={showOtherPublisherDecorations}
-                            participantsById={participantsById}
-                            rowIndex={index}
-                            layoutId={`${layoutScopeId}-drawer-${todo.id}`}
-                            layoutTransition={todoLayoutTransition}
-                            clampBody={false}
-                            hideHouseholderNameBadge={!!householderId}
-                            hideHouseholderEstablishmentBadge={!!householderId}
-                          />
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-xs text-muted-foreground py-1 mb-2">No assigned to-dos.</p>
-                    )
-                  )}
-
-                  <div className="mt-4 mb-3">
-                    <button
-                      type="button"
-                      onClick={() => setDrawerOpenSectionExpanded((prev) => !prev)}
-                      className="w-full flex items-center justify-between text-sm text-muted-foreground font-bold hover:text-foreground transition-colors"
-                    >
-                      <span>Open ({filteredUnassignedOpenTodos.length})</span>
-                      {drawerOpenSectionExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                    </button>
-                  </div>
-                  {drawerOpenSectionExpanded && (
-                    filteredUnassignedOpenTodos.length > 0 ? (
-                      <ul className="space-y-3 pb-2">
-                        {filteredUnassignedOpenTodos.map((todo, index) => (
-                          <TodoRow
-                            key={todo.id}
-                            todo={todo}
-                            timeZone={timeZone}
-                            onMarkDone={handleMarkDone}
-                            onTap={hasNavigation ? handleTodoTap : undefined}
-                            showCheckbox
-                            currentUserId={userId}
-                            showAssigneeAvatars={showAssigneeAvatars}
-                            highlightOtherPublishers={showOtherPublisherDecorations}
-                            participantsById={participantsById}
-                            rowIndex={index}
-                            layoutId={`${layoutScopeId}-drawer-${todo.id}`}
-                            layoutTransition={todoLayoutTransition}
-                            clampBody={false}
-                            hideHouseholderNameBadge={!!householderId}
-                            hideHouseholderEstablishmentBadge={!!householderId}
-                            headerAction={
-                              userId ? (
-                                <Button
-                                  type="button"
-                                  variant="default"
-                                  size="sm"
-                                  className="h-7 rounded-full px-3 text-xs font-semibold bg-emerald-600/95 text-white shadow-sm hover:bg-emerald-500 hover:shadow-md hover:scale-[1.02] active:scale-100 transition-all"
-                                  disabled={takingTodoId === todo.id}
-                                  onClick={(event) => {
-                                    event.preventDefault();
-                                    event.stopPropagation();
-                                    handleTakeTodoPrompt(todo);
-                                  }}
-                                >
-                                  Take
-                                </Button>
-                              ) : null
-                            }
-                          />
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-xs text-muted-foreground py-1 mb-2">No unassigned to-dos.</p>
-                    )
-                  )}
-
-                  <div className="mt-4 mb-3">
-                    <button
-                      type="button"
-                      onClick={() => setDrawerDoneExpanded((prev) => !prev)}
-                      className="w-full flex items-center justify-between text-sm text-muted-foreground font-bold hover:text-foreground transition-colors"
-                    >
-                      <span>Done ({filteredCompletedTodos.length})</span>
-                      {drawerDoneExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                    </button>
-                  </div>
-                  {drawerDoneExpanded && (
-                    filteredCompletedTodos.length > 0 ? (
-                      <ul className="space-y-3">
-                        {filteredCompletedTodos.map((todo, index) => (
-                          <TodoRow
-                            key={todo.id}
-                            todo={{ ...todo, is_done: true }}
-                            timeZone={timeZone}
-                            onMarkDone={handleMarkDone}
-                            onTap={hasNavigation ? handleTodoTap : undefined}
-                            showCheckbox
-                            currentUserId={userId}
-                            showAssigneeAvatars={showAssigneeAvatars}
-                            highlightOtherPublishers={showOtherPublisherDecorations}
-                            participantsById={participantsById}
-                            rowIndex={index}
-                            layoutId={`${layoutScopeId}-drawer-${todo.id}`}
-                            layoutTransition={todoLayoutTransition}
-                            clampBody={false}
-                            hideHouseholderNameBadge={!!householderId}
-                            hideHouseholderEstablishmentBadge={!!householderId}
-                          />
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-xs text-muted-foreground py-1">No done to-dos.</p>
-                    )
-                  )}
-                  </div>
-
-                  {/* iPad / md+: three columns with independent scroll */}
-                  <div className="hidden md:grid md:h-[calc(80dvh-10rem)] md:min-h-[320px] md:grid-cols-3 md:gap-3 md:items-stretch">
-                    <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-muted/15">
-                      <div className="shrink-0 border-b border-border px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                        To-Do ({filteredAssignedOpenTodos.length})
-                      </div>
-                      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3">
-                        {filteredAssignedOpenTodos.length > 0 ? (
-                          <ul className="space-y-3">
-                            {filteredAssignedOpenTodos.map((todo, index) => (
-                              <TodoRow
-                                key={todo.id}
-                                todo={todo}
-                                timeZone={timeZone}
-                                onMarkDone={handleMarkDone}
-                                onTap={hasNavigation ? handleTodoTap : undefined}
-                                showCheckbox
-                                currentUserId={userId}
-                                showAssigneeAvatars={showAssigneeAvatars}
-                                highlightOtherPublishers={showOtherPublisherDecorations}
-                                participantsById={participantsById}
-                                rowIndex={index}
-                                layoutId={`${layoutScopeId}-drawer-md-to-${todo.id}`}
-                                layoutTransition={todoLayoutTransition}
-                                clampBody={false}
-                                hideHouseholderNameBadge={!!householderId}
-                                hideHouseholderEstablishmentBadge={!!householderId}
-                              />
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="text-xs text-muted-foreground py-1">No assigned to-dos.</p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-muted/15">
-                      <div className="shrink-0 border-b border-border px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                        Open ({filteredUnassignedOpenTodos.length})
-                      </div>
-                      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3">
-                        {filteredUnassignedOpenTodos.length > 0 ? (
-                          <ul className="space-y-3">
-                            {filteredUnassignedOpenTodos.map((todo, index) => (
-                              <TodoRow
-                                key={todo.id}
-                                todo={todo}
-                                timeZone={timeZone}
-                                onMarkDone={handleMarkDone}
-                                onTap={hasNavigation ? handleTodoTap : undefined}
-                                showCheckbox
-                                currentUserId={userId}
-                                showAssigneeAvatars={showAssigneeAvatars}
-                                highlightOtherPublishers={showOtherPublisherDecorations}
-                                participantsById={participantsById}
-                                rowIndex={index}
-                                layoutId={`${layoutScopeId}-drawer-md-open-${todo.id}`}
-                                layoutTransition={todoLayoutTransition}
-                                clampBody={false}
-                                hideHouseholderNameBadge={!!householderId}
-                                hideHouseholderEstablishmentBadge={!!householderId}
-                                headerAction={
-                                  userId ? (
-                                    <Button
-                                      type="button"
-                                      variant="default"
-                                      size="sm"
-                                      className="h-7 rounded-full px-3 text-xs font-semibold bg-emerald-600/95 text-white shadow-sm hover:bg-emerald-500 hover:shadow-md hover:scale-[1.02] active:scale-100 transition-all"
-                                      disabled={takingTodoId === todo.id}
-                                      onClick={(event) => {
-                                        event.preventDefault();
-                                        event.stopPropagation();
-                                        handleTakeTodoPrompt(todo);
-                                      }}
-                                    >
-                                      Take
-                                    </Button>
-                                  ) : null
-                                }
-                              />
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="text-xs text-muted-foreground py-1">No unassigned to-dos.</p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-muted/15">
-                      <div className="shrink-0 border-b border-border px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
-                        Done ({filteredCompletedTodos.length})
-                      </div>
-                      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3">
-                        {filteredCompletedTodos.length > 0 ? (
-                          <ul className="space-y-3">
-                            {filteredCompletedTodos.map((todo, index) => (
-                              <TodoRow
-                                key={todo.id}
-                                todo={{ ...todo, is_done: true }}
-                                timeZone={timeZone}
-                                onMarkDone={handleMarkDone}
-                                onTap={hasNavigation ? handleTodoTap : undefined}
-                                showCheckbox
-                                currentUserId={userId}
-                                showAssigneeAvatars={showAssigneeAvatars}
-                                highlightOtherPublishers={showOtherPublisherDecorations}
-                                participantsById={participantsById}
-                                rowIndex={index}
-                                layoutId={`${layoutScopeId}-drawer-md-done-${todo.id}`}
-                                layoutTransition={todoLayoutTransition}
-                                clampBody={false}
-                                hideHouseholderNameBadge={!!householderId}
-                                hideHouseholderEstablishmentBadge={!!householderId}
-                              />
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="text-xs text-muted-foreground py-1">No done to-dos.</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </>
-              )}
-          </div>
-        </DrawerContent>
+        {prefersCompanionLeftTodoDrawer ? (
+          <DrawerWideLeftContent>
+            <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left">
+              <DrawerTitle className="flex w-full flex-wrap items-center gap-2 text-left text-lg font-bold">
+                <ListTodo className="h-4 w-4 shrink-0" />
+                To-Do
+                <Badge
+                  variant="secondary"
+                  className="h-5 rounded-full px-2 text-[11px] leading-none"
+                >
+                  Open {openCount}
+                </Badge>
+                <Badge
+                  variant="outline"
+                  className="h-5 rounded-full px-2 text-[11px] leading-none"
+                >
+                  Done {doneCount}
+                </Badge>
+              </DrawerTitle>
+            </DrawerHeader>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
+              {renderTodoDrawerBody()}
+            </div>
+          </DrawerWideLeftContent>
+        ) : (
+          <DrawerContent className="max-h-[85vh] md:max-h-[80dvh]">
+            <DrawerHeader className="px-4 pt-4 pb-2 items-center">
+              <DrawerTitle className="flex w-full flex-wrap items-center justify-center gap-2 text-center text-lg font-bold">
+                <ListTodo className="h-4 w-4 shrink-0" />
+                To-Do
+                <Badge
+                  variant="secondary"
+                  className="h-5 rounded-full px-2 text-[11px] leading-none"
+                >
+                  Open {openCount}
+                </Badge>
+                <Badge
+                  variant="outline"
+                  className="h-5 rounded-full px-2 text-[11px] leading-none"
+                >
+                  Done {doneCount}
+                </Badge>
+              </DrawerTitle>
+            </DrawerHeader>
+            <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] md:overflow-visible md:pb-[calc(max(env(safe-area-inset-bottom),0px)+24px)]">
+              {renderTodoDrawerBody()}
+            </div>
+          </DrawerContent>
+        )}
       </Drawer>
 
       <Drawer open={takeTodoConfirmOpen} onOpenChange={setTakeTodoConfirmOpen}>
@@ -2378,12 +2862,28 @@ export function HomeTodoCard({
         </DrawerContent>
       </Drawer>
 
+      {isTodoDetailsSideLayout ? (
       <Drawer
         open={todoDetailsDrawerOpen}
-        onOpenChange={(open) => {
-          setTodoDetailsDrawerOpen(open);
-        }}
+        onOpenChange={handleTodoDetailsDrawerChange}
+        direction="right"
+        modal
+        nested
+        shouldScaleBackground={false}
       >
+        <DrawerWideRightContent>
+          <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left">
+            <DrawerTitle className="text-xl font-extrabold tracking-tight">{isHouseholderDetail
+                ? (selectedHouseholder?.name || selectedTodoForDetails?.context_name || "Contact Details")
+                : (selectedEstablishmentDetails?.name || selectedTodoForDetails?.context_name || "Establishment Details")}</DrawerTitle>
+          </DrawerHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3">
+            {renderTodoDetailsBody()}
+          </div>
+        </DrawerWideRightContent>
+      </Drawer>
+      ) : (
+      <Drawer open={todoDetailsDrawerOpen} onOpenChange={handleTodoDetailsDrawerChange}>
         <DrawerContent className="max-h-[85vh]">
           <DrawerHeader className="px-4 pt-4 pb-2 items-center">
             <DrawerTitle className="flex w-full items-center justify-center gap-2 text-center text-xl font-extrabold tracking-tight">
@@ -2393,282 +2893,11 @@ export function HomeTodoCard({
             </DrawerTitle>
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] space-y-3">
-            {isLoadingTodoDetails && !selectedTodoDetails && !selectedHouseholderDetails ? (
-              <div className="rounded-lg border p-4 text-sm text-muted-foreground">Loading details...</div>
-            ) : (
-              isHouseholderDetail ? (
-                <Card className={cn("w-full", householderSurfaceClass)}>
-                  <CardHeader className="flex flex-row items-center justify-between gap-2">
-                    <div className="flex w-full min-w-0 flex-1 flex-wrap items-center gap-2 pr-1">
-                      {selectedHouseholder?.status?.trim() ? (
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "flex-shrink-0 capitalize",
-                            getHouseholderStatusColorClass(selectedHouseholder.status)
-                          )}
-                        >
-                          {formatStatusText(selectedHouseholder.status)}
-                        </Badge>
-                      ) : null}
-                      {householderEstablishmentName ? (
-                        <Badge
-                          variant="outline"
-                          className={cn("flex-shrink-0", getStatusTextColor(householderEstablishmentStatus))}
-                        >
-                          {householderEstablishmentName}
-                        </Badge>
-                      ) : null}
-                    </div>
-                    {selectedHouseholder?.lat != null && selectedHouseholder?.lng != null ? (
-                      <a
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-primary/60 bg-primary/10 text-primary shadow-sm transition-all hover:bg-primary/20 hover:border-primary hover:scale-[1.03] active:scale-100"
-                        href={`https://www.google.com/maps/dir/?api=1&destination=${selectedHouseholder.lat},${selectedHouseholder.lng}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        aria-label="Open directions"
-                        title="Open directions"
-                      >
-                        <MapPinned className="h-4 w-4" />
-                      </a>
-                    ) : null}
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className={cn("grid gap-4", householderDetailGridClass)}>
-                      {householderArea ? (
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Area</p>
-                          <p>{householderArea}</p>
-                        </div>
-                      ) : null}
-                      {householderNote ? (
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Note</p>
-                          <p className="text-sm break-words">{householderNote}</p>
-                        </div>
-                      ) : null}
-                    </div>
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card className={cn("w-full", detailSurfaceClass)}>
-                  <CardHeader className="flex flex-row items-center justify-between gap-2">
-                    <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                      {selectedEstablishmentDetails ? (
-                        <>
-                          <Badge
-                            variant="outline"
-                            className={cn("flex-shrink-0", getStatusTextColor(detailPrimaryStatus))}
-                          >
-                            {formatStatusText(detailPrimaryStatus)}
-                          </Badge>
-                          {(selectedEstablishmentDetails.statuses || [])
-                            .filter((status) => status !== detailPrimaryStatus)
-                            .slice(0, 2)
-                            .map((status) => (
-                              <Badge
-                                key={status}
-                                variant="outline"
-                                className={getStatusTextColor(status)}
-                              >
-                                {formatStatusText(status)}
-                              </Badge>
-                            ))}
-                        </>
-                      ) : null}
-                    </div>
-                    {selectedEstablishmentDetails?.lat != null && selectedEstablishmentDetails?.lng != null ? (
-                      <a
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-primary/60 bg-primary/10 text-primary shadow-sm transition-all hover:bg-primary/20 hover:border-primary hover:scale-[1.03] active:scale-100"
-                        href={`https://www.google.com/maps/dir/?api=1&destination=${selectedEstablishmentDetails.lat},${selectedEstablishmentDetails.lng}`}
-                        target="_blank"
-                        rel="noreferrer"
-                        aria-label="Open directions"
-                        title="Open directions"
-                      >
-                        <MapPinned className="h-4 w-4" />
-                      </a>
-                    ) : null}
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                      {detailArea ? (
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Area</p>
-                          <p>{detailArea}</p>
-                        </div>
-                      ) : null}
-                      {detailDescription ? (
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Description</p>
-                          <p className="break-words">{detailDescription}</p>
-                        </div>
-                      ) : null}
-                      {detailDescription && detailFloor ? (
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Floor</p>
-                          <p>{detailFloor}</p>
-                        </div>
-                      ) : null}
-                      {!detailDescription && detailNote ? (
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Note</p>
-                          <p className="text-sm break-words">
-                            {detailNote.length > 100 ? `${detailNote.slice(0, 100)}...` : detailNote}
-                          </p>
-                        </div>
-                      ) : null}
-                      {!detailDescription && detailNote && detailFloor ? (
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Floor</p>
-                          <p>{detailFloor}</p>
-                        </div>
-                      ) : null}
-                      {detailDescription && detailNote ? (
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Note</p>
-                          <p className="text-sm break-words">
-                            {detailNote.length > 100 ? `${detailNote.slice(0, 100)}...` : detailNote}
-                          </p>
-                        </div>
-                      ) : null}
-                      {!detailDescription && !detailNote && detailFloor ? (
-                        <div>
-                          <p className="text-sm font-medium text-muted-foreground">Floor</p>
-                          <p>{detailFloor}</p>
-                        </div>
-                      ) : null}
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            )}
-
-            {isHouseholderDetail && selectedHouseholder?.id ? (
-              <HomeTodoCard
-                householderId={selectedHouseholder.id}
-                prefillScopeKey={`householder:${selectedHouseholder.id}`}
-                prefillOpenTodos={householderPrefillOpenTodos}
-                prefillCompletedTodos={householderPrefillCompletedTodos}
-                onTodoTap={(todo) =>
-                  openTodoEditorFromDetails(todo, selectedDetailVisits, {
-                    establishments: selectedHouseholderEstablishment
-                      ? [{ id: selectedHouseholderEstablishment.id, name: selectedHouseholderEstablishment.name }]
-                      : [],
-                    selectedEstablishmentId: selectedHouseholderEstablishment?.id,
-                    householderId: selectedHouseholder.id,
-                    householderName: selectedHouseholder.name,
-                    disableEstablishmentSelect: true,
-                  })
-                }
-              />
-            ) : null}
-            {!isHouseholderDetail && selectedEstablishmentDetails?.id ? (
-              <HomeTodoCard
-                establishmentId={selectedEstablishmentDetails.id}
-                prefillScopeKey={`establishment:${selectedEstablishmentDetails.id}`}
-                prefillOpenTodos={establishmentPrefillOpenTodos}
-                prefillCompletedTodos={establishmentPrefillCompletedTodos}
-                onTodoTap={(todo) =>
-                  openTodoEditorFromDetails(todo, selectedDetailVisits, {
-                    establishments: [{ id: selectedEstablishmentDetails.id, name: selectedEstablishmentDetails.name }],
-                    selectedEstablishmentId: selectedEstablishmentDetails.id,
-                    disableEstablishmentSelect: true,
-                  })
-                }
-              />
-            ) : null}
-
-            {selectedDetailVisits.length > 0 ? (
-              <VisitUpdatesSection
-                visits={selectedDetailVisits}
-                isHouseholderContext={isHouseholderDetail}
-                establishments={
-                  isHouseholderDetail
-                    ? (selectedHouseholderEstablishment
-                        ? [selectedHouseholderEstablishment]
-                        : [])
-                    : (selectedEstablishmentDetails
-                        ? [{ id: selectedEstablishmentDetails.id ?? "", name: selectedEstablishmentDetails.name }]
-                        : [])
-                }
-                selectedEstablishmentId={
-                  isHouseholderDetail
-                    ? selectedHouseholderEstablishment?.id
-                    : selectedEstablishmentDetails?.id
-                }
-                householderId={isHouseholderDetail ? selectedHouseholder?.id : undefined}
-                householderName={isHouseholderDetail ? selectedHouseholder?.name : undefined}
-                householderStatus={isHouseholderDetail ? selectedHouseholder?.status : undefined}
-                isLoading={false}
-                onVisitUpdated={() => {
-                  // parent snapshots refresh via cache/network flow
-                }}
-              />
-            ) : null}
-
-            {!isHouseholderDetail && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <BookOpen className="h-5 w-5 flex-shrink-0" />
-                    <span>Contacts{selectedDetailHouseholders.length ? ` (${selectedDetailHouseholders.length})` : ""}</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                  {selectedDetailHouseholders.length > 0 ? (
-                    <div className="px-4 py-2 space-y-2">
-                      {selectedDetailHouseholders
-                        .filter((householder, index, self) =>
-                          index === self.findIndex((h) => h.id === householder.id)
-                        )
-                        .map((householder) => (
-                          <button
-                            key={householder.id}
-                            type="button"
-                            onClick={() => openContactDetailsSubdrawer(householder)}
-                            className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-muted/50 transition-colors flex items-center gap-3"
-                          >
-                            <Avatar className="h-9 w-9">
-                              <AvatarFallback className="text-[11px] font-semibold">
-                                {getInitialsFromName(householder.name) || "HH"}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center justify-between gap-3">
-                                <p className="text-sm font-medium truncate">{householder.name}</p>
-                                <Badge
-                                  variant="outline"
-                                  className={cn(
-                                    "text-xs px-2 py-0.5 h-5 leading-none",
-                                    getHouseholderStatusColorClass(householder.status)
-                                  )}
-                                >
-                                  {formatStatusText(householder.status)}
-                                </Badge>
-                              </div>
-                              {householder.note && (
-                                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                                  {householder.note}
-                                </p>
-                              )}
-                            </div>
-                          </button>
-                        ))}
-                    </div>
-                  ) : (
-                    <div className="text-center py-8 text-muted-foreground px-4">
-                      <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p>No contacts yet</p>
-                      <p className="text-sm">Contacts will appear here when calls are added</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+            {renderTodoDetailsBody()}
           </div>
         </DrawerContent>
       </Drawer>
+      )}
 
       <Drawer
         open={contactDetailsSubdrawerOpen}
@@ -2678,8 +2907,10 @@ export function HomeTodoCard({
             setSelectedContactFromEstablishment(null);
           }
         }}
+        nested
+        shouldScaleBackground={false}
       >
-        <DrawerContent className="max-h-[85vh]">
+        <DrawerContent className="max-h-[85vh] !z-[110]" overlayClassName="!z-[110]">
           <DrawerHeader className="px-4 pt-4 pb-2 items-center">
             <DrawerTitle className="flex w-full items-center justify-center gap-2 text-center text-xl font-extrabold tracking-tight">
               {contactSubdrawerHouseholder?.name || "Contact Details"}
@@ -2755,6 +2986,7 @@ export function HomeTodoCard({
                 prefillScopeKey={`householder:${contactSubdrawerHouseholder.id}`}
                 prefillOpenTodos={contactSubdrawerPrefillOpenTodos}
                 prefillCompletedTodos={contactSubdrawerPrefillCompletedTodos}
+                preferLeftCompanionDrawer
                 onTodoTap={(todo) =>
                   openTodoEditorFromDetails(todo, contactSubdrawerVisits, {
                     establishments: contactSubdrawerEstablishment
@@ -2782,16 +3014,113 @@ export function HomeTodoCard({
                 onVisitUpdated={() => {
                   // parent snapshots refresh via cache/network flow
                 }}
+                preferLeftDetailPanel={isTodoDetailsSideLayout}
               />
             ) : null}
           </div>
         </DrawerContent>
       </Drawer>
 
+      <Drawer
+        open={detailsEntityEditOpen}
+        onOpenChange={setDetailsEntityEditOpen}
+        direction="left"
+        modal
+        shouldScaleBackground={false}
+      >
+        <DrawerWideLeftContentTop>
+          <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left">
+            <DrawerTitle className="text-lg font-bold">
+              {isHouseholderDetail ? "Edit Contact" : "Edit Establishment"}
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
+            {isHouseholderDetail && selectedHouseholder?.id ? (
+              <HouseholderForm
+                key={selectedHouseholder.id}
+                establishments={
+                  selectedHouseholderEstablishment?.id
+                    ? [selectedHouseholderEstablishment as { id: string; name: string }]
+                    : []
+                }
+                selectedEstablishmentId={selectedHouseholderEstablishment?.id ?? undefined}
+                isEditing
+                initialData={{
+                  id: selectedHouseholder.id,
+                  establishment_id: selectedHouseholder.establishment_id ?? null,
+                  name: selectedHouseholder.name,
+                  status: (selectedHouseholder.status as HouseholderStatus) ?? "potential",
+                  note: selectedHouseholder.note ?? null,
+                  lat: selectedHouseholder.lat ?? null,
+                  lng: selectedHouseholder.lng ?? null,
+                  publisher_id: selectedHouseholder.publisher_id ?? null,
+                }}
+                disableEstablishmentSelect={!!selectedHouseholderEstablishment?.id}
+                onSaved={() => {
+                  setDetailsEntityEditOpen(false);
+                  void refreshTodoDetailEntity();
+                }}
+              />
+            ) : selectedEstablishmentDetails?.id ? (
+              <EstablishmentForm
+                key={selectedEstablishmentDetails.id}
+                isEditing
+                initialData={selectedEstablishmentDetails}
+                selectedArea={selectedEstablishmentDetails.area ?? undefined}
+                onSaved={() => {
+                  setDetailsEntityEditOpen(false);
+                  void refreshTodoDetailEntity();
+                }}
+              />
+            ) : null}
+          </div>
+        </DrawerWideLeftContentTop>
+      </Drawer>
+
+      {todoEditorUseLeftPanel && todoEditorContext ? (
+        <Drawer
+          open={!!todoEditorContext}
+          onOpenChange={(open) => {
+            if (!open) {
+              setTodoEditorContext(null);
+              setTodoEditorUseLeftPanel(false);
+            }
+          }}
+          direction="left"
+          modal
+          shouldScaleBackground={false}
+        >
+          <DrawerWideLeftContentTop>
+            <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left">
+              <DrawerTitle className="text-lg font-bold">Edit To-Do</DrawerTitle>
+            </DrawerHeader>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
+              <TodoForm
+                establishments={todoEditorContext.establishments}
+                selectedEstablishmentId={todoEditorContext.selectedEstablishmentId}
+                initialTodo={todoEditorContext.initialTodo}
+                householderId={todoEditorContext.householderId}
+                householderName={todoEditorContext.householderName}
+                disableEstablishmentSelect={todoEditorContext.disableEstablishmentSelect}
+                onSaved={() => {
+                  setTodoEditorContext(null);
+                  setTodoEditorUseLeftPanel(false);
+                  try {
+                    window.dispatchEvent(new CustomEvent("business-todos-mutated"));
+                  } catch {}
+                }}
+              />
+            </div>
+          </DrawerWideLeftContentTop>
+        </Drawer>
+      ) : (
       <FormModal
         open={!!todoEditorContext}
         onOpenChange={(open) => {
-          if (!open) setTodoEditorContext(null);
+          if (!open) {
+            setTodoEditorContext(null);
+            setTodoEditorUseLeftPanel(false);
+          }
         }}
         title="Edit To-Do"
         headerClassName="text-center"
@@ -2806,6 +3135,7 @@ export function HomeTodoCard({
             disableEstablishmentSelect={todoEditorContext.disableEstablishmentSelect}
             onSaved={() => {
               setTodoEditorContext(null);
+              setTodoEditorUseLeftPanel(false);
               try {
                 window.dispatchEvent(new CustomEvent("business-todos-mutated"));
               } catch {}
@@ -2813,6 +3143,7 @@ export function HomeTodoCard({
           />
         ) : null}
       </FormModal>
+      )}
 
       <FormModal
         open={bulkEditPromptOpen}
