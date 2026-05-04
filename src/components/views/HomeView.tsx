@@ -106,7 +106,11 @@ export function HomeView({
             </div>
           ) : null}
           <div className="min-w-0">
-            <HomeTodoCard userId={userId} onNavigateToTodoCall={onNavigateToTodoCall} />
+            <HomeTodoCard
+              userId={userId}
+              fabBridgeLayout="belowXl"
+              onNavigateToTodoCall={onNavigateToTodoCall}
+            />
           </div>
         </div>
 
@@ -139,7 +143,11 @@ export function HomeView({
             </div>
           ) : null}
           <div className="min-w-0">
-            <HomeTodoCard userId={userId} onNavigateToTodoCall={onNavigateToTodoCall} />
+            <HomeTodoCard
+              userId={userId}
+              fabBridgeLayout="xlAndUp"
+              onNavigateToTodoCall={onNavigateToTodoCall}
+            />
           </div>
         </div>
       </div>

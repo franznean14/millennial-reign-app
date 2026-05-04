@@ -688,6 +688,12 @@ export function AppClient() {
     }, 700);
   }, [refetchBusinessData]);
 
+  useEffect(() => {
+    const onAppBusinessRefresh = () => scheduleBusinessRefetch();
+    window.addEventListener("app-business-refresh", onAppBusinessRefresh);
+    return () => window.removeEventListener("app-business-refresh", onAppBusinessRefresh);
+  }, [scheduleBusinessRefetch]);
+
   // Realtime: Supabase postgres_changes → refetch → setState → React re-renders; no manual refresh needed
   const congregationId = (profile as any)?.congregation_id;
   useEffect(() => {

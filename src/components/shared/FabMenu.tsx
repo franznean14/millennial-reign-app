@@ -74,7 +74,7 @@ export function FabMenu({
         >
           <Button
             variant={action.variant ?? "default"}
-            className={`fixed right-4 z-40 rounded-full shadow-lg md:right-6 text-xl font-semibold px-6 py-6 ${actionClassName ?? ""}`.trim()}
+            className={`pointer-events-auto fixed right-4 z-40 rounded-full shadow-lg md:right-6 text-xl font-semibold px-6 py-6 ${actionClassName ?? ""}`.trim()}
             style={{
               bottom: `calc(max(env(safe-area-inset-bottom),0px) + ${actionOffsetStart + actionOffsetStep * index}px)`,
               opacity: expanded ? 1 : 0,

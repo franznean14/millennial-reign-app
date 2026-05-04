@@ -12,6 +12,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
+import { HomeTodoDetailsFabProvider } from "@/components/home/home-todo-details-fab-context";
 
 // Component to show floating trigger when sidebar is closed
 function FloatingSidebarTrigger() {
@@ -78,9 +79,11 @@ export function AppChrome({ children }: AppChromeProps) {
         <AppSidebar />
         <FloatingSidebarTrigger />
         <SidebarInset className="min-h-0">
-          <div className="flex min-h-0 flex-1 flex-col px-4 w-full overflow-x-hidden">
-            {children}
-          </div>
+          <HomeTodoDetailsFabProvider>
+            <div className="flex min-h-0 flex-1 flex-col px-4 w-full overflow-x-hidden">
+              {children}
+            </div>
+          </HomeTodoDetailsFabProvider>
         </SidebarInset>
         
         {/* Bottom Navigation (Mobile) */}

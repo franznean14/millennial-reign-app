@@ -55,8 +55,8 @@ export default function RootLayout({
         <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
       </head>
       <body suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-        {/* FAB portal root, placed first in body for highest paint priority */}
-        <div id="fab-root" />
+        {/* FAB portal: fixed layer above sheets/dialogs; children use pointer-events-auto */}
+        <div id="fab-root" className="pointer-events-none fixed inset-0 z-[99999]" />
         <ThemeInit />
         <SPAProvider>
           <AppChrome>{children}</AppChrome>

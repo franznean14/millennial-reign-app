@@ -2,7 +2,15 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo, useId, type ReactNode } from "react";
 import { motion } from "motion/react";
-import { ListTodo, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, MapPinned, BookOpen } from "lucide-react";
+import {
+  ListTodo,
+  ChevronRight,
+  ChevronLeft,
+  ChevronDown,
+  ChevronUp,
+  MapPinned,
+  BookOpen,
+} from "lucide-react";
 import {
   getMyOpenCallTodos,
   getMyCompletedCallTodos,
@@ -52,6 +60,7 @@ import { cn } from "@/lib/utils";
 import { formatStatusText } from "@/lib/utils/formatters";
 import { Badge } from "@/components/ui/badge";
 import { FormModal } from "@/components/shared/FormModal";
+import { useHomeTodoDetailsFabOptional } from "@/components/home/home-todo-details-fab-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getInitialsFromName } from "@/lib/utils/visit-history-ui";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -317,6 +326,8 @@ interface HomeTodoCardProps {
   }) => void;
   /** When true (home to-do details companion), open scoped to-do list in a left sheet on tablet+ with a single column. */
   preferLeftCompanionDrawer?: boolean;
+  /** When set, only this responsive instance publishes UnifiedFab context (HomeView mounts two cards). */
+  fabBridgeLayout?: "belowXl" | "xlAndUp";
 }
 
 export function HomeTodoCard({
@@ -329,10 +340,10 @@ export function HomeTodoCard({
   onTodoTap,
   onNavigateToTodoCall,
   preferLeftCompanionDrawer = false,
+  fabBridgeLayout,
 }: HomeTodoCardProps) {
   const [openTodos, setOpenTodos] = useState<MyOpenCallTodoItem[]>(() => prefillOpenTodos ?? []);
   const [completedTodos, setCompletedTodos] = useState<MyOpenCallTodoItem[]>(() => prefillCompletedTodos ?? []);
-  const [timeZone, setTimeZone] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerTodoExpanded, setDrawerTodoExpanded] = useState(true);
   const [drawerOpenSectionExpanded, setDrawerOpenSectionExpanded] = useState(true);
@@ -397,6 +408,7 @@ export function HomeTodoCard({
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const isMobile = useMobile();
   const isTodoDetailsSideLayout = useMediaQuery("(min-width: 768px)");
+  const isXlViewport = useMediaQuery("(min-width: 1280px)");
   const userScopeMode =
     userId && !establishmentId && !householderId
       ? (filters.myUpdatesOnly ? "my" : "all")
@@ -664,10 +676,6 @@ export function HomeTodoCard({
   }, [userId, establishmentId, householderId, filters.myUpdatesOnly]);
 
   useEffect(() => {
-    setTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone);
-  }, []);
-
-  useEffect(() => {
     let cancelled = false;
     const loadParticipants = async () => {
       try {
@@ -738,7 +746,8 @@ export function HomeTodoCard({
           establishment: selectedTodoForDetails?.establishment_id
             ? {
                 id: selectedTodoForDetails.establishment_id,
-                name: selectedTodoForDetails.context_establishment_name ?? "",
+                name:
+                  selectedTodoForDetails.context_establishment_name?.trim() || "Establishment",
                 area: selectedTodoForDetails.context_area ?? null,
               }
             : null,
@@ -1910,7 +1919,179 @@ export function HomeTodoCard({
       }
     }
     await refreshTodoDetailEntity();
+    try {
+      window.dispatchEvent(new CustomEvent("business-todos-mutated"));
+      window.dispatchEvent(new CustomEvent("app-business-refresh"));
+    } catch {
+      /* ignore */
+    }
   }, [contactSubdrawerHouseholder?.id, refreshTodoDetailEntity]);
+
+  const broadcastTodosAndBusinessRefresh = useCallback(() => {
+    try {
+      window.dispatchEvent(new CustomEvent("business-todos-mutated"));
+      window.dispatchEvent(new CustomEvent("app-business-refresh"));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  /** Keep the opened to-do row in sync when lists revalidate after save. */
+  useEffect(() => {
+    const selId = selectedTodoForDetails?.id;
+    if (!selId) return;
+    const next = [...openTodos, ...completedTodos].find((t) => t.id === selId);
+    if (!next) return;
+    setSelectedTodoForDetails((prev) => {
+      if (!prev || prev.id !== selId) return prev;
+      const sig = (t: MyOpenCallTodoItem) =>
+        `${t.body}\0${t.is_done}\0${String(t.deadline_date ?? "")}\0${String(t.publisher_id ?? "")}\0${String(t.partner_id ?? "")}\0${String(t.context_name ?? "")}\0${String(t.context_status ?? "")}`;
+      if (sig(prev) === sig(next)) return prev;
+      return next;
+    });
+  }, [openTodos, completedTodos, selectedTodoForDetails?.id]);
+
+  const homeTodoDetailsFabSurface = useMemo<"estMain" | "hhMain" | "contactSub" | null>(() => {
+    if (contactDetailsSubdrawerOpen) return "contactSub";
+    if (!todoDetailsDrawerOpen || !selectedTodoForDetails) return null;
+    return isHouseholderDetail ? "hhMain" : "estMain";
+  }, [
+    contactDetailsSubdrawerOpen,
+    todoDetailsDrawerOpen,
+    selectedTodoForDetails,
+    isHouseholderDetail,
+  ]);
+
+  const homeTodoDetailsFabFormConfig = useMemo(() => {
+    if (!homeTodoDetailsFabSurface) return null;
+    if (homeTodoDetailsFabSurface === "estMain") {
+      if (!selectedEstablishmentDetails?.id) return null;
+      return {
+        establishments: [{ id: selectedEstablishmentDetails.id, name: selectedEstablishmentDetails.name }],
+        selectedEstablishmentId: selectedEstablishmentDetails.id as string,
+      };
+    }
+    if (homeTodoDetailsFabSurface === "hhMain") {
+      const estId =
+        selectedHouseholderEstablishment?.id ??
+        selectedHouseholder?.establishment_id ??
+        selectedTodoForDetails?.establishment_id ??
+        undefined;
+      const estName =
+        selectedHouseholderEstablishment?.name?.trim() ||
+        selectedHouseholder?.establishment_name?.trim() ||
+        selectedTodoForDetails?.context_establishment_name?.trim() ||
+        (estId ? "Establishment" : "");
+      if (!selectedHouseholder?.id || !estId || !estName) return null;
+      return {
+        establishments: [{ id: estId, name: estName }],
+        selectedEstablishmentId: estId,
+        householderId: selectedHouseholder.id,
+        householderName: selectedHouseholder.name,
+        householderStatus: selectedHouseholder.status,
+      };
+    }
+    const est =
+      contactSubdrawerEstablishment?.id != null
+        ? { id: contactSubdrawerEstablishment.id, name: contactSubdrawerEstablishment.name }
+        : selectedEstablishmentDetails?.id != null
+          ? { id: selectedEstablishmentDetails.id, name: selectedEstablishmentDetails.name }
+          : contactSubdrawerHouseholder?.establishment_id
+            ? {
+                id: contactSubdrawerHouseholder.establishment_id,
+                name: contactSubdrawerHouseholder.establishment_name?.trim() || "Establishment",
+              }
+            : null;
+    const hh = contactSubdrawerHouseholder;
+    if (!est?.id || !est.name?.trim() || !hh?.id) return null;
+    return {
+      establishments: [{ id: est.id, name: est.name }],
+      selectedEstablishmentId: est.id,
+      householderId: hh.id,
+      householderName: hh.name,
+      householderStatus: hh.status,
+    };
+  }, [
+    homeTodoDetailsFabSurface,
+    selectedEstablishmentDetails?.id,
+    selectedEstablishmentDetails?.name,
+    selectedHouseholderEstablishment?.id,
+    selectedHouseholderEstablishment?.name,
+    selectedHouseholder?.id,
+    selectedHouseholder?.establishment_id,
+    selectedHouseholder?.establishment_name,
+    selectedHouseholder?.name,
+    selectedHouseholder?.status,
+    selectedTodoForDetails?.establishment_id,
+    selectedTodoForDetails?.context_establishment_name,
+    contactSubdrawerEstablishment,
+    contactSubdrawerHouseholder,
+  ]);
+
+  const afterHomeTodoDetailsQuickCreateSaved = useCallback(async () => {
+    if (contactDetailsSubdrawerOpen && contactSubdrawerHouseholder?.id) {
+      await refreshAfterContactSubdrawerEdit();
+    } else {
+      await refreshTodoDetailEntity();
+      broadcastTodosAndBusinessRefresh();
+    }
+  }, [
+    contactDetailsSubdrawerOpen,
+    contactSubdrawerHouseholder?.id,
+    refreshAfterContactSubdrawerEdit,
+    refreshTodoDetailEntity,
+    broadcastTodosAndBusinessRefresh,
+  ]);
+
+  const homeTodoDetailsFabCtx = useHomeTodoDetailsFabOptional();
+  const setHomeTodoDetailsFabOverride = homeTodoDetailsFabCtx?.setHomeTodoDetailsFabOverride;
+
+  const isMainHomeTodoWidget = Boolean(userId && establishmentId == null && householderId == null);
+  const fabBridgeActiveForViewport =
+    isMainHomeTodoWidget &&
+    fabBridgeLayout != null &&
+    ((fabBridgeLayout === "belowXl" && !isXlViewport) || (fabBridgeLayout === "xlAndUp" && isXlViewport));
+
+  const shouldPublishHomeTodoDetailsFab =
+    homeTodoDetailsFabFormConfig != null &&
+    !detailsEntityEditOpen &&
+    !contactSubdrawerEntityEditOpen &&
+    !(todoEditorUseLeftPanel && todoEditorContext);
+
+  useEffect(() => {
+    if (!setHomeTodoDetailsFabOverride || !fabBridgeActiveForViewport) return;
+
+    if (shouldPublishHomeTodoDetailsFab && homeTodoDetailsFabFormConfig) {
+      setHomeTodoDetailsFabOverride({
+        showNewContact: homeTodoDetailsFabSurface === "estMain",
+        establishments: homeTodoDetailsFabFormConfig.establishments.map((e) => ({
+          id: (e.id ?? homeTodoDetailsFabFormConfig.selectedEstablishmentId) as string,
+          name: e.name,
+        })),
+        selectedEstablishmentId: homeTodoDetailsFabFormConfig.selectedEstablishmentId,
+        householderId: homeTodoDetailsFabFormConfig.householderId,
+        householderName: homeTodoDetailsFabFormConfig.householderName,
+        householderStatus: homeTodoDetailsFabFormConfig.householderStatus,
+        onAfterSave: afterHomeTodoDetailsQuickCreateSaved,
+        stackLeftFormAboveNestedDetails: contactDetailsSubdrawerOpen && isTodoDetailsSideLayout,
+      });
+    } else {
+      setHomeTodoDetailsFabOverride(null);
+    }
+
+    return () => {
+      setHomeTodoDetailsFabOverride(null);
+    };
+  }, [
+    afterHomeTodoDetailsQuickCreateSaved,
+    fabBridgeActiveForViewport,
+    setHomeTodoDetailsFabOverride,
+    homeTodoDetailsFabFormConfig,
+    homeTodoDetailsFabSurface,
+    shouldPublishHomeTodoDetailsFab,
+    contactDetailsSubdrawerOpen,
+    isTodoDetailsSideLayout,
+  ]);
 
   const canDetailSummaryEdit =
     (isTodoDetailsSideLayout || !!onNavigateToTodoCall) &&
@@ -2251,7 +2432,7 @@ export function HomeTodoCard({
           householderStatus={isHouseholderDetail ? selectedHouseholder?.status : undefined}
           isLoading={false}
           onVisitUpdated={() => {
-            // parent snapshots refresh via cache/network flow
+            void refreshTodoDetailEntity().then(() => broadcastTodosAndBusinessRefresh());
           }}
           preferLeftDetailPanel={isTodoDetailsSideLayout}
         />
@@ -2440,7 +2621,6 @@ export function HomeTodoCard({
                   <TodoRow
                     key={todo.id}
                     todo={todo}
-                    timeZone={timeZone}
                     onMarkDone={handleMarkDone}
                     onTap={hasNavigation ? handleTodoTap : undefined}
                     showCheckbox
@@ -2479,7 +2659,6 @@ export function HomeTodoCard({
                   <TodoRow
                     key={todo.id}
                     todo={todo}
-                    timeZone={timeZone}
                     onMarkDone={handleMarkDone}
                     onTap={hasNavigation ? handleTodoTap : undefined}
                     showCheckbox
@@ -2536,7 +2715,6 @@ export function HomeTodoCard({
                   <TodoRow
                     key={todo.id}
                     todo={{ ...todo, is_done: true }}
-                    timeZone={timeZone}
                     onMarkDone={handleMarkDone}
                     onTap={hasNavigation ? handleTodoTap : undefined}
                     showCheckbox
@@ -2578,7 +2756,6 @@ export function HomeTodoCard({
                       <TodoRow
                         key={todo.id}
                         todo={todo}
-                        timeZone={timeZone}
                         onMarkDone={handleMarkDone}
                         onTap={hasNavigation ? handleTodoTap : undefined}
                         showCheckbox
@@ -2611,7 +2788,6 @@ export function HomeTodoCard({
                       <TodoRow
                         key={todo.id}
                         todo={todo}
-                        timeZone={timeZone}
                         onMarkDone={handleMarkDone}
                         onTap={hasNavigation ? handleTodoTap : undefined}
                         showCheckbox
@@ -2662,7 +2838,6 @@ export function HomeTodoCard({
                       <TodoRow
                         key={todo.id}
                         todo={{ ...todo, is_done: true }}
-                        timeZone={timeZone}
                         onMarkDone={handleMarkDone}
                         onTap={hasNavigation ? handleTodoTap : undefined}
                         showCheckbox
@@ -2822,7 +2997,7 @@ export function HomeTodoCard({
           householderStatus={contactSubdrawerHouseholder?.status}
           isLoading={false}
           onVisitUpdated={() => {
-            // parent snapshots refresh via cache/network flow
+            void refreshAfterContactSubdrawerEdit();
           }}
           preferLeftDetailPanel={isTodoDetailsSideLayout}
           insideStackedContactPane={isTodoDetailsSideLayout}
@@ -2860,7 +3035,6 @@ export function HomeTodoCard({
                 <TodoRow
                   key={todo.id}
                   todo={todo}
-                  timeZone={timeZone}
                   onMarkDone={handleMarkDone}
                   onTap={hasNavigation ? handleTodoTap : undefined}
                   showCheckbox
@@ -2894,7 +3068,6 @@ export function HomeTodoCard({
                     <TodoRow
                       key={todo.id}
                       todo={{ ...todo, is_done: true }}
-                      timeZone={timeZone}
                       onMarkDone={handleMarkDone}
                       onTap={hasNavigation ? handleTodoTap : undefined}
                       showCheckbox
@@ -3233,7 +3406,7 @@ export function HomeTodoCard({
                 disableEstablishmentSelect={!!selectedHouseholderEstablishment?.id}
                 onSaved={() => {
                   setDetailsEntityEditOpen(false);
-                  void refreshTodoDetailEntity();
+                  void refreshTodoDetailEntity().then(() => broadcastTodosAndBusinessRefresh());
                 }}
               />
             ) : selectedEstablishmentDetails?.id ? (
@@ -3244,7 +3417,7 @@ export function HomeTodoCard({
                 selectedArea={selectedEstablishmentDetails.area ?? undefined}
                 onSaved={() => {
                   setDetailsEntityEditOpen(false);
-                  void refreshTodoDetailEntity();
+                  void refreshTodoDetailEntity().then(() => broadcastTodosAndBusinessRefresh());
                 }}
               />
             ) : null}
@@ -3282,9 +3455,7 @@ export function HomeTodoCard({
                 onSaved={() => {
                   setTodoEditorContext(null);
                   setTodoEditorUseLeftPanel(false);
-                  try {
-                    window.dispatchEvent(new CustomEvent("business-todos-mutated"));
-                  } catch {}
+                  void refreshTodoDetailEntity().then(() => broadcastTodosAndBusinessRefresh());
                 }}
               />
             </div>
@@ -3313,9 +3484,7 @@ export function HomeTodoCard({
             onSaved={() => {
               setTodoEditorContext(null);
               setTodoEditorUseLeftPanel(false);
-              try {
-                window.dispatchEvent(new CustomEvent("business-todos-mutated"));
-              } catch {}
+              void refreshTodoDetailEntity().then(() => broadcastTodosAndBusinessRefresh());
             }}
           />
         ) : null}
@@ -3553,7 +3722,6 @@ function BulkEditTodoListItem({
 
 function TodoRow({
   todo,
-  timeZone,
   onMarkDone,
   onTap,
   showCheckbox = false,
@@ -3570,7 +3738,6 @@ function TodoRow({
   headerAction,
 }: {
   todo: MyOpenCallTodoItem;
-  timeZone: string | null;
   onMarkDone: (todo: MyOpenCallTodoItem, checked: boolean) => void;
   onTap?: (todo: MyOpenCallTodoItem) => void;
   showCheckbox?: boolean;

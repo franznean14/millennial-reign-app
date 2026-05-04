@@ -5,6 +5,25 @@ import { Drawer as DrawerPrimitive } from "vaul";
 import { cn } from "@/lib/utils";
 import { useVisualViewport } from "@/lib/hooks/use-visual-viewport";
 
+const FAB_ROOT_SELECTOR = "#fab-root";
+
+type DrawerContentPointerDownOutside = NonNullable<
+  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content>["onPointerDownOutside"]
+>;
+
+/** FAB portals to `#fab-root`; without this, modal drawers treat FAB taps as outside-dismiss. */
+function mergePointerDownOutsideForFabRoot(
+  userHandler: DrawerContentPointerDownOutside | undefined
+): DrawerContentPointerDownOutside {
+  return (event) => {
+    const target = event.target as HTMLElement | null;
+    if (target?.closest?.(FAB_ROOT_SELECTOR)) {
+      event.preventDefault();
+    }
+    userHandler?.(event);
+  };
+}
+
 export function Drawer({ ...props }: React.ComponentProps<typeof DrawerPrimitive.Root>) {
   return <DrawerPrimitive.Root {...props} />;
 }
@@ -64,7 +83,7 @@ export const DrawerContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content> & {
     overlayClassName?: string;
   }
->(({ className, overlayClassName, children, ...props }, ref) => {
+>(({ className, overlayClassName, children, onPointerDownOutside, ...props }, ref) => {
   const visualViewport = useVisualViewport();
   
   // Check if this is a nested drawer (time picker) that needs to be taller
@@ -122,6 +141,7 @@ export const DrawerContent = React.forwardRef<
         )}
         style={dynamicStyles}
         {...props}
+        onPointerDownOutside={mergePointerDownOutsideForFabRoot(onPointerDownOutside)}
       >
         <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />
         <div 
@@ -149,7 +169,7 @@ export const DrawerThinRightContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content> & {
     overlayClassName?: string;
   }
->(({ className, overlayClassName, children, ...props }, ref) => (
+>(({ className, overlayClassName, children, onPointerDownOutside, ...props }, ref) => (
   <DrawerPortal>
     <DrawerOverlay className={cn("z-[100]", overlayClassName)} />
     <DrawerPrimitive.Content
@@ -159,6 +179,7 @@ export const DrawerThinRightContent = React.forwardRef<
         className
       )}
       {...props}
+      onPointerDownOutside={mergePointerDownOutsideForFabRoot(onPointerDownOutside)}
     >
       {children}
     </DrawerPrimitive.Content>
@@ -186,7 +207,7 @@ export const DrawerWideRightContent = React.forwardRef<
      */
     stackAboveDetailsSheet?: boolean;
   }
->(({ className, overlayClassName, stackAboveDetailsSheet, children, style, ...props }, ref) => {
+>(({ className, overlayClassName, stackAboveDetailsSheet, children, style, onPointerDownOutside, ...props }, ref) => {
   const stackStyle = stackAboveDetailsSheet ? ({ zIndex: RIGHT_SHEET_STACK_ABOVE_Z } as React.CSSProperties) : undefined;
   return (
     <DrawerPortal>
@@ -199,6 +220,7 @@ export const DrawerWideRightContent = React.forwardRef<
         )}
         style={{ ...stackStyle, ...(style && typeof style === "object" ? style : {}) }}
         {...props}
+        onPointerDownOutside={mergePointerDownOutsideForFabRoot(onPointerDownOutside)}
       >
         {children}
       </DrawerPrimitive.Content>
@@ -216,7 +238,7 @@ export const DrawerWideLeftContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content> & {
     overlayClassName?: string;
   }
->(({ className, overlayClassName, children, ...props }, ref) => (
+>(({ className, overlayClassName, children, onPointerDownOutside, ...props }, ref) => (
   <DrawerPortal>
     <DrawerOverlay className={cn("z-[102]", overlayClassName)} />
     <DrawerPrimitive.Content
@@ -226,6 +248,7 @@ export const DrawerWideLeftContent = React.forwardRef<
         className
       )}
       {...props}
+      onPointerDownOutside={mergePointerDownOutsideForFabRoot(onPointerDownOutside)}
     >
       {children}
     </DrawerPrimitive.Content>
@@ -247,7 +270,7 @@ export const DrawerWideLeftContentTop = React.forwardRef<
      */
     stackAboveStackedRightSheet?: boolean;
   }
->(({ className, overlayClassName, stackAboveStackedRightSheet, children, style, ...props }, ref) => {
+>(({ className, overlayClassName, stackAboveStackedRightSheet, children, style, onPointerDownOutside, ...props }, ref) => {
   const stackStyle = stackAboveStackedRightSheet
     ? ({ zIndex: LEFT_SHEET_STACK_ABOVE_STACKED_RIGHT_Z } as React.CSSProperties)
     : undefined;
@@ -262,6 +285,7 @@ export const DrawerWideLeftContentTop = React.forwardRef<
         )}
         {...props}
         style={{ ...stackStyle, ...(style && typeof style === "object" ? style : {}) }}
+        onPointerDownOutside={mergePointerDownOutsideForFabRoot(onPointerDownOutside)}
       >
         {children}
       </DrawerPrimitive.Content>

@@ -616,6 +616,19 @@ export function TodoForm({
                   const ok = await deleteCallTodo(initialTodo.id);
                   if (ok) {
                     toast.success("To-do deleted.");
+                    try {
+                      window.dispatchEvent(
+                        new CustomEvent("business-todos-mutated", {
+                          detail: { kind: "delete", todoId: initialTodo.id } satisfies {
+                            kind: "delete";
+                            todoId: string;
+                          },
+                        })
+                      );
+                      window.dispatchEvent(new CustomEvent("app-business-refresh"));
+                    } catch {
+                      /* ignore */
+                    }
                     onSaved();
                   } else {
                     toast.error("Failed to delete to-do");

@@ -13,6 +13,7 @@ import { EventScheduleForm } from "@/components/congregation/EventScheduleForm";
 import { AddUserToCongregationForm } from "@/components/congregation/AddUserToCongregationForm";
 import { Plus, X, UserPlus, FilePlus2, Building2, Calendar, ListTodo } from "lucide-react";
 import type { EstablishmentWithDetails, HouseholderWithDetails } from "@/lib/db/business";
+import { useHomeTodoDetailsFabOptional } from "@/components/home/home-todo-details-fab-context";
 
 type BusinessTab = "establishments" | "householders" | "map";
 type CongregationTab = "meetings" | "ministry" | "admin";
@@ -65,6 +66,8 @@ export function UnifiedFab({
 }: UnifiedFabProps) {
   const [openKey, setOpenKey] = useState<FabActionKey>(null);
   const [bulkTodoKind, setBulkTodoKind] = useState<"new" | "edit" | "mixed">("new");
+  const homeFabBridge = useHomeTodoDetailsFabOptional();
+  const homeDetailsFab = homeFabBridge?.override ?? null;
 
   const getDraftBulkTodoKind = (): "new" | "edit" | "mixed" => {
     try {
@@ -106,6 +109,19 @@ export function UnifiedFab({
   const showEstablishmentForm = !selectedEstablishment && !selectedHouseholder && businessTab === "establishments";
   const showHouseholderForm = !selectedEstablishment && !selectedHouseholder && businessTab === "householders";
   const showVisitForm = !!selectedEstablishment || !!selectedHouseholder;
+
+  const fabEstablishmentsForForms: EstablishmentWithDetails[] | Array<{ id?: string; name: string }> =
+    homeDetailsFab?.establishments ?? establishments;
+  const fabSelectedEstId = homeDetailsFab?.selectedEstablishmentId ?? businessEstablishmentId;
+  const fabHouseholderId = homeDetailsFab?.householderId ?? selectedHouseholder?.id;
+  const fabHouseholderName = homeDetailsFab?.householderName ?? selectedHouseholder?.name;
+  const fabHouseholderStatus = homeDetailsFab?.householderStatus ?? selectedHouseholder?.status;
+  const fabLockEstablishment = showExpandableButtons || !!homeDetailsFab;
+
+  const closeBusinessFabForm = () => {
+    setOpenKey(null);
+    void homeDetailsFab?.onAfterSave();
+  };
 
   const canManageCongregation = isElder || isAdmin;
   const isCongregationAdminTab = congregationTab === "admin" && isElder;
@@ -150,7 +166,21 @@ export function UnifiedFab({
     }
 
     if (currentSection === "home") {
-      items.push({ key: "field-service", label: "Field Service", icon: <FilePlus2 className="size-6" /> });
+      if (homeDetailsFab) {
+        items.push(
+          { key: "business-visit", label: "New Call", icon: <FilePlus2 className="size-6" /> },
+          { key: "business-todo", label: "New To-Do", icon: <ListTodo className="size-6" /> }
+        );
+        if (homeDetailsFab.showNewContact) {
+          items.push({
+            key: "business-householder",
+            label: "New Contact",
+            icon: <UserPlus className="size-6" />,
+          });
+        }
+      } else {
+        items.push({ key: "field-service", label: "Field Service", icon: <FilePlus2 className="size-6" /> });
+      }
     }
 
     return items;
@@ -158,6 +188,7 @@ export function UnifiedFab({
     businessTab,
     canManageCongregation,
     currentSection,
+    homeDetailsFab,
     isElder,
     isCongregationAdminTab,
     isCongregationDetails,
@@ -211,13 +242,15 @@ export function UnifiedFab({
         onOpenChange={(open) => setOpenKey(open ? "business-householder" : null)}
         title="New Contact"
         description="Add a contact for an establishment."
-        headerClassName="text-center"
+        headerClassName={homeDetailsFab ? undefined : "text-center"}
+        desktopPresentation={homeDetailsFab ? "left-sheet" : "auto"}
+        leftSheetStackAboveNestedRight={homeDetailsFab?.stackLeftFormAboveNestedDetails ?? false}
       >
         <HouseholderForm
-          establishments={establishments}
-          selectedEstablishmentId={businessEstablishmentId}
-          onSaved={() => setOpenKey(null)}
-          disableEstablishmentSelect={showExpandableButtons}
+          establishments={fabEstablishmentsForForms}
+          selectedEstablishmentId={fabSelectedEstId}
+          onSaved={closeBusinessFabForm}
+          disableEstablishmentSelect={fabLockEstablishment}
         />
       </FormModal>
 
@@ -225,16 +258,18 @@ export function UnifiedFab({
         open={openKey === "business-visit"}
         onOpenChange={(open) => setOpenKey(open ? "business-visit" : null)}
         title="New Call"
-        headerClassName="text-center"
+        headerClassName={homeDetailsFab ? undefined : "text-center"}
+        desktopPresentation={homeDetailsFab ? "left-sheet" : "auto"}
+        leftSheetStackAboveNestedRight={homeDetailsFab?.stackLeftFormAboveNestedDetails ?? false}
       >
         <VisitForm
-          establishments={establishments}
-          selectedEstablishmentId={businessEstablishmentId}
-          householderId={selectedHouseholder?.id}
-          householderName={selectedHouseholder?.name}
-          householderStatus={selectedHouseholder?.status}
-          onSaved={() => setOpenKey(null)}
-          disableEstablishmentSelect={showExpandableButtons}
+          establishments={fabEstablishmentsForForms as EstablishmentWithDetails[]}
+          selectedEstablishmentId={fabSelectedEstId}
+          householderId={fabHouseholderId}
+          householderName={fabHouseholderName}
+          householderStatus={fabHouseholderStatus}
+          onSaved={closeBusinessFabForm}
+          disableEstablishmentSelect={fabLockEstablishment}
         />
       </FormModal>
 
@@ -242,15 +277,17 @@ export function UnifiedFab({
         open={openKey === "business-todo"}
         onOpenChange={(open) => setOpenKey(open ? "business-todo" : null)}
         title="New To-Do"
-        headerClassName="text-center"
+        headerClassName={homeDetailsFab ? undefined : "text-center"}
+        desktopPresentation={homeDetailsFab ? "left-sheet" : "auto"}
+        leftSheetStackAboveNestedRight={homeDetailsFab?.stackLeftFormAboveNestedDetails ?? false}
       >
         <TodoForm
-          establishments={establishments as Array<{ id?: string; name: string }>}
-          selectedEstablishmentId={businessEstablishmentId}
-          householderId={selectedHouseholder?.id}
-          householderName={selectedHouseholder?.name}
-          onSaved={() => setOpenKey(null)}
-          disableEstablishmentSelect={showExpandableButtons}
+          establishments={fabEstablishmentsForForms as Array<{ id?: string; name: string }>}
+          selectedEstablishmentId={fabSelectedEstId}
+          householderId={fabHouseholderId}
+          householderName={fabHouseholderName}
+          onSaved={closeBusinessFabForm}
+          disableEstablishmentSelect={fabLockEstablishment}
         />
       </FormModal>
 

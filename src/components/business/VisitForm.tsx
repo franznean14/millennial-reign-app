@@ -25,15 +25,22 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getBestStatus } from "@/lib/utils/status-hierarchy";
 import { getInitialsFromName } from "@/lib/utils/visit-history-ui";
 import { cn } from "@/lib/utils";
-import { useMobile } from "@/lib/hooks/use-mobile";
 
 const PARTICIPANTS_CACHE_KEY = "business:participants:local:v1";
 const GUEST_NAMES_CACHE_KEY = "business:guest-names:local:v1";
 
+/** Minimal establishment shape for selects and filter matching (includes full BWI rows). */
+export type VisitFormEstablishment = {
+  id?: string;
+  name: string;
+  area?: string | null;
+  statuses?: string[] | null;
+};
+
 interface VisitFormProps {
-  establishments: any[];
+  establishments: VisitFormEstablishment[];
   selectedEstablishmentId?: string;
-  onSaved: (newVisit?: any) => void;
+  onSaved: (newVisit?: unknown) => void;
   initialVisit?: {
     id: string;
     establishment_id?: string | null;
@@ -59,7 +66,6 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
     selectedEstablishmentId || initialVisit?.establishment_id || establishments[0]?.id || "none"
   );
   const [householderEstablishmentId, setHouseholderEstablishmentId] = useState<string | null>(null);
-  const isMobile = useMobile();
 
   // Fetch householder's establishment_id when householderId is provided or when editing a visit with householder_id
   useEffect(() => {
@@ -175,7 +181,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
       if (typeof window === "undefined") return;
       const raw = window.localStorage.getItem("business:filters:establishments");
       if (!raw) return;
-      const filters = JSON.parse(raw) as any;
+      const filters = JSON.parse(raw) as { areas?: string[] };
       if (filters && Array.isArray(filters.areas) && filters.areas.length > 0) {
         const area = filters.areas[0];
         const match = establishments.find(e => e.area === area);
@@ -298,7 +304,6 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
             partner_id: payload.partner_id ?? null,
           });
           toast.success("Call updated.");
-          onSaved({ id: initialVisit.id, ...payload });
           const publisher = payload.publisher_id ? participants.find(p => p.id === payload.publisher_id) : undefined;
           const partner = payload.partner_id ? participants.find(p => p.id === payload.partner_id) : undefined;
           businessEventBus.emit('visit-updated', {
@@ -307,71 +312,78 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
             publisher: publisher ? { id: publisher.id, first_name: publisher.first_name, last_name: publisher.last_name, avatar_url: publisher.avatar_url } : undefined,
             partner: partner ? { id: partner.id, first_name: partner.first_name, last_name: partner.last_name, avatar_url: partner.avatar_url } : undefined,
           });
+          onSaved({ id: initialVisit.id, ...payload });
         } else {
           toast.error("Failed to update call");
         }
       } else {
-        // Create mode: background add
-        onSaved();
-        addVisit(payload)
-          .then(async (created) => {
-            if (created && created.id) {
-              for (const t of todos) {
-                await addCallTodo(created.id, t.body, t.is_done, {
-                  deadline_date: t.deadline_date ?? null,
-                  publisher_id: created.publisher_id ?? null,
-                  partner_id: created.partner_id ?? null,
-                });
-              }
-              const publisher = created.publisher_id ? participants.find(p => p.id === created.publisher_id) : undefined;
-              const partner = created.partner_id ? participants.find(p => p.id === created.partner_id) : undefined;
+        const created = await addVisit(payload);
+        if (created && created.id) {
+          for (const t of todos) {
+            await addCallTodo(created.id, t.body, t.is_done, {
+              deadline_date: t.deadline_date ?? null,
+              publisher_id: created.publisher_id ?? null,
+              partner_id: created.partner_id ?? null,
+            });
+          }
+          const publisher = created.publisher_id ? participants.find(p => p.id === created.publisher_id) : undefined;
+          const partner = created.partner_id ? participants.find(p => p.id === created.partner_id) : undefined;
 
-              const newVisit = {
-                id: created.id,
-                establishment_id: created.establishment_id || (estId === "none" ? undefined : estId),
-                householder_id: created.householder_id || householderId,
-                note: created.note || null,
-                visit_date: created.visit_date!,
-                publisher_id: created.publisher_id ?? undefined,
-                partner_id: created.partner_id ?? undefined,
-                publisher_guest_name: created.publisher_guest_name ?? undefined,
-                partner_guest_name: created.partner_guest_name ?? undefined,
-                publisher: publisher ? {
+          const newVisit = {
+            id: created.id,
+            establishment_id: created.establishment_id || (estId === "none" ? undefined : estId),
+            householder_id: created.householder_id || householderId,
+            note: created.note || null,
+            visit_date: created.visit_date!,
+            publisher_id: created.publisher_id ?? undefined,
+            partner_id: created.partner_id ?? undefined,
+            publisher_guest_name: created.publisher_guest_name ?? undefined,
+            partner_guest_name: created.partner_guest_name ?? undefined,
+            publisher: publisher
+              ? {
                   id: publisher.id,
                   first_name: publisher.first_name,
                   last_name: publisher.last_name,
                   avatar_url: publisher.avatar_url,
-                } : undefined,
-                partner: partner ? {
+                }
+              : undefined,
+            partner: partner
+              ? {
                   id: partner.id,
                   first_name: partner.first_name,
                   last_name: partner.last_name,
                   avatar_url: partner.avatar_url,
-                } : undefined,
-                // Add establishment relationship if available
-                establishment: estId && estId !== "none" ? establishments.find(e => e.id === estId) ? {
-                  id: estId,
-                  name: establishments.find(e => e.id === estId)!.name,
-                  status: getBestStatus(establishments.find(e => e.id === estId)!.statuses || []) || 'for_scouting'
-                } : undefined : undefined,
-                // Add householder relationship if available
-                householder: householderId && householderName ? {
-                  id: householderId,
-                  name: householderName,
-                  status: householderStatus || 'potential'
-                } : undefined,
-              } as any;
-              
-              businessEventBus.emit('visit-added', newVisit);
-              toast.success("Call recorded successfully!");
-            } else {
-              toast.error("Failed to record call");
-            }
-          })
-          .catch((e) => {
-            console.error('addVisit error', e);
-            toast.error("Error recording call");
-          });
+                }
+              : undefined,
+            establishment:
+              estId && estId !== "none" && establishments.find(e => e.id === estId)
+                ? {
+                    id: estId,
+                    name: establishments.find(e => e.id === estId)!.name,
+                    status: getBestStatus(establishments.find(e => e.id === estId)!.statuses || []) || "for_scouting",
+                  }
+                : undefined,
+            householder:
+              householderId && householderName
+                ? {
+                    id: householderId,
+                    name: householderName,
+                    status: householderStatus || "potential",
+                  }
+                : undefined,
+          };
+
+          businessEventBus.emit("visit-added", newVisit);
+          toast.success("Call recorded successfully!");
+          try {
+            window.dispatchEvent(new CustomEvent("business-todos-mutated"));
+          } catch {
+            /* ignore */
+          }
+          onSaved();
+        } else {
+          toast.error("Failed to record call");
+        }
       }
     } catch (error) {
       toast.error("Error saving call");
@@ -513,8 +525,17 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
     setEditingTodoDraft("");
     if (item.id) {
       const ok = await deleteCallTodo(item.id);
-      if (ok) setTodos((prev) => prev.filter((t) => t.id !== item.id));
-      else toast.error("Failed to remove to-do");
+      if (ok) {
+        setTodos((prev) => prev.filter((t) => t.id !== item.id));
+        try {
+          window.dispatchEvent(
+            new CustomEvent("business-todos-mutated", { detail: { kind: "delete", todoId: item.id } })
+          );
+          window.dispatchEvent(new CustomEvent("app-business-refresh"));
+        } catch {
+          /* ignore */
+        }
+      } else toast.error("Failed to remove to-do");
     } else {
       setTodos((prev) => prev.filter((t) => t !== item));
     }
@@ -889,6 +910,12 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
                           const ok = await deleteVisit(initialVisit.id);
                           if (ok) {
                             businessEventBus.emit("visit-deleted", { id: initialVisit.id });
+                            try {
+                              window.dispatchEvent(new CustomEvent("business-todos-mutated"));
+                              window.dispatchEvent(new CustomEvent("app-business-refresh"));
+                            } catch {
+                              /* ignore */
+                            }
                             toast.success("Visit deleted");
                             setShowDeleteConfirm(false);
                             onSaved();
