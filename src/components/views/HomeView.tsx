@@ -102,6 +102,7 @@ export function HomeView({
                 onNavigateToBusinessWithStatus={onNavigateToBusinessWithStatus}
                 bwiAreaFilter={bwiAreaFilter}
                 onBwiAreaChange={onBwiAreaChange}
+                fabBridgeLayout="belowXl"
               />
             </div>
           ) : null}
@@ -139,6 +140,7 @@ export function HomeView({
                 onNavigateToBusinessWithStatus={onNavigateToBusinessWithStatus}
                 bwiAreaFilter={bwiAreaFilter}
                 onBwiAreaChange={onBwiAreaChange}
+                fabBridgeLayout="xlAndUp"
               />
             </div>
           ) : null}

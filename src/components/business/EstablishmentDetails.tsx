@@ -30,9 +30,10 @@ import {
   DrawerTitle,
   DrawerFooter,
   DrawerTrigger,
+  DrawerWideLeftContentTop,
 } from "@/components/ui/drawer";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { EstablishmentForm } from "@/components/business/EstablishmentForm";
-import { VisitForm } from "@/components/business/VisitForm";
 import { TodoForm } from "@/components/business/TodoForm";
 import { getBwiParticipants } from "@/lib/db/business";
 import { VisitUpdatesSection } from "@/components/business/VisitUpdatesSection";
@@ -45,6 +46,10 @@ interface EstablishmentDetailsProps {
   onBackClick: () => void;
   onEstablishmentUpdated?: (establishment: EstablishmentWithDetails) => void;
   onHouseholderClick?: (householder: HouseholderWithDetails) => void;
+  /** When set (e.g. home calls / to-do tablet stack), summary edit opens the parent left sheet instead of FormModal. */
+  onRequestSummaryEdit?: () => void;
+  /** Tablet+: visit list + edit to-do use left sheets (not centered modals) while nested in a right details drawer. */
+  preferLeftDetailPanel?: boolean;
   publisherId?: string | null;
   isLoading?: boolean;
   canManagePersonalTerritoryOwner?: boolean;
@@ -86,6 +91,8 @@ export function EstablishmentDetails({
   onBackClick,
   onEstablishmentUpdated,
   onHouseholderClick,
+  onRequestSummaryEdit,
+  preferLeftDetailPanel = false,
   publisherId,
   isLoading = false,
   canManagePersonalTerritoryOwner = false,
@@ -104,8 +111,9 @@ export function EstablishmentDetails({
   const [isEditing, setIsEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [archiving, setArchiving] = useState(false);
-  const [editVisit, setEditVisit] = useState<{ id: string; establishment_id?: string | null; householder_id?: string | null; note?: string | null; publisher_id?: string | null; partner_id?: string | null; visit_date?: string } | null>(null);
   const [editTodo, setEditTodo] = useState<TodoEditorItem | null>(null);
+  const isMdUp = useMediaQuery("(min-width: 768px)");
+  const useLeftDetailPanels = Boolean(preferLeftDetailPanel && isMdUp);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
   const [showAddConfirm, setShowAddConfirm] = useState(false);
   const [showMinusButton, setShowMinusButton] = useState(false);
@@ -208,16 +216,21 @@ export function EstablishmentDetails({
     setTerritoryOwnerSlots((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
+  const openSummaryEditor = useCallback(() => {
+    if (onRequestSummaryEdit) onRequestSummaryEdit();
+    else setIsEditing(true);
+  }, [onRequestSummaryEdit]);
+
   // Listen for edit trigger from header
   useEffect(() => {
     const handleEditTrigger = () => {
-      setIsEditing(true);
+      openSummaryEditor();
     };
     window.addEventListener('trigger-edit-details', handleEditTrigger);
     return () => {
       window.removeEventListener('trigger-edit-details', handleEditTrigger);
     };
-  }, []);
+  }, [openSummaryEditor]);
 
   // Primary status by hierarchy for consistent coloring
   const primaryStatus = getBestStatus(establishment.statuses || []);
@@ -370,12 +383,12 @@ export function EstablishmentDetails({
             const wasMinusVisibleAtTapStart = minusActiveOnPointerDownRef.current;
             minusActiveOnPointerDownRef.current = false;
             if (wasMinusVisibleAtTapStart) return;
-            if (!showMinusButton) setIsEditing(true);
+            if (!showMinusButton) openSummaryEditor();
           }}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              if (!showMinusButton) setIsEditing(true);
+              if (!showMinusButton) openSummaryEditor();
             }
           }}
           className={cn("w-full cursor-pointer transition-colors hover:bg-muted/30", detailsCardSurfaceClass)}
@@ -457,7 +470,7 @@ export function EstablishmentDetails({
                     aria-label="Set location"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setIsEditing(true);
+                      openSummaryEditor();
                     }}
                   >
                     <MapPinned className="h-4 w-4" />
@@ -833,6 +846,7 @@ export function EstablishmentDetails({
           establishments={[{ id: establishment.id, name: establishment.name }]}
           selectedEstablishmentId={establishment.id}
           isLoading={isLoading}
+          preferLeftDetailPanel={preferLeftDetailPanel}
           onVisitUpdated={() => {
             // Visit updates will be handled by the parent component's data refresh
           }}
@@ -911,6 +925,7 @@ export function EstablishmentDetails({
         </Card>
       </motion.div>
 
+      {onRequestSummaryEdit ? null : (
       <FormModal
         open={isEditing}
         onOpenChange={setIsEditing}
@@ -928,44 +943,54 @@ export function EstablishmentDetails({
                 isEditing={true}
               />
       </FormModal>
+      )}
 
-      <FormModal
-        open={!!editVisit}
-        onOpenChange={(open) => {
-          if (!open) {
-            setEditVisit(null);
-          }
-        }}
-        title="Edit Call"
-        headerClassName="text-center"
-      >
-              {editVisit && (
-                <VisitForm
+      {editTodo ? (
+        useLeftDetailPanels ? (
+          <Drawer
+            open={!!editTodo}
+            onOpenChange={(open) => {
+              if (!open) setEditTodo(null);
+            }}
+            direction="left"
+            modal
+            nested
+            shouldScaleBackground={false}
+          >
+            <DrawerWideLeftContentTop stackAboveStackedRightSheet>
+              <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left">
+                <DrawerTitle className="text-lg font-bold">Edit To-Do</DrawerTitle>
+              </DrawerHeader>
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
+                <TodoForm
                   establishments={[{ id: establishment.id, name: establishment.name }]}
                   selectedEstablishmentId={establishment.id}
-                  initialVisit={editVisit}
+                  initialTodo={editTodo}
+                  onSaved={() => setEditTodo(null)}
                   disableEstablishmentSelect
-                  onSaved={() => setEditVisit(null)}
                 />
-              )}
-      </FormModal>
-
-      <FormModal
-        open={!!editTodo}
-        onOpenChange={(open) => {
-          if (!open) setEditTodo(null);
-        }}
-        title="Edit To-Do"
-        headerClassName="text-center"
-      >
-        <TodoForm
-          establishments={[{ id: establishment.id, name: establishment.name }]}
-          selectedEstablishmentId={establishment.id}
-          initialTodo={editTodo}
-          onSaved={() => setEditTodo(null)}
-          disableEstablishmentSelect
-        />
-      </FormModal>
+              </div>
+            </DrawerWideLeftContentTop>
+          </Drawer>
+        ) : (
+          <FormModal
+            open={!!editTodo}
+            onOpenChange={(open) => {
+              if (!open) setEditTodo(null);
+            }}
+            title="Edit To-Do"
+            headerClassName="text-center"
+          >
+            <TodoForm
+              establishments={[{ id: establishment.id, name: establishment.name }]}
+              selectedEstablishmentId={establishment.id}
+              initialTodo={editTodo}
+              onSaved={() => setEditTodo(null)}
+              disableEstablishmentSelect
+            />
+          </FormModal>
+        )
+      ) : null}
     </div>
   );
 }

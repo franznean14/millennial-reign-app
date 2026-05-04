@@ -25,6 +25,19 @@ interface UseBwiVisitHistoryOptions {
   pageSize?: number;
 }
 
+interface VisitAddedBusPayload {
+  id: string | number;
+  visit_date?: string;
+  establishment_id?: string;
+  householder_id?: string | null;
+  note?: string;
+  publisher_id?: string;
+  establishment?: { name?: string; status?: string };
+  householder?: { name?: string; status?: string };
+  publisher?: { first_name?: string; last_name?: string; avatar_url?: string | null };
+  partner?: { first_name?: string; last_name?: string; avatar_url?: string | null };
+}
+
 export function useBwiVisitHistory({
   userId,
   recentLimit = 5,
@@ -47,20 +60,24 @@ export function useBwiVisitHistory({
     householderOnly: false
   });
 
-  const loadInitialVisits = useCallback(async (forceRefresh = false) => {
+  const loadInitialVisits = useCallback(
+    async (forceRefresh = false, options?: { suppressLoading?: boolean }) => {
       if (!userId) return;
-      setLoading(true);
+      const suppressLoading = options?.suppressLoading ?? false;
+      if (!suppressLoading) setLoading(true);
       try {
-      const sortedVisits = await getRecentBwiVisits(recentLimit, forceRefresh);
+        const sortedVisits = await getRecentBwiVisits(recentLimit, forceRefresh);
         setVisits(sortedVisits);
         // Seed full-list state so Calls drawer opens with immediate rows.
         setAllVisitsRaw((prev) => (prev.length > 0 ? prev : sortedVisits));
       } catch (error) {
         console.error("Error loading visit history:", error);
       } finally {
-        setLoading(false);
+        if (!suppressLoading) setLoading(false);
       }
-  }, [userId, recentLimit]);
+    },
+    [userId, recentLimit]
+  );
 
   const loadAllVisits = useCallback(
     async (offset = 0, forceRefresh = false) => {
@@ -97,7 +114,7 @@ export function useBwiVisitHistory({
 
   // Listen for visit updates to refresh the list
   useEffect(() => {
-    const handleVisitAdded = async (visitData: any) => {
+    const handleVisitAdded = async (raw: unknown) => {
       // Clear cache first to ensure fresh data
       await cacheDelete("bwi-visits-all-v2");
       // Clear all paginated cache entries
@@ -106,31 +123,34 @@ export function useBwiVisitHistory({
       }
       
       // Optimistically add the new visit if we have the data
-      if (visitData && visitData.visit_date) {
-        const newVisitRecord: VisitRecord = {
-          id: visitData.householder_id ? `hh-${visitData.id}` : `est-${visitData.id}`,
-          visit_date: visitData.visit_date,
-          establishment_name: visitData.establishment?.name,
-          householder_name: visitData.householder?.name,
-          householder_status: visitData.householder?.status,
-          visit_type: visitData.householder_id ? "householder" : "establishment",
-          establishment_id: visitData.establishment_id,
-          householder_id: visitData.householder_id,
-          establishment_status: visitData.establishment?.status,
-          notes: visitData.note,
-          created_at: new Date().toISOString(),
-          publisher_id: visitData.publisher_id,
-          publisher: visitData.publisher ? {
-            first_name: visitData.publisher.first_name,
-            last_name: visitData.publisher.last_name,
-            avatar_url: visitData.publisher.avatar_url
-          } : undefined,
-          partner: visitData.partner ? {
-            first_name: visitData.partner.first_name,
-            last_name: visitData.partner.last_name,
-            avatar_url: visitData.partner.avatar_url
-          } : undefined
-        };
+      if (raw && typeof raw === "object" && "visit_date" in raw) {
+        const visitData = raw as VisitAddedBusPayload;
+        if (visitData.visit_date) {
+          const idStr = String(visitData.id);
+          const newVisitRecord: VisitRecord = {
+            id: visitData.householder_id ? `hh-${idStr}` : `est-${idStr}`,
+            visit_date: visitData.visit_date,
+            establishment_name: visitData.establishment?.name,
+            householder_name: visitData.householder?.name,
+            householder_status: visitData.householder?.status,
+            visit_type: visitData.householder_id ? "householder" : "establishment",
+            establishment_id: visitData.establishment_id,
+            householder_id: visitData.householder_id ?? undefined,
+            establishment_status: visitData.establishment?.status,
+            notes: visitData.note,
+            created_at: new Date().toISOString(),
+            publisher_id: visitData.publisher_id,
+            publisher: visitData.publisher ? {
+              first_name: visitData.publisher.first_name,
+              last_name: visitData.publisher.last_name,
+              avatar_url: visitData.publisher.avatar_url
+            } : undefined,
+            partner: visitData.partner ? {
+              first_name: visitData.partner.first_name,
+              last_name: visitData.partner.last_name,
+              avatar_url: visitData.partner.avatar_url
+            } : undefined
+          };
         
         // Optimistically update the lists
         setVisits((prev) => {
@@ -142,10 +162,10 @@ export function useBwiVisitHistory({
           const combined = dedupeAndSortVisits([newVisitRecord, ...prev]);
           return combined;
         });
+        }
       }
-      
-      // Then refresh from server to ensure consistency
-      loadInitialVisits(true);
+
+      loadInitialVisits(true, { suppressLoading: true });
       // If full list is already loaded, refresh it too
       if (allVisitsRaw.length > 0) {
         loadAllVisits(0, true);
@@ -160,7 +180,7 @@ export function useBwiVisitHistory({
         await cacheDelete(`bwi-all-visits-v2-${userId ?? "all"}-${i * 20}`);
       }
       // Refresh recent visits preview
-      loadInitialVisits(true);
+      loadInitialVisits(true, { suppressLoading: true });
       // If full list is already loaded, refresh it too
       if (allVisitsRaw.length > 0) {
         loadAllVisits(0, true);
@@ -194,7 +214,7 @@ export function useBwiVisitHistory({
       });
 
       // Then refresh from server to ensure consistency
-      loadInitialVisits(true);
+      loadInitialVisits(true, { suppressLoading: true });
       // If full list is already loaded, refresh it too
       if (allVisitsRaw.length > 0) {
         loadAllVisits(0, true);

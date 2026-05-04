@@ -67,7 +67,8 @@ export function UnifiedFab({
   const [openKey, setOpenKey] = useState<FabActionKey>(null);
   const [bulkTodoKind, setBulkTodoKind] = useState<"new" | "edit" | "mixed">("new");
   const homeFabBridge = useHomeTodoDetailsFabOptional();
-  const homeDetailsFab = homeFabBridge?.override ?? null;
+  const homeDetailsFab =
+    homeFabBridge?.callsHistoryFabOverride ?? homeFabBridge?.todoDetailsFabOverride ?? null;
 
   const getDraftBulkTodoKind = (): "new" | "edit" | "mixed" => {
     try {

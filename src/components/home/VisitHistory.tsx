@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { formatVisitDateCompact, visitDayKey } from "@/lib/utils/visit-history-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FormModal } from "@/components/shared/FormModal";
-import { Building2, ChevronRight, DoorOpen, ListTodo, UserRound } from "lucide-react";
+import { Building2, ChevronLeft, ChevronRight, DoorOpen, ListTodo, UserRound } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { getTimelineLineStyle } from "@/lib/utils/visit-timeline";
 import type { VisitRecord } from "@/lib/utils/visit-history";
@@ -19,7 +19,6 @@ import { VisitRowContent } from "@/components/visit/VisitRowContent";
 import { VisitStatusBadge } from "@/components/visit/VisitStatusBadge";
 import { cn } from "@/lib/utils";
 import { getVisitSearchText } from "@/lib/utils/visit-history-ui";
-import { useMemo } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   getEstablishmentDetails,
@@ -29,18 +28,22 @@ import {
   listHouseholders,
   type EstablishmentWithDetails,
   type HouseholderWithDetails,
+  type HouseholderStatus,
   type MyOpenCallTodoItem,
   type VisitWithUser,
 } from "@/lib/db/business";
 import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
 import { getSelectedStatusColor } from "@/lib/utils/status-filter-styles";
 import NumberFlow from "@number-flow/react";
-import { cacheGet, cacheSet } from "@/lib/offline/store";
+import { cacheGet, cacheSet, cacheDelete } from "@/lib/offline/store";
 import { businessEventBus, type BusinessEventType } from "@/lib/events/business-events";
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerWideLeftContentTop, DrawerWideRightContent } from "@/components/ui/drawer";
+import { EstablishmentForm } from "@/components/business/EstablishmentForm";
+import { HouseholderForm } from "@/components/business/HouseholderForm";
 import { EstablishmentDetails } from "@/components/business/EstablishmentDetails";
 import { HouseholderDetails } from "@/components/business/HouseholderDetails";
 import { useMediaQuery } from "@/hooks/use-media-query";
+import { useHomeTodoDetailsFabOptional } from "@/components/home/home-todo-details-fab-context";
 
 interface VisitHistoryProps {
   userId: string;
@@ -52,6 +55,8 @@ interface VisitHistoryProps {
   ) => void;
   bwiAreaFilter: string[];
   onBwiAreaChange: (areas: string[]) => void;
+  /** Match sibling HomeTodoCard so UnifiedFab bridges to this card at the same viewport. */
+  fabBridgeLayout?: "belowXl" | "xlAndUp";
 }
 
 type CallsStreamItem =
@@ -97,6 +102,48 @@ function KnockingDoorIcon() {
   );
 }
 
+/** Match visit row id to bus event id (raw UUID vs est-/hh- prefixed list ids). */
+function callsDetailsVisitKeysMatch(rowId: string, eventId: string): boolean {
+  if (rowId === eventId) return true;
+  const strip = (id: string) => id.replace(/^(est|hh)-/, "");
+  return strip(rowId) === strip(eventId);
+}
+
+function filterCallsDetailsVisitsDeleted(visits: VisitWithUser[], deletedId: string): VisitWithUser[] {
+  return visits.filter((v) => !callsDetailsVisitKeysMatch(v.id, deletedId));
+}
+
+type VisitUpdatedPayload = {
+  id: string;
+  note?: string | null;
+  visit_date?: string;
+  publisher_id?: string | null;
+  partner_id?: string | null;
+  publisher_guest_name?: string | null;
+  partner_guest_name?: string | null;
+  publisher?: VisitWithUser["publisher"];
+  partner?: VisitWithUser["partner"];
+};
+
+function mergeVisitUpdatedIntoList(visits: VisitWithUser[], payload: VisitUpdatedPayload): VisitWithUser[] {
+  return visits.map((v) => {
+    if (!callsDetailsVisitKeysMatch(v.id, payload.id)) return v;
+    return {
+      ...v,
+      note: payload.note !== undefined ? payload.note : v.note,
+      visit_date: payload.visit_date ?? v.visit_date,
+      publisher_id: payload.publisher_id !== undefined ? payload.publisher_id : v.publisher_id,
+      partner_id: payload.partner_id !== undefined ? payload.partner_id : v.partner_id,
+      publisher_guest_name:
+        payload.publisher_guest_name !== undefined ? payload.publisher_guest_name : v.publisher_guest_name,
+      partner_guest_name:
+        payload.partner_guest_name !== undefined ? payload.partner_guest_name : v.partner_guest_name,
+      publisher: payload.publisher !== undefined ? payload.publisher : v.publisher,
+      partner: payload.partner !== undefined ? payload.partner : v.partner,
+    };
+  });
+}
+
 function BwiStatusCell({
   onClick,
   children,
@@ -126,6 +173,7 @@ export function VisitHistory({
   onNavigateToBusinessWithStatus,
   bwiAreaFilter,
   onBwiAreaChange,
+  fabBridgeLayout,
 }: VisitHistoryProps) {
   const [showDrawer, setShowDrawer] = useState(false);
   const [showFiltersDrawer, setShowFiltersDrawer] = useState(false);
@@ -153,8 +201,15 @@ export function VisitHistory({
   const [selectedCallsContactDetails, setSelectedCallsContactDetails] =
     useState<CallsHouseholderSnapshot | null>(null);
   const [isLoadingCallsContactDetails, setIsLoadingCallsContactDetails] = useState(false);
+  const [callsDetailsEntityEditOpen, setCallsDetailsEntityEditOpen] = useState(false);
+  const [callsContactSubdrawerEntityEditOpen, setCallsContactSubdrawerEntityEditOpen] =
+    useState(false);
   const callsEstablishmentCacheRef = useRef(new Map<string, CallsEstablishmentSnapshot>());
   const callsHouseholderCacheRef = useRef(new Map<string, CallsHouseholderSnapshot>());
+  const selectedCallsHouseholderDetailsRef = useRef<CallsHouseholderSnapshot | null>(null);
+  const selectedCallsEstablishmentDetailsRef = useRef<CallsEstablishmentSnapshot | null>(null);
+  const selectedCallsContactDetailsRef = useRef<CallsHouseholderSnapshot | null>(null);
+  const callsContactSubdrawerOpenRef = useRef(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const hasFocusedRef = useRef(false);
   const searchDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -579,6 +634,7 @@ export function VisitHistory({
   }, [visits, filteredVisits, filteredCallTodos]);
 
   const callsDrawerTabletLayout = useMediaQuery("(min-width: 768px)");
+  const isXlViewport = useMediaQuery("(min-width: 1280px)");
   const callsDrawerEstablishmentItems = useMemo(
     () => buildCallsStreamItems.drawer.filter(callsStreamItemIsEstablishmentColumn),
     [buildCallsStreamItems.drawer]
@@ -587,6 +643,16 @@ export function VisitHistory({
     () => buildCallsStreamItems.drawer.filter(callsStreamItemIsContactColumn),
     [buildCallsStreamItems.drawer]
   );
+  const callsDetailsSheetTitle = useMemo(() => {
+    const hh = selectedCallsHouseholderDetails?.householder?.name?.trim();
+    if (hh) return hh;
+    const est = selectedCallsEstablishmentDetails?.establishment?.name?.trim();
+    if (est) return est;
+    return "Details";
+  }, [
+    selectedCallsHouseholderDetails?.householder?.name,
+    selectedCallsEstablishmentDetails?.establishment?.name,
+  ]);
 
   function openCallsDetailsDrawer(
     target:
@@ -772,6 +838,288 @@ export function VisitHistory({
       })
       .finally(() => setIsLoadingCallsContactDetails(false));
   }
+
+  const closeCallsContactSubdrawer = useCallback(() => {
+    setCallsContactSubdrawerOpen(false);
+    setSelectedCallsContactDetails(null);
+    setCallsContactSubdrawerEntityEditOpen(false);
+  }, []);
+
+  useLayoutEffect(() => {
+    selectedCallsHouseholderDetailsRef.current = selectedCallsHouseholderDetails;
+    selectedCallsEstablishmentDetailsRef.current = selectedCallsEstablishmentDetails;
+    selectedCallsContactDetailsRef.current = selectedCallsContactDetails;
+    callsContactSubdrawerOpenRef.current = callsContactSubdrawerOpen;
+  }, [
+    selectedCallsHouseholderDetails,
+    selectedCallsEstablishmentDetails,
+    selectedCallsContactDetails,
+    callsContactSubdrawerOpen,
+  ]);
+
+  const broadcastCallsBusinessRefresh = useCallback(() => {
+    try {
+      window.dispatchEvent(new CustomEvent("business-todos-mutated"));
+      window.dispatchEvent(new CustomEvent("app-business-refresh"));
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  async function refreshCallsMainDetailAfterSave() {
+    const hhId = selectedCallsHouseholderDetailsRef.current?.householder.id;
+    const estId = selectedCallsEstablishmentDetailsRef.current?.establishment.id;
+    if (hhId) {
+      await cacheDelete(`householder:details:v3:${hhId}`);
+      const result = await getHouseholderDetails(hhId);
+      if (result) {
+        const snap: CallsHouseholderSnapshot = {
+          householder: result.householder,
+          visits: result.visits,
+          establishment: result.establishment,
+        };
+        callsHouseholderCacheRef.current.set(hhId, snap);
+        setSelectedCallsHouseholderDetails(snap);
+      }
+    } else if (estId) {
+      await cacheDelete(`establishment:details:${estId}`);
+      const result = await getEstablishmentDetails(estId);
+      if (result) {
+        const snap: CallsEstablishmentSnapshot = {
+          establishment: result.establishment,
+          visits: result.visits,
+          householders: result.householders,
+        };
+        callsEstablishmentCacheRef.current.set(estId, snap);
+        setSelectedCallsEstablishmentDetails(snap);
+      }
+    }
+    broadcastCallsBusinessRefresh();
+  }
+
+  async function refreshCallsContactSubdrawerAfterSave() {
+    const hhId = selectedCallsContactDetailsRef.current?.householder.id;
+    const parentEstId = selectedCallsEstablishmentDetailsRef.current?.establishment.id;
+    if (hhId) {
+      await cacheDelete(`householder:details:v3:${hhId}`);
+      const result = await getHouseholderDetails(hhId);
+      if (result) {
+        const snap: CallsHouseholderSnapshot = {
+          householder: result.householder,
+          visits: result.visits,
+          establishment: result.establishment,
+        };
+        callsHouseholderCacheRef.current.set(hhId, snap);
+        setSelectedCallsContactDetails(snap);
+      }
+    }
+    if (parentEstId) {
+      await cacheDelete(`establishment:details:${parentEstId}`);
+      const estResult = await getEstablishmentDetails(parentEstId);
+      if (estResult) {
+        const snap: CallsEstablishmentSnapshot = {
+          establishment: estResult.establishment,
+          visits: estResult.visits,
+          householders: estResult.householders,
+        };
+        callsEstablishmentCacheRef.current.set(parentEstId, snap);
+        setSelectedCallsEstablishmentDetails(snap);
+      }
+    }
+    broadcastCallsBusinessRefresh();
+  }
+
+  const openCallsMainSummaryEditor = useCallback(() => {
+    setCallsContactSubdrawerEntityEditOpen(false);
+    setCallsDetailsEntityEditOpen(true);
+  }, []);
+
+  const openCallsContactSummaryEditor = useCallback(() => {
+    setCallsDetailsEntityEditOpen(false);
+    setCallsContactSubdrawerEntityEditOpen(true);
+  }, []);
+
+  const callsDetailsFabSurface = useMemo<"estMain" | "hhMain" | "contactSub" | null>(() => {
+    if (callsContactSubdrawerOpen) return "contactSub";
+    if (!callsDetailsDrawerOpen) return null;
+    if (selectedCallsEstablishmentDetails) return "estMain";
+    if (selectedCallsHouseholderDetails) return "hhMain";
+    return null;
+  }, [
+    callsContactSubdrawerOpen,
+    callsDetailsDrawerOpen,
+    selectedCallsEstablishmentDetails,
+    selectedCallsHouseholderDetails,
+  ]);
+
+  const callsDetailsFabFormConfig = useMemo(() => {
+    if (!callsDetailsFabSurface) return null;
+    if (callsDetailsFabSurface === "estMain") {
+      const e = selectedCallsEstablishmentDetails?.establishment;
+      if (!e?.id) return null;
+      return {
+        establishments: [{ id: e.id, name: e.name }],
+        selectedEstablishmentId: e.id as string,
+      };
+    }
+    if (callsDetailsFabSurface === "hhMain") {
+      const hh = selectedCallsHouseholderDetails?.householder;
+      const est = selectedCallsHouseholderDetails?.establishment;
+      if (!hh?.id || !est?.id || !est.name?.trim()) return null;
+      return {
+        establishments: [{ id: est.id, name: est.name }],
+        selectedEstablishmentId: est.id,
+        householderId: hh.id,
+        householderName: hh.name,
+        householderStatus: hh.status,
+      };
+    }
+    const hh = selectedCallsContactDetails?.householder;
+    const estFromContact = selectedCallsContactDetails?.establishment;
+    const est =
+      estFromContact?.id && estFromContact.name
+        ? { id: estFromContact.id, name: estFromContact.name }
+        : selectedCallsEstablishmentDetails
+          ? {
+              id: selectedCallsEstablishmentDetails.establishment.id,
+              name: selectedCallsEstablishmentDetails.establishment.name,
+            }
+          : null;
+    if (!hh?.id || !est?.id || !est.name?.trim()) return null;
+    return {
+      establishments: [{ id: est.id, name: est.name }],
+      selectedEstablishmentId: est.id,
+      householderId: hh.id,
+      householderName: hh.name,
+      householderStatus: hh.status,
+    };
+  }, [
+    callsDetailsFabSurface,
+    selectedCallsEstablishmentDetails,
+    selectedCallsHouseholderDetails,
+    selectedCallsContactDetails,
+  ]);
+
+  const homeDetailsFabCtx = useHomeTodoDetailsFabOptional();
+  const setCallsHistoryFabOverride = homeDetailsFabCtx?.setCallsHistoryFabOverride;
+
+  const fabBridgeActiveForVisitHistory =
+    fabBridgeLayout != null &&
+    ((fabBridgeLayout === "belowXl" && !isXlViewport) || (fabBridgeLayout === "xlAndUp" && isXlViewport));
+
+  const shouldPublishCallsDetailsFab =
+    callsDetailsFabFormConfig != null &&
+    !callsDetailsEntityEditOpen &&
+    !callsContactSubdrawerEntityEditOpen &&
+    callsDrawerTabletLayout;
+
+  /* eslint-disable react-hooks/exhaustive-deps -- refresh helpers read refs; omitting avoids effect churn */
+  useEffect(() => {
+    if (!setCallsHistoryFabOverride || !fabBridgeActiveForVisitHistory) return;
+
+    if (shouldPublishCallsDetailsFab && callsDetailsFabFormConfig) {
+      setCallsHistoryFabOverride({
+        showNewContact: callsDetailsFabSurface === "estMain",
+        establishments: callsDetailsFabFormConfig.establishments.map((e) => ({
+          id: (e.id ?? callsDetailsFabFormConfig.selectedEstablishmentId) as string,
+          name: e.name,
+        })),
+        selectedEstablishmentId: callsDetailsFabFormConfig.selectedEstablishmentId,
+        householderId: callsDetailsFabFormConfig.householderId,
+        householderName: callsDetailsFabFormConfig.householderName,
+        householderStatus: callsDetailsFabFormConfig.householderStatus,
+        onAfterSave: async () => {
+          if (
+            callsContactSubdrawerOpenRef.current &&
+            selectedCallsContactDetailsRef.current?.householder.id
+          ) {
+            await refreshCallsContactSubdrawerAfterSave();
+          } else {
+            await refreshCallsMainDetailAfterSave();
+          }
+        },
+        stackLeftFormAboveNestedDetails: callsContactSubdrawerOpen && callsDrawerTabletLayout,
+      });
+    } else {
+      setCallsHistoryFabOverride(null);
+    }
+
+    return () => {
+      setCallsHistoryFabOverride(null);
+    };
+  }, [
+    fabBridgeActiveForVisitHistory,
+    setCallsHistoryFabOverride,
+    callsDetailsFabFormConfig,
+    callsDetailsFabSurface,
+    shouldPublishCallsDetailsFab,
+    callsContactSubdrawerOpen,
+    callsDrawerTabletLayout,
+  ]);
+  /* eslint-enable react-hooks/exhaustive-deps */
+
+  const renderCallsMainDetailsBody = () => {
+    if (selectedCallsHouseholderDetails) {
+      return (
+        <HouseholderDetails
+          householder={selectedCallsHouseholderDetails.householder}
+          visits={selectedCallsHouseholderDetails.visits}
+          establishment={selectedCallsHouseholderDetails.establishment ?? null}
+          establishments={
+            selectedCallsHouseholderDetails.establishment
+              ? [selectedCallsHouseholderDetails.establishment]
+              : []
+          }
+          isLoading={isLoadingCallsDetails}
+          onBackClick={() => setCallsDetailsDrawerOpen(false)}
+          onRequestSummaryEdit={
+            callsDrawerTabletLayout ? openCallsMainSummaryEditor : undefined
+          }
+          preferLeftDetailPanel={callsDrawerTabletLayout}
+        />
+      );
+    }
+    if (selectedCallsEstablishmentDetails) {
+      return (
+        <EstablishmentDetails
+          establishment={selectedCallsEstablishmentDetails.establishment}
+          visits={selectedCallsEstablishmentDetails.visits}
+          householders={selectedCallsEstablishmentDetails.householders}
+          isLoading={isLoadingCallsDetails}
+          onBackClick={() => setCallsDetailsDrawerOpen(false)}
+          onHouseholderClick={openCallsContactSubdrawer}
+          onRequestSummaryEdit={
+            callsDrawerTabletLayout ? openCallsMainSummaryEditor : undefined
+          }
+          preferLeftDetailPanel={callsDrawerTabletLayout}
+        />
+      );
+    }
+    return null;
+  };
+
+  const renderCallsContactSubdrawerBody = () => {
+    if (!selectedCallsContactDetails) return null;
+    return (
+      <HouseholderDetails
+        householder={selectedCallsContactDetails.householder}
+        visits={selectedCallsContactDetails.visits}
+        establishment={selectedCallsContactDetails.establishment ?? null}
+        establishments={
+          selectedCallsContactDetails.establishment
+            ? [selectedCallsContactDetails.establishment]
+            : []
+        }
+        isLoading={isLoadingCallsContactDetails}
+        onBackClick={closeCallsContactSubdrawer}
+        onRequestSummaryEdit={
+          callsDrawerTabletLayout ? openCallsContactSummaryEditor : undefined
+        }
+        preferLeftDetailPanel={callsDrawerTabletLayout}
+        insideStackedContactPane={callsDrawerTabletLayout}
+      />
+    );
+  };
 
   const renderVisitRow = (item: CallsStreamItem, index: number, total: number, isDrawer: boolean) => {
     if (item.kind === "todo") {
@@ -1100,138 +1448,72 @@ export function VisitHistory({
     };
   }, []);
 
-  if (loading) {
-    return (
-      <div className="rounded-lg border overflow-hidden bg-background">
-        <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="w-full grid grid-cols-2 mb-0 -mb-px p-0 h-auto bg-transparent gap-0 border-0 border-b-0 [&>*]:border-0 relative z-10">
-            <TabsTrigger 
-              value="bwi"
-              onPointerDown={handleBwiPointerDown}
-              onClick={handleBwiTabClick}
-              className={cn(
-                "rounded-tl-lg rounded-tr-none rounded-bl-none rounded-br-none",
-                "bg-primary text-primary-foreground dark:text-primary-foreground font-medium",
-                "data-[state=active]:!bg-background data-[state=active]:!text-foreground",
-                "shadow-none",
-                "relative h-10 px-4",
-                "transition-all duration-200",
-                "hover:bg-primary/90 data-[state=active]:hover:!bg-background",
-                "!border-0 border-b-0 focus-visible:ring-0 focus-visible:outline-none",
-                "[&>svg]:text-primary-foreground data-[state=active]:[&>svg]:text-foreground",
-                "after:hidden"
-              )}
-            >
-              <motion.div
-                layout="position"
-                transition={{ type: "tween", duration: 0.3, ease: "easeOut" }}
-                className="inline-flex items-center gap-1.5 shrink-0 grow-0"
-              >
-                <Building2 className="h-4 w-4 shrink-0" />
-                <span>
-                  {bwiLabelFlash ? "BWI" : bwiAreaFilter.length === 0 ? "All" : bwiAreaFilter.length === 1 ? bwiAreaFilter[0] : `${bwiAreaFilter.length} Areas`}
-                </span>
-              </motion.div>
-            </TabsTrigger>
-            <TabsTrigger 
-              value="visit-history"
-              onPointerDown={handleVisitHistoryPointerDown}
-              onClick={handleVisitHistoryTabClick}
-              className={cn(
-                "rounded-tr-lg rounded-tl-none rounded-bl-none rounded-br-none",
-                "bg-primary text-primary-foreground dark:text-primary-foreground font-medium",
-                "data-[state=active]:!bg-background data-[state=active]:!text-foreground",
-                "shadow-none",
-                "relative h-10 px-4",
-                "transition-all duration-200",
-                "hover:bg-primary/90 data-[state=active]:hover:!bg-background",
-                "!border-0 border-b-0 focus-visible:ring-0 focus-visible:outline-none",
-                "[&>svg]:text-primary-foreground data-[state=active]:[&>svg]:text-foreground",
-                "after:hidden"
-              )}
-            >
-              <KnockingDoorIcon />
-              <span>Calls</span>
-              {activeTab === "visit-history" ? (
-                <ChevronRight className="h-4 w-4 opacity-70" />
-              ) : null}
-            </TabsTrigger>
-          </TabsList>
-          <TabsContent value="bwi" className="mt-0 rounded-b-lg bg-background p-4 overflow-y-auto scrollbar-hide">
-            <div className="space-y-6">
-                {/* Establishment Status Section */}
-                <div>
-                  <div className="grid grid-cols-2 gap-4 items-end">
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("establishments", "for_replenishment") : undefined}>
-                      <div className={cn("text-5xl font-semibold leading-tight", getStatusTextColorClass("for_replenishment"))}>
-                        <NumberFlow value={establishmentStatusCounts.for_replenishment} locales="en-US" format={{ useGrouping: false }} />
-                      </div>
-                      <div className="mt-1 text-sm opacity-70">For Replenishment</div>
-                    </BwiStatusCell>
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("establishments", "accepted_rack") : undefined}>
-                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("accepted_rack"))}>
-                        <NumberFlow value={establishmentStatusCounts.accepted_rack} locales="en-US" format={{ useGrouping: false }} />
-                      </div>
-                      <div className="text-sm opacity-70 mt-0.5">Rack Accepted</div>
-                    </BwiStatusCell>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4 mt-4">
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("establishments", "for_follow_up") : undefined}>
-                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("for_follow_up"))}>
-                        <NumberFlow value={establishmentStatusCounts.for_follow_up} locales="en-US" format={{ useGrouping: false }} />
-                      </div>
-                      <div className="text-sm opacity-70 mt-0.5">For Follow Up</div>
-                    </BwiStatusCell>
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("establishments", "for_scouting") : undefined}>
-                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("for_scouting"))}>
-                        <NumberFlow value={establishmentStatusCounts.for_scouting} locales="en-US" format={{ useGrouping: false }} />
-                      </div>
-                      <div className="text-sm opacity-70 mt-0.5">For Scouting</div>
-                    </BwiStatusCell>
-                  </div>
-                </div>
+  useEffect(() => {
+    const onVisitDeleted = (data: { id?: string }) => {
+      const deletedId = data?.id;
+      if (!deletedId) return;
 
-                {/* Householder Status Section */}
-                <div className="pt-4 border-t pb-0">
-                  <div className="text-xs text-muted-foreground mb-4">Householder status</div>
-                  
-                  <div className="grid grid-cols-2 gap-4 items-end">
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "bible_study") : undefined}>
-                      <div className={cn("text-5xl font-semibold leading-tight", getStatusTextColorClass("bible_study"))}>
-                        <NumberFlow value={householderStatusCounts.bible_study} locales="en-US" format={{ useGrouping: false }} />
-                      </div>
-                      <div className="mt-1 text-sm opacity-70">Bible Study</div>
-                    </BwiStatusCell>
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "return_visit") : undefined}>
-                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("return_visit"))}>
-                        <NumberFlow value={householderStatusCounts.return_visit} locales="en-US" format={{ useGrouping: false }} />
-                      </div>
-                      <div className="text-sm opacity-70 mt-0.5">Return Visit</div>
-                    </BwiStatusCell>
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "interested") : undefined}>
-                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("interested"))}>
-                        <NumberFlow value={householderStatusCounts.interested} locales="en-US" format={{ useGrouping: false }} />
-                      </div>
-                      <div className="text-sm opacity-70 mt-0.5">Interested</div>
-                    </BwiStatusCell>
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "potential") : undefined}>
-                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("potential"))}>
-                        <NumberFlow value={householderStatusCounts.potential} locales="en-US" format={{ useGrouping: false }} />
-                      </div>
-                      <div className="text-sm opacity-70 mt-0.5">Potential</div>
-                    </BwiStatusCell>
-                  </div>
-                </div>
-              </div>
-          </TabsContent>
-          <TabsContent value="visit-history" className="mt-0 rounded-b-lg bg-background p-4">
-            <div className="text-sm text-muted-foreground">Loading...</div>
-          </TabsContent>
-        </Tabs>
-      </div>
-    );
-  }
+      const applyFilter = (visits: VisitWithUser[]) => filterCallsDetailsVisitsDeleted(visits, deletedId);
+
+      setSelectedCallsEstablishmentDetails((prev) => {
+        if (!prev) return prev;
+        const nextVisits = applyFilter(prev.visits);
+        return nextVisits.length === prev.visits.length ? prev : { ...prev, visits: nextVisits };
+      });
+      setSelectedCallsHouseholderDetails((prev) => {
+        if (!prev) return prev;
+        const nextVisits = applyFilter(prev.visits);
+        return nextVisits.length === prev.visits.length ? prev : { ...prev, visits: nextVisits };
+      });
+      setSelectedCallsContactDetails((prev) => {
+        if (!prev) return prev;
+        const nextVisits = applyFilter(prev.visits);
+        return nextVisits.length === prev.visits.length ? prev : { ...prev, visits: nextVisits };
+      });
+
+      callsEstablishmentCacheRef.current.forEach((snap, key) => {
+        const nextVisits = applyFilter(snap.visits);
+        if (nextVisits.length !== snap.visits.length) {
+          callsEstablishmentCacheRef.current.set(key, { ...snap, visits: nextVisits });
+        }
+      });
+      callsHouseholderCacheRef.current.forEach((snap, key) => {
+        const nextVisits = applyFilter(snap.visits);
+        if (nextVisits.length !== snap.visits.length) {
+          callsHouseholderCacheRef.current.set(key, { ...snap, visits: nextVisits });
+        }
+      });
+    };
+
+    const onVisitUpdated = (payload: VisitUpdatedPayload) => {
+      if (!payload?.id) return;
+      const merge = (visits: VisitWithUser[]) => mergeVisitUpdatedIntoList(visits, payload);
+
+      setSelectedCallsEstablishmentDetails((prev) =>
+        prev ? { ...prev, visits: merge(prev.visits) } : prev
+      );
+      setSelectedCallsHouseholderDetails((prev) =>
+        prev ? { ...prev, visits: merge(prev.visits) } : prev
+      );
+      setSelectedCallsContactDetails((prev) =>
+        prev ? { ...prev, visits: merge(prev.visits) } : prev
+      );
+
+      callsEstablishmentCacheRef.current.forEach((snap, key) => {
+        callsEstablishmentCacheRef.current.set(key, { ...snap, visits: merge(snap.visits) });
+      });
+      callsHouseholderCacheRef.current.forEach((snap, key) => {
+        callsHouseholderCacheRef.current.set(key, { ...snap, visits: merge(snap.visits) });
+      });
+    };
+
+    businessEventBus.subscribe("visit-deleted", onVisitDeleted);
+    businessEventBus.subscribe("visit-updated", onVisitUpdated);
+    return () => {
+      businessEventBus.unsubscribe("visit-deleted", onVisitDeleted);
+      businessEventBus.unsubscribe("visit-updated", onVisitUpdated);
+    };
+  }, []);
 
   return (
     <>
@@ -1361,16 +1643,20 @@ export function VisitHistory({
           </TabsContent>
           
           <TabsContent value="visit-history" className="mt-0 rounded-b-lg bg-background p-4">
-            <div className="relative">
-              <VisitList
-                items={buildCallsStreamItems.preview}
-                getKey={(item) => item.key}
-                renderItem={(item, index, total) => renderVisitRow(item, index, total, false)}
-                className="space-y-6"
-                isEmpty={buildCallsStreamItems.preview.length === 0}
-                emptyText="No calls or to-dos recorded yet."
-              />
-            </div>
+            {loading ? (
+              <div className="text-sm text-muted-foreground">Loading…</div>
+            ) : (
+              <div className="relative">
+                <VisitList
+                  items={buildCallsStreamItems.preview}
+                  getKey={(item) => item.key}
+                  renderItem={(item, index, total) => renderVisitRow(item, index, total, false)}
+                  className="space-y-6"
+                  isEmpty={buildCallsStreamItems.preview.length === 0}
+                  emptyText="No calls or to-dos recorded yet."
+                />
+              </div>
+            )}
           </TabsContent>
         </Tabs>
       </div>
@@ -1586,81 +1872,215 @@ export function VisitHistory({
         </DrawerContent>
       </Drawer>
 
-      <Drawer
-        open={callsDetailsDrawerOpen}
-        onOpenChange={(open) => {
-          setCallsDetailsDrawerOpen(open);
-          if (!open) {
-            setSelectedCallsEstablishmentDetails(null);
-            setSelectedCallsHouseholderDetails(null);
-            setCallsContactSubdrawerOpen(false);
-            setSelectedCallsContactDetails(null);
-          }
-        }}
-      >
-        <DrawerContent className="max-h-[90vh]">
-          <DrawerHeader className="sr-only">
-            <DrawerTitle>Call details</DrawerTitle>
-          </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-3">
-            {selectedCallsHouseholderDetails ? (
-              <HouseholderDetails
-                householder={selectedCallsHouseholderDetails.householder}
-                visits={selectedCallsHouseholderDetails.visits}
-                establishment={selectedCallsHouseholderDetails.establishment ?? null}
-                establishments={
-                  selectedCallsHouseholderDetails.establishment
-                    ? [selectedCallsHouseholderDetails.establishment]
-                    : []
-                }
-                isLoading={isLoadingCallsDetails}
-                onBackClick={() => setCallsDetailsDrawerOpen(false)}
-              />
-            ) : selectedCallsEstablishmentDetails ? (
-              <EstablishmentDetails
-                establishment={selectedCallsEstablishmentDetails.establishment}
-                visits={selectedCallsEstablishmentDetails.visits}
-                householders={selectedCallsEstablishmentDetails.householders}
-                isLoading={isLoadingCallsDetails}
-                onBackClick={() => setCallsDetailsDrawerOpen(false)}
-                onHouseholderClick={openCallsContactSubdrawer}
-              />
-            ) : null}
-          </div>
-        </DrawerContent>
-      </Drawer>
+      {callsDrawerTabletLayout ? (
+        <Drawer
+          open={callsDetailsDrawerOpen}
+          onOpenChange={(open) => {
+            setCallsDetailsDrawerOpen(open);
+            if (!open) {
+              setSelectedCallsEstablishmentDetails(null);
+              setSelectedCallsHouseholderDetails(null);
+              setCallsContactSubdrawerOpen(false);
+              setSelectedCallsContactDetails(null);
+              setCallsDetailsEntityEditOpen(false);
+              setCallsContactSubdrawerEntityEditOpen(false);
+            }
+          }}
+          direction="right"
+          modal
+          nested
+          shouldScaleBackground={false}
+        >
+          <DrawerWideRightContent>
+            <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left">
+              <DrawerTitle className="text-xl font-extrabold tracking-tight">{callsDetailsSheetTitle}</DrawerTitle>
+            </DrawerHeader>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3">
+              {renderCallsMainDetailsBody()}
+            </div>
+          </DrawerWideRightContent>
+        </Drawer>
+      ) : (
+        <Drawer
+          open={callsDetailsDrawerOpen}
+          onOpenChange={(open) => {
+            setCallsDetailsDrawerOpen(open);
+            if (!open) {
+              setSelectedCallsEstablishmentDetails(null);
+              setSelectedCallsHouseholderDetails(null);
+              setCallsContactSubdrawerOpen(false);
+              setSelectedCallsContactDetails(null);
+              setCallsDetailsEntityEditOpen(false);
+              setCallsContactSubdrawerEntityEditOpen(false);
+            }
+          }}
+        >
+          <DrawerContent className="max-h-[90vh]">
+            <DrawerHeader className="sr-only">
+              <DrawerTitle>Call details</DrawerTitle>
+            </DrawerHeader>
+            <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-3">
+              {renderCallsMainDetailsBody()}
+            </div>
+          </DrawerContent>
+        </Drawer>
+      )}
 
-      <Drawer
-        open={callsContactSubdrawerOpen}
-        onOpenChange={(open) => {
-          setCallsContactSubdrawerOpen(open);
-          if (!open) {
-            setSelectedCallsContactDetails(null);
-          }
-        }}
-      >
-        <DrawerContent className="max-h-[90vh]">
-          <DrawerHeader className="sr-only">
-            <DrawerTitle>Contact details</DrawerTitle>
-          </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-3">
-            {selectedCallsContactDetails ? (
-              <HouseholderDetails
-                householder={selectedCallsContactDetails.householder}
-                visits={selectedCallsContactDetails.visits}
-                establishment={selectedCallsContactDetails.establishment ?? null}
-                establishments={
-                  selectedCallsContactDetails.establishment
-                    ? [selectedCallsContactDetails.establishment]
-                    : []
-                }
-                isLoading={isLoadingCallsContactDetails}
-                onBackClick={() => setCallsContactSubdrawerOpen(false)}
-              />
-            ) : null}
-          </div>
-        </DrawerContent>
-      </Drawer>
+      {callsDrawerTabletLayout ? (
+        <Drawer
+          open={callsContactSubdrawerOpen && callsDetailsDrawerOpen}
+          onOpenChange={(open) => {
+            setCallsContactSubdrawerOpen(open);
+            if (!open) {
+              setSelectedCallsContactDetails(null);
+              setCallsContactSubdrawerEntityEditOpen(false);
+            }
+          }}
+          direction="right"
+          modal
+          shouldScaleBackground={false}
+        >
+          <DrawerWideRightContent stackAboveDetailsSheet>
+            <DrawerHeader className="border-b border-border px-2 pb-3 pt-4 text-left sm:px-4">
+              <div className="flex items-center gap-1 pr-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 shrink-0"
+                  onClick={closeCallsContactSubdrawer}
+                  aria-label="Back to establishment"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+                <DrawerTitle className="text-xl font-extrabold tracking-tight">
+                  {selectedCallsContactDetails?.householder.name ?? "Contact Details"}
+                </DrawerTitle>
+              </div>
+            </DrawerHeader>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3">
+              {renderCallsContactSubdrawerBody()}
+            </div>
+          </DrawerWideRightContent>
+        </Drawer>
+      ) : (
+        <Drawer
+          open={callsContactSubdrawerOpen}
+          onOpenChange={(open) => {
+            setCallsContactSubdrawerOpen(open);
+            if (!open) {
+              setSelectedCallsContactDetails(null);
+              setCallsContactSubdrawerEntityEditOpen(false);
+            }
+          }}
+        >
+          <DrawerContent className="max-h-[90vh]">
+            <DrawerHeader className="sr-only">
+              <DrawerTitle>Contact details</DrawerTitle>
+            </DrawerHeader>
+            <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-3">
+              {renderCallsContactSubdrawerBody()}
+            </div>
+          </DrawerContent>
+        </Drawer>
+      )}
+
+      {callsDrawerTabletLayout ? (
+        <Drawer
+          open={callsDetailsEntityEditOpen || callsContactSubdrawerEntityEditOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              setCallsDetailsEntityEditOpen(false);
+              setCallsContactSubdrawerEntityEditOpen(false);
+            }
+          }}
+          direction="left"
+          modal
+          shouldScaleBackground={false}
+        >
+          <DrawerWideLeftContentTop
+            stackAboveStackedRightSheet={callsContactSubdrawerOpen && callsDrawerTabletLayout}
+          >
+            <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left">
+              <DrawerTitle className="text-lg font-bold">
+                {callsContactSubdrawerEntityEditOpen
+                  ? "Edit Contact"
+                  : selectedCallsHouseholderDetails
+                    ? "Edit Contact"
+                    : "Edit Establishment"}
+              </DrawerTitle>
+            </DrawerHeader>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
+              {callsContactSubdrawerEntityEditOpen && selectedCallsContactDetails?.householder.id ? (
+                <HouseholderForm
+                  key={selectedCallsContactDetails.householder.id}
+                  establishments={
+                    selectedCallsContactDetails.establishment?.id
+                      ? [selectedCallsContactDetails.establishment as { id: string; name: string }]
+                      : []
+                  }
+                  selectedEstablishmentId={selectedCallsContactDetails.establishment?.id ?? undefined}
+                  isEditing
+                  initialData={{
+                    id: selectedCallsContactDetails.householder.id,
+                    establishment_id: selectedCallsContactDetails.householder.establishment_id ?? null,
+                    name: selectedCallsContactDetails.householder.name,
+                    status:
+                      (selectedCallsContactDetails.householder.status as HouseholderStatus) ?? "potential",
+                    note: selectedCallsContactDetails.householder.note ?? null,
+                    lat: selectedCallsContactDetails.householder.lat ?? null,
+                    lng: selectedCallsContactDetails.householder.lng ?? null,
+                    publisher_id: selectedCallsContactDetails.householder.publisher_id ?? null,
+                  }}
+                  disableEstablishmentSelect={!!selectedCallsContactDetails.establishment?.id}
+                  onSaved={() => {
+                    setCallsContactSubdrawerEntityEditOpen(false);
+                    void refreshCallsContactSubdrawerAfterSave();
+                  }}
+                />
+              ) : selectedCallsHouseholderDetails?.householder.id ? (
+                <HouseholderForm
+                  key={selectedCallsHouseholderDetails.householder.id}
+                  establishments={
+                    selectedCallsHouseholderDetails.establishment?.id
+                      ? [selectedCallsHouseholderDetails.establishment as { id: string; name: string }]
+                      : []
+                  }
+                  selectedEstablishmentId={selectedCallsHouseholderDetails.establishment?.id ?? undefined}
+                  isEditing
+                  initialData={{
+                    id: selectedCallsHouseholderDetails.householder.id,
+                    establishment_id: selectedCallsHouseholderDetails.householder.establishment_id ?? null,
+                    name: selectedCallsHouseholderDetails.householder.name,
+                    status:
+                      (selectedCallsHouseholderDetails.householder.status as HouseholderStatus) ?? "potential",
+                    note: selectedCallsHouseholderDetails.householder.note ?? null,
+                    lat: selectedCallsHouseholderDetails.householder.lat ?? null,
+                    lng: selectedCallsHouseholderDetails.householder.lng ?? null,
+                    publisher_id: selectedCallsHouseholderDetails.householder.publisher_id ?? null,
+                  }}
+                  disableEstablishmentSelect={!!selectedCallsHouseholderDetails.establishment?.id}
+                  onSaved={() => {
+                    setCallsDetailsEntityEditOpen(false);
+                    void refreshCallsMainDetailAfterSave();
+                  }}
+                />
+              ) : selectedCallsEstablishmentDetails?.establishment.id ? (
+                <EstablishmentForm
+                  key={selectedCallsEstablishmentDetails.establishment.id}
+                  isEditing
+                  initialData={selectedCallsEstablishmentDetails.establishment}
+                  selectedArea={selectedCallsEstablishmentDetails.establishment.area ?? undefined}
+                  onSaved={() => {
+                    setCallsDetailsEntityEditOpen(false);
+                    void refreshCallsMainDetailAfterSave();
+                  }}
+                />
+              ) : null}
+            </div>
+          </DrawerWideLeftContentTop>
+        </Drawer>
+      ) : null}
 
       {/* Calls filter drawer (matches Filter To-Dos sheet) */}
       <Drawer open={showFiltersDrawer} onOpenChange={setShowFiltersDrawer}>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -24,12 +24,14 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerFooter,
+  DrawerWideLeftContentTop,
 } from "@/components/ui/drawer";
 import { getInitials } from "@/lib/utils/visit-history-ui";
 import { getProfile } from "@/lib/db/profiles";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cacheDelete } from "@/lib/offline/store";
 import { HomeTodoCard } from "@/components/home/HomeTodoCard";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import {
   getBestStatus,
   getPersonalTerritoryDetailsCardClass,
@@ -58,6 +60,12 @@ interface HouseholderDetailsProps {
   showEstablishment?: boolean;
   publisherId?: string | null;
   isLoading?: boolean;
+  /** When set, summary edit opens the parent left sheet instead of FormModal. */
+  onRequestSummaryEdit?: () => void;
+  /** Tablet+: visit list / edit to-do use left sheets when nested in a right details drawer. */
+  preferLeftDetailPanel?: boolean;
+  /** When this householder pane is stacked above the establishment sheet (contact drill-in). */
+  insideStackedContactPane?: boolean;
 }
 
 type TodoEditorItem = MyOpenCallTodoItem & {
@@ -117,7 +125,10 @@ export function HouseholderDetails({
   context = "bwi",
   showEstablishment = true,
   publisherId,
-  isLoading = false
+  isLoading = false,
+  onRequestSummaryEdit,
+  preferLeftDetailPanel = false,
+  insideStackedContactPane = false,
 }: HouseholderDetailsProps) {
   
   // Reset scroll position to top when component mounts
@@ -131,9 +142,10 @@ export function HouseholderDetails({
     });
   }, []);
   const [isEditing, setIsEditing] = useState(false);
-  const [editVisit, setEditVisit] = useState<{ id: string; establishment_id?: string | null; householder_id?: string | null; note?: string | null; publisher_id?: string | null; partner_id?: string | null; visit_date?: string } | null>(null);
-  const [newVisitOpen, setNewVisitOpen] = useState(false);
   const [editTodo, setEditTodo] = useState<TodoEditorItem | null>(null);
+  const [newVisitOpen, setNewVisitOpen] = useState(false);
+  const isMdUp = useMediaQuery("(min-width: 768px)");
+  const useLeftDetailPanels = Boolean(preferLeftDetailPanel && isMdUp);
   const [deleting, setDeleting] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
@@ -163,16 +175,21 @@ export function HouseholderDetails({
   // Use publisherId prop if provided, otherwise use currentUserId from state
   const effectivePublisherId = publisherId || currentUserId;
 
+  const openSummaryEditor = useCallback(() => {
+    if (onRequestSummaryEdit) onRequestSummaryEdit();
+    else setIsEditing(true);
+  }, [onRequestSummaryEdit]);
+
   // Listen for edit trigger from header
   useEffect(() => {
     const handleEditTrigger = () => {
-      setIsEditing(true);
+      openSummaryEditor();
     };
     window.addEventListener('trigger-edit-details', handleEditTrigger);
     return () => {
       window.removeEventListener('trigger-edit-details', handleEditTrigger);
     };
-  }, []);
+  }, [openSummaryEditor]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
@@ -420,12 +437,12 @@ export function HouseholderDetails({
             const wasMinusVisibleAtTapStart = minusActiveOnPointerDownRef.current;
             minusActiveOnPointerDownRef.current = false;
             if (wasMinusVisibleAtTapStart) return;
-            if (!showMinusButton) setIsEditing(true);
+            if (!showMinusButton) openSummaryEditor();
           }}
           onKeyDown={(e) => {
             if (e.key === "Enter" || e.key === " ") {
               e.preventDefault();
-              if (!showMinusButton) setIsEditing(true);
+              if (!showMinusButton) openSummaryEditor();
             }
           }}
           className={cn("w-full cursor-pointer transition-colors hover:bg-muted/30", detailsCardSurfaceClass)}
@@ -485,7 +502,7 @@ export function HouseholderDetails({
                         aria-label="Set location"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setIsEditing(true);
+                          openSummaryEditor();
                         }}
                       >
                         <MapPinned className="h-4 w-4" />
@@ -733,6 +750,8 @@ export function HouseholderDetails({
           householderName={householder.name}
           householderStatus={householder.status}
           isLoading={isLoading}
+          preferLeftDetailPanel={preferLeftDetailPanel}
+          insideStackedContactPane={insideStackedContactPane}
           onVisitUpdated={() => {
             // Visit updates will be handled by the parent component's data refresh
           }}
@@ -758,6 +777,7 @@ export function HouseholderDetails({
               />
       </FormModal>
 
+      {onRequestSummaryEdit ? null : (
       <FormModal
         open={isEditing}
         onOpenChange={setIsEditing}
@@ -786,49 +806,58 @@ export function HouseholderDetails({
                 onArchive={handleArchive}
               />
       </FormModal>
+      )}
 
-      <FormModal
-        open={!!editVisit}
-        onOpenChange={(open) => {
-          if (!open) {
-            setEditVisit(null);
-          }
-        }}
-        title="Edit Call"
-        headerClassName="text-center"
-      >
-              <VisitForm
-                establishments={establishments}
-                selectedEstablishmentId={establishment?.id}
-                initialVisit={editVisit || undefined}
-                householderId={householder.id}
-                householderName={householder.name}
-                householderStatus={householder.status}
-                disableEstablishmentSelect
-          onSaved={() => {
-            setEditVisit(null);
-          }}
-        />
-      </FormModal>
-
-      <FormModal
-        open={!!editTodo}
-        onOpenChange={(open) => {
-          if (!open) setEditTodo(null);
-        }}
-        title="Edit To-Do"
-        headerClassName="text-center"
-      >
-        <TodoForm
-          establishments={establishments}
-          selectedEstablishmentId={context === "congregation" ? "none" : (establishment?.id || "none")}
-          initialTodo={editTodo}
-          disableEstablishmentSelect
-          householderId={householder.id}
-          householderName={householder.name}
-          onSaved={() => setEditTodo(null)}
-        />
-      </FormModal>
+      {editTodo ? (
+        useLeftDetailPanels ? (
+          <Drawer
+            open={!!editTodo}
+            onOpenChange={(open) => {
+              if (!open) setEditTodo(null);
+            }}
+            direction="left"
+            modal
+            nested
+            shouldScaleBackground={false}
+          >
+            <DrawerWideLeftContentTop stackAboveStackedRightSheet>
+              <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left">
+                <DrawerTitle className="text-lg font-bold">Edit To-Do</DrawerTitle>
+              </DrawerHeader>
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
+                <TodoForm
+                  establishments={establishments}
+                  selectedEstablishmentId={context === "congregation" ? "none" : (establishment?.id || "none")}
+                  initialTodo={editTodo}
+                  disableEstablishmentSelect
+                  householderId={householder.id}
+                  householderName={householder.name}
+                  onSaved={() => setEditTodo(null)}
+                />
+              </div>
+            </DrawerWideLeftContentTop>
+          </Drawer>
+        ) : (
+          <FormModal
+            open={!!editTodo}
+            onOpenChange={(open) => {
+              if (!open) setEditTodo(null);
+            }}
+            title="Edit To-Do"
+            headerClassName="text-center"
+          >
+            <TodoForm
+              establishments={establishments}
+              selectedEstablishmentId={context === "congregation" ? "none" : (establishment?.id || "none")}
+              initialTodo={editTodo}
+              disableEstablishmentSelect
+              householderId={householder.id}
+              householderName={householder.name}
+              onSaved={() => setEditTodo(null)}
+            />
+          </FormModal>
+        )
+      ) : null}
     </div>
   );
 }

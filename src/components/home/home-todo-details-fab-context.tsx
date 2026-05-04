@@ -15,17 +15,27 @@ export type HomeTodoDetailsFabOverride = {
 };
 
 type CtxValue = {
-  override: HomeTodoDetailsFabOverride | null;
-  setHomeTodoDetailsFabOverride: (next: HomeTodoDetailsFabOverride | null) => void;
+  todoDetailsFabOverride: HomeTodoDetailsFabOverride | null;
+  callsHistoryFabOverride: HomeTodoDetailsFabOverride | null;
+  setTodoDetailsFabOverride: (next: HomeTodoDetailsFabOverride | null) => void;
+  setCallsHistoryFabOverride: (next: HomeTodoDetailsFabOverride | null) => void;
 };
 
 const HomeTodoDetailsFabContext = createContext<CtxValue | null>(null);
 
 export function HomeTodoDetailsFabProvider({ children }: { children: ReactNode }) {
-  const [override, setHomeTodoDetailsFabOverride] = useState<HomeTodoDetailsFabOverride | null>(null);
+  const [todoDetailsFabOverride, setTodoDetailsFabOverride] =
+    useState<HomeTodoDetailsFabOverride | null>(null);
+  const [callsHistoryFabOverride, setCallsHistoryFabOverride] =
+    useState<HomeTodoDetailsFabOverride | null>(null);
   const value = useMemo(
-    () => ({ override, setHomeTodoDetailsFabOverride }),
-    [override, setHomeTodoDetailsFabOverride]
+    () => ({
+      todoDetailsFabOverride,
+      callsHistoryFabOverride,
+      setTodoDetailsFabOverride,
+      setCallsHistoryFabOverride,
+    }),
+    [todoDetailsFabOverride, callsHistoryFabOverride]
   );
   return <HomeTodoDetailsFabContext.Provider value={value}>{children}</HomeTodoDetailsFabContext.Provider>;
 }

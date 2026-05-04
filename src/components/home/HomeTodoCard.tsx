@@ -2044,7 +2044,7 @@ export function HomeTodoCard({
   ]);
 
   const homeTodoDetailsFabCtx = useHomeTodoDetailsFabOptional();
-  const setHomeTodoDetailsFabOverride = homeTodoDetailsFabCtx?.setHomeTodoDetailsFabOverride;
+  const setTodoDetailsFabOverride = homeTodoDetailsFabCtx?.setTodoDetailsFabOverride;
 
   const isMainHomeTodoWidget = Boolean(userId && establishmentId == null && householderId == null);
   const fabBridgeActiveForViewport =
@@ -2059,10 +2059,10 @@ export function HomeTodoCard({
     !(todoEditorUseLeftPanel && todoEditorContext);
 
   useEffect(() => {
-    if (!setHomeTodoDetailsFabOverride || !fabBridgeActiveForViewport) return;
+    if (!setTodoDetailsFabOverride || !fabBridgeActiveForViewport) return;
 
     if (shouldPublishHomeTodoDetailsFab && homeTodoDetailsFabFormConfig) {
-      setHomeTodoDetailsFabOverride({
+      setTodoDetailsFabOverride({
         showNewContact: homeTodoDetailsFabSurface === "estMain",
         establishments: homeTodoDetailsFabFormConfig.establishments.map((e) => ({
           id: (e.id ?? homeTodoDetailsFabFormConfig.selectedEstablishmentId) as string,
@@ -2076,16 +2076,16 @@ export function HomeTodoCard({
         stackLeftFormAboveNestedDetails: contactDetailsSubdrawerOpen && isTodoDetailsSideLayout,
       });
     } else {
-      setHomeTodoDetailsFabOverride(null);
+      setTodoDetailsFabOverride(null);
     }
 
     return () => {
-      setHomeTodoDetailsFabOverride(null);
+      setTodoDetailsFabOverride(null);
     };
   }, [
     afterHomeTodoDetailsQuickCreateSaved,
     fabBridgeActiveForViewport,
-    setHomeTodoDetailsFabOverride,
+    setTodoDetailsFabOverride,
     homeTodoDetailsFabFormConfig,
     homeTodoDetailsFabSurface,
     shouldPublishHomeTodoDetailsFab,
