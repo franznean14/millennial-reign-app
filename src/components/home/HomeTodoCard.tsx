@@ -1917,9 +1917,9 @@ export function HomeTodoCard({
           }
         }}
       >
-        <DrawerContent className="max-h-[85vh]">
+        <DrawerContent className="max-h-[85vh] md:max-h-[80dvh]">
           <DrawerHeader className="px-4 pt-4 pb-2 items-center">
-            <DrawerTitle className="flex w-full items-center justify-center gap-2 text-center text-lg font-bold">
+            <DrawerTitle className="flex w-full flex-wrap items-center justify-center gap-2 text-center text-lg font-bold">
               <ListTodo className="h-4 w-4 shrink-0" />
               To-Do
               <Badge
@@ -1936,7 +1936,7 @@ export function HomeTodoCard({
               </Badge>
             </DrawerTitle>
           </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
+          <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] md:overflow-visible md:pb-[calc(max(env(safe-area-inset-bottom),0px)+24px)]">
               {userId && !establishmentId && !householderId && (
                 <div className="mb-4 w-full overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                   <div className="w-max min-w-full flex justify-center">
@@ -2037,6 +2037,8 @@ export function HomeTodoCard({
                 <p className="text-sm text-muted-foreground py-4">{emptyDrawerText}</p>
               ) : (
                 <>
+                  {/* Phone: stacked collapsible sections */}
+                  <div className="md:hidden">
                   <div className="mt-2 mb-3">
                     <button
                       type="button"
@@ -2171,6 +2173,128 @@ export function HomeTodoCard({
                       <p className="text-xs text-muted-foreground py-1">No done to-dos.</p>
                     )
                   )}
+                  </div>
+
+                  {/* iPad / md+: three columns with independent scroll */}
+                  <div className="hidden md:grid md:h-[calc(80dvh-10rem)] md:min-h-[320px] md:grid-cols-3 md:gap-3 md:items-stretch">
+                    <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-muted/15">
+                      <div className="shrink-0 border-b border-border px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                        To-Do ({filteredAssignedOpenTodos.length})
+                      </div>
+                      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3">
+                        {filteredAssignedOpenTodos.length > 0 ? (
+                          <ul className="space-y-3">
+                            {filteredAssignedOpenTodos.map((todo, index) => (
+                              <TodoRow
+                                key={todo.id}
+                                todo={todo}
+                                timeZone={timeZone}
+                                onMarkDone={handleMarkDone}
+                                onTap={hasNavigation ? handleTodoTap : undefined}
+                                showCheckbox
+                                currentUserId={userId}
+                                showAssigneeAvatars={showAssigneeAvatars}
+                                highlightOtherPublishers={showOtherPublisherDecorations}
+                                participantsById={participantsById}
+                                rowIndex={index}
+                                layoutId={`${layoutScopeId}-drawer-md-to-${todo.id}`}
+                                layoutTransition={todoLayoutTransition}
+                                clampBody={false}
+                                hideHouseholderNameBadge={!!householderId}
+                                hideHouseholderEstablishmentBadge={!!householderId}
+                              />
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-xs text-muted-foreground py-1">No assigned to-dos.</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-muted/15">
+                      <div className="shrink-0 border-b border-border px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                        Open ({filteredUnassignedOpenTodos.length})
+                      </div>
+                      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3">
+                        {filteredUnassignedOpenTodos.length > 0 ? (
+                          <ul className="space-y-3">
+                            {filteredUnassignedOpenTodos.map((todo, index) => (
+                              <TodoRow
+                                key={todo.id}
+                                todo={todo}
+                                timeZone={timeZone}
+                                onMarkDone={handleMarkDone}
+                                onTap={hasNavigation ? handleTodoTap : undefined}
+                                showCheckbox
+                                currentUserId={userId}
+                                showAssigneeAvatars={showAssigneeAvatars}
+                                highlightOtherPublishers={showOtherPublisherDecorations}
+                                participantsById={participantsById}
+                                rowIndex={index}
+                                layoutId={`${layoutScopeId}-drawer-md-open-${todo.id}`}
+                                layoutTransition={todoLayoutTransition}
+                                clampBody={false}
+                                hideHouseholderNameBadge={!!householderId}
+                                hideHouseholderEstablishmentBadge={!!householderId}
+                                headerAction={
+                                  userId ? (
+                                    <Button
+                                      type="button"
+                                      variant="default"
+                                      size="sm"
+                                      className="h-7 rounded-full px-3 text-xs font-semibold bg-emerald-600/95 text-white shadow-sm hover:bg-emerald-500 hover:shadow-md hover:scale-[1.02] active:scale-100 transition-all"
+                                      disabled={takingTodoId === todo.id}
+                                      onClick={(event) => {
+                                        event.preventDefault();
+                                        event.stopPropagation();
+                                        handleTakeTodoPrompt(todo);
+                                      }}
+                                    >
+                                      Take
+                                    </Button>
+                                  ) : null
+                                }
+                              />
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-xs text-muted-foreground py-1">No unassigned to-dos.</p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-muted/15">
+                      <div className="shrink-0 border-b border-border px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                        Done ({filteredCompletedTodos.length})
+                      </div>
+                      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3">
+                        {filteredCompletedTodos.length > 0 ? (
+                          <ul className="space-y-3">
+                            {filteredCompletedTodos.map((todo, index) => (
+                              <TodoRow
+                                key={todo.id}
+                                todo={{ ...todo, is_done: true }}
+                                timeZone={timeZone}
+                                onMarkDone={handleMarkDone}
+                                onTap={hasNavigation ? handleTodoTap : undefined}
+                                showCheckbox
+                                currentUserId={userId}
+                                showAssigneeAvatars={showAssigneeAvatars}
+                                highlightOtherPublishers={showOtherPublisherDecorations}
+                                participantsById={participantsById}
+                                rowIndex={index}
+                                layoutId={`${layoutScopeId}-drawer-md-done-${todo.id}`}
+                                layoutTransition={todoLayoutTransition}
+                                clampBody={false}
+                                hideHouseholderNameBadge={!!householderId}
+                                hideHouseholderEstablishmentBadge={!!householderId}
+                              />
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="text-xs text-muted-foreground py-1">No done to-dos.</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </>
               )}
           </div>

@@ -707,43 +707,47 @@ export function DesktopHomeSummary({
   return (
     <>
       <div className="w-full min-w-0 space-y-4">
-        <Card 
-          className="cursor-pointer hover:bg-muted/50 transition-colors"
-          onClick={() => setRecordsDrawerOpen(true)}
-        >
+        <Card>
         <CardHeader>
           <CardTitle>This Month</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-6">
-            {/* Hours Summary */}
-            <div className="flex flex-row items-end justify-between gap-6">
-              <div>
-                <div className="text-5xl font-semibold leading-tight">
-                  <NumberFlow value={Number(fmtHours(monthHours))} locales="en-US" format={{ useGrouping: false }} />
-                </div>
-                <div className="mt-0.5 text-sm opacity-70">Hours</div>
-              </div>
-              {localPioneer ? (
-                <div className="text-right">
-                  <div className="text-xs opacity-70">This service year</div>
-                  <div className="mt-1 text-2xl font-semibold leading-tight">
-                    <NumberFlow key={`sy-hours-${dataLoaded}`} value={syHours} locales="en-US" format={{ useGrouping: false }} />
+            {/* Hours Summary — only this region opens Monthly Records (not calendar / daily form). */}
+            <button
+              type="button"
+              className="w-full rounded-lg text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              onClick={() => setRecordsDrawerOpen(true)}
+              aria-label="Open monthly records"
+            >
+              <div className="flex flex-row items-end justify-between gap-6">
+                <div>
+                  <div className="text-5xl font-semibold leading-tight">
+                    <NumberFlow value={Number(fmtHours(monthHours))} locales="en-US" format={{ useGrouping: false }} />
                   </div>
-                  <div className="text-xs opacity-70 mt-1">Since {(() => {
-                    if (!serviceYearStart) return "—";
-                    const parts = serviceYearStart.split("-");
-                    if (parts.length >= 2) {
-                      const [y, m] = parts;
-                      const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-                      const monthIndex = parseInt(m, 10) - 1;
-                      return `${monthNames[monthIndex] || m} ${y}`;
-                    }
-                    return formatDateHuman(serviceYearStart, timeZone || undefined);
-                  })()}</div>
+                  <div className="mt-0.5 text-sm opacity-70">Hours</div>
                 </div>
-              ) : null}
-            </div>
+                {localPioneer ? (
+                  <div className="text-right">
+                    <div className="text-xs opacity-70">This service year</div>
+                    <div className="mt-1 text-2xl font-semibold leading-tight">
+                      <NumberFlow key={`sy-hours-${dataLoaded}`} value={syHours} locales="en-US" format={{ useGrouping: false }} />
+                    </div>
+                    <div className="text-xs opacity-70 mt-1">Since {(() => {
+                      if (!serviceYearStart) return "—";
+                      const parts = serviceYearStart.split("-");
+                      if (parts.length >= 2) {
+                        const [y, m] = parts;
+                        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                        const monthIndex = parseInt(m, 10) - 1;
+                        return `${monthNames[monthIndex] || m} ${y}`;
+                      }
+                      return formatDateHuman(serviceYearStart, timeZone || undefined);
+                    })()}</div>
+                  </div>
+                ) : null}
+              </div>
+            </button>
 
             {/* Calendar */}
             <div>
