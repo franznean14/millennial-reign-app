@@ -12,7 +12,15 @@ import { toast } from "@/components/ui/sonner";
 import { Check, ChevronDown, ChevronUp, Plus, Search, Trash2, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Drawer, DrawerContent, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer";
 import {
   addStandaloneTodo,
   deleteCallTodo,
@@ -137,6 +145,31 @@ const createDraftRow = (): BulkTodoDraftRow => ({
 const toGuestSlotToken = (name: string): string => `${GUEST_SLOT_PREFIX}${name.trim()}`;
 const isGuestSlotToken = (slot: string): boolean => slot.startsWith(GUEST_SLOT_PREFIX);
 const getGuestNameFromSlot = (slot: string): string => (isGuestSlotToken(slot) ? slot.slice(GUEST_SLOT_PREFIX.length).trim() : "");
+
+const guestNameToInsightAvatar = (name: string | null | undefined): PersonAvatar | null => {
+  const trimmed = typeof name === "string" ? name.trim() : "";
+  if (!trimmed) return null;
+  return {
+    id: `${GUEST_SLOT_PREFIX}${trimmed}`,
+    first_name: trimmed,
+    last_name: "",
+  };
+};
+
+const MAX_INSIGHT_AVATARS = 4;
+
+const mergeInsightAvatars = (...candidates: Array<PersonAvatar | null | undefined>): PersonAvatar[] => {
+  const out: PersonAvatar[] = [];
+  const seen = new Set<string>();
+  for (const p of candidates) {
+    if (!p) continue;
+    if (seen.has(p.id)) continue;
+    seen.add(p.id);
+    out.push(p);
+    if (out.length >= MAX_INSIGHT_AVATARS) break;
+  }
+  return out;
+};
 
 const parseDateString = (value: string | null): Date | undefined => {
   if (!value) return undefined;
@@ -305,6 +338,9 @@ export function BulkTodoForm({
   const [existingGuestNames, setExistingGuestNames] = useState<string[]>([]);
   const [newGuestNameByRow, setNewGuestNameByRow] = useState<Record<string, string>>({});
   const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
+  const [deleteAllSavedConfirmOpen, setDeleteAllSavedConfirmOpen] = useState(false);
+  const [deletingAllSourceTodos, setDeletingAllSourceTodos] = useState(false);
+  const [deleteSourceTodoConfirmRow, setDeleteSourceTodoConfirmRow] = useState<BulkTodoDraftRow | null>(null);
   const [duplicateAddPrompt, setDuplicateAddPrompt] = useState<DuplicateAddPromptState | null>(null);
   const [insightRefreshKey, setInsightRefreshKey] = useState(0);
   const [deletingSourceTodoRowId, setDeletingSourceTodoRowId] = useState<string | null>(null);
@@ -851,7 +887,7 @@ export function BulkTodoForm({
           ? supabase
               .from("calls")
               .select(
-                "id, establishment_id, householder_id, note, visit_date, created_at, publisher:profiles!calls_publisher_id_fkey(id, first_name, last_name, avatar_url), partner:profiles!calls_partner_id_fkey(id, first_name, last_name, avatar_url)"
+                "id, establishment_id, householder_id, note, visit_date, created_at, publisher_guest_name, partner_guest_name, publisher:profiles!calls_publisher_id_fkey(id, first_name, last_name, avatar_url), partner:profiles!calls_partner_id_fkey(id, first_name, last_name, avatar_url)"
               )
               .in("establishment_id", establishmentIds)
           : Promise.resolve({ data: [], error: null } as any);
@@ -859,7 +895,7 @@ export function BulkTodoForm({
           ? supabase
               .from("calls")
               .select(
-                "id, establishment_id, householder_id, note, visit_date, created_at, publisher:profiles!calls_publisher_id_fkey(id, first_name, last_name, avatar_url), partner:profiles!calls_partner_id_fkey(id, first_name, last_name, avatar_url)"
+                "id, establishment_id, householder_id, note, visit_date, created_at, publisher_guest_name, partner_guest_name, publisher:profiles!calls_publisher_id_fkey(id, first_name, last_name, avatar_url), partner:profiles!calls_partner_id_fkey(id, first_name, last_name, avatar_url)"
               )
               .in("householder_id", householderIds)
           : Promise.resolve({ data: [], error: null } as any);
@@ -867,7 +903,7 @@ export function BulkTodoForm({
           ? supabase
               .from("call_todos")
               .select(
-                "id, call_id, establishment_id, householder_id, body, created_at, publisher_id, partner_id, call:calls!call_todos_call_id_fkey(establishment_id, householder_id, publisher_id, partner_id)"
+                "id, call_id, establishment_id, householder_id, body, created_at, publisher_id, partner_id, publisher_guest_name, partner_guest_name, call:calls!call_todos_call_id_fkey(establishment_id, householder_id, publisher_id, partner_id)"
               )
               .eq("is_done", true)
               .in("establishment_id", establishmentIds)
@@ -876,7 +912,7 @@ export function BulkTodoForm({
           ? supabase
               .from("call_todos")
               .select(
-                "id, call_id, establishment_id, householder_id, body, created_at, publisher_id, partner_id, call:calls!call_todos_call_id_fkey(establishment_id, householder_id, publisher_id, partner_id)"
+                "id, call_id, establishment_id, householder_id, body, created_at, publisher_id, partner_id, publisher_guest_name, partner_guest_name, call:calls!call_todos_call_id_fkey(establishment_id, householder_id, publisher_id, partner_id)"
               )
               .eq("is_done", true)
               .in("householder_id", householderIds)
@@ -950,7 +986,12 @@ export function BulkTodoForm({
           const atMs = Math.max(toMs(row.visit_date), toMs(row.created_at));
           const publisher = normalizePerson(row.publisher);
           const partner = normalizePerson(row.partner);
-          const avatars = [publisher, partner].filter((value): value is PersonAvatar => !!value).slice(0, 2);
+          const avatars = mergeInsightAvatars(
+            publisher,
+            partner,
+            guestNameToInsightAvatar(row.publisher_guest_name),
+            guestNameToInsightAvatar(row.partner_guest_name)
+          );
           const noteText = typeof row.note === "string" && row.note.trim() ? row.note.trim() : "Visit update";
           const householderName =
             row.householder_id && householdersById.get(row.householder_id)?.name
@@ -979,10 +1020,14 @@ export function BulkTodoForm({
           const effectiveHouseholderId = row.householder_id || callMeta?.householder_id || null;
           const atMs = toMs(row.created_at);
           const text = typeof row.body === "string" && row.body.trim() ? row.body.trim() : "Completed to-do";
-          const avatars = [row.publisher_id || callMeta?.publisher_id, row.partner_id || callMeta?.partner_id]
-            .map((id: string | null | undefined) => (id ? participantsById.get(id) : undefined))
-            .filter((value): value is PersonAvatar => !!value)
-            .slice(0, 2);
+          const pubId = row.publisher_id || callMeta?.publisher_id || null;
+          const partId = row.partner_id || callMeta?.partner_id || null;
+          const avatars = mergeInsightAvatars(
+            pubId ? participantsById.get(pubId) : null,
+            partId ? participantsById.get(partId) : null,
+            guestNameToInsightAvatar(row.publisher_guest_name),
+            guestNameToInsightAvatar(row.partner_guest_name)
+          );
           const householderName =
             effectiveHouseholderId && householdersById.get(effectiveHouseholderId)?.name
               ? householdersById.get(effectiveHouseholderId)?.name
@@ -1775,15 +1820,18 @@ export function BulkTodoForm({
     });
   };
 
-  const handleDeleteSourceTodoRow = async (row: BulkTodoDraftRow) => {
-    if (!row.sourceTodoId) return;
-    if (
-      !window.confirm(
-        "Delete this to-do permanently? It will be removed from the database and cannot be undone."
-      )
-    ) {
+  const handleRequestDeleteSourceTodoRow = (row: BulkTodoDraftRow) => {
+    if (!row.sourceTodoId || deletingAllSourceTodos) return;
+    setDeleteSourceTodoConfirmRow(row);
+  };
+
+  const handleConfirmDeleteSourceTodoRow = async () => {
+    const row = deleteSourceTodoConfirmRow;
+    if (!row?.sourceTodoId) {
+      setDeleteSourceTodoConfirmRow(null);
       return;
     }
+    if (deletingAllSourceTodos) return;
     setDeletingSourceTodoRowId(row.id);
     try {
       const ok = await deleteCallTodo(row.sourceTodoId);
@@ -1801,14 +1849,103 @@ export function BulkTodoForm({
           })
         );
       } catch {}
-      onSaved();
+      setDeleteSourceTodoConfirmRow(null);
     } finally {
       setDeletingSourceTodoRowId(null);
     }
   };
 
+  const pruneRemovedRowStateByIds = (removedIds: Set<string>) => {
+    if (removedIds.size === 0) return;
+    setCollapsedByRow((prev) => Object.fromEntries(Object.entries(prev).filter(([id]) => !removedIds.has(id))));
+    setTargetPickerOpenByRow((prev) =>
+      Object.fromEntries(Object.entries(prev).filter(([id]) => !removedIds.has(id)))
+    );
+    setTargetSearchByRow((prev) => Object.fromEntries(Object.entries(prev).filter(([id]) => !removedIds.has(id))));
+    setTargetSearchActiveByRow((prev) =>
+      Object.fromEntries(Object.entries(prev).filter(([id]) => !removedIds.has(id)))
+    );
+    setTargetFiltersPanelOpenByRow((prev) =>
+      Object.fromEntries(Object.entries(prev).filter(([id]) => !removedIds.has(id)))
+    );
+    setTargetFiltersByRow((prev) => Object.fromEntries(Object.entries(prev).filter(([id]) => !removedIds.has(id))));
+    setTargetBulkAddModeByRow((prev) =>
+      Object.fromEntries(Object.entries(prev).filter(([id]) => !removedIds.has(id)))
+    );
+    setTargetBulkSelectedKeysByRow((prev) =>
+      Object.fromEntries(Object.entries(prev).filter(([id]) => !removedIds.has(id)))
+    );
+    setAssigneeDrawerOpenByRow((prev) =>
+      Object.fromEntries(Object.entries(prev).filter(([id]) => !removedIds.has(id)))
+    );
+    setNewGuestNameByRow((prev) => Object.fromEntries(Object.entries(prev).filter(([id]) => !removedIds.has(id))));
+  };
+
+  const handleConfirmDeleteAllSavedTodos = async () => {
+    const snapshot = rows;
+    const toDelete = snapshot.filter((row): row is BulkTodoDraftRow & { sourceTodoId: string } => !!row.sourceTodoId);
+    if (toDelete.length === 0) {
+      setDeleteAllSavedConfirmOpen(false);
+      return;
+    }
+    setDeletingAllSourceTodos(true);
+    const removedRowIds = new Set<string>();
+    let failed = 0;
+    try {
+      const BATCH_SIZE = 8;
+      for (let i = 0; i < toDelete.length; i += BATCH_SIZE) {
+        const batch = toDelete.slice(i, i + BATCH_SIZE);
+        const results = await Promise.all(
+          batch.map(async (row) => {
+            const ok = await deleteCallTodo(row.sourceTodoId);
+            return { row, ok };
+          })
+        );
+        for (const { row, ok } of results) {
+          if (ok) removedRowIds.add(row.id);
+          else failed += 1;
+        }
+      }
+
+      const remainingRows = snapshot.filter((row) => !removedRowIds.has(row.id));
+      setRows(remainingRows);
+      pruneRemovedRowStateByIds(removedRowIds);
+      setInsightRefreshKey((k) => k + 1);
+      setDeleteAllSavedConfirmOpen(false);
+
+      if (removedRowIds.size > 0) {
+        try {
+          window.dispatchEvent(
+            new CustomEvent("business-todos-mutated", {
+              detail: { kind: "bulk-delete", count: removedRowIds.size },
+            })
+          );
+        } catch {}
+      }
+
+      if (failed === 0 && removedRowIds.size > 0) {
+        toast.success(
+          removedRowIds.size === 1 ? "To-do deleted." : `Deleted ${removedRowIds.size} saved to-dos.`
+        );
+      } else if (failed > 0 && removedRowIds.size > 0) {
+        toast.error(
+          `Deleted ${removedRowIds.size} saved to-do${removedRowIds.size > 1 ? "s" : ""}. ${failed} could not be deleted.`
+        );
+      } else if (failed > 0) {
+        toast.error("Could not delete saved to-dos.");
+      }
+
+      if (remainingRows.length === 0) {
+        window.localStorage.removeItem(DRAFT_STORAGE_KEY);
+        onSaved();
+      }
+    } finally {
+      setDeletingAllSourceTodos(false);
+    }
+  };
+
   const handleSubmitSingleRow = async (row: BulkTodoDraftRow) => {
-    if (saving || submittingRowId) return;
+    if (saving || submittingRowId || deletingAllSourceTodos) return;
     if (row.sourceTodoId && !hasRowChanged(row)) {
       toast.error("No changes to submit for this to-do.");
       return;
@@ -2018,7 +2155,7 @@ export function BulkTodoForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (saving) return;
+    if (saving || deletingAllSourceTodos) return;
 
     setSaving(true);
     try {
@@ -2134,19 +2271,7 @@ export function BulkTodoForm({
       const remainingRows = rows.filter((row) => !successRowIds.has(row.id));
       setRows(remainingRows);
 
-      const pruneRemovedRowState = (removedIds: Set<string>) => {
-        if (removedIds.size === 0) return;
-        setCollapsedByRow((prev) => Object.fromEntries(Object.entries(prev).filter(([id]) => !removedIds.has(id))));
-        setTargetPickerOpenByRow((prev) => Object.fromEntries(Object.entries(prev).filter(([id]) => !removedIds.has(id))));
-        setTargetSearchByRow((prev) => Object.fromEntries(Object.entries(prev).filter(([id]) => !removedIds.has(id))));
-        setTargetSearchActiveByRow((prev) => Object.fromEntries(Object.entries(prev).filter(([id]) => !removedIds.has(id))));
-        setTargetFiltersPanelOpenByRow((prev) => Object.fromEntries(Object.entries(prev).filter(([id]) => !removedIds.has(id))));
-        setTargetFiltersByRow((prev) => Object.fromEntries(Object.entries(prev).filter(([id]) => !removedIds.has(id))));
-        setTargetBulkAddModeByRow((prev) => Object.fromEntries(Object.entries(prev).filter(([id]) => !removedIds.has(id))));
-        setTargetBulkSelectedKeysByRow((prev) => Object.fromEntries(Object.entries(prev).filter(([id]) => !removedIds.has(id))));
-        setAssigneeDrawerOpenByRow((prev) => Object.fromEntries(Object.entries(prev).filter(([id]) => !removedIds.has(id))));
-      };
-      pruneRemovedRowState(successRowIds);
+      pruneRemovedRowStateByIds(successRowIds);
 
       if (failedCount === 0) {
         if (successfulEditCount > 0 && successfulNewCount > 0) {
@@ -2283,7 +2408,8 @@ export function BulkTodoForm({
   const submittableNewCount = rows.filter((row) => !row.sourceTodoId && !isRowBlank(row) && isRowComplete(row)).length;
   const submittableEditCount = rows.filter((row) => !!row.sourceTodoId && hasRowChanged(row) && isRowComplete(row)).length;
   const submitCount = submittableNewCount + submittableEditCount;
-  const canSubmit = !saving && submitCount > 0;
+  const canSubmit = !saving && !deletingAllSourceTodos && submitCount > 0;
+  const savedTodoRowCount = rows.filter((row) => !!row.sourceTodoId).length;
 
   const resizeTodoBodyField = (element: HTMLTextAreaElement) => {
     element.style.height = "auto";
@@ -2300,20 +2426,37 @@ export function BulkTodoForm({
   };
 
   return (
-    <form className="space-y-4 pt-2 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]" onSubmit={handleSubmit}>
-      {rows.map((row, index) => (
-        <div
-          key={row.id}
-          className={
-            "rounded-lg border p-3 space-y-3 " +
-            (
-              (row.sourceTodoId && hasRowChanged(row) && isRowComplete(row)) ||
-              (!row.sourceTodoId && !isRowBlank(row) && isRowComplete(row))
-                ? "border-emerald-400/70 bg-emerald-500/10 shadow-[0_0_0_1px_rgba(16,185,129,0.25),0_8px_22px_-16px_rgba(16,185,129,0.65)]"
-                : ""
-            )
-          }
-        >
+    <form
+      className="flex flex-col gap-4 pt-2 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]"
+      onSubmit={handleSubmit}
+    >
+      <AnimatePresence initial={false} mode="popLayout">
+        {rows.map((row, index) => (
+          <motion.div
+            key={row.id}
+            layout
+            initial={false}
+            animate={{ opacity: 1 }}
+            exit={{
+              opacity: 0,
+              scale: 0.97,
+              y: -10,
+              transition: { duration: 0.22, ease: [0.4, 0, 1, 1] },
+            }}
+            transition={{
+              layout: { type: "spring", stiffness: 420, damping: 34 },
+              opacity: { duration: 0.2 },
+            }}
+            className={
+              "rounded-lg border p-3 space-y-3 overflow-hidden " +
+              (
+                (row.sourceTodoId && hasRowChanged(row) && isRowComplete(row)) ||
+                (!row.sourceTodoId && !isRowBlank(row) && isRowComplete(row))
+                  ? "border-emerald-400/70 bg-emerald-500/10 shadow-[0_0_0_1px_rgba(16,185,129,0.25),0_8px_22px_-16px_rgba(16,185,129,0.65)]"
+                  : ""
+              )
+            }
+          >
           <div
             className="flex items-center justify-between cursor-pointer"
             role="button"
@@ -2341,21 +2484,45 @@ export function BulkTodoForm({
                         ? "personal_territory"
                         : getBestStatus(linkedEstablishment.statuses || []))
                     : "for_scouting";
+                  const headerStatuses = getRowHeaderStatuses(row);
+                  const primaryStatus = headerStatuses[0];
+                  const overflowStatuses = headerStatuses.slice(1);
+                  const overflowSummary = overflowStatuses.map((s) => formatStatusText(s)).join(", ");
+                  const showStatusRow = headerStatuses.length > 0 || !!householder?.establishment_name;
+
                   return (
                     <>
                 <p className="text-sm font-medium truncate min-w-0">
                   {getRowTargetLabel(row, "Select establishment or contact")}
                 </p>
-                {getRowHeaderStatuses(row).length > 0 ? (
+                {showStatusRow ? (
                   <div className="flex items-center gap-1 shrink-0">
-                    {getRowHeaderStatuses(row).map((status) => (
+                    {primaryStatus ? (
                       <VisitStatusBadge
-                        key={`${row.id}-status-badge-${status}`}
-                        status={status}
-                        label={formatStatusText(status)}
+                        key={`${row.id}-status-badge-${primaryStatus}`}
+                        status={primaryStatus}
+                        label={formatStatusText(primaryStatus)}
                         className="max-w-[140px] truncate whitespace-nowrap"
                       />
-                    ))}
+                    ) : null}
+                    {overflowStatuses.length > 0 ? (
+                      <span
+                        className="flex items-center gap-0.5 px-0.5"
+                        title={overflowSummary || undefined}
+                      >
+                        {overflowStatuses.map((status) => (
+                          <span
+                            key={`${row.id}-status-dot-${status}`}
+                            className={cn(
+                              "inline-block h-2 w-2 shrink-0 rounded-full ring-1 ring-background",
+                              getStatusDotColorClass(status)
+                            )}
+                            aria-hidden
+                          />
+                        ))}
+                        <span className="sr-only">{overflowSummary}</span>
+                      </span>
+                    ) : null}
                     {householder?.establishment_name ? (
                       <VisitStatusBadge
                         status={establishmentStatus}
@@ -2372,6 +2539,13 @@ export function BulkTodoForm({
                   );
                 })()}
               </div>
+              {row.targetKey.startsWith("establishment:") ? (() => {
+                const id = row.targetKey.slice("establishment:".length);
+                const area = establishmentById.get(id)?.area?.trim();
+                return area ? (
+                  <p className="mt-0.5 text-[11px] text-muted-foreground truncate">{area}</p>
+                ) : null;
+              })() : null}
               <p
                 className={`text-[11px] ${
                   row.sourceTodoId ? getStatusTitleColor("return_visit") : getStatusTitleColor("bible_study")
@@ -2399,6 +2573,12 @@ export function BulkTodoForm({
                 variant="ghost"
                 size="icon"
                 className="h-8 w-8"
+                disabled={
+                  saving ||
+                  deletingAllSourceTodos ||
+                  deletingSourceTodoRowId === row.id ||
+                  submittingRowId === row.id
+                }
                 onClick={(e) => {
                   e.stopPropagation();
                   removeRow(row.id);
@@ -2651,14 +2831,55 @@ export function BulkTodoForm({
                 />
               </div>
 
-              <div className="mt-2 flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+              <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                 {(() => {
                   if (row.targetKey === "none") return <span>Last Update: No target selected yet.</span>;
                   const insight = latestInsightByTarget[row.targetKey];
                   if (!insight) return <span>Last Update: No recent update.</span>;
                   const label = insight.source === "todo" ? "Last To-Do" : "Last Call";
+                  const avatars = insight.avatars ?? [];
                   return (
                     <>
+                      {avatars.length > 0 ? (
+                        <div className="inline-flex shrink-0 items-center pr-0.5">
+                          {avatars.map((person, idx) => {
+                            const isGuest = isGuestSlotToken(person.id);
+                            const fullName = `${person.first_name} ${person.last_name}`.trim() || "Guest";
+                            const displayInitials = isGuest ? getInitialsFromName(person.first_name) : getInitialsFromName(fullName);
+                            return (
+                              <Avatar
+                                key={`${row.id}-insight-${idx}-${person.id}`}
+                                className={cn(
+                                  "h-5 w-5 border border-border/70 bg-background",
+                                  idx > 0 ? "-ml-2" : ""
+                                )}
+                                title={isGuest ? person.first_name : fullName}
+                              >
+                                {!isGuest && person.avatar_url ? (
+                                  <AvatarImage src={person.avatar_url} alt={fullName} />
+                                ) : null}
+                                <AvatarFallback
+                                  className={cn(
+                                    "text-[10px]",
+                                    isGuest
+                                      ? "bg-amber-500/25 text-amber-800 dark:bg-amber-500/30 dark:text-amber-200 ring-1 ring-amber-500/50 dark:ring-amber-400/40"
+                                      : undefined
+                                  )}
+                                >
+                                  {displayInitials}
+                                </AvatarFallback>
+                              </Avatar>
+                            );
+                          })}
+                          <span className="sr-only">
+                            {avatars
+                              .map((p) =>
+                                isGuestSlotToken(p.id) ? p.first_name : `${p.first_name} ${p.last_name}`.trim()
+                              )
+                              .join(", ")}
+                          </span>
+                        </div>
+                      ) : null}
                       <span>{label}</span>
                       {row.targetKey.startsWith("establishment:") && insight.householderName ? (
                         <Badge
@@ -2671,9 +2892,9 @@ export function BulkTodoForm({
                           {insight.householderName}
                         </Badge>
                       ) : null}
-                      <span>{insight.text}</span>
+                      <span className="min-w-0 break-words">{insight.text}</span>
                       {insight.dateValue ? (
-                        <span className={cn("font-medium", getDateAgeColorClass(insight.dateValue))}>
+                        <span className={cn("font-medium shrink-0", getDateAgeColorClass(insight.dateValue))}>
                           {formatTodoDate(insight.dateValue)}
                         </span>
                       ) : null}
@@ -2682,11 +2903,18 @@ export function BulkTodoForm({
                 })()}
               </div>
 
-              {row.targetKey !== "none" && (pendingTodosByTarget[row.targetKey]?.length ?? 0) > 0 ? (
+              {(() => {
+                if (row.targetKey === "none") return null;
+                const pendingForTarget = pendingTodosByTarget[row.targetKey] ?? [];
+                const visiblePendingTodos = row.sourceTodoId
+                  ? pendingForTarget.filter((t) => t.id !== row.sourceTodoId)
+                  : pendingForTarget;
+                if (visiblePendingTodos.length === 0) return null;
+                return (
                 <div className="mt-2 space-y-1.5">
                   <p className="text-xs text-muted-foreground">Pending To-Dos</p>
                   <ul className="space-y-1">
-                    {(pendingTodosByTarget[row.targetKey] || []).map((pendingTodo) => {
+                    {visiblePendingTodos.map((pendingTodo) => {
                       const assigneeIds = [pendingTodo.publisherId, pendingTodo.partnerId]
                         .filter((value): value is string => !!value)
                         .filter((value, idx, arr) => arr.indexOf(value) === idx)
@@ -2741,7 +2969,8 @@ export function BulkTodoForm({
                     })}
                   </ul>
                 </div>
-              ) : null}
+                );
+              })()}
 
               {(row.sourceTodoId || !isRowBlank(row)) ? (
                 <div className="mt-3 flex justify-end border-t border-border/60 pt-2">
@@ -2751,14 +2980,18 @@ export function BulkTodoForm({
                       variant="destructive"
                       size="icon"
                       className="h-8 w-8 shrink-0 mr-2"
-                      disabled={deletingSourceTodoRowId === row.id || submittingRowId === row.id}
+                      disabled={
+                        deletingSourceTodoRowId === row.id ||
+                        submittingRowId === row.id ||
+                        deletingAllSourceTodos
+                      }
                       aria-label={
                         deletingSourceTodoRowId === row.id ? "Deleting to-do" : "Delete to-do permanently"
                       }
                       title="Delete to-do"
                       onClick={(e) => {
                         e.stopPropagation();
-                        void handleDeleteSourceTodoRow(row);
+                        handleRequestDeleteSourceTodoRow(row);
                       }}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -2771,6 +3004,7 @@ export function BulkTodoForm({
                     className="h-8 shrink-0"
                     disabled={
                       saving ||
+                      deletingAllSourceTodos ||
                       deletingSourceTodoRowId === row.id ||
                       submittingRowId === row.id ||
                       (row.sourceTodoId ? !hasRowChanged(row) : isRowBlank(row)) ||
@@ -2790,10 +3024,11 @@ export function BulkTodoForm({
               ) : null}
             </>
           )}
-        </div>
-      ))}
+          </motion.div>
+        ))}
+      </AnimatePresence>
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {isMobile ? (
           <Drawer
             open={!!targetPickerOpenByRow[NEW_TODO_PICKER_ROW_ID]}
@@ -2802,7 +3037,12 @@ export function BulkTodoForm({
             }}
           >
             <DrawerTrigger asChild>
-              <Button type="button" variant="outline" onClick={addRow}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addRow}
+                disabled={saving || deletingAllSourceTodos || !!submittingRowId || !!deletingSourceTodoRowId}
+              >
                 <Plus className="h-4 w-4 mr-1" />
                 Add Another To-Do
               </Button>
@@ -2840,7 +3080,12 @@ export function BulkTodoForm({
             }}
           >
             <PopoverTrigger asChild>
-              <Button type="button" variant="outline" onClick={addRow}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={addRow}
+                disabled={saving || deletingAllSourceTodos || !!submittingRowId || !!deletingSourceTodoRowId}
+              >
                 <Plus className="h-4 w-4 mr-1" />
                 Add Another To-Do
               </Button>
@@ -2869,14 +3114,22 @@ export function BulkTodoForm({
           </Popover>
         )}
         {rows.length > 0 ? (
-          <Button
-            type="button"
-            variant="outline"
-            className="text-red-400 border-red-500/40 hover:text-red-300 hover:border-red-400/60"
-            onClick={() => setClearConfirmOpen(true)}
-          >
-            Clear
-          </Button>
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              className="text-red-400 border-red-500/40 hover:text-red-300 hover:border-red-400/60"
+              onClick={() => setClearConfirmOpen(true)}
+              disabled={
+                saving ||
+                deletingAllSourceTodos ||
+                !!submittingRowId ||
+                !!deletingSourceTodoRowId
+              }
+            >
+              Clear
+            </Button>
+          </>
         ) : null}
       </div>
 
@@ -2888,6 +3141,9 @@ export function BulkTodoForm({
           <div className="flex flex-1 flex-col justify-center px-4 pt-2 min-h-0">
             <DrawerHeader className="pt-6 px-4 pb-2 text-center">
               <DrawerTitle className="text-center">Clear all to-dos?</DrawerTitle>
+              <DrawerDescription className="text-center text-muted-foreground">
+                Removes every row from this form only. Saved to-dos are not deleted from the database.
+              </DrawerDescription>
             </DrawerHeader>
             <DrawerFooter className="flex flex-col gap-3 p-0 pt-4 pb-2">
               <Button
@@ -2896,6 +3152,7 @@ export function BulkTodoForm({
                 size="lg"
                 className="w-full h-12"
                 onClick={() => setClearConfirmOpen(false)}
+                disabled={deletingAllSourceTodos}
               >
                 Cancel
               </Button>
@@ -2905,8 +3162,108 @@ export function BulkTodoForm({
                 size="lg"
                 className="w-full h-12"
                 onClick={clearAllRows}
+                disabled={deletingAllSourceTodos}
               >
                 Clear All
+              </Button>
+            </DrawerFooter>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      <Drawer
+        open={deleteAllSavedConfirmOpen}
+        onOpenChange={(open) => {
+          setDeleteAllSavedConfirmOpen(open);
+        }}
+      >
+        <DrawerContent
+          className="flex flex-col"
+          style={{ maxHeight: "50vh", height: "50vh" }}
+        >
+          <div className="flex flex-1 flex-col justify-center px-4 pt-2 min-h-0">
+            <DrawerHeader className="pt-6 px-4 pb-2 text-center">
+              <DrawerTitle className="text-center">Delete all saved to-dos?</DrawerTitle>
+              <DrawerDescription className="text-center text-muted-foreground">
+                {savedTodoRowCount === 1
+                  ? "This will permanently remove 1 saved to-do from the database. New drafts in this form are kept."
+                  : `This will permanently remove ${savedTodoRowCount} saved to-dos from the database. New drafts in this form are kept.`}
+              </DrawerDescription>
+            </DrawerHeader>
+            <DrawerFooter className="flex flex-col gap-3 p-0 pt-4 pb-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                className="w-full h-12"
+                disabled={deletingAllSourceTodos}
+                onClick={() => setDeleteAllSavedConfirmOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                size="lg"
+                className="w-full h-12"
+                disabled={deletingAllSourceTodos || savedTodoRowCount === 0}
+                onClick={() => void handleConfirmDeleteAllSavedTodos()}
+              >
+                {deletingAllSourceTodos ? "Deleting..." : "Delete all saved"}
+              </Button>
+            </DrawerFooter>
+          </div>
+        </DrawerContent>
+      </Drawer>
+
+      <Drawer
+        open={!!deleteSourceTodoConfirmRow}
+        onOpenChange={(open) => {
+          if (!open) setDeleteSourceTodoConfirmRow(null);
+        }}
+      >
+        <DrawerContent
+          className="flex flex-col"
+          style={{ maxHeight: "50vh", height: "50vh" }}
+        >
+          <div className="flex flex-1 flex-col justify-center px-4 pt-2 min-h-0">
+            <DrawerHeader className="pt-6 px-4 pb-2 text-center">
+              <DrawerTitle className="text-center">Delete this to-do?</DrawerTitle>
+              <DrawerDescription className="text-center text-muted-foreground">
+                This will remove the to-do from the database and cannot be undone.
+              </DrawerDescription>
+            </DrawerHeader>
+            <DrawerFooter className="flex flex-col gap-3 p-0 pt-4 pb-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                className="w-full h-12"
+                disabled={
+                  (!!deleteSourceTodoConfirmRow &&
+                    deletingSourceTodoRowId === deleteSourceTodoConfirmRow.id) ||
+                  deletingAllSourceTodos
+                }
+                onClick={() => setDeleteSourceTodoConfirmRow(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                size="lg"
+                className="w-full h-12"
+                disabled={
+                  !deleteSourceTodoConfirmRow ||
+                  deletingSourceTodoRowId === deleteSourceTodoConfirmRow.id ||
+                  deletingAllSourceTodos
+                }
+                onClick={() => void handleConfirmDeleteSourceTodoRow()}
+              >
+                {deleteSourceTodoConfirmRow &&
+                deletingSourceTodoRowId === deleteSourceTodoConfirmRow.id
+                  ? "Deleting..."
+                  : "Delete"}
               </Button>
             </DrawerFooter>
           </div>
@@ -2966,8 +3323,29 @@ export function BulkTodoForm({
         </DrawerContent>
       </Drawer>
 
-      <div className="flex justify-end">
-        <Button type="submit" disabled={!canSubmit}>
+      <div className="flex w-full flex-wrap items-center gap-2">
+        {savedTodoRowCount > 0 ? (
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            className="h-8 shrink-0 gap-1.5"
+            onClick={() => setDeleteAllSavedConfirmOpen(true)}
+            disabled={
+              saving ||
+              deletingAllSourceTodos ||
+              !!submittingRowId ||
+              !!deletingSourceTodoRowId ||
+              !!deleteSourceTodoConfirmRow
+            }
+            aria-label="Delete all saved to-dos from database"
+          >
+            <Trash2 className="h-3.5 w-3.5 shrink-0" />
+            Delete All
+          </Button>
+        ) : null}
+        <div className="min-w-2 flex-1" aria-hidden />
+        <Button type="submit" disabled={!canSubmit} className="shrink-0">
           {saving
             ? "Submitting..."
             : (() => {
