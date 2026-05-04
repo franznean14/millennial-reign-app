@@ -132,6 +132,32 @@ export const DrawerContent = React.forwardRef<
 });
 DrawerContent.displayName = DrawerPrimitive.Content.displayName;
 
+/**
+ * Narrow right-edge sheet for nested pickers (e.g. call date above a filter drawer on tablet).
+ * Use with `<Drawer direction="right" nested shouldScaleBackground={false}>`.
+ */
+export const DrawerThinRightContent = React.forwardRef<
+  React.ElementRef<typeof DrawerPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content> & {
+    overlayClassName?: string;
+  }
+>(({ className, overlayClassName, children, ...props }, ref) => (
+  <DrawerPortal>
+    <DrawerOverlay className={cn("z-[100]", overlayClassName)} />
+    <DrawerPrimitive.Content
+      ref={ref}
+      className={cn(
+        "fixed inset-y-0 right-0 z-[100] flex h-full max-h-[100dvh] w-[min(100vw,22rem)] flex-col overflow-hidden rounded-l-xl border-l bg-background shadow-lg outline-none",
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </DrawerPrimitive.Content>
+  </DrawerPortal>
+));
+DrawerThinRightContent.displayName = "DrawerThinRightContent";
+
 export function DrawerHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div className={cn("grid gap-1.5 p-4 text-center sm:text-left", className)} {...props} />

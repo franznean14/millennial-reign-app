@@ -2343,22 +2343,25 @@ export function HomeTodoCard({
             </DrawerTitle>
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
-            <div className="space-y-2 mb-4">
-              <Label>Due Date</Label>
-              <DatePicker
-                date={dueDateFilter ?? undefined}
-                onSelect={(date) => setDueDateFilter(date ?? null)}
-                placeholder="Select due date"
-                mobileShowActions
-                mobileAllowClear
-                defaultToTodayOnOpen
-              />
-            </div>
             <VisitFiltersForm
               filters={filters}
               statusOptions={statusOptions}
               areaOptions={areaOptions}
               assigneeOptions={assigneeFilterOptions}
+              compactTabletLayout
+              dueDateFilter={
+                <div className="space-y-2">
+                  <Label>Due Date</Label>
+                  <DatePicker
+                    date={dueDateFilter ?? undefined}
+                    onSelect={(date) => setDueDateFilter(date ?? null)}
+                    placeholder="Select due date"
+                    mobileShowActions
+                    mobileAllowClear
+                    defaultToTodayOnOpen
+                  />
+                </div>
+              }
               onFiltersChange={setFilters}
               onClearFilters={clearFilters}
             />

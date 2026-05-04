@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useState, useRef } from "react";
-import { formatVisitDateCompact, getVisitDisplayName, visitDayKey } from "@/lib/utils/visit-history-ui";
+import { useEffect, useState, useRef } from "react";
+import { formatVisitDateCompact, visitDayKey } from "@/lib/utils/visit-history-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FormModal } from "@/components/shared/FormModal";
@@ -40,6 +40,7 @@ import { businessEventBus, type BusinessEventType } from "@/lib/events/business-
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { EstablishmentDetails } from "@/components/business/EstablishmentDetails";
 import { HouseholderDetails } from "@/components/business/HouseholderDetails";
+import { useMediaQuery } from "@/hooks/use-media-query";
 
 interface VisitHistoryProps {
   userId: string;
@@ -68,6 +69,24 @@ type CallsHouseholderSnapshot = {
   visits: VisitWithUser[];
   establishment?: { id: string; name: string; area?: string | null; statuses?: string[] | null } | null;
 };
+
+function callsStreamItemIsEstablishmentColumn(item: CallsStreamItem): boolean {
+  if (item.kind === "visit") return item.visit.visit_type === "establishment";
+  if (item.kind === "todo") {
+    if (item.todo.householder_id) return false;
+    return Boolean(item.todo.establishment_id);
+  }
+  return false;
+}
+
+function callsStreamItemIsContactColumn(item: CallsStreamItem): boolean {
+  if (item.kind === "visit") return item.visit.visit_type === "householder";
+  if (item.kind === "todo") {
+    if (item.todo.householder_id) return true;
+    return !item.todo.establishment_id;
+  }
+  return false;
+}
 
 function KnockingDoorIcon() {
   return (
@@ -113,6 +132,8 @@ export function VisitHistory({
   const [showAreaDrawer, setShowAreaDrawer] = useState(false);
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [localSearchValue, setLocalSearchValue] = useState("");
+  /** Expanded search UI: explicit activate or non-empty query (avoids setState in effects). */
+  const isSearchExpanded = isSearchActive || localSearchValue.trim().length > 0;
   const [isTyping, setIsTyping] = useState(false);
   const [activeTab, setActiveTab] = useState<"bwi" | "visit-history">("bwi");
   const activeTabRef = useRef<"bwi" | "visit-history">("bwi");
@@ -189,33 +210,13 @@ export function VisitHistory({
   // This prevents all items from unmounting/remounting, only items that don't match will exit
   // Keep filters.search empty so hookFilteredVisits doesn't include search filtering
   // Then apply localSearchValue locally for instant, fluid filtering
-  // Use a ref to track previous filtered list to maintain stable references when possible
-  const filteredVisitsRef = useRef<typeof hookFilteredVisits>([]);
-  
   const filteredVisits = useMemo(() => {
-    // Ensure filters.search is empty so hookFilteredVisits is filtered by everything except search
     const baseFiltered = hookFilteredVisits;
-    
-    // Apply local search filter
     if (!localSearchValue.trim()) {
-      // If search is empty and base hasn't changed, return previous to maintain reference
-      if (filteredVisitsRef.current.length === baseFiltered.length &&
-          filteredVisitsRef.current.every((v, i) => v.id === baseFiltered[i]?.id)) {
-        return filteredVisitsRef.current;
-      }
-      const result = baseFiltered;
-      filteredVisitsRef.current = result;
-      return result;
+      return baseFiltered;
     }
-    
     const searchLower = localSearchValue.trim().toLowerCase();
-    const result = baseFiltered.filter((visit) => 
-      getVisitSearchText(visit).includes(searchLower)
-    );
-    
-    // Update ref for next comparison
-    filteredVisitsRef.current = result;
-    return result;
+    return baseFiltered.filter((visit) => getVisitSearchText(visit).includes(searchLower));
   }, [hookFilteredVisits, localSearchValue]);
 
   const hasVisitFiltersApplied = useMemo(
@@ -472,6 +473,7 @@ export function VisitHistory({
       assigneeOptions={assigneeFilterOptions}
       assigneeHelpText="Show calls where this publisher or partner participated."
       showCallDateFilter
+      compactTabletLayout
       onFiltersChange={setFilters}
       onClearFilters={clearFilters}
     />
@@ -575,6 +577,16 @@ export function VisitHistory({
       drawer: toItems(filteredVisits),
     };
   }, [visits, filteredVisits, filteredCallTodos]);
+
+  const callsDrawerTabletLayout = useMediaQuery("(min-width: 768px)");
+  const callsDrawerEstablishmentItems = useMemo(
+    () => buildCallsStreamItems.drawer.filter(callsStreamItemIsEstablishmentColumn),
+    [buildCallsStreamItems.drawer]
+  );
+  const callsDrawerContactItems = useMemo(
+    () => buildCallsStreamItems.drawer.filter(callsStreamItemIsContactColumn),
+    [buildCallsStreamItems.drawer]
+  );
 
   function openCallsDetailsDrawer(
     target:
@@ -791,7 +803,7 @@ export function VisitHistory({
           dot={
             <div
               className={cn(
-                "w-6 h-6 rounded-full border relative z-10 flex-shrink-0 flex items-center justify-center",
+                "w-6 h-6 rounded-full border relative z-0 flex-shrink-0 flex items-center justify-center",
                 getSelectedStatusColor(primaryStatus)
               )}
             >
@@ -903,7 +915,7 @@ export function VisitHistory({
         dot={
           <div
             className={cn(
-              "w-6 h-6 rounded-full border relative z-10 flex-shrink-0 flex items-center justify-center",
+              "w-6 h-6 rounded-full border relative z-0 flex-shrink-0 flex items-center justify-center",
               getSelectedStatusColor(primaryStatus)
             )}
           >
@@ -977,6 +989,33 @@ export function VisitHistory({
     );
   };
 
+  const renderAnimatedCallsList = (items: CallsStreamItem[]) => (
+    <motion.div
+      className="space-y-4"
+      layout={!isTyping}
+      transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+    >
+      <AnimatePresence mode="popLayout" initial={false}>
+        {items.map((item, index) => (
+          <motion.div
+            key={item.key}
+            layout={!isTyping}
+            initial={false}
+            animate={{ opacity: 1, height: "auto", y: 0 }}
+            exit={{ opacity: 0, height: 0, y: -10 }}
+            transition={{
+              duration: 0.3,
+              ease: [0.4, 0, 0.2, 1],
+              layout: { duration: 0.3, ease: [0.4, 0, 0.2, 1] },
+            }}
+          >
+            {renderVisitRow(item, index, items.length, true)}
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </motion.div>
+  );
+
   // Auto-focus search input when search becomes active (only once, and only if not already focused)
   // This effect should NOT run when user is typing to prevent focus disruption
   useEffect(() => {
@@ -985,7 +1024,7 @@ export function VisitHistory({
       return;
     }
     
-    if (isSearchActive && searchInputRef.current && !hasFocusedRef.current) {
+    if (isSearchExpanded && searchInputRef.current && !hasFocusedRef.current) {
       // Only focus if the input is not already focused
       const timer = setTimeout(() => {
         // Double-check that user is not typing and input is not already focused
@@ -999,23 +1038,19 @@ export function VisitHistory({
       }, 200);
       return () => clearTimeout(timer);
     }
-    if (!isSearchActive) {
+    if (!isSearchExpanded) {
       hasFocusedRef.current = false;
     }
-  }, [isSearchActive]);
+  }, [isSearchExpanded]);
 
-  // Keep filters.search empty to ensure hook doesn't filter by search
-  // This allows us to do all search filtering client-side for better performance
+  // Keep filters.search empty so hook doesn't filter by search (client-side only).
   useEffect(() => {
-    // If filters.search has a value, clear it (search is now client-side only)
-    // Only clear if localSearchValue is also empty (user cleared search via clearSearch)
-    if (filters.search && filters.search.trim() !== '' && (!localSearchValue || localSearchValue.trim() === "")) {
+    if (
+      filters.search &&
+      filters.search.trim() !== "" &&
+      (!localSearchValue || localSearchValue.trim() === "")
+    ) {
       clearSearch();
-    }
-    
-    // Activate search if there's a local search value
-    if (localSearchValue && localSearchValue.trim() !== '') {
-      setIsSearchActive(true);
     }
   }, [filters.search, localSearchValue, clearSearch]);
 
@@ -1044,7 +1079,7 @@ export function VisitHistory({
         if (selectionStart !== null && selectionEnd !== null) {
           try {
             input.setSelectionRange(selectionStart, selectionEnd);
-          } catch (e) {
+          } catch {
             // Ignore errors
           }
         }
@@ -1058,10 +1093,10 @@ export function VisitHistory({
 
   // Cleanup debounce timer on unmount
   useEffect(() => {
+    const timerBox = searchDebounceTimerRef;
     return () => {
-      if (searchDebounceTimerRef.current) {
-        clearTimeout(searchDebounceTimerRef.current);
-      }
+      const pending = timerBox.current;
+      if (pending) clearTimeout(pending);
     };
   }, []);
 
@@ -1340,171 +1375,216 @@ export function VisitHistory({
         </Tabs>
       </div>
 
-      {/* Drawer: full calls list */}
-      <FormModal
+      {/* Drawer: full calls list (matches To-Do drawer on tablet; two columns on md+) */}
+      <Drawer
         open={showDrawer}
         onOpenChange={(open) => {
           setShowDrawer(open);
           if (!open) setShowFiltersDrawer(false);
         }}
-        title={
-          <span className="flex w-full flex-wrap items-center justify-center gap-2 text-center text-lg font-bold">
-            <KnockingDoorIcon />
-            Calls
-            {hasVisitFiltersApplied ? (
-              <Badge variant="secondary" className="font-normal tabular-nums text-xs">
-                {buildCallsStreamItems.drawer.length} {buildCallsStreamItems.drawer.length === 1 ? "item" : "items"}
-              </Badge>
-            ) : null}
-          </span>
-        }
-        headerClassName="px-4 pt-4 pb-2 items-center text-center"
       >
-        <>
-          {/* Filter Controls - Centered when search inactive */}
-          <div className={cn(
-            "mb-4 w-full flex",
-            isSearchActive ? "justify-start" : "justify-center"
-          )}>
-            <FilterControls
-              isSearchActive={isSearchActive}
-              searchValue={localSearchValue}
-              searchInputRef={searchInputRef}
-              onSearchActivate={() => {
-                setIsSearchActive(true);
-                hasFocusedRef.current = false;
-              }}
-              onSearchChange={(value) => {
-                isTypingRef.current = true;
-                setLocalSearchValue(value);
-                setTimeout(() => {
-                  isTypingRef.current = false;
-                }, 500);
-              }}
-              onSearchClear={() => {
-                setLocalSearchValue("");
-                clearSearch();
-                setIsSearchActive(false);
-                hasFocusedRef.current = false;
-                isTypingRef.current = false;
-              }}
-              onSearchBlur={() => {
-                isTypingRef.current = false;
-                setIsTyping(false);
-                if (!localSearchValue || localSearchValue.trim() === "") {
+        <DrawerContent className="max-h-[85vh] md:max-h-[92dvh]">
+          <DrawerHeader className="px-4 pt-4 pb-2 items-center shrink-0">
+            <DrawerTitle className="flex w-full flex-wrap items-center justify-center gap-2 text-center text-lg font-bold">
+              <KnockingDoorIcon />
+              Calls
+              {hasVisitFiltersApplied ? (
+                <Badge variant="secondary" className="font-normal tabular-nums text-xs">
+                  {buildCallsStreamItems.drawer.length}{" "}
+                  {buildCallsStreamItems.drawer.length === 1 ? "item" : "items"}
+                </Badge>
+              ) : null}
+            </DrawerTitle>
+          </DrawerHeader>
+
+          <div className="flex flex-col min-h-0 flex-1 px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] md:overflow-visible md:pb-[calc(max(env(safe-area-inset-bottom),0px)+24px)]">
+            <div
+              className={cn(
+                "mb-4 w-full flex shrink-0",
+                isSearchExpanded ? "justify-start" : "justify-center"
+              )}
+            >
+              <FilterControls
+                isSearchActive={isSearchExpanded}
+                searchValue={localSearchValue}
+                searchInputRef={searchInputRef}
+                onSearchActivate={() => {
+                  setIsSearchActive(true);
+                  hasFocusedRef.current = false;
+                }}
+                onSearchChange={(value) => {
+                  isTypingRef.current = true;
+                  setLocalSearchValue(value);
+                  setTimeout(() => {
+                    isTypingRef.current = false;
+                  }, 500);
+                }}
+                onSearchClear={() => {
+                  setLocalSearchValue("");
+                  clearSearch();
                   setIsSearchActive(false);
                   hasFocusedRef.current = false;
+                  isTypingRef.current = false;
+                }}
+                onSearchBlur={() => {
+                  isTypingRef.current = false;
+                  setIsTyping(false);
+                  if (!localSearchValue || localSearchValue.trim() === "") {
+                    setIsSearchActive(false);
+                    hasFocusedRef.current = false;
+                  }
+                }}
+                myActive={filters.myUpdatesOnly}
+                myLabel="My Visits"
+                onMyActivate={() => setFilters((prev) => ({ ...prev, myUpdatesOnly: true }))}
+                onMyClear={() => setFilters((prev) => ({ ...prev, myUpdatesOnly: false }))}
+                bwiActive={filters.bwiOnly}
+                bwiLabel="BWI Only"
+                onBwiActivate={() =>
+                  setFilters((prev) => ({ ...prev, bwiOnly: true, householderOnly: false }))
                 }
-              }}
-              myActive={filters.myUpdatesOnly}
-              myLabel="My Visits"
-              onMyActivate={() => setFilters(prev => ({ ...prev, myUpdatesOnly: true }))}
-              onMyClear={() => setFilters(prev => ({ ...prev, myUpdatesOnly: false }))}
-              bwiActive={filters.bwiOnly}
-              bwiLabel="BWI Only"
-              onBwiActivate={() => setFilters(prev => ({ ...prev, bwiOnly: true, householderOnly: false }))}
-              onBwiClear={() => setFilters(prev => ({ ...prev, bwiOnly: false }))}
-              householderActive={filters.householderOnly}
-              householderLabel="Personal Contacts Only"
-              onHouseholderActivate={() => setFilters(prev => ({ ...prev, householderOnly: true, bwiOnly: false }))}
-              onHouseholderClear={() => setFilters(prev => ({ ...prev, householderOnly: false }))}
-              filterBadges={filterBadges}
-              onOpenFilters={() => setShowFiltersDrawer(true)}
-              onClearFilters={clearFilters}
-              onRemoveBadge={(badge) => {
-                if (badge.type === "status") {
-                  setFilters(prev => ({ ...prev, statuses: prev.statuses.filter(s => s !== badge.value) }));
-                } else if (badge.type === "area") {
-                  setFilters(prev => ({ ...prev, areas: prev.areas.filter(a => a !== badge.value) }));
-                } else if (badge.type === "assignee") {
-                  setFilters(prev => ({
-                    ...prev,
-                    assigneeIds: prev.assigneeIds.filter((id) => id !== badge.value),
-                  }));
-                } else if (badge.type === "call_date") {
-                  setFilters(prev => ({ ...prev, callDateFrom: null, callDateTo: null }));
+                onBwiClear={() => setFilters((prev) => ({ ...prev, bwiOnly: false }))}
+                householderActive={filters.householderOnly}
+                householderLabel="Personal Contacts Only"
+                onHouseholderActivate={() =>
+                  setFilters((prev) => ({ ...prev, householderOnly: true, bwiOnly: false }))
                 }
-              }}
-              containerClassName={isSearchActive ? "w-full !max-w-none !px-0" : "justify-center"}
-              maxWidthClassName={isSearchActive ? "" : "mx-4"}
-            />
-          </div>
+                onHouseholderClear={() => setFilters((prev) => ({ ...prev, householderOnly: false }))}
+                filterBadges={filterBadges}
+                onOpenFilters={() => setShowFiltersDrawer(true)}
+                onClearFilters={clearFilters}
+                onRemoveBadge={(badge) => {
+                  if (badge.type === "status") {
+                    setFilters((prev) => ({
+                      ...prev,
+                      statuses: prev.statuses.filter((s) => s !== badge.value),
+                    }));
+                  } else if (badge.type === "area") {
+                    setFilters((prev) => ({
+                      ...prev,
+                      areas: prev.areas.filter((a) => a !== badge.value),
+                    }));
+                  } else if (badge.type === "assignee") {
+                    setFilters((prev) => ({
+                      ...prev,
+                      assigneeIds: prev.assigneeIds.filter((id) => id !== badge.value),
+                    }));
+                  } else if (badge.type === "call_date") {
+                    setFilters((prev) => ({ ...prev, callDateFrom: null, callDateTo: null }));
+                  }
+                }}
+                containerClassName={isSearchExpanded ? "w-full !max-w-none !px-0" : "justify-center"}
+                maxWidthClassName={isSearchExpanded ? "" : "mx-4"}
+              />
+            </div>
 
-          <div 
-            className="relative max-h-[70vh] overflow-y-auto pb-[calc(max(env(safe-area-inset-bottom),0px)+40px)]"
-            tabIndex={-1}
-            onFocus={(e) => {
-              if (isTypingRef.current && searchInputRef.current && e.target === e.currentTarget) {
-                e.preventDefault();
-                e.stopPropagation();
-                setTimeout(() => {
-                  if (searchInputRef.current && isTypingRef.current) {
-                    const input = searchInputRef.current;
-                    const selectionStart = input.selectionStart;
-                    const selectionEnd = input.selectionEnd;
-                    input.focus();
-                    if (selectionStart !== null && selectionEnd !== null) {
-                      try {
-                        input.setSelectionRange(selectionStart, selectionEnd);
-                      } catch {
-                        // Ignore
+            <div
+              className={cn(
+                "relative min-h-0 flex-1",
+                callsDrawerTabletLayout ? "" : "max-h-[70vh] overflow-y-auto"
+              )}
+              tabIndex={-1}
+              onFocus={(e) => {
+                if (isTypingRef.current && searchInputRef.current && e.target === e.currentTarget) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setTimeout(() => {
+                    if (searchInputRef.current && isTypingRef.current) {
+                      const input = searchInputRef.current;
+                      const selectionStart = input.selectionStart;
+                      const selectionEnd = input.selectionEnd;
+                      input.focus();
+                      if (selectionStart !== null && selectionEnd !== null) {
+                        try {
+                          input.setSelectionRange(selectionStart, selectionEnd);
+                        } catch {
+                          // Ignore
+                        }
                       }
                     }
-                  }
-                }, 0);
-              }
-            }}
-          >
-            <motion.div 
-              className="space-y-4"
-              layout={!isTyping}
-              transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+                  }, 0);
+                }
+              }}
             >
-              <AnimatePresence mode="popLayout" initial={false}>
-                {buildCallsStreamItems.drawer.map((item, index) => (
-                  <motion.div
-                    key={item.key}
-                    layout={!isTyping}
-                    initial={false}
-                    animate={{ opacity: 1, height: "auto", y: 0 }}
-                    exit={{ opacity: 0, height: 0, y: -10 }}
-                    transition={{ 
-                      duration: 0.3,
-                      ease: [0.4, 0, 0.2, 1],
-                      layout: { duration: 0.3, ease: [0.4, 0, 0.2, 1] }
-                    }}
-                  >
-                    {renderVisitRow(item, index, buildCallsStreamItems.drawer.length, true)}
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </motion.div>
-            
-            {loadingMore && (
-              <div className="text-center py-4">
-                <div className="text-sm opacity-70">Loading more visits...</div>
-              </div>
-            )}
-            
-            {hasMore && !loadingMore && (
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="w-full"
-                onClick={loadMore}
-              >
-                Load More
-              </Button>
-            )}
-            
-            {!hasMore && buildCallsStreamItems.drawer.length > 0 && (
-              <div className="text-center py-4">
-                <div className="text-sm opacity-70">No more visits to load</div>
-              </div>
-            )}
+              {callsDrawerTabletLayout ? (
+                <div className="grid gap-3 pb-2 md:grid-cols-2 md:items-stretch md:gap-3 md:h-[calc(80dvh-10rem)] md:min-h-[320px]">
+                  <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-muted/15">
+                    <div className="shrink-0 border-b border-border px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                      Establishments ({callsDrawerEstablishmentItems.length})
+                    </div>
+                    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3">
+                      {callsDrawerEstablishmentItems.length === 0 ? (
+                        <p className="py-6 text-center text-sm text-muted-foreground">
+                          No establishment calls yet.
+                        </p>
+                      ) : (
+                        renderAnimatedCallsList(callsDrawerEstablishmentItems)
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-muted/15">
+                    <div className="shrink-0 border-b border-border px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                      Contacts ({callsDrawerContactItems.length})
+                    </div>
+                    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3">
+                      {callsDrawerContactItems.length === 0 ? (
+                        <p className="py-6 text-center text-sm text-muted-foreground">
+                          No contact calls yet.
+                        </p>
+                      ) : (
+                        renderAnimatedCallsList(callsDrawerContactItems)
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <motion.div
+                  className="space-y-4"
+                  layout={!isTyping}
+                  transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+                >
+                  <AnimatePresence mode="popLayout" initial={false}>
+                    {buildCallsStreamItems.drawer.map((item, index) => (
+                      <motion.div
+                        key={item.key}
+                        layout={!isTyping}
+                        initial={false}
+                        animate={{ opacity: 1, height: "auto", y: 0 }}
+                        exit={{ opacity: 0, height: 0, y: -10 }}
+                        transition={{
+                          duration: 0.3,
+                          ease: [0.4, 0, 0.2, 1],
+                          layout: { duration: 0.3, ease: [0.4, 0, 0.2, 1] },
+                        }}
+                      >
+                        {renderVisitRow(item, index, buildCallsStreamItems.drawer.length, true)}
+                      </motion.div>
+                    ))}
+                  </AnimatePresence>
+                </motion.div>
+              )}
+
+              {loadingMore && (
+                <div className="py-4 text-center">
+                  <div className="text-sm opacity-70">Loading more visits...</div>
+                </div>
+              )}
+
+              {hasMore && !loadingMore && (
+                <Button variant="outline" size="sm" className="mt-2 w-full" onClick={loadMore}>
+                  Load More
+                </Button>
+              )}
+
+              {!hasMore && buildCallsStreamItems.drawer.length > 0 && (
+                <div className="py-4 text-center">
+                  <div className="text-sm opacity-70">No more visits to load</div>
+                </div>
+              )}
+            </div>
           </div>
-        </>
-      </FormModal>
+        </DrawerContent>
+      </Drawer>
 
       <Drawer
         open={callsDetailsDrawerOpen}
@@ -1582,27 +1662,25 @@ export function VisitHistory({
         </DrawerContent>
       </Drawer>
 
-      {/* Sub-drawer: call date, status, area, publisher */}
-      <FormModal
-        open={showFiltersDrawer}
-        onOpenChange={setShowFiltersDrawer}
-        title={
-          <span className="flex w-full items-center justify-center gap-2 text-center text-lg font-bold">
-            <KnockingDoorIcon />
-            Filter Calls
-          </span>
-        }
-        headerClassName="px-4 pt-4 pb-2 items-center text-center"
-      >
-        <div className="pb-[calc(max(env(safe-area-inset-bottom),0px)+40px)]">
-          {filterForm}
-          <div className="flex justify-end pt-4">
-            <Button type="button" variant="outline" onClick={() => setShowFiltersDrawer(false)}>
-              Done
-            </Button>
+      {/* Calls filter drawer (matches Filter To-Dos sheet) */}
+      <Drawer open={showFiltersDrawer} onOpenChange={setShowFiltersDrawer}>
+        <DrawerContent className="max-h-[80vh]">
+          <DrawerHeader className="px-4 pt-4 pb-2 items-center">
+            <DrawerTitle className="flex w-full items-center justify-center gap-2 text-center text-lg font-bold">
+              <KnockingDoorIcon />
+              Filter Calls
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
+            {filterForm}
+            <div className="flex justify-end pt-4">
+              <Button type="button" variant="outline" onClick={() => setShowFiltersDrawer(false)}>
+                Done
+              </Button>
+            </div>
           </div>
-        </div>
-      </FormModal>
+        </DrawerContent>
+      </Drawer>
 
       {/* Area picker drawer for BWI tab header */}
       <FormModal

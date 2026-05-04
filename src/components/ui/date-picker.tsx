@@ -6,15 +6,16 @@ import { format } from "date-fns";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import { useMobile } from "@/lib/hooks/use-mobile";
 import { FormModal } from "@/components/shared/FormModal";
+import {
+  Drawer,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerThinRightContent,
+  DrawerTitle,
+} from "@/components/ui/drawer";
 import { DateRangeSelectContent } from "@/components/ui/date-range-select-modal";
+import { useMediaQuery } from "@/hooks/use-media-query";
 
 interface DatePickerProps {
   date?: Date;
@@ -36,10 +37,34 @@ export function DatePicker({
   defaultToTodayOnOpen = false,
 }: DatePickerProps) {
   const [open, setOpen] = useState(false);
-  const isMobile = useMobile();
+  /** Under `md`: bottom sheet. `md` and up: thin right drawer (matches call-date picker on tablet). */
+  const isNarrowForSheet = useMediaQuery("(max-width: 767px)");
   const effectiveDate = date ?? (open && defaultToTodayOnOpen ? new Date() : undefined);
 
-  if (isMobile) {
+  const sheetBody = (
+    <DateRangeSelectContent
+      startDate={effectiveDate}
+      allowRange={false}
+      showActions={mobileShowActions}
+      showClearAction={mobileAllowClear && !!date}
+      onClearAction={() => {
+        onSelect?.(undefined);
+        setOpen(false);
+      }}
+      onSelect={(selected) => {
+        onSelect?.(selected);
+        setOpen(false);
+      }}
+      onConfirm={(selected) => {
+        onSelect?.(selected);
+        setOpen(false);
+      }}
+      onCancel={() => setOpen(false)}
+      onRequestClose={() => setOpen(false)}
+    />
+  );
+
+  if (isNarrowForSheet) {
     return (
       <>
         <Button
@@ -62,58 +87,45 @@ export function DatePicker({
           description="Choose a date"
           className="sm:max-w-[640px]"
         >
-          <DateRangeSelectContent
-            startDate={effectiveDate}
-            allowRange={false}
-            showActions={mobileShowActions}
-            showClearAction={mobileAllowClear && !!date}
-            onClearAction={() => {
-              onSelect?.(undefined);
-              setOpen(false);
-            }}
-            onSelect={(selected) => {
-              onSelect?.(selected);
-              setOpen(false);
-            }}
-            onConfirm={(selected) => {
-              onSelect?.(selected);
-              setOpen(false);
-            }}
-            onCancel={() => setOpen(false)}
-            onRequestClose={() => setOpen(false)}
-          />
+          {sheetBody}
         </FormModal>
       </>
     );
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          type="button"
-          className={cn(
-            "w-full justify-start text-left font-normal",
-            !date && "text-muted-foreground",
-            className
-          )}
-        >
-          <CalendarIcon className="mr-2 h-4 w-4" />
-          {date ? format(date, "PPP") : <span>{placeholder}</span>}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-auto p-0" align="start">
-        <Calendar
-          mode="single"
-          selected={effectiveDate}
-          onSelect={(selectedDate) => {
-            onSelect?.(selectedDate);
-            setOpen(false);
-          }}
-          initialFocus
-        />
-      </PopoverContent>
-    </Popover>
+    <>
+      <Button
+        variant="outline"
+        type="button"
+        className={cn(
+          "w-full justify-start text-left font-normal",
+          !date && "text-muted-foreground",
+          className
+        )}
+        onClick={() => setOpen(true)}
+      >
+        <CalendarIcon className="mr-2 h-4 w-4" />
+        {date ? format(date, "PPP") : <span>{placeholder}</span>}
+      </Button>
+      <Drawer
+        open={open}
+        onOpenChange={setOpen}
+        direction="right"
+        modal
+        nested
+        shouldScaleBackground={false}
+      >
+        <DrawerThinRightContent>
+          <DrawerHeader className="border-b border-border px-4 text-left">
+            <DrawerTitle>Select Date</DrawerTitle>
+            <DrawerDescription>Choose a date</DrawerDescription>
+          </DrawerHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+24px)] pt-4">
+            {sheetBody}
+          </div>
+        </DrawerThinRightContent>
+      </Drawer>
+    </>
   );
 }
