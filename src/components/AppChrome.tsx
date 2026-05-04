@@ -2,7 +2,6 @@
 
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
-import { AppTopbar } from "@/components/AppTopbar";
 import { Home, Landmark, Briefcase, User } from "lucide-react";
 import { useSPA } from "@/components/SPAProvider";
 import { FullScreenLoading } from "@/components/FullScreenLoading";
@@ -21,7 +20,7 @@ function FloatingSidebarTrigger() {
   if (open) return null;
   
   return (
-    <div className="fixed left-4 top-4 z-30 hidden lg:block">
+    <div className="fixed left-4 z-30 hidden lg:block top-[calc(var(--device-safe-top,0px)+4px)]">
       <SidebarTrigger />
     </div>
   );
@@ -78,21 +77,14 @@ export function AppChrome({ children }: AppChromeProps) {
       <SidebarProvider>
         <AppSidebar />
         <FloatingSidebarTrigger />
-        <SidebarInset>
-          <AppTopbar 
-            currentSection={currentSection}
-            onSectionChange={onSectionChange}
-            userPermissions={userPermissions}
-            className="hidden lg:block"
-          />
-          
-          <main className="min-h-[calc(100dvh-56px)] flex-1 px-4 w-full overflow-x-hidden lg:!mt-4">
+        <SidebarInset className="min-h-0">
+          <div className="flex min-h-0 flex-1 flex-col px-4 w-full overflow-x-hidden">
             {children}
-          </main>
+          </div>
         </SidebarInset>
         
         {/* Bottom Navigation (Mobile) */}
-        <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-background/80 backdrop-blur lg:hidden pb-[env(safe-area-inset-bottom)]">
+        <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-background/80 backdrop-blur xl:hidden pb-[env(safe-area-inset-bottom)]">
           <div className="mx-auto flex max-w-screen-sm items-stretch justify-around">
             {[
               { id: 'home', label: "Home", icon: Home },

@@ -5,6 +5,8 @@ import { DesktopHomeSummary } from "@/components/home/DesktopHomeSummary";
 import { VisitHistory } from "@/components/home/VisitHistory";
 import { HomeTodoCard } from "@/components/home/HomeTodoCard";
 import { UpcomingEvents } from "@/components/home/UpcomingEvents";
+import { useSPA } from "@/components/SPAProvider";
+import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 
 interface HomeViewProps {
@@ -28,12 +30,14 @@ export function HomeView({
   onVisitClick,
   onNavigateToCongregation,
   onNavigateToBusinessWithStatus,
-  onNavigateToBusiness,
   onNavigateToTodoCall,
   homeTab = 'summary',
   bwiAreaFilter,
   onBwiAreaChange,
 }: HomeViewProps) {
+  const { userPermissions } = useSPA();
+  const showBwi = userPermissions.showBusiness;
+
   const [dateRanges, setDateRanges] = useState({
     monthStart: "",
     nextMonthStart: "",
@@ -67,42 +71,76 @@ export function HomeView({
   }, []);
 
   return (
-    <div className="space-y-6 w-full max-w-full overflow-x-hidden">
+    <div className="space-y-4 md:space-y-5 w-full max-w-full overflow-x-hidden">
       {/* Keep both panels mounted so Events does not remount/refetch on Summary ↔ Events; hide inactive tab */}
       <div
         className={homeTab === "summary" ? "block" : "hidden"}
         aria-hidden={homeTab !== "summary"}
       >
-        {/* Mobile: Hours card, BWI summary card, To-Do card — consistent gap between all three */}
-        <div className="lg:hidden space-y-6">
-          <HomeSummary
-            userId={userId}
-            monthStart={dateRanges.monthStart}
-            nextMonthStart={dateRanges.nextMonthStart}
-            serviceYearStart={dateRanges.serviceYearStart}
-            serviceYearEnd={dateRanges.serviceYearEnd}
-            onNavigateToCongregation={onNavigateToCongregation}
-          />
-          <VisitHistory
-            userId={userId}
-            onVisitClick={onVisitClick}
-            onNavigateToBusinessWithStatus={onNavigateToBusinessWithStatus}
-            bwiAreaFilter={bwiAreaFilter}
-            onBwiAreaChange={onBwiAreaChange}
-          />
-          <HomeTodoCard userId={userId} onNavigateToTodoCall={onNavigateToTodoCall} />
+        {/* Below xl: stack on phones; lg+ iPad-style row — same instances as mobile, wider breakpoints only change layout. */}
+        <div
+          className={cn(
+            "xl:hidden flex flex-col gap-6",
+            showBwi ? "md:grid md:grid-cols-3 md:items-start md:gap-4" : "md:grid md:grid-cols-2 md:items-start md:gap-4"
+          )}
+        >
+          <div className="min-w-0">
+            <HomeSummary
+              userId={userId}
+              monthStart={dateRanges.monthStart}
+              nextMonthStart={dateRanges.nextMonthStart}
+              serviceYearStart={dateRanges.serviceYearStart}
+              serviceYearEnd={dateRanges.serviceYearEnd}
+              onNavigateToCongregation={onNavigateToCongregation}
+            />
+          </div>
+          {showBwi ? (
+            <div className="min-w-0">
+              <VisitHistory
+                userId={userId}
+                onVisitClick={onVisitClick}
+                onNavigateToBusinessWithStatus={onNavigateToBusinessWithStatus}
+                bwiAreaFilter={bwiAreaFilter}
+                onBwiAreaChange={onBwiAreaChange}
+              />
+            </div>
+          ) : null}
+          <div className="min-w-0">
+            <HomeTodoCard userId={userId} onNavigateToTodoCall={onNavigateToTodoCall} />
+          </div>
         </div>
 
-        {/* Desktop: Desktop Home Summary with Calendar and Form */}
-        <div className="hidden lg:block">
-          <DesktopHomeSummary
-            userId={userId}
-            monthStart={dateRanges.monthStart}
-            nextMonthStart={dateRanges.nextMonthStart}
-            serviceYearStart={dateRanges.serviceYearStart}
-            serviceYearEnd={dateRanges.serviceYearEnd}
-            onNavigateToCongregation={onNavigateToCongregation}
-          />
+        {/* xl+: same three-card row as tablet — DesktopHomeSummary is full-width inside its grid column (not w-1/3 of the page). */}
+        <div
+          className={cn(
+            "hidden xl:grid xl:items-start xl:gap-4",
+            showBwi ? "xl:grid-cols-3" : "xl:grid-cols-2"
+          )}
+        >
+          <div className="min-w-0">
+            <DesktopHomeSummary
+              userId={userId}
+              monthStart={dateRanges.monthStart}
+              nextMonthStart={dateRanges.nextMonthStart}
+              serviceYearStart={dateRanges.serviceYearStart}
+              serviceYearEnd={dateRanges.serviceYearEnd}
+              onNavigateToCongregation={onNavigateToCongregation}
+            />
+          </div>
+          {showBwi ? (
+            <div className="min-w-0">
+              <VisitHistory
+                userId={userId}
+                onVisitClick={onVisitClick}
+                onNavigateToBusinessWithStatus={onNavigateToBusinessWithStatus}
+                bwiAreaFilter={bwiAreaFilter}
+                onBwiAreaChange={onBwiAreaChange}
+              />
+            </div>
+          ) : null}
+          <div className="min-w-0">
+            <HomeTodoCard userId={userId} onNavigateToTodoCall={onNavigateToTodoCall} />
+          </div>
         </div>
       </div>
 

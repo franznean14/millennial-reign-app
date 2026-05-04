@@ -3,6 +3,7 @@
 import { Home, Landmark, Briefcase, User, Building2, Users, MapPin, ChevronRight } from "lucide-react";
 import { useSPA } from "@/components/SPAProvider";
 import { useState } from "react";
+import { OfflineIndicator } from "@/components/OfflineIndicator";
 import {
   Sidebar,
   SidebarContent,
@@ -122,10 +123,7 @@ export function AppSidebar() {
       
       <SidebarFooter>
         <div className="px-2 py-2 text-xs text-sidebar-foreground/70">
-          <div className="flex items-center gap-2">
-            <div className="h-2 w-2 rounded-full bg-green-500" />
-            <span>Online</span>
-          </div>
+          <OfflineIndicator variant="inline" />
         </div>
       </SidebarFooter>
     </Sidebar>

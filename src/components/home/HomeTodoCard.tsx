@@ -372,6 +372,12 @@ export function HomeTodoCard({
   const [todoPendingTake, setTodoPendingTake] = useState<MyOpenCallTodoItem | null>(null);
   const [takingTodoId, setTakingTodoId] = useState<string | null>(null);
   const layoutScopeId = useId();
+  /** Unique per mount — two HomeTodoCards can mount (hidden breakpoint sibling); Supabase reuses channel topics by name. */
+  const realtimeChannelSlotRef = useRef(
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `s${Math.random().toString(36).slice(2)}`
+  );
   const establishmentDetailsCacheRef = useRef(new Map<string, EstablishmentDetailsSnapshot>());
   const householderDetailsCacheRef = useRef(new Map<string, HouseholderDetailsSnapshot>());
   const searchInputRef = useRef<HTMLInputElement | null>(null);
@@ -1034,7 +1040,7 @@ export function HomeTodoCard({
     if (!scopeKey) return;
     const supabase = createSupabaseBrowserClient();
     const channel = supabase
-      .channel(`todos-live-${scopeKey}`)
+      .channel(`todos-live-${scopeKey}-${realtimeChannelSlotRef.current}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "call_todos" }, () => {
         loadTodos({ useCache: false, forceNetwork: true });
       })

@@ -255,7 +255,8 @@ export function HomeSummary({
     const supabase = createSupabaseBrowserClient();
 
     const channel = supabase
-      .channel("home-daily-changes")
+      // Topic must be unique per subscriber — DesktopHomeSummary mounts in parallel (hidden breakpoint).
+      .channel(`home-daily-changes-mobile:${uid}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "daily_records", filter: `user_id=eq.${uid}` },
