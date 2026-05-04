@@ -133,6 +133,7 @@ export const DrawerContent = React.forwardRef<
       <DrawerOverlay className={overlayClassName} />
       <DrawerPrimitive.Content
         ref={ref}
+        aria-describedby={undefined}
         className={cn(
           "fixed inset-x-0 bottom-0 z-50 mt-24 flex h-auto max-h-[100svh] flex-col overflow-hidden rounded-t-[10px] border bg-background",
           "data-[state=open]:animate-in data-[state=closed]:animate-out",
@@ -174,6 +175,7 @@ export const DrawerThinRightContent = React.forwardRef<
     <DrawerOverlay className={cn("z-[100]", overlayClassName)} />
     <DrawerPrimitive.Content
       ref={ref}
+      aria-describedby={undefined}
       className={cn(
         "fixed inset-y-0 right-0 z-[100] flex h-full max-h-[100dvh] w-[min(100vw,22rem)] flex-col overflow-hidden rounded-l-xl border-l bg-background shadow-lg outline-none",
         className
@@ -214,6 +216,7 @@ export const DrawerWideRightContent = React.forwardRef<
       <DrawerOverlay className={cn("z-[100]", overlayClassName)} style={stackStyle} />
       <DrawerPrimitive.Content
         ref={ref}
+        aria-describedby={undefined}
         className={cn(
           "fixed inset-y-0 right-0 z-[100] flex h-full max-h-[100dvh] w-[min(100vw,36rem)] flex-col overflow-hidden rounded-l-xl border-l bg-background shadow-lg outline-none",
           className
@@ -243,6 +246,7 @@ export const DrawerWideLeftContent = React.forwardRef<
     <DrawerOverlay className={cn("z-[102]", overlayClassName)} />
     <DrawerPrimitive.Content
       ref={ref}
+      aria-describedby={undefined}
       className={cn(
         "fixed inset-y-0 left-0 z-[102] flex h-full max-h-[100dvh] w-[min(100vw,36rem)] flex-col overflow-hidden rounded-r-xl border-r bg-background shadow-lg outline-none",
         className
@@ -279,6 +283,7 @@ export const DrawerWideLeftContentTop = React.forwardRef<
       <DrawerOverlay className={cn("z-[130]", overlayClassName)} style={stackStyle} />
       <DrawerPrimitive.Content
         ref={ref}
+        aria-describedby={undefined}
         className={cn(
           "fixed inset-y-0 left-0 z-[130] flex h-full max-h-[100dvh] w-[min(100vw,36rem)] flex-col overflow-hidden rounded-r-xl border-r bg-background shadow-lg outline-none",
           className

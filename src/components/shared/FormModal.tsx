@@ -92,6 +92,9 @@ export function FormModal({
 }: FormModalProps) {
   const isDesktop = useMediaQuery(desktopQuery);
   const isTabletUp = useMediaQuery(tabletQuery);
+  /** Radix Dialog/Drawer warn if content has no Description; extra copy is screen-reader only when no `description` prop. */
+  const a11yDescription =
+    description ?? (typeof title === "string" ? `Use the form to ${title}.` : "Dialog form.");
   useEffect(() => {
     if (typeof document === "undefined") return;
     const fabRoot = document.getElementById("fab-root");
@@ -125,7 +128,7 @@ export function FormModal({
               className={cn("border-b border-border px-4 pb-3 pt-4 text-left", headerClassName)}
             >
               <DrawerTitle className="text-lg font-bold">{title}</DrawerTitle>
-              {description ? <DrawerDescription>{description}</DrawerDescription> : null}
+              <DrawerDescription className={description ? undefined : "sr-only"}>{a11yDescription}</DrawerDescription>
             </DrawerHeader>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pt-2">
               <FormModalBody className={cn("pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]", bodyClassName)}>
@@ -142,7 +145,7 @@ export function FormModal({
         <DrawerContent className={className}>
           <DrawerHeader className={cn(headerClassName)}>
             <DrawerTitle>{title}</DrawerTitle>
-            {description ? <DrawerDescription>{description}</DrawerDescription> : null}
+            <DrawerDescription className={description ? undefined : "sr-only"}>{a11yDescription}</DrawerDescription>
           </DrawerHeader>
           <FormModalBody className={bodyClassName}>{children}</FormModalBody>
         </DrawerContent>
@@ -156,7 +159,7 @@ export function FormModal({
         <DialogContent className={className}>
           <DialogHeader className={cn(headerClassName)}>
             <DialogTitle>{title}</DialogTitle>
-            {description && <DialogDescription>{description}</DialogDescription>}
+            <DialogDescription>{a11yDescription}</DialogDescription>
           </DialogHeader>
           <FormModalBody className={bodyClassName}>{children}</FormModalBody>
         </DialogContent>
@@ -169,7 +172,7 @@ export function FormModal({
       <DrawerContent className={className}>
         <DrawerHeader className={cn(headerClassName)}>
           <DrawerTitle>{title}</DrawerTitle>
-          {description && <DrawerDescription>{description}</DrawerDescription>}
+          <DrawerDescription className={description ? undefined : "sr-only"}>{a11yDescription}</DrawerDescription>
         </DrawerHeader>
         <FormModalBody className={bodyClassName}>{children}</FormModalBody>
       </DrawerContent>
