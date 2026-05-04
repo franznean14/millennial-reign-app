@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, useMemo, useId, type ReactNode } from "react";
 import { motion } from "motion/react";
-import { ListTodo, ChevronRight, ChevronDown, ChevronUp, MapPinned, BookOpen } from "lucide-react";
+import { ListTodo, ChevronRight, ChevronLeft, ChevronDown, ChevronUp, MapPinned, BookOpen } from "lucide-react";
 import {
   getMyOpenCallTodos,
   getMyCompletedCallTodos,
@@ -1777,6 +1777,11 @@ export function HomeTodoCard({
     setSelectedContactFromEstablishment(householder);
     setContactDetailsSubdrawerOpen(true);
   }, [openTodos, completedTodos]);
+
+  const closeContactDetailsSubdrawer = useCallback(() => {
+    setContactDetailsSubdrawerOpen(false);
+    setSelectedContactFromEstablishment(null);
+  }, []);
   const openTodoEditorFromDetails = useCallback(
     (
       todo: MyOpenCallTodoItem,
@@ -2634,6 +2639,111 @@ export function HomeTodoCard({
     </>
   );
 
+  const renderContactSubdrawerBody = () => (
+    <>
+      {isLoadingContactSubdrawerDetails && !contactSubdrawerHouseholder ? (
+        <div className="rounded-lg border p-4 text-sm text-muted-foreground">Loading details...</div>
+      ) : null}
+
+      {contactSubdrawerHouseholder ? (
+        <Card className={cn("w-full", contactSubdrawerSurfaceClass)}>
+          <CardHeader className="flex flex-row items-center justify-between gap-2">
+            <div className="flex w-full min-w-0 flex-1 flex-wrap items-center gap-2 pr-1">
+              {contactSubdrawerHouseholder.status?.trim() ? (
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "flex-shrink-0 capitalize",
+                    getHouseholderStatusColorClass(contactSubdrawerHouseholder.status)
+                  )}
+                >
+                  {formatStatusText(contactSubdrawerHouseholder.status)}
+                </Badge>
+              ) : null}
+              {contactSubdrawerEstablishmentName ? (
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "flex-shrink-0",
+                    getStatusTextColor(contactSubdrawerEstablishmentStatus)
+                  )}
+                >
+                  {contactSubdrawerEstablishmentName}
+                </Badge>
+              ) : null}
+            </div>
+            {contactSubdrawerHouseholder.lat != null && contactSubdrawerHouseholder.lng != null ? (
+              <a
+                className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-primary/60 bg-primary/10 text-primary shadow-sm transition-all hover:bg-primary/20 hover:border-primary hover:scale-[1.03] active:scale-100"
+                href={`https://www.google.com/maps/dir/?api=1&destination=${contactSubdrawerHouseholder.lat},${contactSubdrawerHouseholder.lng}`}
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Open directions"
+                title="Open directions"
+              >
+                <MapPinned className="h-4 w-4" />
+              </a>
+            ) : null}
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className={cn("grid gap-4", contactSubdrawerDetailGridClass)}>
+              {contactSubdrawerArea ? (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Area</p>
+                  <p>{contactSubdrawerArea}</p>
+                </div>
+              ) : null}
+              {contactSubdrawerNote ? (
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Note</p>
+                  <p className="text-sm break-words">{contactSubdrawerNote}</p>
+                </div>
+              ) : null}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
+      {contactSubdrawerHouseholder?.id ? (
+        <HomeTodoCard
+          householderId={contactSubdrawerHouseholder.id}
+          prefillScopeKey={`householder:${contactSubdrawerHouseholder.id}`}
+          prefillOpenTodos={contactSubdrawerPrefillOpenTodos}
+          prefillCompletedTodos={contactSubdrawerPrefillCompletedTodos}
+          preferLeftCompanionDrawer
+          onTodoTap={(todo) =>
+            openTodoEditorFromDetails(todo, contactSubdrawerVisits, {
+              establishments: contactSubdrawerEstablishment
+                ? [{ id: contactSubdrawerEstablishment.id, name: contactSubdrawerEstablishment.name }]
+                : [],
+              selectedEstablishmentId: contactSubdrawerEstablishment?.id,
+              householderId: contactSubdrawerHouseholder.id,
+              householderName: contactSubdrawerHouseholder.name,
+              disableEstablishmentSelect: true,
+            })
+          }
+        />
+      ) : null}
+
+      {contactSubdrawerVisits.length > 0 ? (
+        <VisitUpdatesSection
+          visits={contactSubdrawerVisits}
+          isHouseholderContext
+          establishments={contactSubdrawerEstablishment ? [contactSubdrawerEstablishment] : []}
+          selectedEstablishmentId={contactSubdrawerEstablishment?.id}
+          householderId={contactSubdrawerHouseholder?.id}
+          householderName={contactSubdrawerHouseholder?.name}
+          householderStatus={contactSubdrawerHouseholder?.status}
+          isLoading={false}
+          onVisitUpdated={() => {
+            // parent snapshots refresh via cache/network flow
+          }}
+          preferLeftDetailPanel={isTodoDetailsSideLayout}
+        />
+      ) : null}
+    </>
+  );
+
   return (
     <>
       <div className="rounded-lg border overflow-hidden bg-background">
@@ -2899,127 +3009,68 @@ export function HomeTodoCard({
       </Drawer>
       )}
 
-      <Drawer
-        open={contactDetailsSubdrawerOpen}
-        onOpenChange={(open) => {
-          setContactDetailsSubdrawerOpen(open);
-          if (!open) {
-            setSelectedContactFromEstablishment(null);
-          }
-        }}
-        nested
-        shouldScaleBackground={false}
-      >
-        <DrawerContent className="max-h-[85vh] !z-[110]" overlayClassName="!z-[110]">
-          <DrawerHeader className="px-4 pt-4 pb-2 items-center">
-            <DrawerTitle className="flex w-full items-center justify-center gap-2 text-center text-xl font-extrabold tracking-tight">
-              {contactSubdrawerHouseholder?.name || "Contact Details"}
-            </DrawerTitle>
-          </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] space-y-3">
-            {isLoadingContactSubdrawerDetails && !contactSubdrawerHouseholder ? (
-              <div className="rounded-lg border p-4 text-sm text-muted-foreground">Loading details...</div>
-            ) : null}
-
-            {contactSubdrawerHouseholder ? (
-              <Card className={cn("w-full", contactSubdrawerSurfaceClass)}>
-                <CardHeader className="flex flex-row items-center justify-between gap-2">
-                  <div className="flex w-full min-w-0 flex-1 flex-wrap items-center gap-2 pr-1">
-                    {contactSubdrawerHouseholder.status?.trim() ? (
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "flex-shrink-0 capitalize",
-                          getHouseholderStatusColorClass(contactSubdrawerHouseholder.status)
-                        )}
-                      >
-                        {formatStatusText(contactSubdrawerHouseholder.status)}
-                      </Badge>
-                    ) : null}
-                    {contactSubdrawerEstablishmentName ? (
-                      <Badge
-                        variant="outline"
-                        className={cn(
-                          "flex-shrink-0",
-                          getStatusTextColor(contactSubdrawerEstablishmentStatus)
-                        )}
-                      >
-                        {contactSubdrawerEstablishmentName}
-                      </Badge>
-                    ) : null}
-                  </div>
-                  {contactSubdrawerHouseholder.lat != null && contactSubdrawerHouseholder.lng != null ? (
-                    <a
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-primary/60 bg-primary/10 text-primary shadow-sm transition-all hover:bg-primary/20 hover:border-primary hover:scale-[1.03] active:scale-100"
-                      href={`https://www.google.com/maps/dir/?api=1&destination=${contactSubdrawerHouseholder.lat},${contactSubdrawerHouseholder.lng}`}
-                      target="_blank"
-                      rel="noreferrer"
-                      aria-label="Open directions"
-                      title="Open directions"
-                    >
-                      <MapPinned className="h-4 w-4" />
-                    </a>
-                  ) : null}
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className={cn("grid gap-4", contactSubdrawerDetailGridClass)}>
-                    {contactSubdrawerArea ? (
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Area</p>
-                        <p>{contactSubdrawerArea}</p>
-                      </div>
-                    ) : null}
-                    {contactSubdrawerNote ? (
-                      <div>
-                        <p className="text-sm font-medium text-muted-foreground">Note</p>
-                        <p className="text-sm break-words">{contactSubdrawerNote}</p>
-                      </div>
-                    ) : null}
-                  </div>
-                </CardContent>
-              </Card>
-            ) : null}
-
-            {contactSubdrawerHouseholder?.id ? (
-              <HomeTodoCard
-                householderId={contactSubdrawerHouseholder.id}
-                prefillScopeKey={`householder:${contactSubdrawerHouseholder.id}`}
-                prefillOpenTodos={contactSubdrawerPrefillOpenTodos}
-                prefillCompletedTodos={contactSubdrawerPrefillCompletedTodos}
-                preferLeftCompanionDrawer
-                onTodoTap={(todo) =>
-                  openTodoEditorFromDetails(todo, contactSubdrawerVisits, {
-                    establishments: contactSubdrawerEstablishment
-                      ? [{ id: contactSubdrawerEstablishment.id, name: contactSubdrawerEstablishment.name }]
-                      : [],
-                    selectedEstablishmentId: contactSubdrawerEstablishment?.id,
-                    householderId: contactSubdrawerHouseholder.id,
-                    householderName: contactSubdrawerHouseholder.name,
-                    disableEstablishmentSelect: true,
-                  })
-                }
-              />
-            ) : null}
-
-            {contactSubdrawerVisits.length > 0 ? (
-              <VisitUpdatesSection
-                visits={contactSubdrawerVisits}
-                isHouseholderContext
-                establishments={contactSubdrawerEstablishment ? [contactSubdrawerEstablishment] : []}
-                selectedEstablishmentId={contactSubdrawerEstablishment?.id}
-                householderId={contactSubdrawerHouseholder?.id}
-                householderName={contactSubdrawerHouseholder?.name}
-                householderStatus={contactSubdrawerHouseholder?.status}
-                isLoading={false}
-                onVisitUpdated={() => {
-                  // parent snapshots refresh via cache/network flow
-                }}
-                preferLeftDetailPanel={isTodoDetailsSideLayout}
-              />
-            ) : null}
-          </div>
-        </DrawerContent>
-      </Drawer>
+      {/* Second right sheet (portaled). Must sit above estab drawer (z-100) and left companion (z-102) so
+          Framer `layoutId` layers from estab todos cannot paint on top of contact UI. */}
+      {isTodoDetailsSideLayout ? (
+        <Drawer
+          open={contactDetailsSubdrawerOpen && todoDetailsDrawerOpen}
+          onOpenChange={(open) => {
+            setContactDetailsSubdrawerOpen(open);
+            if (!open) {
+              setSelectedContactFromEstablishment(null);
+            }
+          }}
+          direction="right"
+          modal
+          shouldScaleBackground={false}
+        >
+          <DrawerWideRightContent stackAboveDetailsSheet>
+            <DrawerHeader className="border-b border-border px-2 pb-3 pt-4 text-left sm:px-4">
+              <div className="flex items-center gap-1 pr-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 shrink-0"
+                  onClick={closeContactDetailsSubdrawer}
+                  aria-label="Back to establishment"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+                <DrawerTitle className="text-xl font-extrabold tracking-tight">
+                  {contactSubdrawerHouseholder?.name || "Contact Details"}
+                </DrawerTitle>
+              </div>
+            </DrawerHeader>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3">
+              {renderContactSubdrawerBody()}
+            </div>
+          </DrawerWideRightContent>
+        </Drawer>
+      ) : (
+        <Drawer
+          open={contactDetailsSubdrawerOpen}
+          onOpenChange={(open) => {
+            setContactDetailsSubdrawerOpen(open);
+            if (!open) {
+              setSelectedContactFromEstablishment(null);
+            }
+          }}
+          nested
+          shouldScaleBackground={false}
+        >
+          <DrawerContent className="max-h-[85vh] !z-[110]" overlayClassName="!z-[110]">
+            <DrawerHeader className="px-4 pt-4 pb-2 items-center">
+              <DrawerTitle className="flex w-full items-center justify-center gap-2 text-center text-xl font-extrabold tracking-tight">
+                {contactSubdrawerHouseholder?.name || "Contact Details"}
+              </DrawerTitle>
+            </DrawerHeader>
+            <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] space-y-3">
+              {renderContactSubdrawerBody()}
+            </div>
+          </DrawerContent>
+        </Drawer>
+      )}
 
       <Drawer
         open={detailsEntityEditOpen}

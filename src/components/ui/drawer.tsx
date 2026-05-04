@@ -15,7 +15,7 @@ export const DrawerPortal = DrawerPrimitive.Portal;
 export const DrawerOverlay = React.forwardRef<
   React.ElementRef<typeof DrawerPrimitive.Overlay>,
   React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Overlay>
->(({ className, ...props }, ref) => {
+>(({ className, style, ...props }, ref) => {
   const visualViewport = useVisualViewport();
   
   // Calculate dynamic styles for overlay based on visual viewport
@@ -40,12 +40,20 @@ export const DrawerOverlay = React.forwardRef<
     };
   }, [visualViewport]);
 
+  const mergedStyle = React.useMemo(
+    () => ({
+      ...overlayStyles,
+      ...(style && typeof style === "object" ? style : {}),
+    }),
+    [overlayStyles, style]
+  );
+
   return (
     <DrawerPrimitive.Overlay
       ref={ref}
       className={cn("fixed inset-0 z-50 bg-black/60", className)}
-      style={overlayStyles}
       {...props}
+      style={mergedStyle}
     />
   );
 });
@@ -158,6 +166,9 @@ export const DrawerThinRightContent = React.forwardRef<
 ));
 DrawerThinRightContent.displayName = "DrawerThinRightContent";
 
+/** Inline z-index for a second right sheet above {@link DrawerWideRightContent} (z-100) and left companion (z-102). */
+const RIGHT_SHEET_STACK_ABOVE_Z = 150;
+
 /**
  * Wider right sheet for read-only detail panels (establishment/contact from a to-do).
  * Same stacking as thin variant; more width for cards + nested lists.
@@ -166,22 +177,31 @@ export const DrawerWideRightContent = React.forwardRef<
   React.ElementRef<typeof DrawerPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content> & {
     overlayClassName?: string;
+    /**
+     * When true, overlay + panel use inline z-index so this sheet wins over another z-100 right sheet
+     * (CSS tie-break / Tailwind important quirks would otherwise leave the new modal behind).
+     */
+    stackAboveDetailsSheet?: boolean;
   }
->(({ className, overlayClassName, children, ...props }, ref) => (
-  <DrawerPortal>
-    <DrawerOverlay className={cn("z-[100]", overlayClassName)} />
-    <DrawerPrimitive.Content
-      ref={ref}
-      className={cn(
-        "fixed inset-y-0 right-0 z-[100] flex h-full max-h-[100dvh] w-[min(100vw,36rem)] flex-col overflow-hidden rounded-l-xl border-l bg-background shadow-lg outline-none",
-        className
-      )}
-      {...props}
-    >
-      {children}
-    </DrawerPrimitive.Content>
-  </DrawerPortal>
-));
+>(({ className, overlayClassName, stackAboveDetailsSheet, children, style, ...props }, ref) => {
+  const stackStyle = stackAboveDetailsSheet ? ({ zIndex: RIGHT_SHEET_STACK_ABOVE_Z } as React.CSSProperties) : undefined;
+  return (
+    <DrawerPortal>
+      <DrawerOverlay className={cn("z-[100]", overlayClassName)} style={stackStyle} />
+      <DrawerPrimitive.Content
+        ref={ref}
+        className={cn(
+          "fixed inset-y-0 right-0 z-[100] flex h-full max-h-[100dvh] w-[min(100vw,36rem)] flex-col overflow-hidden rounded-l-xl border-l bg-background shadow-lg outline-none",
+          className
+        )}
+        style={{ ...stackStyle, ...(style && typeof style === "object" ? style : {}) }}
+        {...props}
+      >
+        {children}
+      </DrawerPrimitive.Content>
+    </DrawerPortal>
+  );
+});
 DrawerWideRightContent.displayName = "DrawerWideRightContent";
 
 /**
