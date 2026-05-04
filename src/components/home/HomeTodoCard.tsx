@@ -380,6 +380,8 @@ export function HomeTodoCard({
   const [todoEditorContext, setTodoEditorContext] = useState<TodoEditorContext | null>(null);
   const [todoEditorUseLeftPanel, setTodoEditorUseLeftPanel] = useState(false);
   const [detailsEntityEditOpen, setDetailsEntityEditOpen] = useState(false);
+  /** Inline edit for a contact opened from the establishment-details subsheet (tablet left form). */
+  const [contactSubdrawerEntityEditOpen, setContactSubdrawerEntityEditOpen] = useState(false);
   const [takeTodoConfirmOpen, setTakeTodoConfirmOpen] = useState(false);
   const [todoPendingTake, setTodoPendingTake] = useState<MyOpenCallTodoItem | null>(null);
   const [takingTodoId, setTakingTodoId] = useState<string | null>(null);
@@ -1775,12 +1777,14 @@ export function HomeTodoCard({
     writeLocalTodosCache(scopedKey, scopedOpen, scopedCompleted, now);
 
     setSelectedContactFromEstablishment(householder);
+    setContactSubdrawerEntityEditOpen(false);
     setContactDetailsSubdrawerOpen(true);
   }, [openTodos, completedTodos]);
 
   const closeContactDetailsSubdrawer = useCallback(() => {
     setContactDetailsSubdrawerOpen(false);
     setSelectedContactFromEstablishment(null);
+    setContactSubdrawerEntityEditOpen(false);
   }, []);
   const openTodoEditorFromDetails = useCallback(
     (
@@ -1852,6 +1856,7 @@ export function HomeTodoCard({
       setSelectedContactFromEstablishment(null);
       setContactDetailsSubdrawerOpen(false);
       setDetailsEntityEditOpen(false);
+      setContactSubdrawerEntityEditOpen(false);
     }
   }, []);
 
@@ -1886,6 +1891,27 @@ export function HomeTodoCard({
     loadTodos({ useCache: false, forceNetwork: true, trustFreshLocalCache: false });
   }, [selectedTodoForDetails?.householder_id, selectedTodoForDetails?.establishment_id, loadTodos]);
 
+  const refreshAfterContactSubdrawerEdit = useCallback(async () => {
+    const hhId = contactSubdrawerHouseholder?.id;
+    if (hhId) {
+      await cacheDelete(`householder:details:v3:${hhId}`);
+      const result = await getHouseholderDetails(hhId);
+      if (result) {
+        const snap: HouseholderDetailsSnapshot = {
+          householder: result.householder,
+          visits: result.visits,
+          establishment: result.establishment,
+        };
+        householderDetailsCacheRef.current.set(hhId, snap);
+        setContactSubdrawerDetails(snap);
+        setSelectedContactFromEstablishment((prev) =>
+          prev?.id === hhId ? { ...prev, ...result.householder } : prev
+        );
+      }
+    }
+    await refreshTodoDetailEntity();
+  }, [contactSubdrawerHouseholder?.id, refreshTodoDetailEntity]);
+
   const canDetailSummaryEdit =
     (isTodoDetailsSideLayout || !!onNavigateToTodoCall) &&
     (isHouseholderDetail ? !!selectedHouseholder?.id : !!selectedEstablishmentDetails?.id);
@@ -1895,6 +1921,7 @@ export function HomeTodoCard({
       isTodoDetailsSideLayout &&
       (isHouseholderDetail ? !!selectedHouseholder?.id : !!selectedEstablishmentDetails?.id);
     if (canInline) {
+      setContactSubdrawerEntityEditOpen(false);
       setDetailsEntityEditOpen(true);
       return;
     }
@@ -1915,6 +1942,30 @@ export function HomeTodoCard({
     selectedHouseholder?.id,
     selectedEstablishmentDetails?.id,
     handleTodoDetailsDrawerChange,
+  ]);
+
+  const canContactSubdrawerSummaryEdit =
+    (isTodoDetailsSideLayout || !!onNavigateToTodoCall) && !!contactSubdrawerHouseholder?.id;
+
+  const openContactSubdrawerEntityEditor = useCallback(() => {
+    if (!contactSubdrawerHouseholder?.id) return;
+    if (isTodoDetailsSideLayout) {
+      setDetailsEntityEditOpen(false);
+      setContactSubdrawerEntityEditOpen(true);
+      return;
+    }
+    if (onNavigateToTodoCall) {
+      onNavigateToTodoCall({ householderId: contactSubdrawerHouseholder.id });
+      setDrawerOpen(false);
+      handleTodoDetailsDrawerChange(false);
+      closeContactDetailsSubdrawer();
+    }
+  }, [
+    contactSubdrawerHouseholder?.id,
+    isTodoDetailsSideLayout,
+    onNavigateToTodoCall,
+    handleTodoDetailsDrawerChange,
+    closeContactDetailsSubdrawer,
   ]);
 
   const renderTodoDetailsBody = () => (
@@ -2646,7 +2697,39 @@ export function HomeTodoCard({
       ) : null}
 
       {contactSubdrawerHouseholder ? (
-        <Card className={cn("w-full", contactSubdrawerSurfaceClass)}>
+        <div
+          className={cn(
+            canContactSubdrawerSummaryEdit &&
+              "cursor-pointer rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          )}
+          role={canContactSubdrawerSummaryEdit ? "button" : undefined}
+          tabIndex={canContactSubdrawerSummaryEdit ? 0 : undefined}
+          onClick={canContactSubdrawerSummaryEdit ? openContactSubdrawerEntityEditor : undefined}
+          onKeyDown={
+            canContactSubdrawerSummaryEdit
+              ? (e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openContactSubdrawerEntityEditor();
+                  }
+                }
+              : undefined
+          }
+          aria-label={
+            canContactSubdrawerSummaryEdit
+              ? isTodoDetailsSideLayout
+                ? `Edit ${contactSubdrawerHouseholder.name ?? "contact"}`
+                : `Open ${contactSubdrawerHouseholder.name ?? "contact"} in Business to edit`
+              : undefined
+          }
+        >
+          <Card
+            className={cn(
+              "w-full",
+              contactSubdrawerSurfaceClass,
+              canContactSubdrawerSummaryEdit && "hover:opacity-95 transition-opacity"
+            )}
+          >
           <CardHeader className="flex flex-row items-center justify-between gap-2">
             <div className="flex w-full min-w-0 flex-1 flex-wrap items-center gap-2 pr-1">
               {contactSubdrawerHouseholder.status?.trim() ? (
@@ -2680,6 +2763,8 @@ export function HomeTodoCard({
                 rel="noreferrer"
                 aria-label="Open directions"
                 title="Open directions"
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
               >
                 <MapPinned className="h-4 w-4" />
               </a>
@@ -2702,6 +2787,7 @@ export function HomeTodoCard({
             </div>
           </CardContent>
         </Card>
+        </div>
       ) : null}
 
       {contactSubdrawerHouseholder?.id ? (
@@ -2739,6 +2825,7 @@ export function HomeTodoCard({
             // parent snapshots refresh via cache/network flow
           }}
           preferLeftDetailPanel={isTodoDetailsSideLayout}
+          insideStackedContactPane={isTodoDetailsSideLayout}
         />
       ) : null}
     </>
@@ -3073,20 +3160,57 @@ export function HomeTodoCard({
       )}
 
       <Drawer
-        open={detailsEntityEditOpen}
-        onOpenChange={setDetailsEntityEditOpen}
+        open={detailsEntityEditOpen || contactSubdrawerEntityEditOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDetailsEntityEditOpen(false);
+            setContactSubdrawerEntityEditOpen(false);
+          }
+        }}
         direction="left"
         modal
         shouldScaleBackground={false}
       >
-        <DrawerWideLeftContentTop>
+        <DrawerWideLeftContentTop
+          stackAboveStackedRightSheet={contactDetailsSubdrawerOpen && isTodoDetailsSideLayout}
+        >
           <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left">
             <DrawerTitle className="text-lg font-bold">
-              {isHouseholderDetail ? "Edit Contact" : "Edit Establishment"}
+              {contactSubdrawerEntityEditOpen
+                ? "Edit Contact"
+                : isHouseholderDetail
+                  ? "Edit Contact"
+                  : "Edit Establishment"}
             </DrawerTitle>
           </DrawerHeader>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
-            {isHouseholderDetail && selectedHouseholder?.id ? (
+            {contactSubdrawerEntityEditOpen && contactSubdrawerHouseholder?.id ? (
+              <HouseholderForm
+                key={contactSubdrawerHouseholder.id}
+                establishments={
+                  contactSubdrawerEstablishment?.id
+                    ? [contactSubdrawerEstablishment as { id: string; name: string }]
+                    : []
+                }
+                selectedEstablishmentId={contactSubdrawerEstablishment?.id ?? undefined}
+                isEditing
+                initialData={{
+                  id: contactSubdrawerHouseholder.id,
+                  establishment_id: contactSubdrawerHouseholder.establishment_id ?? null,
+                  name: contactSubdrawerHouseholder.name,
+                  status: (contactSubdrawerHouseholder.status as HouseholderStatus) ?? "potential",
+                  note: contactSubdrawerHouseholder.note ?? null,
+                  lat: contactSubdrawerHouseholder.lat ?? null,
+                  lng: contactSubdrawerHouseholder.lng ?? null,
+                  publisher_id: contactSubdrawerHouseholder.publisher_id ?? null,
+                }}
+                disableEstablishmentSelect={!!contactSubdrawerEstablishment?.id}
+                onSaved={() => {
+                  setContactSubdrawerEntityEditOpen(false);
+                  void refreshAfterContactSubdrawerEdit();
+                }}
+              />
+            ) : isHouseholderDetail && selectedHouseholder?.id ? (
               <HouseholderForm
                 key={selectedHouseholder.id}
                 establishments={
@@ -3141,7 +3265,9 @@ export function HomeTodoCard({
           modal
           shouldScaleBackground={false}
         >
-          <DrawerWideLeftContentTop>
+          <DrawerWideLeftContentTop
+            stackAboveStackedRightSheet={contactDetailsSubdrawerOpen && isTodoDetailsSideLayout}
+          >
             <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left">
               <DrawerTitle className="text-lg font-bold">Edit To-Do</DrawerTitle>
             </DrawerHeader>

@@ -17,6 +17,7 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerWideLeftContent,
+  DrawerWideLeftContentTop,
 } from "@/components/ui/drawer";
 import { useMediaQuery } from "@/hooks/use-media-query";
 
@@ -32,6 +33,11 @@ interface VisitUpdatesSectionProps {
   isLoading?: boolean;
   /** On tablet+, open full calls list in a left sheet (single column) instead of centered dialog / bottom sheet. */
   preferLeftDetailPanel?: boolean;
+  /**
+   * When true, this section renders inside the stacked contact pane (z-150). Left sheets must use the same
+   * elevated stacking as Edit Call so they appear above the contact drawer.
+   */
+  insideStackedContactPane?: boolean;
 }
 
 export function VisitUpdatesSection({
@@ -45,11 +51,13 @@ export function VisitUpdatesSection({
   onVisitUpdated,
   isLoading = false,
   preferLeftDetailPanel = false,
+  insideStackedContactPane = false,
 }: VisitUpdatesSectionProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editVisit, setEditVisit] = useState<VisitWithUser | null>(null);
   const isMdUp = useMediaQuery("(min-width: 768px)");
   const useLeftPanel = Boolean(preferLeftDetailPanel && isMdUp);
+  const elevatedLeftPanels = Boolean(useLeftPanel && insideStackedContactPane);
 
   // Show only first 3 visits in main view
   const mainVisits = visits.slice(0, 3);
@@ -219,12 +227,21 @@ export function VisitUpdatesSection({
           nested
           shouldScaleBackground={false}
         >
-          <DrawerWideLeftContent>
-            <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left">
-              <DrawerTitle className="text-lg font-bold">Calls</DrawerTitle>
-            </DrawerHeader>
-            {callsListExpandedBody(true)}
-          </DrawerWideLeftContent>
+          {elevatedLeftPanels ? (
+            <DrawerWideLeftContentTop stackAboveStackedRightSheet>
+              <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left">
+                <DrawerTitle className="text-lg font-bold">Calls</DrawerTitle>
+              </DrawerHeader>
+              {callsListExpandedBody(true)}
+            </DrawerWideLeftContentTop>
+          ) : (
+            <DrawerWideLeftContent>
+              <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left">
+                <DrawerTitle className="text-lg font-bold">Calls</DrawerTitle>
+              </DrawerHeader>
+              {callsListExpandedBody(true)}
+            </DrawerWideLeftContent>
+          )}
         </Drawer>
       ) : (
         <FormModal open={drawerOpen} onOpenChange={setDrawerOpen} title="Calls">
@@ -243,14 +260,14 @@ export function VisitUpdatesSection({
           nested
           shouldScaleBackground={false}
         >
-          <DrawerWideLeftContent overlayClassName="!z-[106]" className="!z-[106]">
+          <DrawerWideLeftContentTop stackAboveStackedRightSheet>
             <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left">
               <DrawerTitle className="text-lg font-bold">Edit Call</DrawerTitle>
             </DrawerHeader>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
               {visitForm}
             </div>
-          </DrawerWideLeftContent>
+          </DrawerWideLeftContentTop>
         </Drawer>
       ) : (
         <FormModal

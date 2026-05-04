@@ -169,6 +169,9 @@ DrawerThinRightContent.displayName = "DrawerThinRightContent";
 /** Inline z-index for a second right sheet above {@link DrawerWideRightContent} (z-100) and left companion (z-102). */
 const RIGHT_SHEET_STACK_ABOVE_Z = 150;
 
+/** Left sheet (e.g. Edit Call) above a contact detail pane using {@link RIGHT_SHEET_STACK_ABOVE_Z}. */
+const LEFT_SHEET_STACK_ABOVE_STACKED_RIGHT_Z = 160;
+
 /**
  * Wider right sheet for read-only detail panels (establishment/contact from a to-do).
  * Same stacking as thin variant; more width for cards + nested lists.
@@ -238,22 +241,33 @@ export const DrawerWideLeftContentTop = React.forwardRef<
   React.ElementRef<typeof DrawerPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content> & {
     overlayClassName?: string;
+    /**
+     * When true, overlay + panel use inline z-index above {@link DrawerWideRightContent}
+     * with `stackAboveDetailsSheet` (nested contact pane).
+     */
+    stackAboveStackedRightSheet?: boolean;
   }
->(({ className, overlayClassName, children, ...props }, ref) => (
-  <DrawerPortal>
-    <DrawerOverlay className={cn("z-[130]", overlayClassName)} />
-    <DrawerPrimitive.Content
-      ref={ref}
-      className={cn(
-        "fixed inset-y-0 left-0 z-[130] flex h-full max-h-[100dvh] w-[min(100vw,36rem)] flex-col overflow-hidden rounded-r-xl border-r bg-background shadow-lg outline-none",
-        className
-      )}
-      {...props}
-    >
-      {children}
-    </DrawerPrimitive.Content>
-  </DrawerPortal>
-));
+>(({ className, overlayClassName, stackAboveStackedRightSheet, children, style, ...props }, ref) => {
+  const stackStyle = stackAboveStackedRightSheet
+    ? ({ zIndex: LEFT_SHEET_STACK_ABOVE_STACKED_RIGHT_Z } as React.CSSProperties)
+    : undefined;
+  return (
+    <DrawerPortal>
+      <DrawerOverlay className={cn("z-[130]", overlayClassName)} style={stackStyle} />
+      <DrawerPrimitive.Content
+        ref={ref}
+        className={cn(
+          "fixed inset-y-0 left-0 z-[130] flex h-full max-h-[100dvh] w-[min(100vw,36rem)] flex-col overflow-hidden rounded-r-xl border-r bg-background shadow-lg outline-none",
+          className
+        )}
+        {...props}
+        style={{ ...stackStyle, ...(style && typeof style === "object" ? style : {}) }}
+      >
+        {children}
+      </DrawerPrimitive.Content>
+    </DrawerPortal>
+  );
+});
 DrawerWideLeftContentTop.displayName = "DrawerWideLeftContentTop";
 
 export function DrawerHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
