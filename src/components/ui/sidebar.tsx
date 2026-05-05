@@ -139,7 +139,9 @@ function SidebarProvider({
             } as React.CSSProperties
           }
           className={cn(
-            "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex min-h-svh w-full",
+            // h-svh (not min-h-svh): min-height lets the shell grow with content so inner
+            // overflow-y-auto sections never become scroll containers on mobile (Android).
+            "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex h-svh max-h-svh min-h-0 w-full",
             className
           )}
           {...props}
