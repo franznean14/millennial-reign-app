@@ -4,6 +4,10 @@ import * as React from "react";
 import { Drawer as DrawerPrimitive } from "vaul";
 import { cn } from "@/lib/utils";
 import { useVisualViewport } from "@/lib/hooks/use-visual-viewport";
+import {
+  isPhoneLikeDeviceByScreen,
+  isVisualViewportObscuredByLikelySoftwareKeyboard,
+} from "@/lib/utils/visual-viewport-keyboard";
 
 const FAB_ROOT_SELECTOR = "#fab-root";
 
@@ -24,8 +28,29 @@ function mergePointerDownOutsideForFabRoot(
   };
 }
 
-export function Drawer({ ...props }: React.ComponentProps<typeof DrawerPrimitive.Root>) {
-  return <DrawerPrimitive.Root {...props} />;
+/** Phone-sized screen: Vaul may reposition for software keyboard. iPad (short edge ≥ ~744) must stay false — see isPhoneLikeDeviceByScreen. `max-width: 767px` wrongly included iPad mini. */
+function useDefaultDrawerRepositionInputs(explicit: boolean | undefined) {
+  const [phoneLike, setPhoneLike] = React.useState(() =>
+    typeof window === "undefined" ? true : isPhoneLikeDeviceByScreen()
+  );
+  React.useEffect(() => {
+    const sync = () => setPhoneLike(isPhoneLikeDeviceByScreen());
+    window.addEventListener("orientationchange", sync);
+    window.screen.orientation?.addEventListener?.("change", sync);
+    return () => {
+      window.removeEventListener("orientationchange", sync);
+      window.screen.orientation?.removeEventListener?.("change", sync);
+    };
+  }, []);
+  return explicit !== undefined ? explicit : phoneLike;
+}
+
+export function Drawer({
+  repositionInputs: repositionInputsProp,
+  ...props
+}: React.ComponentProps<typeof DrawerPrimitive.Root>) {
+  const repositionInputs = useDefaultDrawerRepositionInputs(repositionInputsProp);
+  return <DrawerPrimitive.Root repositionInputs={repositionInputs} {...props} />;
 }
 
 export const DrawerTrigger = DrawerPrimitive.Trigger;
@@ -41,8 +66,11 @@ export const DrawerOverlay = React.forwardRef<
   const overlayStyles = React.useMemo(() => {
     if (!visualViewport || typeof window === 'undefined') return {};
     
-    // When keyboard is open, only adjust height constraint - no positioning changes
-    const isKeyboardOpen = visualViewport.height < window.innerHeight * 0.8;
+    // Tablets: avoid clamping overlay to visual viewport — accessory bar triggers false positives.
+    const isKeyboardOpen =
+      typeof window !== "undefined" &&
+      isPhoneLikeDeviceByScreen() &&
+      isVisualViewportObscuredByLikelySoftwareKeyboard(window.innerHeight, visualViewport.height);
     
     if (isKeyboardOpen) {
       return {
@@ -102,8 +130,10 @@ export const DrawerContent = React.forwardRef<
       return {};
     }
     
-    // When keyboard is open, only adjust height constraint - no positioning changes
-    const isKeyboardOpen = visualViewport.height < window.innerHeight * 0.8;
+    const isKeyboardOpen =
+      typeof window !== "undefined" &&
+      isPhoneLikeDeviceByScreen() &&
+      isVisualViewportObscuredByLikelySoftwareKeyboard(window.innerHeight, visualViewport.height);
     
     if (isKeyboardOpen) {
       return {
@@ -150,7 +180,16 @@ export const DrawerContent = React.forwardRef<
           style={{ 
             scrollPaddingTop: 12,
             scrollPaddingBottom: 24,
-            paddingBottom: visualViewport && typeof window !== 'undefined' && visualViewport.height < window.innerHeight * 0.8 ? 'env(safe-area-inset-bottom, 0px)' : '0px'
+            paddingBottom:
+              visualViewport && typeof window !== "undefined"
+                ? isPhoneLikeDeviceByScreen() &&
+                  isVisualViewportObscuredByLikelySoftwareKeyboard(
+                    window.innerHeight,
+                    visualViewport.height
+                  )
+                  ? "env(safe-area-inset-bottom, 0px)"
+                  : "0px"
+                : "0px"
           }}
         >
           {children}

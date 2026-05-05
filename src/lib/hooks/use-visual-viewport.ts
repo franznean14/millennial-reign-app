@@ -1,6 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from "react";
+import {
+  isPhoneLikeDeviceByScreen,
+  isVisualViewportObscuredByLikelySoftwareKeyboard,
+} from "@/lib/utils/visual-viewport-keyboard";
 
 export function useVisualViewport() {
   const [visualViewport, setVisualViewport] = useState<{
@@ -25,10 +29,13 @@ export function useVisualViewport() {
         const newOffsetTop = window.visualViewport.offsetTop;
         const newOffsetLeft = window.visualViewport.offsetLeft;
         
-        // Check if keyboard is open (viewport height significantly reduced)
-        const isKeyboardOpen = newHeight < window.innerHeight * 0.8;
+        const isKeyboardOpen = isVisualViewportObscuredByLikelySoftwareKeyboard(
+          window.innerHeight,
+          newHeight
+        );
         
-        if (isKeyboardOpen) {
+        // Never drive --visual-viewport-height on tablets: globals + drawers use it to clamp sheets.
+        if (isKeyboardOpen && isPhoneLikeDeviceByScreen()) {
           // Set CSS custom properties for keyboard open state - only height constraint
           document.documentElement.style.setProperty('--visual-viewport-height', `${newHeight}px`);
           // Don't set width or positioning properties - let keyboard push drawer up naturally

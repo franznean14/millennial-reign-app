@@ -326,8 +326,8 @@ body.app-scroll-locked {
   overscroll-behavior: none;
 }
 
-/* Ensure drawers work properly with visual viewport */
-@media (max-width: 768px) {
+/* Ensure drawers work properly with visual viewport — phones only; iPad widths often ≤768 (mini) */
+@media (max-width: 599px) {
   .drawer-content {
     /* Use visual viewport height when available */
     max-height: 100vh;
@@ -335,8 +335,8 @@ body.app-scroll-locked {
   }
 }
 
-/* Immediate keyboard response for drawers */
-@media (max-width: 768px) {
+/* Immediate keyboard response for drawers — narrow phones only; never iPad (see visual-viewport-keyboard) */
+@media (max-width: 599px) {
   [data-vaul-drawer] {
     /* Use CSS environment variables for immediate response */
     max-height: 100vh;

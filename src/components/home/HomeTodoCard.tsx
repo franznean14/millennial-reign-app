@@ -2093,61 +2093,26 @@ export function HomeTodoCard({
     isTodoDetailsSideLayout,
   ]);
 
-  const canDetailSummaryEdit =
-    (isTodoDetailsSideLayout || !!onNavigateToTodoCall) &&
-    (isHouseholderDetail ? !!selectedHouseholder?.id : !!selectedEstablishmentDetails?.id);
+  const canDetailSummaryEdit = isHouseholderDetail
+    ? !!selectedHouseholder?.id
+    : !!selectedEstablishmentDetails?.id;
 
   const openEntityEditorFromDetailsSidebar = useCallback(() => {
-    const canInline =
-      isTodoDetailsSideLayout &&
-      (isHouseholderDetail ? !!selectedHouseholder?.id : !!selectedEstablishmentDetails?.id);
-    if (canInline) {
-      setContactSubdrawerEntityEditOpen(false);
-      setDetailsEntityEditOpen(true);
-      return;
-    }
-    if (!onNavigateToTodoCall) return;
-    if (isHouseholderDetail && selectedHouseholder?.id) {
-      onNavigateToTodoCall({ householderId: selectedHouseholder.id });
-    } else if (!isHouseholderDetail && selectedEstablishmentDetails?.id) {
-      onNavigateToTodoCall({ establishmentId: selectedEstablishmentDetails.id });
-    } else {
-      return;
-    }
-    setDrawerOpen(false);
-    handleTodoDetailsDrawerChange(false);
-  }, [
-    isTodoDetailsSideLayout,
-    onNavigateToTodoCall,
-    isHouseholderDetail,
-    selectedHouseholder?.id,
-    selectedEstablishmentDetails?.id,
-    handleTodoDetailsDrawerChange,
-  ]);
+    const hasTarget = isHouseholderDetail
+      ? !!selectedHouseholder?.id
+      : !!selectedEstablishmentDetails?.id;
+    if (!hasTarget) return;
+    setContactSubdrawerEntityEditOpen(false);
+    setDetailsEntityEditOpen(true);
+  }, [isHouseholderDetail, selectedHouseholder?.id, selectedEstablishmentDetails?.id]);
 
-  const canContactSubdrawerSummaryEdit =
-    (isTodoDetailsSideLayout || !!onNavigateToTodoCall) && !!contactSubdrawerHouseholder?.id;
+  const canContactSubdrawerSummaryEdit = !!contactSubdrawerHouseholder?.id;
 
   const openContactSubdrawerEntityEditor = useCallback(() => {
     if (!contactSubdrawerHouseholder?.id) return;
-    if (isTodoDetailsSideLayout) {
-      setDetailsEntityEditOpen(false);
-      setContactSubdrawerEntityEditOpen(true);
-      return;
-    }
-    if (onNavigateToTodoCall) {
-      onNavigateToTodoCall({ householderId: contactSubdrawerHouseholder.id });
-      setDrawerOpen(false);
-      handleTodoDetailsDrawerChange(false);
-      closeContactDetailsSubdrawer();
-    }
-  }, [
-    contactSubdrawerHouseholder?.id,
-    isTodoDetailsSideLayout,
-    onNavigateToTodoCall,
-    handleTodoDetailsDrawerChange,
-    closeContactDetailsSubdrawer,
-  ]);
+    setDetailsEntityEditOpen(false);
+    setContactSubdrawerEntityEditOpen(true);
+  }, [contactSubdrawerHouseholder?.id]);
 
   const renderTodoDetailsBody = () => (
     <>
@@ -2174,11 +2139,7 @@ export function HomeTodoCard({
                 : undefined
             }
             aria-label={
-              canDetailSummaryEdit
-                ? isTodoDetailsSideLayout
-                  ? `Edit ${selectedHouseholder?.name ?? "contact"}`
-                  : `Open ${selectedHouseholder?.name ?? "contact"} in Business to edit`
-                : undefined
+              canDetailSummaryEdit ? `Edit ${selectedHouseholder?.name ?? "contact"}` : undefined
             }
           >
             <Card
@@ -2264,9 +2225,7 @@ export function HomeTodoCard({
             }
             aria-label={
               canDetailSummaryEdit
-                ? isTodoDetailsSideLayout
-                  ? `Edit ${selectedEstablishmentDetails?.name ?? "establishment"}`
-                  : `Open ${selectedEstablishmentDetails?.name ?? "establishment"} in Business to edit`
+                ? `Edit ${selectedEstablishmentDetails?.name ?? "establishment"}`
                 : undefined
             }
           >
@@ -2892,9 +2851,7 @@ export function HomeTodoCard({
           }
           aria-label={
             canContactSubdrawerSummaryEdit
-              ? isTodoDetailsSideLayout
-                ? `Edit ${contactSubdrawerHouseholder.name ?? "contact"}`
-                : `Open ${contactSubdrawerHouseholder.name ?? "contact"} in Business to edit`
+              ? `Edit ${contactSubdrawerHouseholder.name ?? "contact"}`
               : undefined
           }
         >
@@ -3001,6 +2958,78 @@ export function HomeTodoCard({
           }}
           preferLeftDetailPanel={isTodoDetailsSideLayout}
           insideStackedContactPane={isTodoDetailsSideLayout}
+        />
+      ) : null}
+    </>
+  );
+
+  const entityEditDrawerTitle =
+    contactSubdrawerEntityEditOpen || isHouseholderDetail ? "Edit Contact" : "Edit Establishment";
+
+  const entityEditForms = (
+    <>
+      {contactSubdrawerEntityEditOpen && contactSubdrawerHouseholder?.id ? (
+        <HouseholderForm
+          key={contactSubdrawerHouseholder.id}
+          establishments={
+            contactSubdrawerEstablishment?.id
+              ? [contactSubdrawerEstablishment as { id: string; name: string }]
+              : []
+          }
+          selectedEstablishmentId={contactSubdrawerEstablishment?.id ?? undefined}
+          isEditing
+          initialData={{
+            id: contactSubdrawerHouseholder.id,
+            establishment_id: contactSubdrawerHouseholder.establishment_id ?? null,
+            name: contactSubdrawerHouseholder.name,
+            status: (contactSubdrawerHouseholder.status as HouseholderStatus) ?? "potential",
+            note: contactSubdrawerHouseholder.note ?? null,
+            lat: contactSubdrawerHouseholder.lat ?? null,
+            lng: contactSubdrawerHouseholder.lng ?? null,
+            publisher_id: contactSubdrawerHouseholder.publisher_id ?? null,
+          }}
+          disableEstablishmentSelect={!!contactSubdrawerEstablishment?.id}
+          onSaved={() => {
+            setContactSubdrawerEntityEditOpen(false);
+            void refreshAfterContactSubdrawerEdit();
+          }}
+        />
+      ) : isHouseholderDetail && selectedHouseholder?.id ? (
+        <HouseholderForm
+          key={selectedHouseholder.id}
+          establishments={
+            selectedHouseholderEstablishment?.id
+              ? [selectedHouseholderEstablishment as { id: string; name: string }]
+              : []
+          }
+          selectedEstablishmentId={selectedHouseholderEstablishment?.id ?? undefined}
+          isEditing
+          initialData={{
+            id: selectedHouseholder.id,
+            establishment_id: selectedHouseholder.establishment_id ?? null,
+            name: selectedHouseholder.name,
+            status: (selectedHouseholder.status as HouseholderStatus) ?? "potential",
+            note: selectedHouseholder.note ?? null,
+            lat: selectedHouseholder.lat ?? null,
+            lng: selectedHouseholder.lng ?? null,
+            publisher_id: selectedHouseholder.publisher_id ?? null,
+          }}
+          disableEstablishmentSelect={!!selectedHouseholderEstablishment?.id}
+          onSaved={() => {
+            setDetailsEntityEditOpen(false);
+            void refreshTodoDetailEntity().then(() => broadcastTodosAndBusinessRefresh());
+          }}
+        />
+      ) : selectedEstablishmentDetails?.id ? (
+        <EstablishmentForm
+          key={selectedEstablishmentDetails.id}
+          isEditing
+          initialData={selectedEstablishmentDetails}
+          selectedArea={selectedEstablishmentDetails.area ?? undefined}
+          onSaved={() => {
+            setDetailsEntityEditOpen(false);
+            void refreshTodoDetailEntity().then(() => broadcastTodosAndBusinessRefresh());
+          }}
         />
       ) : null}
     </>
@@ -3332,98 +3361,59 @@ export function HomeTodoCard({
         </Drawer>
       )}
 
-      <Drawer
-        open={detailsEntityEditOpen || contactSubdrawerEntityEditOpen}
-        onOpenChange={(open) => {
-          if (!open) {
-            setDetailsEntityEditOpen(false);
-            setContactSubdrawerEntityEditOpen(false);
-          }
-        }}
-        direction="left"
-        modal
-        shouldScaleBackground={false}
-      >
-        <DrawerWideLeftContentTop
-          stackAboveStackedRightSheet={contactDetailsSubdrawerOpen && isTodoDetailsSideLayout}
+      {isTodoDetailsSideLayout ? (
+        <Drawer
+          open={detailsEntityEditOpen || contactSubdrawerEntityEditOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDetailsEntityEditOpen(false);
+              setContactSubdrawerEntityEditOpen(false);
+            }
+          }}
+          direction="left"
+          modal
+          nested
+          shouldScaleBackground={false}
         >
-          <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left">
-            <DrawerTitle className="text-lg font-bold">
-              {contactSubdrawerEntityEditOpen
-                ? "Edit Contact"
-                : isHouseholderDetail
-                  ? "Edit Contact"
-                  : "Edit Establishment"}
-            </DrawerTitle>
-          </DrawerHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
-            {contactSubdrawerEntityEditOpen && contactSubdrawerHouseholder?.id ? (
-              <HouseholderForm
-                key={contactSubdrawerHouseholder.id}
-                establishments={
-                  contactSubdrawerEstablishment?.id
-                    ? [contactSubdrawerEstablishment as { id: string; name: string }]
-                    : []
-                }
-                selectedEstablishmentId={contactSubdrawerEstablishment?.id ?? undefined}
-                isEditing
-                initialData={{
-                  id: contactSubdrawerHouseholder.id,
-                  establishment_id: contactSubdrawerHouseholder.establishment_id ?? null,
-                  name: contactSubdrawerHouseholder.name,
-                  status: (contactSubdrawerHouseholder.status as HouseholderStatus) ?? "potential",
-                  note: contactSubdrawerHouseholder.note ?? null,
-                  lat: contactSubdrawerHouseholder.lat ?? null,
-                  lng: contactSubdrawerHouseholder.lng ?? null,
-                  publisher_id: contactSubdrawerHouseholder.publisher_id ?? null,
-                }}
-                disableEstablishmentSelect={!!contactSubdrawerEstablishment?.id}
-                onSaved={() => {
-                  setContactSubdrawerEntityEditOpen(false);
-                  void refreshAfterContactSubdrawerEdit();
-                }}
-              />
-            ) : isHouseholderDetail && selectedHouseholder?.id ? (
-              <HouseholderForm
-                key={selectedHouseholder.id}
-                establishments={
-                  selectedHouseholderEstablishment?.id
-                    ? [selectedHouseholderEstablishment as { id: string; name: string }]
-                    : []
-                }
-                selectedEstablishmentId={selectedHouseholderEstablishment?.id ?? undefined}
-                isEditing
-                initialData={{
-                  id: selectedHouseholder.id,
-                  establishment_id: selectedHouseholder.establishment_id ?? null,
-                  name: selectedHouseholder.name,
-                  status: (selectedHouseholder.status as HouseholderStatus) ?? "potential",
-                  note: selectedHouseholder.note ?? null,
-                  lat: selectedHouseholder.lat ?? null,
-                  lng: selectedHouseholder.lng ?? null,
-                  publisher_id: selectedHouseholder.publisher_id ?? null,
-                }}
-                disableEstablishmentSelect={!!selectedHouseholderEstablishment?.id}
-                onSaved={() => {
-                  setDetailsEntityEditOpen(false);
-                  void refreshTodoDetailEntity().then(() => broadcastTodosAndBusinessRefresh());
-                }}
-              />
-            ) : selectedEstablishmentDetails?.id ? (
-              <EstablishmentForm
-                key={selectedEstablishmentDetails.id}
-                isEditing
-                initialData={selectedEstablishmentDetails}
-                selectedArea={selectedEstablishmentDetails.area ?? undefined}
-                onSaved={() => {
-                  setDetailsEntityEditOpen(false);
-                  void refreshTodoDetailEntity().then(() => broadcastTodosAndBusinessRefresh());
-                }}
-              />
-            ) : null}
-          </div>
-        </DrawerWideLeftContentTop>
-      </Drawer>
+          <DrawerWideLeftContentTop
+            stackAboveStackedRightSheet={contactDetailsSubdrawerOpen && isTodoDetailsSideLayout}
+          >
+            <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left">
+              <DrawerTitle className="text-lg font-bold">{entityEditDrawerTitle}</DrawerTitle>
+            </DrawerHeader>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
+              {entityEditForms}
+            </div>
+          </DrawerWideLeftContentTop>
+        </Drawer>
+      ) : (
+        <Drawer
+          open={detailsEntityEditOpen || contactSubdrawerEntityEditOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDetailsEntityEditOpen(false);
+              setContactSubdrawerEntityEditOpen(false);
+            }
+          }}
+          modal
+          nested
+          shouldScaleBackground={false}
+        >
+          <DrawerContent
+            className="max-h-[90vh] !z-[120] md:max-h-[80dvh]"
+            overlayClassName="!z-[120]"
+          >
+            <DrawerHeader className="px-4 pt-4 pb-2 items-center">
+              <DrawerTitle className="flex w-full items-center justify-center text-center text-lg font-bold">
+                {entityEditDrawerTitle}
+              </DrawerTitle>
+            </DrawerHeader>
+            <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
+              {entityEditForms}
+            </div>
+          </DrawerContent>
+        </Drawer>
+      )}
 
       {todoEditorUseLeftPanel && todoEditorContext ? (
         <Drawer
