@@ -260,15 +260,15 @@ function BusinessControlsContent({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="flex items-center gap-2 w-full bg-background/95 backdrop-blur-sm border rounded-lg p-1 shadow-lg"
+            className="flex items-center gap-2 w-full bg-background/95 backdrop-blur-sm border rounded-lg p-1 shadow-lg dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff]"
           >
-            <Button variant="ghost" size="sm" onClick={onBackClick} className="flex-shrink-0 px-3 py-2 h-9">
+            <Button variant="ghost" size="sm" onClick={onBackClick} className="flex-shrink-0 px-3 py-2 h-9 dark:hover:bg-[#3b3348]">
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <div className="flex-[2] min-w-0 px-3 flex items-center justify-center">
               <span className={cn("text-xl font-bold truncate w-full text-center", detailsStatus ? getStatusTitleColor(detailsStatus) : "text-foreground")}>{detailsName}</span>
             </div>
-            <Button variant="outline" size="sm" onClick={onEditClick} className="flex-shrink-0 px-3 py-2 h-9">
+            <Button variant="outline" size="sm" onClick={onEditClick} className="flex-shrink-0 px-3 py-2 h-9 dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff] dark:hover:bg-[#3b3348]">
               <Edit className="h-4 w-4" />
             </Button>
           </motion.div>
@@ -400,7 +400,7 @@ function BusinessControlsContent({
                             type="button"
                             variant="default"
                             size="sm"
-                            className="h-9 rounded-full px-3 flex items-center gap-2 flex-shrink-0"
+                            className="h-9 rounded-full px-3 flex items-center gap-2 flex-shrink-0 dark:!bg-[#80778e] dark:!text-white dark:hover:!bg-[#8c839a]"
                             onClick={onToggleNearMe}
                             aria-label="Near me"
                           >
@@ -413,7 +413,7 @@ function BusinessControlsContent({
                             type="button"
                             variant="outline"
                             size="icon"
-                            className="h-9 w-9 rounded-full flex-shrink-0"
+                            className="h-9 w-9 rounded-full flex-shrink-0 dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff] dark:hover:bg-[#3b3348]"
                             onClick={onToggleNearMe}
                             aria-pressed={false}
                             aria-label="Near me"
@@ -426,7 +426,7 @@ function BusinessControlsContent({
                           type="button"
                           variant="outline"
                           size="icon"
-                          className="h-9 w-9 rounded-full flex-shrink-0"
+                          className="h-9 w-9 rounded-full flex-shrink-0 dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff] dark:hover:bg-[#3b3348]"
                           onClick={onCycleViewMode}
                           title={`View: ${viewMode}`}
                         >
@@ -522,15 +522,15 @@ function CongregationControlsContent({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="flex items-center gap-2 w-full bg-background/95 backdrop-blur-sm border rounded-lg p-1 shadow-lg"
+            className="flex items-center gap-2 w-full bg-background/95 backdrop-blur-sm border rounded-lg p-1 shadow-lg dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff]"
           >
-            <Button variant="ghost" size="sm" onClick={onBackClick} className="flex-shrink-0 px-3 py-2 h-9">
+            <Button variant="ghost" size="sm" onClick={onBackClick} className="flex-shrink-0 px-3 py-2 h-9 dark:hover:bg-[#3b3348]">
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <div className="flex-[2] min-w-0 px-3 flex items-center justify-center">
               <span className={cn("text-xl font-bold truncate w-full text-center", detailsStatus ? getStatusTitleColor(detailsStatus) : "text-foreground")}>{detailsName}</span>
             </div>
-            <Button variant="outline" size="sm" onClick={onEditClick} className="flex-shrink-0 px-3 py-2 h-9">
+            <Button variant="outline" size="sm" onClick={onEditClick} className="flex-shrink-0 px-3 py-2 h-9 dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff] dark:hover:bg-[#3b3348]">
               <Edit className="h-4 w-4" />
             </Button>
           </motion.div>

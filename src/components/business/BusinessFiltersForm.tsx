@@ -7,6 +7,7 @@ import { ArrowDownAZ, ArrowUpAZ, ArrowDownWideNarrow, ArrowUpWideNarrow } from "
 import { Label } from "@/components/ui/label";
 import { StatusFilterButtons } from "@/components/filters/StatusFilterButtons";
 import type { BusinessFiltersState } from "@/lib/db/business";
+import { cn } from "@/lib/utils";
 
 
 interface BusinessFiltersFormProps {
@@ -59,6 +60,10 @@ export function BusinessFiltersForm({
       userLocation: null
     });
   };
+  const filterButtonClass =
+    "dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff] dark:hover:bg-[#3b3348] dark:data-[state=open]:bg-[#3b3348]";
+  const activeFilterButtonClass =
+    "dark:!bg-[#80778e] dark:!text-white dark:hover:!bg-[#8c839a]";
 
   const cycleStatus = (status: string) => {
     const selectedStatuses = localFilters.statuses ?? [];
@@ -122,10 +127,10 @@ export function BusinessFiltersForm({
 
   // Search field removed from filters form
   return (
-    <div className="space-y-6 pb-[calc(max(env(safe-area-inset-bottom),0px)+40px)]">
+    <div className="space-y-6 pb-[calc(max(env(safe-area-inset-bottom),0px)+40px)] dark:text-[#fffaff]">
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label>Status</Label>
+          <Label className="dark:text-[#ded6e7]">Status</Label>
           <div className="flex flex-wrap gap-2">
             <StatusFilterButtons
               options={statusOptions}
@@ -137,7 +142,7 @@ export function BusinessFiltersForm({
         </div>
 
         <div className="space-y-2">
-          <Label>Areas</Label>
+          <Label className="dark:text-[#ded6e7]">Areas</Label>
           <div className="flex flex-wrap gap-2">
             {areaOptions.map((option) => (
               <Button
@@ -145,7 +150,7 @@ export function BusinessFiltersForm({
                 variant={localFilters.areas.includes(option.value) ? "default" : "outline"}
                 size="sm"
                 onClick={() => toggleArea(option.value)}
-                className="h-8"
+                className={cn("h-8", filterButtonClass, localFilters.areas.includes(option.value) && activeFilterButtonClass)}
               >
                 {option.value}
               </Button>
@@ -155,7 +160,7 @@ export function BusinessFiltersForm({
 
         {scope !== "householders" && (
           <div className="space-y-2">
-            <Label>Floors</Label>
+            <Label className="dark:text-[#ded6e7]">Floors</Label>
             <div className="flex flex-wrap gap-2">
               {floorOptions.map((option) => (
                 <Button
@@ -163,7 +168,7 @@ export function BusinessFiltersForm({
                   variant={localFilters.floors.includes(option.value) ? "default" : "outline"}
                   size="sm"
                   onClick={() => toggleFloor(option.value)}
-                  className="h-8"
+                  className={cn("h-8", filterButtonClass, localFilters.floors.includes(option.value) && activeFilterButtonClass)}
                 >
                   {option.value}
                 </Button>
@@ -174,7 +179,7 @@ export function BusinessFiltersForm({
 
         {!isMapView && (
           <div className="space-y-2">
-            <Label>Sort by</Label>
+            <Label className="dark:text-[#ded6e7]">Sort by</Label>
             {(() => {
               const current = (localFilters.sort as string) || 'last_visit_desc';
               const underscoreIndex = current.lastIndexOf('_');
@@ -203,10 +208,10 @@ export function BusinessFiltersForm({
                       applyFiltersImmediately(next);
                     }}
                   >
-                    <SelectTrigger className="min-w-[180px]">
+                    <SelectTrigger className="min-w-[180px] dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff]">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="dark:border-[#1c1921] dark:bg-[#2a2534] dark:text-[#fffaff]">
                       <SelectItem value="last_visit">Last Call</SelectItem>
                       <SelectItem value="name">Name</SelectItem>
                       <SelectItem value="area">Area</SelectItem>
@@ -217,6 +222,7 @@ export function BusinessFiltersForm({
                     type="button"
                     variant="outline"
                     size="icon"
+                    className={filterButtonClass}
                     aria-label={`Toggle ${currentIsAsc ? 'descending' : 'ascending'}`}
                     onClick={() => {
                       // Toggle the direction for the current key
@@ -241,14 +247,14 @@ export function BusinessFiltersForm({
       </div>
 
       <div className="flex justify-between">
-        <Button variant="outline" onClick={handleClear}>
+        <Button variant="outline" onClick={handleClear} className={filterButtonClass}>
           Clear All
         </Button>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} className={filterButtonClass}>
             Cancel
           </Button>
-          <Button onClick={onClose}>
+          <Button onClick={onClose} className={activeFilterButtonClass}>
             Done
           </Button>
         </div>

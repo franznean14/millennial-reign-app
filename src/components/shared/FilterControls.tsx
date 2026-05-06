@@ -81,6 +81,12 @@ export function FilterControls({
   trailingActions
 }: FilterControlsProps) {
   const hasActiveFilters = filterBadges.length > 0;
+  const controlButtonClass =
+    "dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff] dark:hover:bg-[#3b3348] dark:[&>svg]:text-[#fffaff]";
+  const activeControlClass =
+    "dark:!bg-[#80778e] dark:!text-white dark:hover:!bg-[#8c839a] dark:[&>svg]:!text-white";
+  const searchInputClass =
+    "dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff] dark:placeholder:text-[#ded6e7]/70";
 
   return (
     <>
@@ -110,7 +116,7 @@ export function FilterControls({
                   onSearchClear();
                 }
               }}
-              className="bg-background/95 backdrop-blur-sm border shadow-lg h-9 rounded-full w-full pr-10"
+              className={cn("bg-background/95 backdrop-blur-sm border shadow-lg h-9 rounded-full w-full pr-10", searchInputClass)}
               autoComplete="off"
               autoCorrect="off"
               autoCapitalize="off"
@@ -143,7 +149,7 @@ export function FilterControls({
             type="button"
             variant="default"
             size="sm"
-            className="h-auto min-h-9 rounded-full px-3 py-1.5 flex items-center gap-1.5 max-w-full text-primary-foreground"
+            className={cn("h-auto min-h-9 rounded-full px-3 py-1.5 flex items-center gap-1.5 max-w-full text-primary-foreground", activeControlClass)}
             onClick={(e) => {
               const target = e.target as HTMLElement;
               if (!target.closest(".filter-badge") && !target.closest(".filter-x-button")) {
@@ -231,7 +237,7 @@ export function FilterControls({
               type="button"
               variant="default"
               size="sm"
-              className="h-9 rounded-full px-3 flex items-center gap-2 text-primary-foreground"
+              className={cn("h-9 rounded-full px-3 flex items-center gap-2 text-primary-foreground", activeControlClass)}
               onClick={onMyClear}
               aria-label={myLabel}
             >
@@ -245,7 +251,7 @@ export function FilterControls({
               type="button"
               variant="outline"
               size="icon"
-              className="h-9 w-9 rounded-full flex-shrink-0"
+              className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
               onClick={onMyActivate}
               aria-pressed={false}
               aria-label={myLabel}
@@ -261,7 +267,8 @@ export function FilterControls({
               size="sm"
               className={cn(
                 "h-9 rounded-full flex items-center gap-2",
-                householderActive ? "px-2" : "px-3"
+                householderActive ? "px-2" : "px-3",
+                householderActive ? controlButtonClass : activeControlClass
               )}
               onClick={householderActive ? onBwiActivate : onBwiClear}
               aria-label={bwiLabel}
@@ -283,7 +290,7 @@ export function FilterControls({
               type="button"
               variant="outline"
               size="icon"
-              className="h-9 w-9 rounded-full flex-shrink-0"
+              className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
               onClick={onHouseholderActivate}
               aria-label={householderLabel}
               title={householderLabel}
@@ -296,7 +303,7 @@ export function FilterControls({
               type="button"
               variant="default"
               size="sm"
-              className="h-9 rounded-full px-3 flex items-center gap-2 text-primary-foreground"
+              className={cn("h-9 rounded-full px-3 flex items-center gap-2 text-primary-foreground", activeControlClass)}
               onClick={onHouseholderClear}
               aria-label={householderLabel}
             >
@@ -310,7 +317,7 @@ export function FilterControls({
               type="button"
               variant="outline"
               size="icon"
-              className="h-9 w-9 rounded-full flex-shrink-0"
+              className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
               onClick={onBwiActivate}
               aria-pressed={false}
               aria-label={bwiLabel}
@@ -324,7 +331,7 @@ export function FilterControls({
               type="button"
               variant="outline"
               size="icon"
-              className="h-9 w-9 rounded-full flex-shrink-0"
+              className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
               onClick={onSearchActivate}
               aria-label="Search"
               title="Search"
@@ -337,7 +344,7 @@ export function FilterControls({
               type="button"
               variant="outline"
               size="icon"
-              className="h-9 w-9 rounded-full flex-shrink-0"
+              className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
               onClick={onEditClick}
               aria-label={editLabel}
               title={editLabel}
@@ -360,7 +367,7 @@ export function FilterControls({
               type="button"
               variant="default"
               size="sm"
-              className="h-9 rounded-full px-3 flex items-center gap-2 text-primary-foreground"
+              className={cn("h-9 rounded-full px-3 flex items-center gap-2 text-primary-foreground", activeControlClass)}
               onClick={onMyClear}
               aria-label={myLabel}
             >
@@ -374,7 +381,7 @@ export function FilterControls({
               type="button"
               variant="outline"
               size="icon"
-              className="h-9 w-9 rounded-full flex-shrink-0"
+              className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
               onClick={onMyActivate}
               aria-pressed={false}
               aria-label={myLabel}
@@ -390,7 +397,8 @@ export function FilterControls({
               size="sm"
               className={cn(
                 "h-9 rounded-full flex items-center gap-2",
-                householderActive ? "px-2" : "px-3"
+                householderActive ? "px-2" : "px-3",
+                householderActive ? controlButtonClass : activeControlClass
               )}
               onClick={householderActive ? onBwiActivate : onBwiClear}
               aria-label={bwiLabel}
@@ -412,7 +420,7 @@ export function FilterControls({
               type="button"
               variant="outline"
               size="icon"
-              className="h-9 w-9 rounded-full flex-shrink-0"
+              className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
               onClick={onHouseholderActivate}
               aria-label={householderLabel}
               title={householderLabel}
@@ -425,7 +433,7 @@ export function FilterControls({
               type="button"
               variant="default"
               size="sm"
-              className="h-9 rounded-full px-3 flex items-center gap-2 text-primary-foreground"
+              className={cn("h-9 rounded-full px-3 flex items-center gap-2 text-primary-foreground", activeControlClass)}
               onClick={onHouseholderClear}
               aria-label={householderLabel}
             >
@@ -439,7 +447,7 @@ export function FilterControls({
               type="button"
               variant="outline"
               size="icon"
-              className="h-9 w-9 rounded-full flex-shrink-0"
+              className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
               onClick={onBwiActivate}
               aria-pressed={false}
               aria-label={bwiLabel}
@@ -454,7 +462,7 @@ export function FilterControls({
                 type="button"
                 variant="outline"
                 size="icon"
-                className="h-9 w-9 rounded-full flex-shrink-0"
+                className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
                 onClick={onSearchActivate}
                 aria-label="Search"
                 title="Search"
@@ -465,7 +473,7 @@ export function FilterControls({
                 type="button"
                 variant="outline"
                 size="icon"
-                className="h-9 w-9 rounded-full flex-shrink-0"
+                className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
                 onClick={onOpenFilters}
                 aria-label="Filter"
                 title="Filter"
@@ -477,7 +485,7 @@ export function FilterControls({
                   type="button"
                   variant="outline"
                   size="icon"
-                  className="h-9 w-9 rounded-full flex-shrink-0"
+                  className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
                   onClick={onEditClick}
                   aria-label={editLabel}
                   title={editLabel}
@@ -503,7 +511,7 @@ export function FilterControls({
               type="button"
               variant="outline"
               size="icon"
-              className="h-9 w-9 rounded-full flex-shrink-0"
+              className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
               onClick={onMyActivate}
               aria-pressed={false}
               aria-label={myLabel}
@@ -517,7 +525,7 @@ export function FilterControls({
               type="button"
               variant="outline"
               size="icon"
-              className="h-9 w-9 rounded-full flex-shrink-0"
+              className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
               onClick={onBwiActivate}
               aria-pressed={false}
               aria-label={bwiLabel}
@@ -530,7 +538,7 @@ export function FilterControls({
             type="button"
             variant="outline"
             size="icon"
-            className="h-9 w-9 rounded-full flex-shrink-0"
+            className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
             onClick={onSearchActivate}
             aria-label="Search"
             title="Search"
@@ -541,7 +549,7 @@ export function FilterControls({
             type="button"
             variant="outline"
             size="icon"
-            className="h-9 w-9 rounded-full flex-shrink-0"
+            className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
             onClick={onOpenFilters}
             aria-label="Filter"
             title="Filter"
@@ -553,7 +561,7 @@ export function FilterControls({
               type="button"
               variant="outline"
               size="icon"
-              className="h-9 w-9 rounded-full flex-shrink-0"
+              className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
               onClick={onEditClick}
               aria-label={editLabel}
               title={editLabel}

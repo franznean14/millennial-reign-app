@@ -45,6 +45,7 @@ function FormModalBody({ children, className }: FormModalBodyProps) {
       ref={bodyRef}
       className={cn(
         "px-4 min-w-0 overflow-x-hidden",
+        "dark:text-[#fffaff]",
         isScrollable ? "pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]" : "",
         className
       )}
@@ -158,10 +159,10 @@ export function FormModal({
         >
           <DrawerWideLeftContentTop
             stackAboveStackedRightSheet={leftSheetStackAboveNestedRight}
-            className={className}
+            className={cn("dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]", className)}
           >
             <DrawerHeader
-              className={cn("border-b border-border px-4 pb-3 pt-4 text-left", headerClassName)}
+              className={cn("border-b border-border px-4 pb-3 pt-4 text-left dark:border-[#1c1921] dark:bg-[#181714]", headerClassName)}
             >
               <DrawerTitle className="text-lg font-bold">{title}</DrawerTitle>
               <DrawerDescription className={description ? undefined : "sr-only"}>{a11yDescription}</DrawerDescription>
@@ -178,8 +179,8 @@ export function FormModal({
 
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className={className}>
-          <DrawerHeader className={cn(headerClassName)}>
+        <DrawerContent className={cn("dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]", className)}>
+          <DrawerHeader className={cn("dark:bg-[#181714]", headerClassName)}>
             <DrawerTitle>{title}</DrawerTitle>
             <DrawerDescription className={description ? undefined : "sr-only"}>{a11yDescription}</DrawerDescription>
           </DrawerHeader>
@@ -192,8 +193,8 @@ export function FormModal({
   if (isDesktop) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className={className}>
-          <DialogHeader className={cn(headerClassName)}>
+        <DialogContent className={cn("dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]", className)}>
+          <DialogHeader className={cn("dark:bg-[#181714]", headerClassName)}>
             <DialogTitle>{title}</DialogTitle>
             <DialogDescription>{a11yDescription}</DialogDescription>
           </DialogHeader>
@@ -205,8 +206,8 @@ export function FormModal({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className={className}>
-        <DrawerHeader className={cn(headerClassName)}>
+      <DrawerContent className={cn("dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]", className)}>
+        <DrawerHeader className={cn("dark:bg-[#181714]", headerClassName)}>
           <DrawerTitle>{title}</DrawerTitle>
           <DrawerDescription className={description ? undefined : "sr-only"}>{a11yDescription}</DrawerDescription>
         </DrawerHeader>

@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { getStatusTitleColor } from "@/lib/utils/status-hierarchy";
 import { Button } from "@/components/ui/button";
 import { AnimatePresence, motion } from "motion/react";
+import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 
 interface BusinessTabToggleProps {
   value: 'establishments' | 'householders' | 'map';
@@ -33,7 +34,7 @@ export function BusinessTabToggle({
 }: BusinessTabToggleProps) {
   const titleColorClass = detailsStatus ? getStatusTitleColor(detailsStatus) : "text-foreground";
   return (
-    <div className={cn("bg-background/95 backdrop-blur-sm border p-0.1 rounded-lg shadow-lg w-full relative overflow-hidden", className)}>
+    <div className={cn("bg-background/95 backdrop-blur-sm border p-0.1 rounded-lg shadow-lg w-full relative overflow-hidden", studyBibleDarkClasses.card, className)}>
       <AnimatePresence mode="wait">
         {isDetailsView ? (
           <motion.div
@@ -49,7 +50,7 @@ export function BusinessTabToggle({
               variant="ghost"
               size="sm"
               onClick={onBackClick}
-              className="flex-shrink-0 px-3 py-6 h-full flex items-center justify-center transition-colors hover:bg-muted"
+              className="flex-shrink-0 px-3 py-6 h-full flex items-center justify-center transition-colors hover:bg-muted dark:hover:bg-[#3b3348]"
             >
               <ChevronLeft className="h-4 w-4 flex-shrink-0" />
             </Button>
@@ -66,7 +67,7 @@ export function BusinessTabToggle({
               variant="ghost"
               size="sm"
               onClick={onEditClick}
-              className="flex-shrink-0 px-3 py-6 h-full flex items-center justify-center transition-colors hover:bg-muted"
+              className="flex-shrink-0 px-3 py-6 h-full flex items-center justify-center transition-colors hover:bg-muted dark:hover:bg-[#3b3348]"
             >
               <Edit className="h-4 w-4 flex-shrink-0" />
             </Button>
@@ -92,21 +93,21 @@ export function BusinessTabToggle({
             >
               <ToggleGroupItem 
                 value="establishments" 
-                className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 w-full flex flex-col items-center justify-center gap-1 transition-colors"
+                className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 w-full flex flex-col items-center justify-center gap-1 transition-colors dark:text-[#ded6e7] dark:hover:bg-[#3b3348] dark:data-[state=on]:!bg-[#80778e] dark:data-[state=on]:!text-white"
               >
                 <Building2 className="h-4 w-4 flex-shrink-0" />
                 <span className="text-[10px] font-medium text-center">Establishments</span>
               </ToggleGroupItem>
               <ToggleGroupItem 
                 value="householders" 
-                className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 w-full flex flex-col items-center justify-center gap-1 transition-colors"
+                className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 w-full flex flex-col items-center justify-center gap-1 transition-colors dark:text-[#ded6e7] dark:hover:bg-[#3b3348] dark:data-[state=on]:!bg-[#80778e] dark:data-[state=on]:!text-white"
               >
                 <Users className="h-4 w-4 flex-shrink-0" />
                 <span className="text-[10px] font-medium text-center">Contacts</span>
               </ToggleGroupItem>
               <ToggleGroupItem 
                 value="map" 
-                className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 w-full flex flex-col items-center justify-center gap-1 transition-colors"
+                className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 w-full flex flex-col items-center justify-center gap-1 transition-colors dark:text-[#ded6e7] dark:hover:bg-[#3b3348] dark:data-[state=on]:!bg-[#80778e] dark:data-[state=on]:!text-white"
               >
                 <MapPin className="h-4 w-4 flex-shrink-0" />
                 <span className="text-[10px] font-medium text-center">Map</span>

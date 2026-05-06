@@ -81,7 +81,7 @@ export function AppChrome({ children }: AppChromeProps) {
         </SidebarInset>
         
         {/* Bottom Navigation (Mobile) */}
-        <nav className="absolute inset-x-0 bottom-0 z-20 border-t border-border/70 bg-background/80 backdrop-blur md:hidden pb-[env(safe-area-inset-bottom)]">
+        <nav className="absolute inset-x-0 bottom-0 z-20 border-t border-border/70 bg-background/80 backdrop-blur md:hidden pb-[env(safe-area-inset-bottom)] dark:border-[#1c1921] dark:bg-[#2a2534]/95">
           <div className="mx-auto flex max-w-screen-sm items-stretch justify-around">
             {navItems.map(({ id, label, icon: Icon }) => {
               const isActive = currentSection === id;
@@ -90,8 +90,10 @@ export function AppChrome({ children }: AppChromeProps) {
                   key={id}
                   onClick={() => onSectionChange(id)}
                   aria-label={label}
-                  className={`flex flex-col items-center justify-center gap-1 py-3 w-full text-xs
-                    ${isActive ? "text-foreground" : "text-foreground/60"}`}
+                  className={cn(
+                    "flex flex-col items-center justify-center gap-1 py-3 w-full text-xs transition-colors",
+                    isActive ? "text-foreground dark:text-[#fffaff]" : "text-foreground/60 dark:text-[#ded6e7]/70"
+                  )}
                 >
                   <Icon className={`h-5 w-5 ${isActive ? "" : "opacity-70"}`} />
                   {label}
@@ -104,7 +106,7 @@ export function AppChrome({ children }: AppChromeProps) {
         {/* Bottom Navigation (Tablet / iPad Pro) */}
         <nav className="pointer-events-none fixed inset-x-0 z-20 hidden md:block bottom-[calc(max(env(safe-area-inset-bottom),0px)+14px)]">
           <div className="mx-auto flex w-[min(92vw,760px)] items-center justify-center px-3">
-            <div className="pointer-events-auto flex w-full items-center justify-between rounded-full border border-border/60 bg-background/90 px-4 py-2 shadow-2xl backdrop-blur supports-[backdrop-filter]:bg-background/75">
+            <div className="pointer-events-auto flex w-full items-center justify-between rounded-full border border-border/60 bg-background/90 px-4 py-2 shadow-2xl backdrop-blur supports-[backdrop-filter]:bg-background/75 dark:border-[#1c1921] dark:bg-[#2a2534]/95 dark:shadow-[0_16px_46px_rgba(0,0,0,0.45)]">
               <div className="flex min-w-0 flex-1 items-center justify-evenly gap-2">
                 {leftNavItems.map(({ id, label, icon: Icon }) => {
                   const isActive = currentSection === id;
@@ -113,12 +115,14 @@ export function AppChrome({ children }: AppChromeProps) {
                       key={id}
                       onClick={() => onSectionChange(id)}
                       aria-label={label}
-                      className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-full px-3 py-1.5 text-xs transition-colors ${
-                        isActive ? "text-foreground" : "text-foreground/60 hover:text-foreground/90"
-                      }`}
+                      className={cn(
+                        "relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-full px-3 py-1.5 text-xs transition-colors dark:hover:bg-[#3b3348]/60",
+                        isActive ? "text-foreground dark:text-white" : "text-foreground/60 hover:text-foreground/90 dark:text-[#ded6e7]/75 dark:hover:text-[#fffaff]"
+                      )}
                     >
                       <Icon className={`h-5 w-5 ${isActive ? "" : "opacity-80"}`} />
                       <span className="truncate">{label}</span>
+                      {isActive ? <span className="absolute -bottom-1 h-0.5 w-7 rounded-full bg-primary dark:bg-[#80778e]" aria-hidden /> : null}
                     </button>
                   );
                 })}
@@ -135,12 +139,14 @@ export function AppChrome({ children }: AppChromeProps) {
                       key={id}
                       onClick={() => onSectionChange(id)}
                       aria-label={label}
-                      className={`flex min-w-0 flex-col items-center justify-center gap-1 rounded-full px-3 py-1.5 text-xs transition-colors ${
-                        isActive ? "text-foreground" : "text-foreground/60 hover:text-foreground/90"
-                      }`}
+                      className={cn(
+                        "relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-full px-3 py-1.5 text-xs transition-colors dark:hover:bg-[#3b3348]/60",
+                        isActive ? "text-foreground dark:text-white" : "text-foreground/60 hover:text-foreground/90 dark:text-[#ded6e7]/75 dark:hover:text-[#fffaff]"
+                      )}
                     >
                       <Icon className={`h-5 w-5 ${isActive ? "" : "opacity-80"}`} />
                       <span className="truncate">{label}</span>
+                      {isActive ? <span className="absolute -bottom-1 h-0.5 w-7 rounded-full bg-primary dark:bg-[#80778e]" aria-hidden /> : null}
                     </button>
                   );
                 })}

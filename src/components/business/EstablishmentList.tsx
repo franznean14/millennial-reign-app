@@ -11,11 +11,11 @@ import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/sonner";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { getStatusColor, getStatusTextColor, getBestStatus } from "@/lib/utils/status-hierarchy";
+import { getStatusColor, getStatusTextColor, getBestStatus, getStatusTitleColor } from "@/lib/utils/status-hierarchy";
 import { useListViewMode } from "@/lib/hooks/use-list-view-mode";
 import { useInfiniteList } from "@/lib/hooks/use-infinite-list";
 import { formatEstablishmentStatusCompactText, formatStatusText } from "@/lib/utils/formatters";
-import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
+import { getStudyBibleDarkCardFade, getStudyBibleDarkCardShade, studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 
 interface EstablishmentListProps {
   establishments: EstablishmentWithDetails[];
@@ -37,6 +37,20 @@ interface EstablishmentListProps {
 }
 
 type ViewMode = 'detailed' | 'compact' | 'table';
+
+const ESTABLISHMENT_DETAILED_COLUMN_ORDER = [
+  "personal_territory",
+  "has_bible_studies",
+  "for_replenishment",
+  "accepted_rack",
+  "for_follow_up",
+  "for_scouting",
+  "rack_pulled_out",
+  "declined_rack",
+  "closed",
+  "on_hold",
+  "inappropriate",
+];
 
 function MarqueeCell({
   text
@@ -201,6 +215,25 @@ export function EstablishmentList({
           : OTHER_PERSONAL_TERRITORY_BADGE_CLASS)
       : getStatusTextColor(getBestStatus(establishment.statuses || []));
 
+  const getDetailedColumnStatus = (establishment: EstablishmentWithDetails) => {
+    if (isPersonalTerritory(establishment)) return "personal_territory";
+    const statuses = establishment.statuses || [];
+    if (statuses.includes("has_bible_studies")) return "has_bible_studies";
+    return getBestStatus(statuses);
+  };
+
+  const detailedStatusColumns = useMemo(() => {
+    const statuses = Array.from(new Set(establishments.map(getDetailedColumnStatus)));
+    statuses.sort((a, b) => {
+      const aIndex = ESTABLISHMENT_DETAILED_COLUMN_ORDER.indexOf(a);
+      const bIndex = ESTABLISHMENT_DETAILED_COLUMN_ORDER.indexOf(b);
+      const normalizedA = aIndex === -1 ? Number.MAX_SAFE_INTEGER : aIndex;
+      const normalizedB = bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex;
+      return normalizedA - normalizedB || a.localeCompare(b);
+    });
+    return statuses;
+  }, [establishments]);
+
   const getSecondaryStatusesForDots = (establishment: EstablishmentWithDetails) => {
     const statuses = establishment.statuses || [];
     if (!statuses.length) return [];
@@ -219,7 +252,12 @@ export function EstablishmentList({
       className="w-full"
     >
       <Card
-        className="cursor-pointer hover:shadow-md transition-all duration-300 hover:scale-[1.02]"
+        className={cn(
+          "cursor-pointer hover:shadow-md transition-all duration-300 hover:scale-[1.02]",
+          studyBibleDarkClasses.bwiCard,
+          getStudyBibleDarkCardShade(establishment.id || establishment.name),
+          studyBibleDarkClasses.cardHover
+        )}
         onClick={() => onEstablishmentClick(establishment)}
       >
         <CardHeader>
@@ -241,67 +279,66 @@ export function EstablishmentList({
                     >
                       {establishment.name}
                     </span>
-                    <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-card via-card/50 to-transparent pointer-events-none"></div>
-                  </div>
-                  
-                  {/* Status Badge with Hierarchy / Personal Territory */}
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <Badge 
-                      variant="outline" 
-                      className={cn(getPrimaryStatusClass(establishment))}
-                    >
-                      {getPrimaryStatusLabel(establishment)}
-                    </Badge>
-                    
-                    {/* Additional status dots */}
-                    {getSecondaryStatusesForDots(establishment).length > 0 && (
-                      <div className="flex gap-1">
-                        {getSecondaryStatusesForDots(establishment).map((status) => {
-                            // Get the solid color for the dot
-                            let dotColor = '';
-                            switch (status) {
-                              case 'declined_rack':
-                                dotColor = 'bg-red-500';
-                                break;
-                              case 'for_scouting':
-                                dotColor = 'bg-cyan-500';
-                                break;
-                              case 'for_follow_up':
-                                dotColor = 'bg-orange-500';
-                                break;
-                              case 'accepted_rack':
-                                dotColor = 'bg-blue-500';
-                                break;
-                              case 'for_replenishment':
-                                dotColor = 'bg-purple-500';
-                                break;
-                              case 'has_bible_studies':
-                                dotColor = 'bg-emerald-500';
-                                break;
-                              case 'on_hold':
-                                dotColor = 'bg-stone-500';
-                                break;
-                              default:
-                                dotColor = 'bg-gray-500';
-                            }
-                            
-                            return (
-                              <div
-                                key={status}
-                                className={cn("w-3 h-3 rounded-full", dotColor)}
-                                title={formatStatusText(status)}
-                              />
-                            );
-                          })}
-                      </div>
-                    )}
+                    <div className={cn("absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-card via-card/50 to-transparent pointer-events-none", getStudyBibleDarkCardFade(establishment.id || establishment.name))}></div>
                   </div>
                 </CardTitle>
                 
-                {/* Area label below the status badge */}
+                {/* Area label */}
                 {establishment.area && (
                   <div className="mt-2 text-sm font-medium">{establishment.area}</div>
                 )}
+                {/* Status Badge with Hierarchy / Personal Territory */}
+                <div className="mt-2 flex items-center gap-2">
+                  <Badge
+                    variant="outline"
+                    className={cn(getPrimaryStatusClass(establishment))}
+                  >
+                    {getPrimaryStatusLabel(establishment)}
+                  </Badge>
+
+                  {/* Additional status dots */}
+                  {getSecondaryStatusesForDots(establishment).length > 0 && (
+                    <div className="flex gap-1">
+                      {getSecondaryStatusesForDots(establishment).map((status) => {
+                          // Get the solid color for the dot
+                          let dotColor = '';
+                          switch (status) {
+                            case 'declined_rack':
+                              dotColor = 'bg-red-500';
+                              break;
+                            case 'for_scouting':
+                              dotColor = 'bg-cyan-500';
+                              break;
+                            case 'for_follow_up':
+                              dotColor = 'bg-orange-500';
+                              break;
+                            case 'accepted_rack':
+                              dotColor = 'bg-blue-500';
+                              break;
+                            case 'for_replenishment':
+                              dotColor = 'bg-purple-500';
+                              break;
+                            case 'has_bible_studies':
+                              dotColor = 'bg-emerald-500';
+                              break;
+                            case 'on_hold':
+                              dotColor = 'bg-stone-500';
+                              break;
+                            default:
+                              dotColor = 'bg-gray-500';
+                          }
+
+                          return (
+                            <div
+                              key={status}
+                              className={cn("w-3 h-3 rounded-full", dotColor)}
+                              title={formatStatusText(status)}
+                            />
+                          );
+                        })}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             <div className="flex flex-col items-end gap-1 flex-shrink-0">
@@ -356,7 +393,7 @@ export function EstablishmentList({
                   >
                     {establishment.description}
                   </span>
-                  <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-card via-card/50 to-transparent pointer-events-none"></div>
+                  <div className={cn("absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-card via-card/50 to-transparent pointer-events-none", getStudyBibleDarkCardFade(establishment.id || establishment.name))}></div>
                 </div>
               )}
             </div>
@@ -379,7 +416,12 @@ export function EstablishmentList({
       className="w-full"
     >
       <Card
-        className="cursor-pointer hover:shadow-md transition-all duration-300 hover:scale-[1.02] overflow-hidden"
+        className={cn(
+          "cursor-pointer hover:shadow-md transition-all duration-300 hover:scale-[1.02] overflow-hidden",
+          studyBibleDarkClasses.bwiCard,
+          getStudyBibleDarkCardShade(establishment.id || establishment.name),
+          studyBibleDarkClasses.cardHover
+        )}
         onClick={() => onEstablishmentClick(establishment)}
       >
         <div className="py-0 px-3">
@@ -588,15 +630,53 @@ export function EstablishmentList({
             exit={{ opacity: 0, filter: "blur(6px)" }}
             transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
           >
-            <div className="grid gap-4 mt-10 w-full">
-              {visibleEstablishments.map((establishment, index) =>
-                viewMode === 'detailed'
-                  ? renderDetailedView(establishment, index)
-                  : renderCompactView(establishment, index)
-              )}
-            </div>
+            {viewMode === "detailed" ? (
+              <>
+                <div className="grid gap-4 mt-10 w-full md:hidden">
+                  {visibleEstablishments.map((establishment, index) =>
+                    renderDetailedView(establishment, index)
+                  )}
+                </div>
+                <div
+                  className="no-scrollbar mt-10 hidden h-[calc(100lvh-max(env(safe-area-inset-top),var(--device-safe-top,0px))-128px)] min-h-[420px] w-full overflow-x-auto overscroll-x-contain md:grid md:grid-flow-col md:gap-4"
+                  style={{
+                    gridAutoColumns: "32%",
+                  }}
+                >
+                  {detailedStatusColumns.map((status) => {
+                    const columnEstablishments = establishments.filter((establishment) => getDetailedColumnStatus(establishment) === status);
+                    return (
+                      <section
+                        key={status}
+                        className="flex min-h-0 min-w-0 flex-col rounded-lg border border-transparent bg-transparent"
+                        aria-label={`${formatStatusText(status)} establishments`}
+                      >
+                        <div className={cn("mb-3 rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-wide dark:border-[#1c1921] dark:bg-[#30283c]", getStatusTitleColor(status))}>
+                          {formatStatusText(status)}
+                        </div>
+                        <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain pb-[calc(max(env(safe-area-inset-bottom),0px)+132px)] pr-1">
+                          {columnEstablishments.map((establishment, index) =>
+                            renderDetailedView(establishment, index)
+                          )}
+                        </div>
+                      </section>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <div className="grid gap-4 mt-10 w-full">
+                {visibleEstablishments.map((establishment, index) =>
+                  renderCompactView(establishment, index)
+                )}
+              </div>
+            )}
             {visibleCount < establishments.length && (
-              <div ref={sentinelRef} className="h-20 w-full" aria-label="Load more trigger" />
+              <div
+                ref={sentinelRef}
+                className={cn("h-20 w-full", viewMode === "detailed" && "md:hidden")}
+                aria-label="Load more trigger"
+              />
             )}
           </motion.div>
         )}

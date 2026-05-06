@@ -172,7 +172,7 @@ export function VisitUpdatesSection({
     ) : null;
 
   return (
-    <div className="bg-card p-4 rounded-lg shadow-md border">
+    <div className="bg-card p-4 rounded-lg shadow-md border dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff]">
       <button
         type="button"
         onClick={() => setDrawerOpen(true)}
@@ -228,15 +228,15 @@ export function VisitUpdatesSection({
           shouldScaleBackground={false}
         >
           {elevatedLeftPanels ? (
-            <DrawerWideLeftContentTop stackAboveStackedRightSheet>
-              <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left">
+            <DrawerWideLeftContentTop stackAboveStackedRightSheet className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
+              <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left dark:border-[#1c1921] dark:bg-[#181714]">
                 <DrawerTitle className="text-lg font-bold">Calls</DrawerTitle>
               </DrawerHeader>
               {callsListExpandedBody(true)}
             </DrawerWideLeftContentTop>
           ) : (
-            <DrawerWideLeftContent>
-              <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left">
+            <DrawerWideLeftContent className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
+              <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left dark:border-[#1c1921] dark:bg-[#181714]">
                 <DrawerTitle className="text-lg font-bold">Calls</DrawerTitle>
               </DrawerHeader>
               {callsListExpandedBody(true)}
@@ -260,8 +260,8 @@ export function VisitUpdatesSection({
           nested
           shouldScaleBackground={false}
         >
-          <DrawerWideLeftContentTop stackAboveStackedRightSheet>
-            <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left">
+          <DrawerWideLeftContentTop stackAboveStackedRightSheet className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
+            <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left dark:border-[#1c1921] dark:bg-[#181714]">
               <DrawerTitle className="text-lg font-bold">Edit Call</DrawerTitle>
             </DrawerHeader>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">

@@ -9,6 +9,7 @@ import { useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { toast } from "@/components/ui/sonner";
 import { useSPA } from "@/components/SPAProvider";
+import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 
 interface AccountTabToggleProps {
   value: 'profile' | 'account';
@@ -45,7 +46,7 @@ export function AccountTabToggle({
   };
 
   return (
-    <div className={cn("bg-background/95 backdrop-blur-sm border p-0.1 rounded-lg shadow-lg w-full relative overflow-hidden flex items-center", className)}>
+    <div className={cn("bg-background/95 backdrop-blur-sm border p-0.1 rounded-lg shadow-lg w-full relative overflow-hidden flex items-center", studyBibleDarkClasses.card, className)}>
       <div className="pl-2 flex-shrink-0 flex items-center justify-center h-full">
         <ThemeToggle />
       </div>
@@ -61,7 +62,7 @@ export function AccountTabToggle({
       >
         <ToggleGroupItem 
           value="profile" 
-          className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 flex flex-col items-center justify-center gap-1 transition-colors !rounded-none"
+          className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 flex flex-col items-center justify-center gap-1 transition-colors !rounded-none dark:text-[#ded6e7] dark:hover:bg-[#3b3348] dark:data-[state=on]:!bg-[#80778e] dark:data-[state=on]:!text-white"
           style={{ 
             borderTopLeftRadius: '0.375rem',
             borderBottomLeftRadius: '0.375rem',
@@ -74,7 +75,7 @@ export function AccountTabToggle({
         </ToggleGroupItem>
         <ToggleGroupItem 
           value="account" 
-          className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 flex flex-col items-center justify-center gap-1 transition-colors !rounded-none"
+          className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 flex flex-col items-center justify-center gap-1 transition-colors !rounded-none dark:text-[#ded6e7] dark:hover:bg-[#3b3348] dark:data-[state=on]:!bg-[#80778e] dark:data-[state=on]:!text-white"
           style={{ 
             borderTopLeftRadius: '0',
             borderBottomLeftRadius: '0',
@@ -91,7 +92,7 @@ export function AccountTabToggle({
           variant="ghost"
           onClick={handleLogout}
           disabled={loading}
-          className="flex flex-col items-center justify-center gap-1 px-2 py-6 h-full transition-colors"
+          className="flex flex-col items-center justify-center gap-1 px-2 py-6 h-full transition-colors dark:text-[#ded6e7] dark:hover:bg-[#3b3348]"
           aria-label={loading ? "Signing out" : "Sign out"}
         >
           {loading ? (

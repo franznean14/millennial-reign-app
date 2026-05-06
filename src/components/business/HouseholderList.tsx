@@ -13,7 +13,8 @@ import { Button } from "@/components/ui/button";
 import { useListViewMode } from "@/lib/hooks/use-list-view-mode";
 import { useInfiniteList } from "@/lib/hooks/use-infinite-list";
 import { formatHouseholderStatusCompactText, formatStatusText } from "@/lib/utils/formatters";
-import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
+import { getStudyBibleDarkCardFade, getStudyBibleDarkCardShade, studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
+import { getStatusTitleColor } from "@/lib/utils/status-hierarchy";
 
 interface HouseholderListProps {
   householders: HouseholderWithDetails[];
@@ -34,6 +35,16 @@ interface HouseholderListProps {
 }
 
 type ViewMode = 'detailed' | 'compact' | 'table';
+
+const HOUSEHOLDER_DETAILED_COLUMN_ORDER = [
+  "bible_study",
+  "return_visit",
+  "interested",
+  "potential",
+  "do_not_call",
+  "moved_branch",
+  "resigned",
+];
 
 function NameWithAvatarsCell({
   name,
@@ -177,6 +188,18 @@ export function HouseholderList({
     }
   };
 
+  const detailedStatusColumns = useMemo(() => {
+    const statuses = Array.from(new Set(householders.map((householder) => householder.status || "potential")));
+    statuses.sort((a, b) => {
+      const aIndex = HOUSEHOLDER_DETAILED_COLUMN_ORDER.indexOf(a);
+      const bIndex = HOUSEHOLDER_DETAILED_COLUMN_ORDER.indexOf(b);
+      const normalizedA = aIndex === -1 ? Number.MAX_SAFE_INTEGER : aIndex;
+      const normalizedB = bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex;
+      return normalizedA - normalizedB || a.localeCompare(b);
+    });
+    return statuses;
+  }, [householders]);
+
   const renderDetailedView = (householder: HouseholderWithDetails, index: number) => (
     <motion.div
       key={householder.id}
@@ -184,18 +207,23 @@ export function HouseholderList({
       animate={{ opacity: 1, filter: "blur(0px)" }}
       exit={{ opacity: 0, filter: "blur(6px)" }}
       transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-      className="w-full max-w-full min-w-0 overflow-hidden"
+      className="w-full max-w-full min-w-0 overflow-hidden md:max-w-none md:overflow-visible"
     >
       <Card
-        className="w-full max-w-full cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-md hover:scale-[1.02]"
+        className={cn(
+          "w-full max-w-full cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-md hover:scale-[1.02] md:max-w-none md:overflow-visible",
+          studyBibleDarkClasses.bwiCard,
+          getStudyBibleDarkCardShade(householder.id || householder.name),
+          studyBibleDarkClasses.cardHover
+        )}
         onClick={() => onHouseholderClick(householder)}
       >
         <CardHeader>
-          <div className="flex items-start justify-between w-full min-w-0 gap-2">
+          <div className="flex items-start justify-between w-full min-w-0 gap-2 md:min-w-[auto]">
             <div className="flex-1 min-w-0">
-              <div className="w-full min-w-0">
-                <CardTitle className="text-2xl sm:text-3xl font-black flex flex-col sm:flex-row sm:items-center gap-2 w-full min-w-0">
-                  <div className="relative min-w-0 flex-1 max-w-[280px] overflow-hidden">
+              <div className="w-full min-w-0 md:min-w-[auto]">
+                <CardTitle className="text-2xl sm:text-3xl font-black flex flex-col sm:flex-row sm:items-center gap-2 w-full min-w-0 md:min-w-[auto]">
+                  <div className="relative min-w-0 flex-1 max-w-[320px] overflow-hidden">
                     <span 
                       className={`whitespace-nowrap block pr-8 ${
                         householder.name.length > 35 ? 'animate-marquee' : ''
@@ -203,33 +231,32 @@ export function HouseholderList({
                       title={householder.name}
                       style={{
                         '--marquee-distance': householder.name.length > 35 
-                          ? `calc(-100% + ${Math.max(280 - (householder.name.length * 8), 200)}px)`
+                          ? `calc(-100% + ${Math.max(320 - (householder.name.length * 8), 200)}px)`
                           : '-80%'
                       } as React.CSSProperties}
                     >
                       {householder.name}
                     </span>
-                    <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-card via-card/50 to-transparent pointer-events-none"></div>
-                  </div>
-                  
-                  {/* Status Badge */}
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <Badge 
-                      variant="outline" 
-                      className={cn(getStatusTextColorClass(householder.status))}
-                    >
-                      {formatStatusText(householder.status)}
-                    </Badge>
+                    <div className={cn("absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-card via-card/50 to-transparent pointer-events-none", getStudyBibleDarkCardFade(householder.id || householder.name))}></div>
                   </div>
                 </CardTitle>
                 
-                {/* Establishment name below the status badge */}
+                {/* Establishment name */}
                 {householder.establishment_name && (
                   <div className="mt-2 flex min-w-0 items-center gap-1 text-sm font-medium">
                     <Building2 className="h-4 w-4 shrink-0" />
-                    <span className="min-w-0 truncate">{householder.establishment_name}</span>
+                    <span className="min-w-0 truncate md:whitespace-normal">{householder.establishment_name}</span>
                   </div>
                 )}
+                {/* Status Badge */}
+                <div className="mt-2 flex items-center gap-2">
+                  <Badge
+                    variant="outline"
+                    className={cn(getStatusTextColorClass(householder.status))}
+                  >
+                    {formatStatusText(householder.status)}
+                  </Badge>
+                </div>
               </div>
             </div>
             <div className="flex flex-col items-end gap-1 flex-shrink-0">
@@ -241,7 +268,7 @@ export function HouseholderList({
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between w-full min-w-0 gap-2">
+          <div className="flex items-center justify-between w-full min-w-0 gap-2 md:min-w-[auto]">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               {/* Overlapping avatars for top visitors - up to 5 */}
               <div className="flex items-center flex-shrink-0">
@@ -263,7 +290,7 @@ export function HouseholderList({
                 </span>
               )}
               {householder.note && (
-                <div className="relative min-w-0 flex-1 max-w-full overflow-hidden">
+                <div className="relative min-w-0 flex-1 max-w-[320px] overflow-hidden">
                   <span 
                     className={`text-xs text-muted-foreground whitespace-nowrap block pr-8 ${
                       householder.note.length > 55 ? 'animate-marquee' : ''
@@ -276,7 +303,7 @@ export function HouseholderList({
                   >
                     {householder.note}
                   </span>
-                  <div className="absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-card via-card/50 to-transparent pointer-events-none"></div>
+                  <div className={cn("absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-card via-card/50 to-transparent pointer-events-none", getStudyBibleDarkCardFade(householder.id || householder.name))}></div>
                 </div>
               )}
             </div>
@@ -296,7 +323,12 @@ export function HouseholderList({
       className="w-full"
     >
       <Card
-        className="cursor-pointer hover:shadow-md transition-all duration-300 hover:scale-[1.02] overflow-hidden"
+        className={cn(
+          "cursor-pointer hover:shadow-md transition-all duration-300 hover:scale-[1.02] overflow-hidden",
+          studyBibleDarkClasses.bwiCard,
+          getStudyBibleDarkCardShade(householder.id || householder.name),
+          studyBibleDarkClasses.cardHover
+        )}
         onClick={() => onHouseholderClick(householder)}
       >
         <div className="py-0 px-3">
@@ -449,15 +481,53 @@ export function HouseholderList({
             exit={{ opacity: 0, filter: "blur(6px)" }}
             transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
           >
-            <div className="grid gap-4 mt-10 w-full">
-              {visibleHouseholders.map((householder, index) =>
-                viewMode === 'detailed'
-                  ? renderDetailedView(householder, index)
-                  : renderCompactView(householder, index)
-              )}
-            </div>
+            {viewMode === "detailed" ? (
+              <>
+                <div className="grid gap-4 mt-10 w-full md:hidden">
+                  {visibleHouseholders.map((householder, index) =>
+                    renderDetailedView(householder, index)
+                  )}
+                </div>
+                <div
+                  className="no-scrollbar mt-10 hidden h-[calc(100lvh-max(env(safe-area-inset-top),var(--device-safe-top,0px))-128px)] min-h-[420px] w-full overflow-x-auto overscroll-x-contain md:grid md:grid-flow-col md:gap-4"
+                  style={{
+                    gridAutoColumns: "32%",
+                  }}
+                >
+                  {detailedStatusColumns.map((status) => {
+                    const columnHouseholders = householders.filter((householder) => (householder.status || "potential") === status);
+                    return (
+                      <section
+                        key={status}
+                        className="flex min-h-0 min-w-0 flex-col rounded-lg border border-transparent bg-transparent"
+                        aria-label={`${formatStatusText(status)} contacts`}
+                      >
+                        <div className={cn("mb-3 rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-wide dark:border-[#1c1921] dark:bg-[#30283c]", getStatusTitleColor(status))}>
+                          {formatStatusText(status)}
+                        </div>
+                        <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain pb-[calc(max(env(safe-area-inset-bottom),0px)+132px)] pr-1">
+                          {columnHouseholders.map((householder, index) =>
+                            renderDetailedView(householder, index)
+                          )}
+                        </div>
+                      </section>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <div className="grid gap-4 mt-10 w-full">
+                {visibleHouseholders.map((householder, index) =>
+                  renderCompactView(householder, index)
+                )}
+              </div>
+            )}
             {visibleCount < householders.length && (
-              <div ref={sentinelRef} className="h-20 w-full" aria-label="Load more trigger" />
+              <div
+                ref={sentinelRef}
+                className={cn("h-20 w-full", viewMode === "detailed" && "md:hidden")}
+                aria-label="Load more trigger"
+              />
             )}
           </motion.div>
         )}

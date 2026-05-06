@@ -4,6 +4,7 @@ import { useEffect, useId, useState, type ComponentProps, type ReactNode } from 
 import { Portal as RadixPortal } from "@radix-ui/react-portal";
 import { Button } from "@/components/ui/button";
 import { FloatingActionButton } from "@/components/shared/FloatingActionButton";
+import { cn } from "@/lib/utils";
 
 interface FabAction {
   label: string;
@@ -74,7 +75,11 @@ export function FabMenu({
         >
           <Button
             variant={action.variant ?? "default"}
-            className={`pointer-events-auto fixed right-4 z-40 rounded-full shadow-lg md:right-6 text-xl font-semibold px-6 py-6 ${actionClassName ?? ""}`.trim()}
+            className={cn(
+              "pointer-events-auto fixed right-4 z-40 rounded-full shadow-lg md:right-6 text-xl font-semibold px-6 py-6 dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff] dark:hover:bg-[#3b3348] dark:data-[state=open]:bg-[#3b3348]",
+              action.variant !== "outline" && "dark:!bg-[#80778e] dark:!text-white dark:hover:!bg-[#8c839a]",
+              actionClassName
+            )}
             style={{
               bottom: `calc(max(env(safe-area-inset-bottom),0px) + ${actionOffsetStart + actionOffsetStep * index}px)`,
               opacity: expanded ? 1 : 0,

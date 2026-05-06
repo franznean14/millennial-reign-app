@@ -182,10 +182,10 @@ export function BusinessSection({
   }, [setFilters]);
 
   const listMotion = {
-    initial: { opacity: 0, filter: "blur(6px)" },
-    animate: { opacity: 1, filter: "blur(0px)" },
-    exit: { opacity: 0, filter: "blur(6px)" },
-    transition: { duration: 0.2 }
+    initial: false,
+    animate: { opacity: 1 },
+    exit: { opacity: 1 },
+    transition: { duration: 0 }
   };
 
   const detailsMotion = {
@@ -281,7 +281,7 @@ export function BusinessSection({
           className={businessTab === "map" ? "w-full h-full" : "w-full"}
           transition={{ duration: 0.3, ease: "easeOut" }}
         >
-          <AnimatePresence mode="popLayout" initial={false}>
+          <AnimatePresence initial={false}>
             {!selectedEstablishment && !selectedHouseholder ? (
               businessTab === "establishments" ? (
                 <motion.div key="establishment-list" {...listMotion} className="w-full">

@@ -29,3 +29,37 @@ export const studyBibleDarkClasses = {
   callsMuted: "dark:text-[#e8e0ef]",
   divider: "dark:border-[#1c1921]",
 } as const;
+
+const studyBibleDarkCardShadeClasses = [
+  "dark:bg-[#30283c]",
+  "dark:bg-[#342a43]",
+  "dark:bg-[#3b3348]",
+  "dark:bg-[#2a2534]",
+  "dark:bg-[#272133]",
+  "dark:bg-[#463b55]",
+] as const;
+
+const studyBibleDarkCardFadeClasses = [
+  "dark:from-[#30283c] dark:via-[#30283c]/50",
+  "dark:from-[#342a43] dark:via-[#342a43]/50",
+  "dark:from-[#3b3348] dark:via-[#3b3348]/50",
+  "dark:from-[#2a2534] dark:via-[#2a2534]/50",
+  "dark:from-[#272133] dark:via-[#272133]/50",
+  "dark:from-[#463b55] dark:via-[#463b55]/50",
+] as const;
+
+function getStablePaletteIndex(key: string, length: number) {
+  let hash = 0;
+  for (let index = 0; index < key.length; index += 1) {
+    hash = (hash * 31 + key.charCodeAt(index)) >>> 0;
+  }
+  return hash % length;
+}
+
+export function getStudyBibleDarkCardShade(key: string) {
+  return studyBibleDarkCardShadeClasses[getStablePaletteIndex(key, studyBibleDarkCardShadeClasses.length)];
+}
+
+export function getStudyBibleDarkCardFade(key: string) {
+  return studyBibleDarkCardFadeClasses[getStablePaletteIndex(key, studyBibleDarkCardFadeClasses.length)];
+}
