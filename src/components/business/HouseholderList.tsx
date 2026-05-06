@@ -184,17 +184,17 @@ export function HouseholderList({
       animate={{ opacity: 1, filter: "blur(0px)" }}
       exit={{ opacity: 0, filter: "blur(6px)" }}
       transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-      className="w-full"
+      className="w-full max-w-full min-w-0 overflow-hidden"
     >
       <Card
-        className="cursor-pointer hover:shadow-md transition-all duration-300 hover:scale-[1.02]"
+        className="w-full max-w-full cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-md hover:scale-[1.02]"
         onClick={() => onHouseholderClick(householder)}
       >
         <CardHeader>
-          <div className="flex items-start justify-between w-full gap-2">
+          <div className="flex items-start justify-between w-full min-w-0 gap-2">
             <div className="flex-1 min-w-0">
-              <div className="w-full">
-                <CardTitle className="text-2xl sm:text-3xl font-black flex flex-col sm:flex-row sm:items-center gap-2 w-full">
+              <div className="w-full min-w-0">
+                <CardTitle className="text-2xl sm:text-3xl font-black flex flex-col sm:flex-row sm:items-center gap-2 w-full min-w-0">
                   <div className="relative min-w-0 flex-1 max-w-[280px] overflow-hidden">
                     <span 
                       className={`whitespace-nowrap block pr-8 ${
@@ -225,9 +225,9 @@ export function HouseholderList({
                 
                 {/* Establishment name below the status badge */}
                 {householder.establishment_name && (
-                  <div className="mt-2 text-sm font-medium flex items-center gap-1">
-                    <Building2 className="h-4 w-4" />
-                    {householder.establishment_name}
+                  <div className="mt-2 flex min-w-0 items-center gap-1 text-sm font-medium">
+                    <Building2 className="h-4 w-4 shrink-0" />
+                    <span className="min-w-0 truncate">{householder.establishment_name}</span>
                   </div>
                 )}
               </div>
@@ -241,7 +241,7 @@ export function HouseholderList({
           </div>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between w-full gap-2">
+          <div className="flex items-center justify-between w-full min-w-0 gap-2">
             <div className="flex items-center gap-2 min-w-0 flex-1">
               {/* Overlapping avatars for top visitors - up to 5 */}
               <div className="flex items-center flex-shrink-0">
@@ -263,7 +263,7 @@ export function HouseholderList({
                 </span>
               )}
               {householder.note && (
-                <div className="relative min-w-0 flex-1 max-w-[320px] overflow-hidden">
+                <div className="relative min-w-0 flex-1 max-w-full overflow-hidden">
                   <span 
                     className={`text-xs text-muted-foreground whitespace-nowrap block pr-8 ${
                       householder.note.length > 55 ? 'animate-marquee' : ''
