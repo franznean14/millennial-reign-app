@@ -1,0 +1,32 @@
+---
+description: App-wide mobile-first updates with tablet-only layout changes
+alwaysApply: true
+---
+
+# App-Wide Mobile-First Guardrails
+
+When editing components across the app:
+
+- Keep components mobile-first.
+- Do not change existing behavior for viewports below `768px`.
+- Add layout changes for tablet widths using `min-width` media queries (for example, `@media (min-width: 768px)`).
+- Preserve Supabase realtime/live updates exactly as-is.
+- Do not refactor data fetching logic or subscription wiring.
+
+Use additive styling/layout updates only, and avoid behavioral changes to existing mobile flows.
+---
+description: App-wide mobile-first updates with tablet-only layout changes
+alwaysApply: true
+---
+
+# App-Wide Mobile-First Guardrails
+
+When editing components across the app:
+
+- Keep the component mobile-first.
+- Do not change existing behavior for viewports below `768px`.
+- Add layout changes for tablet widths using `min-width` media queries (for example, `@media (min-width: 768px)`).
+- Preserve Supabase realtime/live updates exactly as-is.
+- Do not refactor data fetching logic or subscription wiring.
+
+Use additive styling/layout updates only, and avoid behavioral changes to existing mobile flows.

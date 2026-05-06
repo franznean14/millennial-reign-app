@@ -99,15 +99,51 @@ export function FormModal({
     if (typeof document === "undefined") return;
     const fabRoot = document.getElementById("fab-root");
     if (!fabRoot) return;
-    if (open) {
-      const active = document.activeElement as HTMLElement | null;
-      if (active && fabRoot.contains(active)) {
-        active.blur();
-      }
-      fabRoot.setAttribute("inert", "");
-    } else {
+    const isMobile = window.matchMedia("(max-width: 767px)").matches;
+    const OPEN_COUNT_KEY = "formModalOpenCount";
+    const PREV_Z_KEY = "formModalPrevZIndex";
+
+    if (!open) {
       fabRoot.removeAttribute("inert");
+      return;
     }
+
+    const active = document.activeElement as HTMLElement | null;
+    if (active && fabRoot.contains(active)) {
+      active.blur();
+    }
+    fabRoot.setAttribute("inert", "");
+
+    // On mobile, keep form drawers above FAB/menu so submit controls remain tappable.
+    if (isMobile) {
+      const currentCount = Number(fabRoot.dataset[OPEN_COUNT_KEY] ?? "0");
+      const nextCount = currentCount + 1;
+      fabRoot.dataset[OPEN_COUNT_KEY] = String(nextCount);
+      if (nextCount === 1) {
+        fabRoot.dataset[PREV_Z_KEY] = fabRoot.style.zIndex ?? "";
+        fabRoot.style.zIndex = "40";
+      }
+    }
+
+    return () => {
+      fabRoot.removeAttribute("inert");
+      if (!isMobile) return;
+
+      const currentCount = Number(fabRoot.dataset[OPEN_COUNT_KEY] ?? "0");
+      const nextCount = Math.max(0, currentCount - 1);
+      if (nextCount === 0) {
+        const prevZ = fabRoot.dataset[PREV_Z_KEY];
+        if (prevZ && prevZ.length > 0) {
+          fabRoot.style.zIndex = prevZ;
+        } else {
+          fabRoot.style.removeProperty("z-index");
+        }
+        delete fabRoot.dataset[OPEN_COUNT_KEY];
+        delete fabRoot.dataset[PREV_Z_KEY];
+      } else {
+        fabRoot.dataset[OPEN_COUNT_KEY] = String(nextCount);
+      }
+    };
   }, [open]);
 
   if (desktopPresentation === "left-sheet") {

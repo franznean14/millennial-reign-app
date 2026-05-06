@@ -1010,8 +1010,7 @@ export function VisitHistory({
   const shouldPublishCallsDetailsFab =
     callsDetailsFabFormConfig != null &&
     !callsDetailsEntityEditOpen &&
-    !callsContactSubdrawerEntityEditOpen &&
-    callsDrawerTabletLayout;
+    !callsContactSubdrawerEntityEditOpen;
 
   /* eslint-disable react-hooks/exhaustive-deps -- refresh helpers read refs; omitting avoids effect churn */
   useEffect(() => {
