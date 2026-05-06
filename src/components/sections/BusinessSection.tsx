@@ -5,6 +5,10 @@ import { motion, AnimatePresence } from "motion/react";
 import { SectionShell } from "@/components/shared/SectionShell";
 import dynamic from "next/dynamic";
 import { StickySearchBar } from "@/components/business/StickySearchBar";
+import { Drawer, DrawerHeader, DrawerTitle, DrawerWideLeftContentTop, DrawerWideRightContent } from "@/components/ui/drawer";
+import { Button } from "@/components/ui/button";
+import { ChevronLeft } from "lucide-react";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import type {
   BusinessFiltersState,
   EstablishmentWithDetails,
@@ -15,6 +19,7 @@ import type {
 type BusinessTab = "establishments" | "householders" | "map";
 type EstablishmentSelectionSource = "list" | "map";
 type MapViewState = { center: [number, number]; zoom: number };
+type BusinessEditSheet = "establishment" | "householder" | null;
 
 const EstablishmentList = dynamic(
   () => import("@/components/business/EstablishmentList").then((m) => m.EstablishmentList),
@@ -43,6 +48,14 @@ const BusinessFiltersForm = dynamic(
 const FormModal = dynamic(() => import("@/components/shared/FormModal").then((m) => m.FormModal), {
   ssr: false
 });
+const EstablishmentForm = dynamic(
+  () => import("@/components/business/EstablishmentForm").then((m) => m.EstablishmentForm),
+  { ssr: false }
+);
+const HouseholderForm = dynamic(
+  () => import("@/components/business/HouseholderForm").then((m) => m.HouseholderForm),
+  { ssr: false }
+);
 
 export interface BusinessSectionProps {
   userId: string | null;
@@ -152,6 +165,9 @@ export function BusinessSection({
   const [selectedEstablishmentSource, setSelectedEstablishmentSource] = useState<EstablishmentSelectionSource>("list");
   const [lastMapSelectedEstablishmentId, setLastMapSelectedEstablishmentId] = useState<string | undefined>(undefined);
   const [mapViewState, setMapViewState] = useState<MapViewState | null>(null);
+  const [businessEditSheet, setBusinessEditSheet] = useState<BusinessEditSheet>(null);
+  const isTabletUp = useMediaQuery("(min-width: 768px)");
+  const useBusinessSideDetails = isTabletUp && businessTab !== "map";
 
   const hasActiveFilters =
     filters.search !== "" ||
@@ -211,23 +227,27 @@ export function BusinessSection({
         setLastMapSelectedEstablishmentId(establishment.id);
       }
       setSelectedEstablishment(establishment);
-      pushNavigation(currentSection);
+      if (!useBusinessSideDetails) {
+        pushNavigation(currentSection);
+      }
       if (establishment.id) {
         loadEstablishmentDetails(establishment.id);
       }
     },
-    [currentSection, loadEstablishmentDetails, pushNavigation, setSelectedEstablishment]
+    [currentSection, loadEstablishmentDetails, pushNavigation, setSelectedEstablishment, useBusinessSideDetails]
   );
 
   const handleSelectHouseholder = useCallback(
     (householder: HouseholderWithDetails) => {
       setSelectedHouseholder(householder);
-      pushNavigation(currentSection);
+      if (!useBusinessSideDetails) {
+        pushNavigation(currentSection);
+      }
       if (householder.id) {
         loadHouseholderDetails(householder.id);
       }
     },
-    [currentSection, loadHouseholderDetails, pushNavigation, setSelectedHouseholder]
+    [currentSection, loadHouseholderDetails, pushNavigation, setSelectedHouseholder, useBusinessSideDetails]
   );
 
   const navigateBack = useCallback(
@@ -258,6 +278,111 @@ export function BusinessSection({
     };
   }, []);
 
+  const closeEstablishmentSideDetails = useCallback(() => {
+    setBusinessEditSheet(null);
+    setSelectedHouseholder(null);
+    setSelectedHouseholderDetails(null);
+    setSelectedEstablishment(null);
+    setSelectedEstablishmentDetails(null);
+  }, [
+    setSelectedEstablishment,
+    setSelectedEstablishmentDetails,
+    setSelectedHouseholder,
+    setSelectedHouseholderDetails,
+  ]);
+
+  const closeHouseholderSideDetails = useCallback(() => {
+    setBusinessEditSheet(null);
+    setSelectedHouseholder(null);
+    setSelectedHouseholderDetails(null);
+  }, [setSelectedHouseholder, setSelectedHouseholderDetails]);
+
+  const handleEstablishmentEditSaved = useCallback(
+    (updated?: Partial<EstablishmentWithDetails> & { id?: string }) => {
+      setBusinessEditSheet(null);
+      if (updated?.id) {
+        updateEstablishment({ id: updated.id, ...updated });
+        loadEstablishmentDetails(updated.id);
+        setSelectedEstablishment((prev) => {
+          if (!prev || prev.id !== updated.id) return prev;
+          return { ...prev, ...updated, id: prev.id, name: updated.name ?? prev.name } as EstablishmentWithDetails;
+        });
+        return;
+      }
+      if (selectedEstablishment?.id) {
+        loadEstablishmentDetails(selectedEstablishment.id);
+      }
+    },
+    [loadEstablishmentDetails, selectedEstablishment?.id, setSelectedEstablishment, updateEstablishment]
+  );
+
+  const handleHouseholderEditSaved = useCallback(
+    (updated?: Partial<HouseholderWithDetails> & { id?: string }) => {
+      setBusinessEditSheet(null);
+      if (updated?.id) {
+        setSelectedHouseholder((prev) => {
+          if (!prev || prev.id !== updated.id) return prev;
+          return { ...prev, ...updated, id: prev.id, name: updated.name ?? prev.name } as HouseholderWithDetails;
+        });
+        loadHouseholderDetails(updated.id);
+      } else if (selectedHouseholder?.id) {
+        loadHouseholderDetails(selectedHouseholder.id);
+      }
+      if (selectedEstablishment?.id) {
+        loadEstablishmentDetails(selectedEstablishment.id);
+      }
+    },
+    [
+      loadEstablishmentDetails,
+      loadHouseholderDetails,
+      selectedEstablishment?.id,
+      selectedHouseholder?.id,
+      setSelectedHouseholder,
+    ]
+  );
+
+  const renderHouseholderDetails = (options?: { stacked?: boolean }) => {
+    if (!selectedHouseholder) return null;
+    return (
+      <HouseholderDetails
+        householder={selectedHouseholderDetails?.householder || selectedHouseholder}
+        visits={selectedHouseholderDetails?.visits || []}
+        establishment={selectedHouseholderDetails?.establishment || null}
+        establishments={
+          selectedHouseholderDetails?.establishment ? [selectedHouseholderDetails.establishment] : []
+        }
+        isLoading={!selectedHouseholderDetails}
+        onBackClick={closeHouseholderSideDetails}
+        publisherId={userId}
+        onRequestSummaryEdit={() => setBusinessEditSheet("householder")}
+        preferLeftDetailPanel={useBusinessSideDetails}
+        insideStackedContactPane={options?.stacked}
+      />
+    );
+  };
+
+  const renderEstablishmentDetails = () => {
+    if (!selectedEstablishment) return null;
+    return (
+      <EstablishmentDetails
+        establishment={selectedEstablishmentDetails?.establishment ?? selectedEstablishment}
+        visits={selectedEstablishmentDetails?.visits || []}
+        householders={selectedEstablishmentDetails?.householders || []}
+        isLoading={!selectedEstablishmentDetails}
+        canManagePersonalTerritoryOwner={canManagePersonalTerritoryOwner}
+        onBackClick={closeEstablishmentSideDetails}
+        onRequestSummaryEdit={() => setBusinessEditSheet("establishment")}
+        onEstablishmentUpdated={(est) => est?.id && updateEstablishment({ id: est.id!, ...est })}
+        onHouseholderClick={(hh) => {
+          setSelectedHouseholder(hh);
+          if (hh.id) loadHouseholderDetails(hh.id);
+        }}
+        preferLeftDetailPanel={useBusinessSideDetails}
+        publisherId={userId}
+      />
+    );
+  };
+
   return (
     <>
       {portaledControls}
@@ -282,7 +407,7 @@ export function BusinessSection({
           transition={{ duration: 0.3, ease: "easeOut" }}
         >
           <AnimatePresence initial={false}>
-            {!selectedEstablishment && !selectedHouseholder ? (
+            {useBusinessSideDetails || (!selectedEstablishment && !selectedHouseholder) ? (
               businessTab === "establishments" ? (
                 <motion.div key="establishment-list" {...listMotion} className="w-full">
                   <EstablishmentList
@@ -426,6 +551,158 @@ export function BusinessSection({
             isMapView={businessTab === "map"}
           />
         </FormModal>
+
+        {useBusinessSideDetails ? (
+          <>
+            <Drawer
+              open={!!selectedEstablishment}
+              onOpenChange={(open) => {
+                if (!open) closeEstablishmentSideDetails();
+              }}
+              direction="right"
+              modal
+              nested
+              shouldScaleBackground={false}
+            >
+              <DrawerWideRightContent className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
+                <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+                  <DrawerTitle className="text-center text-xl font-extrabold tracking-tight">
+                    {selectedEstablishmentDetails?.establishment.name || selectedEstablishment?.name || "Establishment Details"}
+                  </DrawerTitle>
+                </DrawerHeader>
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3 dark:bg-[#181714]">
+                  {renderEstablishmentDetails()}
+                </div>
+              </DrawerWideRightContent>
+            </Drawer>
+
+            <Drawer
+              open={!!selectedHouseholder && !selectedEstablishment}
+              onOpenChange={(open) => {
+                if (!open) closeHouseholderSideDetails();
+              }}
+              direction="right"
+              modal
+              nested
+              shouldScaleBackground={false}
+            >
+              <DrawerWideRightContent className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
+                <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+                  <DrawerTitle className="text-center text-xl font-extrabold tracking-tight">
+                    {selectedHouseholderDetails?.householder.name || selectedHouseholder?.name || "Contact Details"}
+                  </DrawerTitle>
+                </DrawerHeader>
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3 dark:bg-[#181714]">
+                  {renderHouseholderDetails()}
+                </div>
+              </DrawerWideRightContent>
+            </Drawer>
+
+            <Drawer
+              open={!!selectedHouseholder && !!selectedEstablishment}
+              onOpenChange={(open) => {
+                if (!open) closeHouseholderSideDetails();
+              }}
+              direction="right"
+              modal
+              shouldScaleBackground={false}
+            >
+              <DrawerWideRightContent
+                stackAboveDetailsSheet
+                className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
+              >
+                <DrawerHeader className="border-b border-border px-2 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-left sm:px-4 dark:border-[#1c1921] dark:bg-[#181714]">
+                  <div className="relative flex items-center justify-center gap-1 pr-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute left-0 h-9 w-9 shrink-0"
+                      onClick={closeHouseholderSideDetails}
+                      aria-label="Back to establishment"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </Button>
+                    <DrawerTitle className="px-10 text-center text-xl font-extrabold tracking-tight">
+                      {selectedHouseholderDetails?.householder.name || selectedHouseholder?.name || "Contact Details"}
+                    </DrawerTitle>
+                  </div>
+                </DrawerHeader>
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3 dark:bg-[#181714]">
+                  {renderHouseholderDetails({ stacked: true })}
+                </div>
+              </DrawerWideRightContent>
+            </Drawer>
+
+            <Drawer
+              open={!!businessEditSheet}
+              onOpenChange={(open) => {
+                if (!open) setBusinessEditSheet(null);
+              }}
+              direction="left"
+              modal
+              shouldScaleBackground={false}
+            >
+              <DrawerWideLeftContentTop
+                stackAboveStackedRightSheet={!!selectedHouseholder && !!selectedEstablishment}
+                className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
+              >
+                <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+                  <DrawerTitle className="text-center text-lg font-bold">
+                    {businessEditSheet === "householder" ? "Edit Contact" : "Edit Establishment"}
+                  </DrawerTitle>
+                </DrawerHeader>
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 dark:bg-[#181714]">
+                  {businessEditSheet === "establishment" && selectedEstablishment ? (
+                    <EstablishmentForm
+                      key={selectedEstablishment.id}
+                      onSaved={handleEstablishmentEditSaved}
+                      onDelete={async () => {
+                        await handleDeleteEstablishment(selectedEstablishment);
+                        closeEstablishmentSideDetails();
+                      }}
+                      onArchive={async () => {
+                        await handleArchiveEstablishment(selectedEstablishment);
+                        closeEstablishmentSideDetails();
+                      }}
+                      selectedArea={selectedEstablishment.area || undefined}
+                      initialData={selectedEstablishmentDetails?.establishment ?? selectedEstablishment}
+                      isEditing
+                    />
+                  ) : businessEditSheet === "householder" && selectedHouseholder ? (
+                    <HouseholderForm
+                      key={selectedHouseholder.id}
+                      establishments={selectedEstablishment ? [selectedEstablishment] : establishments}
+                      selectedEstablishmentId={selectedHouseholder.establishment_id ?? undefined}
+                      isEditing
+                      initialData={{
+                        id: selectedHouseholder.id,
+                        establishment_id: selectedHouseholder.establishment_id || "",
+                        name: selectedHouseholder.name,
+                        status: selectedHouseholder.status as any,
+                        note: selectedHouseholder.note || null,
+                        lat: selectedHouseholder.lat ?? null,
+                        lng: selectedHouseholder.lng ?? null,
+                        publisher_id: selectedHouseholder.publisher_id ?? null,
+                      }}
+                      onSaved={handleHouseholderEditSaved}
+                      onDelete={async () => {
+                        await handleDeleteHouseholder(selectedHouseholder);
+                        closeHouseholderSideDetails();
+                      }}
+                      onArchive={async () => {
+                        await handleArchiveHouseholder(selectedHouseholder);
+                        closeHouseholderSideDetails();
+                      }}
+                      disableEstablishmentSelect={!!selectedEstablishment}
+                      publisherId={userId ?? undefined}
+                    />
+                  ) : null}
+                </div>
+              </DrawerWideLeftContentTop>
+            </Drawer>
+          </>
+        ) : null}
 
         {/* FAB handled by UnifiedFab */}
       </SectionShell>

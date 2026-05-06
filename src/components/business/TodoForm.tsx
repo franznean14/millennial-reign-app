@@ -17,6 +17,8 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer";
 import { toast } from "@/components/ui/sonner";
+import { cn } from "@/lib/utils";
+import { sidebarFormClasses } from "@/components/business/sidebar-form-styles";
 import {
   getBwiParticipants,
   addStandaloneTodo,
@@ -32,7 +34,7 @@ const PARTICIPANTS_CACHE_KEY = "business:participants:local:v1";
 const GUEST_NAMES_CACHE_KEY = "business:guest-names:local:v1";
 
 interface TodoFormProps {
-  /** Same as VisitForm: list of establishments (id optional for type compatibility with EstablishmentWithDetails[]) */
+  /** Same as CallForm: list of establishments (id optional for type compatibility with EstablishmentWithDetails[]) */
   establishments: Array<{ id?: string; name: string }>;
   selectedEstablishmentId?: string;
   householderId?: string;
@@ -327,11 +329,11 @@ export function TodoForm({
 
   return (
     <form
-      className="grid gap-3 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]"
+      className={cn("grid gap-3 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]", sidebarFormClasses.form)}
       onSubmit={handleSubmit}
     >
       {initialTodo?.call_id ? (
-        <div className="rounded-md border border-primary/40 bg-primary/5 p-3 space-y-2">
+        <div className={cn("space-y-2 rounded-md border border-primary/40 bg-primary/5 p-3", sidebarFormClasses.panel)}>
           <div className="flex items-center gap-2">
             <Link2 className="h-4 w-4 text-primary" />
             <span className="text-sm font-semibold">Linked Call To-Do</span>
@@ -388,24 +390,24 @@ export function TodoForm({
 
       {householderId ? (
         <div className="grid gap-1">
-          <Label>Householder</Label>
-          <div className="px-3 py-2 text-sm bg-muted rounded-md">
+          <Label className={sidebarFormClasses.label}>Householder</Label>
+          <div className={cn("rounded-md px-3 py-2", sidebarFormClasses.staticField)}>
             {householderName || "Selected householder"}
           </div>
         </div>
       ) : (
         <div className="grid gap-1">
-          <Label>Establishment</Label>
+          <Label className={sidebarFormClasses.label}>Establishment</Label>
           {disableEstablishmentSelect ? (
-            <div className="px-3 py-2 text-sm bg-muted rounded-md">
+            <div className={cn("rounded-md px-3 py-2", sidebarFormClasses.staticField)}>
               {establishments.find((e) => e.id === estId)?.name || "Selected establishment"}
             </div>
           ) : (
             <Select value={estId} onValueChange={setEstId}>
-              <SelectTrigger>
+              <SelectTrigger className={sidebarFormClasses.selectTrigger}>
                 <SelectValue placeholder="Select establishment" />
               </SelectTrigger>
-                <SelectContent>
+                <SelectContent className={sidebarFormClasses.selectContent}>
                 <SelectItem value="none">None</SelectItem>
                 {establishments.filter((e): e is { id: string; name: string } => !!e.id).map((e) => (
                   <SelectItem key={e.id} value={e.id}>
@@ -419,11 +421,12 @@ export function TodoForm({
       )}
 
       <div className="grid gap-1">
-        <Label>Deadline (optional)</Label>
+        <Label className={sidebarFormClasses.label}>Deadline (optional)</Label>
         <DatePicker
           date={deadlineDate ?? undefined}
           onSelect={(date) => setDeadlineDate(date ?? null)}
           placeholder="Deadline date"
+          className={sidebarFormClasses.button}
           mobileShowActions
           mobileAllowClear
           defaultToTodayOnOpen
@@ -431,12 +434,12 @@ export function TodoForm({
       </div>
 
       <div className="grid gap-1">
-        <Label>Publishers</Label>
+        <Label className={sidebarFormClasses.label}>Publishers</Label>
         <div className="flex flex-wrap items-center gap-2">
           {slots.map((slot, index) => (
             <div
               key={index}
-              className="flex items-center gap-2 bg-muted px-2 py-1.5 rounded-md"
+              className={cn("flex items-center gap-2 rounded-md px-2 py-1.5", sidebarFormClasses.chip)}
             >
               <Avatar className="h-6 w-6 shrink-0">
                 {slot.type === "publisher" && getSelectedUser(slot.id)?.avatar_url && (
@@ -467,7 +470,7 @@ export function TodoForm({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-6 w-6 p-0 shrink-0"
+                className="h-6 w-6 shrink-0 p-0 dark:text-[#ded6e7] dark:hover:bg-[#3b3348]"
                 onClick={() => removeSlot(index)}
                 aria-label="Remove"
               >
@@ -488,14 +491,14 @@ export function TodoForm({
                   type="button"
                   variant="outline"
                   size="icon"
-                  className="h-9 w-9 rounded-full shrink-0"
+                  className={cn("h-9 w-9 shrink-0 rounded-full", sidebarFormClasses.button)}
                   aria-label="Add publisher or guest"
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
               </DrawerTrigger>
-              <DrawerContent className="max-h-[70vh]">
-                <DrawerHeader className="text-center">
+              <DrawerContent className={cn("max-h-[70vh]", sidebarFormClasses.popover)}>
+                <DrawerHeader className="border-b border-border text-center dark:border-[#1c1921] dark:bg-[#181714]">
                   <DrawerTitle>Select publisher or guest</DrawerTitle>
                 </DrawerHeader>
                 <div className="overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+24px)] space-y-6">
@@ -510,7 +513,7 @@ export function TodoForm({
                             <Button
                               type="button"
                               variant="ghost"
-                              className="w-full justify-start gap-2 h-12 px-3"
+                              className="h-12 w-full justify-start gap-2 px-3 dark:text-[#fffaff] dark:hover:bg-[#3b3348]"
                               onClick={() =>
                                 addSlot({ type: "publisher", id: participant.id })
                               }
@@ -547,7 +550,7 @@ export function TodoForm({
                           key={name}
                           type="button"
                           variant="ghost"
-                          className="w-full justify-start gap-2 h-12 px-3"
+                          className="h-12 w-full justify-start gap-2 px-3 dark:text-[#fffaff] dark:hover:bg-[#3b3348]"
                           onClick={() => addSlot({ type: "guest", name })}
                         >
                           <Avatar className="h-8 w-8 shrink-0">
@@ -570,11 +573,12 @@ export function TodoForm({
                               if (name) addSlot({ type: "guest", name });
                             }
                           }}
-                          className="flex-1"
+                          className={cn("flex-1", sidebarFormClasses.input)}
                         />
                         <Button
                           type="button"
                           size="sm"
+                          className={sidebarFormClasses.primaryButton}
                           onClick={() => {
                             const name = newGuestName.trim();
                             if (name) addSlot({ type: "guest", name });
@@ -594,11 +598,11 @@ export function TodoForm({
       </div>
 
       <div className="grid gap-1">
-        <Label>To-do</Label>
+          <Label className={sidebarFormClasses.label}>To-do</Label>
         <Textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
-          className="min-h-[120px]"
+          className={cn("min-h-[120px]", sidebarFormClasses.textarea)}
           placeholder="What needs to be done?"
         />
       </div>
@@ -643,7 +647,7 @@ export function TodoForm({
           ) : (
             <span />
           )}
-          <Button type="submit" disabled={saving}>
+          <Button type="submit" className={sidebarFormClasses.primaryButton} disabled={saving}>
             {saving ? "Saving..." : initialTodo?.id ? "Update" : "Save"}
           </Button>
         </div>

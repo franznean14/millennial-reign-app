@@ -27,6 +27,7 @@ import {
   toggleEstablishmentStatusForForm,
 } from "@/lib/utils/status-hierarchy";
 import { cn } from "@/lib/utils";
+import { sidebarFormClasses } from "@/components/business/sidebar-form-styles";
 
 // Determine whether a draft object has any meaningful data
 function isNonEmptyDraft(d: any | null | undefined): boolean {
@@ -402,10 +403,10 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
   };
 
   return (
-    <form className="grid gap-3 pb-10" onSubmit={handleSubmit}>
+    <form className={cn("grid gap-3 pb-10", sidebarFormClasses.form)} onSubmit={handleSubmit}>
       <div className="grid gap-1">
-        <Label>Name</Label>
-        <Input value={name} onChange={e=>setName(e.target.value)} required />
+        <Label className={sidebarFormClasses.label}>Name</Label>
+        <Input className={sidebarFormClasses.input} value={name} onChange={e=>setName(e.target.value)} required />
         {dupCandidates.length > 0 && (
           <div className="mt-1 text-xs text-orange-400">
             Possible duplicates in this area:
@@ -419,8 +420,9 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
       </div>
       
       <div className="grid gap-1">
-        <Label>Description</Label>
+        <Label className={sidebarFormClasses.label}>Description</Label>
         <Textarea 
+          className={sidebarFormClasses.textarea}
           value={description} 
           onChange={e=>setDescription(e.target.value)} 
           placeholder="Brief description of the establishment"
@@ -428,11 +430,11 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
       </div>
       
       <div className="grid gap-1">
-        <Label>Area</Label>
+        <Label className={sidebarFormClasses.label}>Area</Label>
         {showAreaInput ? (
           <div className="flex gap-2">
             <Input 
-              className="flex-1"
+              className={cn("flex-1", sidebarFormClasses.input)}
               value={area} 
               onChange={e=>setArea(e.target.value)}
               placeholder="Enter area name"
@@ -440,6 +442,7 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
             <Button 
               type="button" 
               variant="outline" 
+              className={sidebarFormClasses.button}
               onClick={() => setShowAreaInput(false)}
             >
               Cancel
@@ -457,10 +460,10 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
               }
             }}
           >
-            <SelectTrigger className="h-10 text-sm">
+            <SelectTrigger className={cn("h-10 text-sm", sidebarFormClasses.selectTrigger)}>
               <SelectValue placeholder="Select area or add new" />
             </SelectTrigger>
-            <SelectContent className="max-h-64 text-sm">
+            <SelectContent className={cn("max-h-64 text-sm", sidebarFormClasses.selectContent)}>
               {areas.map((a) => (
                 <SelectItem
                   key={a}
@@ -479,12 +482,12 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
       </div>
 
       <div className="grid gap-1">
-        <Label>Status</Label>
+        <Label className={sidebarFormClasses.label}>Status</Label>
         <DropdownMenu open={statusDropdownOpen} onOpenChange={setStatusDropdownOpen}>
           <DropdownMenuTrigger asChild>
             <Button
               variant="outline"
-              className="w-full justify-between px-3 h-9 text-sm"
+              className={cn("h-9 w-full justify-between px-3 text-sm", sidebarFormClasses.button)}
             >
               <div className="flex items-center justify-between w-full gap-2">
                 <div className="flex flex-wrap gap-1 items-center flex-1 min-w-0">
@@ -526,7 +529,7 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
               </div>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-64 max-h-[320px] overflow-y-auto text-sm">
+          <DropdownMenuContent className={cn("max-h-[320px] w-64 overflow-y-auto text-sm", sidebarFormClasses.popover)}>
             <DropdownMenuLabel className="text-xs text-muted-foreground">
               Tap to toggle establishment statuses
             </DropdownMenuLabel>
@@ -566,10 +569,10 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
       </div>
 
       <div className="grid gap-1">
-        <Label>GPS</Label>
+        <Label className={sidebarFormClasses.label}>GPS</Label>
         <div className="flex gap-2">
           <Input 
-            className="flex-1"
+            className={cn("flex-1", sidebarFormClasses.input)}
             placeholder="14.5995, 120.9842"
             value={gps}
             onChange={(e) => {
@@ -589,6 +592,7 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
             type="button" 
             variant="outline" 
             size="icon"
+            className={sidebarFormClasses.button}
             onClick={getCurrentLocation}
             disabled={gpsLoading}
             title={gpsLoading ? "Getting location..." : "Use current location"}
@@ -603,11 +607,11 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
       </div>
 
       <div className="grid gap-1">
-        <Label>Floor</Label>
+        <Label className={sidebarFormClasses.label}>Floor</Label>
         {showFloorInput ? (
           <div className="flex gap-2">
             <Input 
-              className="flex-1"
+              className={cn("flex-1", sidebarFormClasses.input)}
               value={floor} 
               onChange={e=>setFloor(e.target.value)}
               placeholder="Enter floor name"
@@ -615,6 +619,7 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
             <Button 
               type="button" 
               variant="outline" 
+              className={sidebarFormClasses.button}
               onClick={() => setShowFloorInput(false)}
             >
               Cancel
@@ -629,10 +634,10 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
               setFloor(value);
             }
           }}>
-            <SelectTrigger>
+            <SelectTrigger className={sidebarFormClasses.selectTrigger}>
               <SelectValue placeholder="Select floor or add new" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className={sidebarFormClasses.selectContent}>
               {defaultFloors.map((f) => (
                 <SelectItem key={f} value={f}>{f}</SelectItem>
               ))}
@@ -648,8 +653,8 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
       </div>
 
       <div className="grid gap-1">
-        <Label>Note</Label>
-        <Textarea value={note} onChange={e=>setNote(e.target.value)} />
+        <Label className={sidebarFormClasses.label}>Note</Label>
+        <Textarea className={sidebarFormClasses.textarea} value={note} onChange={e=>setNote(e.target.value)} />
       </div>
       <div className={`flex py-4 ${isEditing && (onDelete || onArchive) ? "justify-between" : "justify-end"}`}>
         {isEditing && (onDelete || onArchive) && (
@@ -661,12 +666,12 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
                     Delete
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-64 text-center">
+                <PopoverContent className={cn("w-64 text-center", sidebarFormClasses.popover)}>
                   <div className="space-y-2">
                     <div className="font-medium">Delete Establishment?</div>
                     <p className="text-sm text-muted-foreground">This action cannot be undone.</p>
                     <div className="flex items-center justify-center gap-2 pt-1">
-                      <Button variant="outline" size="sm" onClick={() => setConfirmOpen(false)} disabled={deleting}>Cancel</Button>
+                      <Button variant="outline" size="sm" className={sidebarFormClasses.button} onClick={() => setConfirmOpen(false)} disabled={deleting}>Cancel</Button>
                       <Button
                         variant="destructive"
                         size="sm"
@@ -695,12 +700,12 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
                     Archive
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-64 text-center">
+                <PopoverContent className={cn("w-64 text-center", sidebarFormClasses.popover)}>
                   <div className="space-y-2">
                     <div className="font-medium">Archive Establishment?</div>
                     <p className="text-sm text-muted-foreground">This will hide the establishment from the main list.</p>
                     <div className="flex items-center justify-center gap-2 pt-1">
-                      <Button variant="outline" size="sm" onClick={() => setArchiveConfirmOpen(false)} disabled={archiving}>Cancel</Button>
+                      <Button variant="outline" size="sm" className={sidebarFormClasses.button} onClick={() => setArchiveConfirmOpen(false)} disabled={archiving}>Cancel</Button>
                       <Button
                         variant="secondary"
                         size="sm"
@@ -724,7 +729,7 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
             )}
           </div>
         )}
-        <Button type="submit" disabled={saving}>
+        <Button type="submit" className={sidebarFormClasses.primaryButton} disabled={saving}>
           {saving ? (isEditing ? "Updating..." : "Saving...") : (isEditing ? "Update" : "Save")}
         </Button>
       </div>

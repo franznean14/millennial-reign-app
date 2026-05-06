@@ -116,12 +116,12 @@ export function DatePicker({
         nested
         shouldScaleBackground={false}
       >
-        <DrawerThinRightContent>
-          <DrawerHeader className="border-b border-border px-4 text-left">
-            <DrawerTitle>Select Date</DrawerTitle>
-            <DrawerDescription>Choose a date</DrawerDescription>
+        <DrawerThinRightContent className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
+          <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+            <DrawerTitle className="text-center text-lg font-bold">Select Date</DrawerTitle>
+            <DrawerDescription className="dark:text-[#ded6e7]/75">Choose a date</DrawerDescription>
           </DrawerHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+24px)] pt-4">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+24px)] pt-4 dark:bg-[#181714]">
             {sheetBody}
           </div>
         </DrawerThinRightContent>

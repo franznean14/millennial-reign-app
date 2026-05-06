@@ -10,9 +10,9 @@ import { Calendar, MapPinned, Archive, FilePlus2, UserPlus, Minus } from "lucide
 import { FormModal } from "@/components/shared/FormModal";
 import { toast } from "@/components/ui/sonner";
 import { HouseholderForm } from "@/components/business/HouseholderForm";
-import { VisitForm } from "@/components/business/VisitForm";
+import { CallForm } from "@/components/business/CallForm";
 import { TodoForm } from "@/components/business/TodoForm";
-import { VisitUpdatesSection } from "@/components/business/VisitUpdatesSection";
+import { CallSection } from "@/components/business/CallSection";
 import { type HouseholderWithDetails, type VisitWithUser, type MyOpenCallTodoItem, upsertHouseholder } from "@/lib/db/business";
 import { deleteHouseholder, archiveHouseholder } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
@@ -741,7 +741,7 @@ export function HouseholderDetails({
       </motion.div>
 
       <motion.div className="w-full" layout transition={detailTransition}>
-        <VisitUpdatesSection 
+        <CallSection 
           visits={visits} 
           isHouseholderContext={true}
           establishments={establishments}
@@ -764,7 +764,7 @@ export function HouseholderDetails({
         title="New Call"
         headerClassName="text-center"
       >
-        <VisitForm
+        <CallForm
                 establishments={establishments}
           selectedEstablishmentId={context === "congregation" ? "none" : (establishment?.id || "none")}
           disableEstablishmentSelect={context === "congregation"}
@@ -820,9 +820,9 @@ export function HouseholderDetails({
             nested
             shouldScaleBackground={false}
           >
-            <DrawerWideLeftContentTop stackAboveStackedRightSheet>
-              <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left">
-                <DrawerTitle className="text-lg font-bold">Edit To-Do</DrawerTitle>
+            <DrawerWideLeftContentTop stackAboveStackedRightSheet className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
+              <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+                <DrawerTitle className="text-center text-lg font-bold">Edit To-Do</DrawerTitle>
               </DrawerHeader>
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
                 <TodoForm

@@ -14,6 +14,7 @@ import { businessEventBus } from "@/lib/events/business-events";
 import { useMobile } from "@/lib/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
+import { sidebarFormClasses } from "@/components/business/sidebar-form-styles";
 
 interface HouseholderFormProps {
   establishments: any[];
@@ -277,20 +278,20 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
   const showEstablishmentField = !isCongregationContext;
   
   return (
-    <form className="grid gap-3 pb-10" onSubmit={handleSubmit}>
+    <form className={cn("grid gap-3 pb-10", sidebarFormClasses.form)} onSubmit={handleSubmit}>
       {showEstablishmentField && (
         <div className="grid gap-1">
-          <Label>Establishment</Label>
+          <Label className={sidebarFormClasses.label}>Establishment</Label>
           {disableEstablishmentSelect || isEditing ? (
-            <div className="px-3 py-2 text-sm bg-muted rounded-md">
+            <div className={cn("rounded-md px-3 py-2", sidebarFormClasses.staticField)}>
               {establishments.find(e => e.id === estId)?.name || 'Selected establishment'}
             </div>
           ) : (
             <Select value={estId} onValueChange={setEstId}>
-              <SelectTrigger className="h-10 text-sm">
+              <SelectTrigger className={cn("h-10 text-sm", sidebarFormClasses.selectTrigger)}>
                 <SelectValue placeholder="Select establishment" />
               </SelectTrigger>
-              <SelectContent className="max-h-64 text-sm">
+              <SelectContent className={cn("max-h-64 text-sm", sidebarFormClasses.selectContent)}>
                 {establishments.map((e) => (
                   <SelectItem
                     key={e.id}
@@ -306,15 +307,16 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
         </div>
       )}
       <div className="grid gap-1">
-        <Label>Name</Label>
-        <Input value={name} onChange={e=>setName(e.target.value)} required />
+        <Label className={sidebarFormClasses.label}>Name</Label>
+        <Input className={sidebarFormClasses.input} value={name} onChange={e=>setName(e.target.value)} required />
       </div>
       <div className="grid gap-1">
-        <Label>Status</Label>
+        <Label className={sidebarFormClasses.label}>Status</Label>
         <Select value={status} onValueChange={(v) => setStatus(v as HouseholderStatus)}>
           <SelectTrigger
             className={cn(
               "h-10 text-sm",
+              sidebarFormClasses.selectTrigger,
               status
                 ? getStatusTextColor(status)
                     .split(" ")
@@ -324,7 +326,7 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
           >
             <SelectValue placeholder="Select status" />
           </SelectTrigger>
-          <SelectContent className="max-h-64 text-sm">
+          <SelectContent className={cn("max-h-64 text-sm", sidebarFormClasses.selectContent)}>
             <SelectItem
               value="potential"
               className={cn("py-2.5 text-sm", getStatusTextColor("potential"))}
@@ -372,10 +374,10 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
       </div>
       {isCongregationContext && (
         <div className="grid gap-1">
-          <Label>GPS</Label>
+          <Label className={sidebarFormClasses.label}>GPS</Label>
           <div className="flex gap-2">
             <Input 
-              className="flex-1"
+              className={cn("flex-1", sidebarFormClasses.input)}
               placeholder="14.5995, 120.9842"
               value={gps}
               onChange={(e) => {
@@ -395,6 +397,7 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
               type="button" 
               variant="outline" 
               size="icon"
+              className={sidebarFormClasses.button}
               onClick={getCurrentLocation}
               disabled={gpsLoading}
               title={gpsLoading ? "Getting location..." : "Use current location"}
@@ -409,8 +412,8 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
         </div>
       )}
       <div className="grid gap-1">
-        <Label>Note</Label>
-        <Textarea value={note} onChange={e=>setNote(e.target.value)} />
+        <Label className={sidebarFormClasses.label}>Note</Label>
+        <Textarea className={sidebarFormClasses.textarea} value={note} onChange={e=>setNote(e.target.value)} />
       </div>
       <div className={`flex py-4 ${isEditing && (onDelete || onArchive) ? "justify-between" : "justify-end"}`}>
         {isEditing && (onDelete || onArchive) && (
@@ -420,11 +423,11 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
                 <PopoverTrigger asChild>
                   <Button type="button" variant="destructive" disabled={saving}>Delete</Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-56" align="start">
+                <PopoverContent className={cn("w-56", sidebarFormClasses.popover)} align="start">
                   <div className="space-y-3">
                     <p className="text-sm">Delete this householder?</p>
                     <div className="flex justify-end gap-2">
-                      <Button type="button" variant="outline" size="sm" onClick={() => setConfirmOpen(false)}>Cancel</Button>
+                      <Button type="button" variant="outline" size="sm" className={sidebarFormClasses.button} onClick={() => setConfirmOpen(false)}>Cancel</Button>
                       <Button
                         type="button"
                         variant="destructive"
@@ -452,11 +455,11 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
                 <PopoverTrigger asChild>
                   <Button type="button" variant="secondary" disabled={saving}>Archive</Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-56" align="start">
+                <PopoverContent className={cn("w-56", sidebarFormClasses.popover)} align="start">
                   <div className="space-y-3">
                     <p className="text-sm">Archive this householder?</p>
                     <div className="flex justify-end gap-2">
-                      <Button type="button" variant="outline" size="sm" onClick={() => setArchiveConfirmOpen(false)}>Cancel</Button>
+                      <Button type="button" variant="outline" size="sm" className={sidebarFormClasses.button} onClick={() => setArchiveConfirmOpen(false)}>Cancel</Button>
                       <Button
                         type="button"
                         variant="secondary"
@@ -481,7 +484,7 @@ export function HouseholderForm({ establishments, selectedEstablishmentId, onSav
             )}
           </div>
         )}
-        <Button type="submit" disabled={saving}>
+        <Button type="submit" className={sidebarFormClasses.primaryButton} disabled={saving}>
           {saving ? (isEditing ? "Updating..." : "Saving...") : (isEditing ? "Update" : "Save")}
         </Button>
       </div>

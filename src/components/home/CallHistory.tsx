@@ -44,6 +44,7 @@ import { HouseholderDetails } from "@/components/business/HouseholderDetails";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useHomeTodoDetailsFabOptional } from "@/components/home/home-todo-details-fab-context";
 import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
+import { HomeMobileDetailsDrawer } from "@/components/home/HomeMobileDetailsDrawer";
 
 interface CallHistoryProps {
   userId: string;
@@ -2021,8 +2022,8 @@ export function CallHistory({
           shouldScaleBackground={false}
         >
           <DrawerWideRightContent className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
-            <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left dark:border-[#1c1921] dark:bg-[#181714]">
-              <DrawerTitle className="text-xl font-extrabold tracking-tight">{callsDetailsSheetTitle}</DrawerTitle>
+            <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+              <DrawerTitle className="text-center text-xl font-extrabold tracking-tight">{callsDetailsSheetTitle}</DrawerTitle>
             </DrawerHeader>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3 dark:bg-[#181714]">
               {renderCallsMainDetailsBody()}
@@ -2030,7 +2031,7 @@ export function CallHistory({
           </DrawerWideRightContent>
         </Drawer>
       ) : (
-        <Drawer
+        <HomeMobileDetailsDrawer
           open={callsDetailsDrawerOpen}
           onOpenChange={(open) => {
             setCallsDetailsDrawerOpen(open);
@@ -2043,19 +2044,10 @@ export function CallHistory({
               setCallsContactSubdrawerEntityEditOpen(false);
             }
           }}
+          title={callsDetailsSheetTitle}
         >
-          <DrawerContent
-            className="max-h-[90vh] dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
-            handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
-          >
-            <DrawerHeader className="sr-only">
-              <DrawerTitle>Call details</DrawerTitle>
-            </DrawerHeader>
-            <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-3 dark:bg-[#181714]">
-              {renderCallsMainDetailsBody()}
-            </div>
-          </DrawerContent>
-        </Drawer>
+          {renderCallsMainDetailsBody()}
+        </HomeMobileDetailsDrawer>
       )}
 
       {callsDrawerTabletLayout ? (
@@ -2076,19 +2068,19 @@ export function CallHistory({
             stackAboveDetailsSheet
             className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
           >
-            <DrawerHeader className="border-b border-border px-2 pb-3 pt-4 text-left sm:px-4 dark:border-[#1c1921] dark:bg-[#181714]">
-              <div className="flex items-center gap-1 pr-1">
+            <DrawerHeader className="border-b border-border px-2 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-left sm:px-4 dark:border-[#1c1921] dark:bg-[#181714]">
+              <div className="relative flex items-center justify-center gap-1 pr-1">
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 shrink-0"
+                  className="absolute left-0 h-9 w-9 shrink-0"
                   onClick={closeCallsContactSubdrawer}
                   aria-label="Back to establishment"
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </Button>
-                <DrawerTitle className="text-xl font-extrabold tracking-tight">
+                <DrawerTitle className="px-10 text-center text-xl font-extrabold tracking-tight">
                   {selectedCallsContactDetails?.householder.name ?? "Contact Details"}
                 </DrawerTitle>
               </div>
@@ -2099,7 +2091,7 @@ export function CallHistory({
           </DrawerWideRightContent>
         </Drawer>
       ) : (
-        <Drawer
+        <HomeMobileDetailsDrawer
           open={callsContactSubdrawerOpen}
           onOpenChange={(open) => {
             setCallsContactSubdrawerOpen(open);
@@ -2108,19 +2100,10 @@ export function CallHistory({
               setCallsContactSubdrawerEntityEditOpen(false);
             }
           }}
+          title={selectedCallsContactDetails?.householder.name?.trim() || "Contact Details"}
         >
-          <DrawerContent
-            className="max-h-[90vh] dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
-            handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
-          >
-            <DrawerHeader className="sr-only">
-              <DrawerTitle>Contact details</DrawerTitle>
-            </DrawerHeader>
-            <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-3 dark:bg-[#181714]">
-              {renderCallsContactSubdrawerBody()}
-            </div>
-          </DrawerContent>
-        </Drawer>
+          {renderCallsContactSubdrawerBody()}
+        </HomeMobileDetailsDrawer>
       )}
 
       {callsDrawerTabletLayout ? (
@@ -2140,8 +2123,8 @@ export function CallHistory({
             stackAboveStackedRightSheet={callsContactSubdrawerOpen && callsDrawerTabletLayout}
             className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
           >
-            <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left dark:border-[#1c1921] dark:bg-[#181714]">
-              <DrawerTitle className="text-lg font-bold">
+            <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+              <DrawerTitle className="text-center text-lg font-bold">
                 {callsContactSubdrawerEntityEditOpen
                   ? "Edit Contact"
                   : selectedCallsHouseholderDetails

@@ -36,7 +36,7 @@ import { useMediaQuery } from "@/hooks/use-media-query";
 import { EstablishmentForm } from "@/components/business/EstablishmentForm";
 import { TodoForm } from "@/components/business/TodoForm";
 import { getBwiParticipants } from "@/lib/db/business";
-import { VisitUpdatesSection } from "@/components/business/VisitUpdatesSection";
+import { CallSection } from "@/components/business/CallSection";
 import { HomeTodoCard } from "@/components/home/HomeTodoCard";
 
 interface EstablishmentDetailsProps {
@@ -840,7 +840,7 @@ export function EstablishmentDetails({
 
       {/* Visit Updates Section */}
       <motion.div className="w-full" layout transition={{ duration: 0.2, ease: "easeOut" }}>
-        <VisitUpdatesSection 
+        <CallSection 
           visits={visits} 
           isHouseholderContext={false}
           establishments={[{ id: establishment.id, name: establishment.name }]}
@@ -957,9 +957,9 @@ export function EstablishmentDetails({
             nested
             shouldScaleBackground={false}
           >
-            <DrawerWideLeftContentTop stackAboveStackedRightSheet>
-              <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left">
-                <DrawerTitle className="text-lg font-bold">Edit To-Do</DrawerTitle>
+            <DrawerWideLeftContentTop stackAboveStackedRightSheet className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
+              <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+                <DrawerTitle className="text-center text-lg font-bold">Edit To-Do</DrawerTitle>
               </DrawerHeader>
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
                 <TodoForm

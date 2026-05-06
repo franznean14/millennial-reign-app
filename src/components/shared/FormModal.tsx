@@ -162,9 +162,12 @@ export function FormModal({
             className={cn("dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]", className)}
           >
             <DrawerHeader
-              className={cn("border-b border-border px-4 pb-3 pt-4 text-left dark:border-[#1c1921] dark:bg-[#181714]", headerClassName)}
+              className={cn(
+                "border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]",
+                headerClassName
+              )}
             >
-              <DrawerTitle className="text-lg font-bold">{title}</DrawerTitle>
+              <DrawerTitle className="text-center text-lg font-bold">{title}</DrawerTitle>
               <DrawerDescription className={description ? undefined : "sr-only"}>{a11yDescription}</DrawerDescription>
             </DrawerHeader>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pt-2">

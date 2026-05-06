@@ -17,8 +17,10 @@ export type HomeTodoDetailsFabOverride = {
 type CtxValue = {
   todoDetailsFabOverride: HomeTodoDetailsFabOverride | null;
   callsHistoryFabOverride: HomeTodoDetailsFabOverride | null;
+  hideHomeFab: boolean;
   setTodoDetailsFabOverride: (next: HomeTodoDetailsFabOverride | null) => void;
   setCallsHistoryFabOverride: (next: HomeTodoDetailsFabOverride | null) => void;
+  setHideHomeFab: (next: boolean) => void;
 };
 
 const HomeTodoDetailsFabContext = createContext<CtxValue | null>(null);
@@ -28,14 +30,17 @@ export function HomeTodoDetailsFabProvider({ children }: { children: ReactNode }
     useState<HomeTodoDetailsFabOverride | null>(null);
   const [callsHistoryFabOverride, setCallsHistoryFabOverride] =
     useState<HomeTodoDetailsFabOverride | null>(null);
+  const [hideHomeFab, setHideHomeFab] = useState(false);
   const value = useMemo(
     () => ({
       todoDetailsFabOverride,
       callsHistoryFabOverride,
+      hideHomeFab,
       setTodoDetailsFabOverride,
       setCallsHistoryFabOverride,
+      setHideHomeFab,
     }),
-    [todoDetailsFabOverride, callsHistoryFabOverride]
+    [todoDetailsFabOverride, callsHistoryFabOverride, hideHomeFab]
   );
   return <HomeTodoDetailsFabContext.Provider value={value}>{children}</HomeTodoDetailsFabContext.Provider>;
 }

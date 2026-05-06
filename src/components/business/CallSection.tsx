@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { FormModal } from "@/components/shared/FormModal";
 import { type VisitWithUser } from "@/lib/db/business";
-import { VisitForm } from "./VisitForm";
+import { CallForm } from "./CallForm";
 import { formatVisitDateShort } from "@/lib/utils/visit-history-ui";
 import { getStatusDotColor, getTimelineDotSize, getTimelineLineClassWithPosition } from "@/lib/utils/visit-timeline";
 import { VisitTimelineRow } from "@/components/visit/VisitTimelineRow";
@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/drawer";
 import { useMediaQuery } from "@/hooks/use-media-query";
 
-interface VisitUpdatesSectionProps {
+interface CallSectionProps {
   visits: VisitWithUser[];
   isHouseholderContext?: boolean;
   establishments?: Array<{ id?: string; name: string }>;
@@ -40,7 +40,7 @@ interface VisitUpdatesSectionProps {
   insideStackedContactPane?: boolean;
 }
 
-export function VisitUpdatesSection({
+export function CallSection({
   visits,
   isHouseholderContext = false,
   establishments = [],
@@ -52,7 +52,7 @@ export function VisitUpdatesSection({
   isLoading = false,
   preferLeftDetailPanel = false,
   insideStackedContactPane = false,
-}: VisitUpdatesSectionProps) {
+}: CallSectionProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editVisit, setEditVisit] = useState<VisitWithUser | null>(null);
   const isMdUp = useMediaQuery("(min-width: 768px)");
@@ -156,7 +156,7 @@ export function VisitUpdatesSection({
 
   const visitForm =
     editVisit ? (
-      <VisitForm
+      <CallForm
         establishments={establishments}
         selectedEstablishmentId={selectedEstablishmentId}
         initialVisit={editVisit}
@@ -261,8 +261,8 @@ export function VisitUpdatesSection({
           shouldScaleBackground={false}
         >
           <DrawerWideLeftContentTop stackAboveStackedRightSheet className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
-            <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left dark:border-[#1c1921] dark:bg-[#181714]">
-              <DrawerTitle className="text-lg font-bold">Edit Call</DrawerTitle>
+            <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+              <DrawerTitle className="text-center text-lg font-bold">Edit Call</DrawerTitle>
             </DrawerHeader>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
               {visitForm}

@@ -112,7 +112,7 @@ export const DrawerContent = React.forwardRef<
     overlayClassName?: string;
     handleClassName?: string;
   }
->(({ className, overlayClassName, handleClassName, children, onPointerDownOutside, ...props }, ref) => {
+>(({ className, overlayClassName, handleClassName, children, onPointerDownOutside, style, ...props }, ref) => {
   const visualViewport = useVisualViewport();
   
   // Check if this is a nested drawer (time picker) that needs to be taller
@@ -159,6 +159,14 @@ export const DrawerContent = React.forwardRef<
     };
   }, [visualViewport, isNestedDrawer]);
 
+  const mergedContentStyle = React.useMemo(
+    () => ({
+      ...dynamicStyles,
+      ...(style && typeof style === "object" ? style : {}),
+    }),
+    [dynamicStyles, style]
+  );
+
   return (
     <DrawerPortal>
       <DrawerOverlay className={overlayClassName} />
@@ -171,7 +179,7 @@ export const DrawerContent = React.forwardRef<
           "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom",
           className
         )}
-        style={dynamicStyles}
+        style={mergedContentStyle}
         {...props}
         onPointerDownOutside={mergePointerDownOutsideForFabRoot(onPointerDownOutside)}
       >

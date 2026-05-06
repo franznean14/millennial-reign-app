@@ -66,12 +66,13 @@ import { getInitialsFromName } from "@/lib/utils/visit-history-ui";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useMobile } from "@/lib/hooks/use-mobile";
 import { getBestStatus, getStatusColor, getStatusTextColor } from "@/lib/utils/status-hierarchy";
-import { VisitUpdatesSection } from "@/components/business/VisitUpdatesSection";
+import { CallSection } from "@/components/business/CallSection";
 import { TodoForm } from "@/components/business/TodoForm";
 import { EstablishmentForm } from "@/components/business/EstablishmentForm";
 import { HouseholderForm } from "@/components/business/HouseholderForm";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
+import { HomeMobileDetailsDrawer } from "@/components/home/HomeMobileDetailsDrawer";
 
 const todoLayoutTransition = {
   type: "spring",
@@ -2050,6 +2051,7 @@ export function HomeTodoCard({
 
   const homeTodoDetailsFabCtx = useHomeTodoDetailsFabOptional();
   const setTodoDetailsFabOverride = homeTodoDetailsFabCtx?.setTodoDetailsFabOverride;
+  const setHideHomeFab = homeTodoDetailsFabCtx?.setHideHomeFab;
 
   const isMainHomeTodoWidget = Boolean(userId && establishmentId == null && householderId == null);
   const fabBridgeActiveForViewport =
@@ -2096,6 +2098,20 @@ export function HomeTodoCard({
     shouldPublishHomeTodoDetailsFab,
     contactDetailsSubdrawerOpen,
     isTodoDetailsSideLayout,
+  ]);
+
+  useEffect(() => {
+    if (!setHideHomeFab || !isMainHomeTodoWidget) return;
+    const shouldHide = detailsEntityEditOpen || contactSubdrawerEntityEditOpen;
+    setHideHomeFab(shouldHide);
+    return () => {
+      if (shouldHide) setHideHomeFab(false);
+    };
+  }, [
+    contactSubdrawerEntityEditOpen,
+    detailsEntityEditOpen,
+    isMainHomeTodoWidget,
+    setHideHomeFab,
   ]);
 
   const canDetailSummaryEdit = isHouseholderDetail
@@ -2374,7 +2390,7 @@ export function HomeTodoCard({
       ) : null}
 
       {selectedDetailVisits.length > 0 ? (
-        <VisitUpdatesSection
+        <CallSection
           visits={selectedDetailVisits}
           isHouseholderContext={isHouseholderDetail}
           establishments={
@@ -2949,7 +2965,7 @@ export function HomeTodoCard({
       ) : null}
 
       {contactSubdrawerVisits.length > 0 ? (
-        <VisitUpdatesSection
+        <CallSection
           visits={contactSubdrawerVisits}
           isHouseholderContext
           establishments={contactSubdrawerEstablishment ? [contactSubdrawerEstablishment] : []}
@@ -3147,8 +3163,8 @@ export function HomeTodoCard({
       >
         {prefersCompanionLeftTodoDrawer ? (
           <DrawerWideLeftContent className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
-            <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left dark:border-[#1c1921] dark:bg-[#181714]">
-              <DrawerTitle className="flex w-full flex-wrap items-center gap-2 text-left text-lg font-bold">
+            <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+              <DrawerTitle className="flex w-full flex-wrap items-center justify-center gap-2 text-center text-lg font-bold">
                 <ListTodo className="h-4 w-4 shrink-0" />
                 To-Do
                 <Badge
@@ -3288,32 +3304,30 @@ export function HomeTodoCard({
         nested
         shouldScaleBackground={false}
       >
-        <DrawerWideRightContent>
-          <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left">
-            <DrawerTitle className="text-xl font-extrabold tracking-tight">{isHouseholderDetail
+        <DrawerWideRightContent className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
+          <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+            <DrawerTitle className="text-center text-xl font-extrabold tracking-tight">{isHouseholderDetail
                 ? (selectedHouseholder?.name || selectedTodoForDetails?.context_name || "Contact Details")
                 : (selectedEstablishmentDetails?.name || selectedTodoForDetails?.context_name || "Establishment Details")}</DrawerTitle>
           </DrawerHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3 dark:bg-[#181714]">
             {renderTodoDetailsBody()}
           </div>
         </DrawerWideRightContent>
       </Drawer>
       ) : (
-      <Drawer open={todoDetailsDrawerOpen} onOpenChange={handleTodoDetailsDrawerChange}>
-        <DrawerContent className="max-h-[85vh]">
-          <DrawerHeader className="px-4 pt-4 pb-2 items-center">
-            <DrawerTitle className="flex w-full items-center justify-center gap-2 text-center text-xl font-extrabold tracking-tight">
-              {isHouseholderDetail
-                ? (selectedHouseholder?.name || selectedTodoForDetails?.context_name || "Contact Details")
-                : (selectedEstablishmentDetails?.name || selectedTodoForDetails?.context_name || "Establishment Details")}
-            </DrawerTitle>
-          </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] space-y-3">
-            {renderTodoDetailsBody()}
-          </div>
-        </DrawerContent>
-      </Drawer>
+      <HomeMobileDetailsDrawer
+        open={todoDetailsDrawerOpen}
+        onOpenChange={handleTodoDetailsDrawerChange}
+        title={
+          isHouseholderDetail
+            ? (selectedHouseholder?.name || selectedTodoForDetails?.context_name || "Contact Details")
+            : (selectedEstablishmentDetails?.name || selectedTodoForDetails?.context_name || "Establishment Details")
+        }
+        bodyClassName="space-y-3"
+      >
+        {renderTodoDetailsBody()}
+      </HomeMobileDetailsDrawer>
       )}
 
       {/* Second right sheet (portaled). Must sit above estab drawer (z-100) and left companion (z-102) so
@@ -3331,31 +3345,31 @@ export function HomeTodoCard({
           modal
           shouldScaleBackground={false}
         >
-          <DrawerWideRightContent stackAboveDetailsSheet>
-            <DrawerHeader className="border-b border-border px-2 pb-3 pt-4 text-left sm:px-4">
-              <div className="flex items-center gap-1 pr-1">
+          <DrawerWideRightContent stackAboveDetailsSheet className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
+            <DrawerHeader className="border-b border-border px-2 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-left sm:px-4 dark:border-[#1c1921] dark:bg-[#181714]">
+              <div className="relative flex items-center justify-center gap-1 pr-1">
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 shrink-0"
+                  className="absolute left-0 h-9 w-9 shrink-0"
                   onClick={closeContactDetailsSubdrawer}
                   aria-label="Back to establishment"
                 >
                   <ChevronLeft className="h-5 w-5" />
                 </Button>
-                <DrawerTitle className="text-xl font-extrabold tracking-tight">
+                <DrawerTitle className="px-10 text-center text-xl font-extrabold tracking-tight">
                   {contactSubdrawerHouseholder?.name || "Contact Details"}
                 </DrawerTitle>
               </div>
             </DrawerHeader>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3 dark:bg-[#181714]">
               {renderContactSubdrawerBody()}
             </div>
           </DrawerWideRightContent>
         </Drawer>
       ) : (
-        <Drawer
+        <HomeMobileDetailsDrawer
           open={contactDetailsSubdrawerOpen}
           onOpenChange={(open) => {
             setContactDetailsSubdrawerOpen(open);
@@ -3363,20 +3377,11 @@ export function HomeTodoCard({
               setSelectedContactFromEstablishment(null);
             }
           }}
-          nested
-          shouldScaleBackground={false}
+          title={contactSubdrawerHouseholder?.name || "Contact Details"}
+          bodyClassName="space-y-3"
         >
-          <DrawerContent className="max-h-[85vh] !z-[110]" overlayClassName="!z-[110]">
-            <DrawerHeader className="px-4 pt-4 pb-2 items-center">
-              <DrawerTitle className="flex w-full items-center justify-center gap-2 text-center text-xl font-extrabold tracking-tight">
-                {contactSubdrawerHouseholder?.name || "Contact Details"}
-              </DrawerTitle>
-            </DrawerHeader>
-            <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] space-y-3">
-              {renderContactSubdrawerBody()}
-            </div>
-          </DrawerContent>
-        </Drawer>
+          {renderContactSubdrawerBody()}
+        </HomeMobileDetailsDrawer>
       )}
 
       {isTodoDetailsSideLayout ? (
@@ -3395,17 +3400,18 @@ export function HomeTodoCard({
         >
           <DrawerWideLeftContentTop
             stackAboveStackedRightSheet={contactDetailsSubdrawerOpen && isTodoDetailsSideLayout}
+            className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
           >
-            <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left">
-              <DrawerTitle className="text-lg font-bold">{entityEditDrawerTitle}</DrawerTitle>
+            <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+              <DrawerTitle className="text-center text-lg font-bold">{entityEditDrawerTitle}</DrawerTitle>
             </DrawerHeader>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 dark:bg-[#181714]">
               {entityEditForms}
             </div>
           </DrawerWideLeftContentTop>
         </Drawer>
       ) : (
-        <Drawer
+        <HomeMobileDetailsDrawer
           open={detailsEntityEditOpen || contactSubdrawerEntityEditOpen}
           onOpenChange={(open) => {
             if (!open) {
@@ -3413,24 +3419,11 @@ export function HomeTodoCard({
               setContactSubdrawerEntityEditOpen(false);
             }
           }}
-          modal
-          nested
-          shouldScaleBackground={false}
+          title={entityEditDrawerTitle}
+          contentClassName="md:max-h-[80dvh]"
         >
-          <DrawerContent
-            className="max-h-[90vh] !z-[120] md:max-h-[80dvh]"
-            overlayClassName="!z-[120]"
-          >
-            <DrawerHeader className="px-4 pt-4 pb-2 items-center">
-              <DrawerTitle className="flex w-full items-center justify-center text-center text-lg font-bold">
-                {entityEditDrawerTitle}
-              </DrawerTitle>
-            </DrawerHeader>
-            <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
-              {entityEditForms}
-            </div>
-          </DrawerContent>
-        </Drawer>
+          {entityEditForms}
+        </HomeMobileDetailsDrawer>
       )}
 
       {todoEditorUseLeftPanel && todoEditorContext ? (
@@ -3448,11 +3441,12 @@ export function HomeTodoCard({
         >
           <DrawerWideLeftContentTop
             stackAboveStackedRightSheet={contactDetailsSubdrawerOpen && isTodoDetailsSideLayout}
+            className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
           >
-            <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left">
-              <DrawerTitle className="text-lg font-bold">Edit To-Do</DrawerTitle>
+            <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+              <DrawerTitle className="text-center text-lg font-bold">Edit To-Do</DrawerTitle>
             </DrawerHeader>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 dark:bg-[#181714]">
               <TodoForm
                 establishments={todoEditorContext.establishments}
                 selectedEstablishmentId={todoEditorContext.selectedEstablishmentId}

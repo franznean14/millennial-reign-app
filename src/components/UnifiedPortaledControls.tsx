@@ -166,7 +166,9 @@ function BusinessControlsContent({
     floors: filters.floors,
     formatStatusLabel
   });
-  const isDetailsView = !!selectedEstablishment || !!selectedHouseholder;
+  const isDetailsView =
+    (!!selectedEstablishment || !!selectedHouseholder) &&
+    (typeof window === "undefined" || window.innerWidth < 768 || businessTab === "map");
   // When both are set we're on householder details (opened from establishment); show householder name
   const detailsName = selectedHouseholder?.name || selectedEstablishment?.name || "";
   const detailsStatus = getBusinessDetailsHeaderTitleStatus(

@@ -5,7 +5,7 @@ import { FormModal } from "@/components/shared/FormModal";
 import { FabMenu } from "@/components/shared/FabMenu";
 import { EstablishmentForm } from "@/components/business/EstablishmentForm";
 import { HouseholderForm } from "@/components/business/HouseholderForm";
-import { VisitForm } from "@/components/business/VisitForm";
+import { CallForm } from "@/components/business/CallForm";
 import { TodoForm } from "@/components/business/TodoForm";
 import { BulkTodoForm } from "@/components/business/BulkTodoForm";
 import FieldServiceForm from "@/components/fieldservice/FieldServiceForm";
@@ -69,6 +69,11 @@ export function UnifiedFab({
   const homeFabBridge = useHomeTodoDetailsFabOptional();
   const homeDetailsFab =
     homeFabBridge?.callsHistoryFabOverride ?? homeFabBridge?.todoDetailsFabOverride ?? null;
+  const hideHomeFab = currentSection === "home" && !!homeFabBridge?.hideHomeFab;
+  const useBusinessLeftSheet =
+    !!homeDetailsFab || currentSection === "business" || currentSection.startsWith("business-");
+  const stackBusinessLeftSheetAboveNestedDetails =
+    homeDetailsFab?.stackLeftFormAboveNestedDetails ?? (!!selectedEstablishment && !!selectedHouseholder);
 
   const getDraftBulkTodoKind = (): "new" | "edit" | "mixed" => {
     try {
@@ -109,7 +114,7 @@ export function UnifiedFab({
   const showExpandableButtons = !!selectedEstablishment && !selectedHouseholder;
   const showEstablishmentForm = !selectedEstablishment && !selectedHouseholder && businessTab === "establishments";
   const showHouseholderForm = !selectedEstablishment && !selectedHouseholder && businessTab === "householders";
-  const showVisitForm = !!selectedEstablishment || !!selectedHouseholder;
+  const showCallForm = !!selectedEstablishment || !!selectedHouseholder;
 
   const fabEstablishmentsForForms: EstablishmentWithDetails[] | Array<{ id?: string; name: string }> =
     homeDetailsFab?.establishments ?? establishments;
@@ -146,7 +151,7 @@ export function UnifiedFab({
         }
       } else if (showHouseholderForm) {
         items.push({ key: "business-householder", label: "New Contact", icon: <UserPlus className="size-6" />, variant: "outline" });
-      } else if (showVisitForm) {
+      } else if (showCallForm) {
         items.push(
           { key: "business-visit", label: "New Call", icon: <FilePlus2 className="size-6" /> },
           { key: "business-todo", label: "New To-Do", icon: <ListTodo className="size-6" /> }
@@ -197,10 +202,10 @@ export function UnifiedFab({
     showEstablishmentForm,
     showExpandableButtons,
     showHouseholderForm,
-    showVisitForm
+    showCallForm
   ]);
 
-  if (actions.length === 0) return null;
+  if (hideHomeFab || actions.length === 0) return null;
 
   const mainIcon = actions.length === 1 ? actions[0].icon : <Plus className="size-6" />;
   const mainIconOpen = actions.length === 1 ? actions[0].icon : <X className="size-6" />;
@@ -231,7 +236,9 @@ export function UnifiedFab({
         onOpenChange={(open) => setOpenKey(open ? "business-establishment" : null)}
         title="New Establishment"
         description="Add a business establishment."
-        headerClassName="text-center"
+        headerClassName={useBusinessLeftSheet ? undefined : "text-center"}
+        desktopPresentation={useBusinessLeftSheet ? "left-sheet" : "auto"}
+        leftSheetStackAboveNestedRight={stackBusinessLeftSheetAboveNestedDetails}
       >
         <EstablishmentForm
           onSaved={() => setOpenKey(null)}
@@ -243,10 +250,9 @@ export function UnifiedFab({
         open={openKey === "business-householder"}
         onOpenChange={(open) => setOpenKey(open ? "business-householder" : null)}
         title="New Contact"
-        description="Add a contact for an establishment."
-        headerClassName={homeDetailsFab ? undefined : "text-center"}
-        desktopPresentation={homeDetailsFab ? "left-sheet" : "auto"}
-        leftSheetStackAboveNestedRight={homeDetailsFab?.stackLeftFormAboveNestedDetails ?? false}
+        headerClassName={useBusinessLeftSheet ? undefined : "text-center"}
+        desktopPresentation={useBusinessLeftSheet ? "left-sheet" : "auto"}
+        leftSheetStackAboveNestedRight={stackBusinessLeftSheetAboveNestedDetails}
       >
         <HouseholderForm
           establishments={fabEstablishmentsForForms}
@@ -260,11 +266,11 @@ export function UnifiedFab({
         open={openKey === "business-visit"}
         onOpenChange={(open) => setOpenKey(open ? "business-visit" : null)}
         title="New Call"
-        headerClassName={homeDetailsFab ? undefined : "text-center"}
-        desktopPresentation={homeDetailsFab ? "left-sheet" : "auto"}
-        leftSheetStackAboveNestedRight={homeDetailsFab?.stackLeftFormAboveNestedDetails ?? false}
+        headerClassName={useBusinessLeftSheet ? undefined : "text-center"}
+        desktopPresentation={useBusinessLeftSheet ? "left-sheet" : "auto"}
+        leftSheetStackAboveNestedRight={stackBusinessLeftSheetAboveNestedDetails}
       >
-        <VisitForm
+        <CallForm
           establishments={fabEstablishmentsForForms as EstablishmentWithDetails[]}
           selectedEstablishmentId={fabSelectedEstId}
           householderId={fabHouseholderId}
@@ -279,9 +285,9 @@ export function UnifiedFab({
         open={openKey === "business-todo"}
         onOpenChange={(open) => setOpenKey(open ? "business-todo" : null)}
         title="New To-Do"
-        headerClassName={homeDetailsFab ? undefined : "text-center"}
-        desktopPresentation={homeDetailsFab ? "left-sheet" : "auto"}
-        leftSheetStackAboveNestedRight={homeDetailsFab?.stackLeftFormAboveNestedDetails ?? false}
+        headerClassName={useBusinessLeftSheet ? undefined : "text-center"}
+        desktopPresentation={useBusinessLeftSheet ? "left-sheet" : "auto"}
+        leftSheetStackAboveNestedRight={stackBusinessLeftSheetAboveNestedDetails}
       >
         <TodoForm
           establishments={fabEstablishmentsForForms as Array<{ id?: string; name: string }>}
@@ -367,7 +373,7 @@ export function UnifiedFab({
         title="New Call"
         headerClassName="text-center"
       >
-        <VisitForm
+        <CallForm
           establishments={[]}
           selectedEstablishmentId="none"
           disableEstablishmentSelect

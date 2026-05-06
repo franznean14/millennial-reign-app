@@ -14,7 +14,7 @@ import { getPersonalContactHouseholders, listEstablishments } from "@/lib/db/bus
 import { businessEventBus } from "@/lib/events/business-events";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { outboxEnqueue } from "@/lib/offline/store";
-import { VisitForm } from "@/components/business/VisitForm";
+import { CallForm } from "@/components/business/CallForm";
 import { ChevronLeft } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
@@ -859,7 +859,7 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
     loadPersonalContacts();
   }, [userId]);
 
-  // Load establishments for VisitForm
+  // Load establishments for CallForm
   useEffect(() => {
     const loadEstablishments = async () => {
       try {
@@ -953,7 +953,7 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
             <h2 className="text-lg font-semibold">Edit Call</h2>
           </div>
         </div>
-        <VisitForm
+        <CallForm
           establishments={establishments}
           initialVisit={editVisit}
           householderId={editVisit.householder_id || undefined}

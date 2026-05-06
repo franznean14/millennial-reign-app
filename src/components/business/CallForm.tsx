@@ -25,20 +25,21 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getBestStatus } from "@/lib/utils/status-hierarchy";
 import { getInitialsFromName } from "@/lib/utils/visit-history-ui";
 import { cn } from "@/lib/utils";
+import { sidebarFormClasses } from "@/components/business/sidebar-form-styles";
 
 const PARTICIPANTS_CACHE_KEY = "business:participants:local:v1";
 const GUEST_NAMES_CACHE_KEY = "business:guest-names:local:v1";
 
 /** Minimal establishment shape for selects and filter matching (includes full BWI rows). */
-export type VisitFormEstablishment = {
+export type CallFormEstablishment = {
   id?: string;
   name: string;
   area?: string | null;
   statuses?: string[] | null;
 };
 
-interface VisitFormProps {
-  establishments: VisitFormEstablishment[];
+interface CallFormProps {
+  establishments: CallFormEstablishment[];
   selectedEstablishmentId?: string;
   onSaved: (newVisit?: unknown) => void;
   initialVisit?: {
@@ -61,7 +62,7 @@ interface VisitFormProps {
   disableEstablishmentSelect?: boolean;
 }
 
-export function VisitForm({ establishments, selectedEstablishmentId, onSaved, initialVisit, householderId, householderName, householderStatus, prefillNote, disableEstablishmentSelect = false }: VisitFormProps) {
+export function CallForm({ establishments, selectedEstablishmentId, onSaved, initialVisit, householderId, householderName, householderStatus, prefillNote, disableEstablishmentSelect = false }: CallFormProps) {
   const [estId, setEstId] = useState<string>(
     selectedEstablishmentId || initialVisit?.establishment_id || establishments[0]?.id || "none"
   );
@@ -218,7 +219,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
           setSlots((prev) => (prev.length === 0 ? [{ type: 'publisher' as const, id: profile.id }] : prev));
         }
       } catch (error) {
-        console.error('[VisitForm] Error loading participants:', error);
+        console.error('[CallForm] Error loading participants:', error);
       }
     };
     loadParticipants();
@@ -574,25 +575,25 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
   }, []);
 
   return (
-    <form className="grid gap-3 pb-10" onSubmit={handleSubmit}>
+    <form className={cn("grid gap-3 pb-10", sidebarFormClasses.form)} onSubmit={handleSubmit}>
       {householderId ? (
         <div className="grid gap-1">
-          <Label>Householder</Label>
-          <div className="px-3 py-2 text-sm bg-muted rounded-md">
+          <Label className={sidebarFormClasses.label}>Householder</Label>
+          <div className={cn("rounded-md px-3 py-2", sidebarFormClasses.staticField)}>
             {householderName || 'Selected householder'}
           </div>
         </div>
       ) : (
         <div className="grid gap-1">
-          <Label>Establishment</Label>
+          <Label className={sidebarFormClasses.label}>Establishment</Label>
           {disableEstablishmentSelect ? (
-            <div className="px-3 py-2 text-sm bg-muted rounded-md">
+            <div className={cn("rounded-md px-3 py-2", sidebarFormClasses.staticField)}>
               {establishments.find(e => e.id === estId)?.name || 'Selected establishment'}
             </div>
           ) : (
             <Select value={estId} onValueChange={setEstId}>
-              <SelectTrigger><SelectValue placeholder="Select establishment"/></SelectTrigger>
-              <SelectContent>
+              <SelectTrigger className={sidebarFormClasses.selectTrigger}><SelectValue placeholder="Select establishment"/></SelectTrigger>
+              <SelectContent className={sidebarFormClasses.selectContent}>
                 <SelectItem value="none">None</SelectItem>
                 {establishments.map((e)=> <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>)}
               </SelectContent>
@@ -602,22 +603,23 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
       )}
       
       <div className="grid gap-1">
-        <Label>Visit Date</Label>
+        <Label className={sidebarFormClasses.label}>Visit Date</Label>
         <DatePicker
           date={visitDate}
           onSelect={(date) => setVisitDate(date || new Date())}
           placeholder="Select call date"
+          className={sidebarFormClasses.button}
           mobileShowActions
         />
       </div>
 
       <div className="grid gap-1">
-        <Label>Publishers</Label>
+        <Label className={sidebarFormClasses.label}>Publishers</Label>
         <div className="flex min-w-0 items-center gap-2">
           {slots.map((slot, index) => (
             <div
               key={index}
-              className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-border/70 bg-muted/50 px-2 py-1.5"
+              className={cn("flex min-w-0 flex-1 items-center gap-2 rounded-md border border-border/70 bg-muted/50 px-2 py-1.5", sidebarFormClasses.chip)}
               title={getSlotDisplayName(slot)}
             >
               <Avatar className="h-6 w-6 shrink-0">
@@ -641,7 +643,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-6 w-6 p-0 shrink-0"
+                className="h-6 w-6 shrink-0 p-0 dark:text-[#ded6e7] dark:hover:bg-[#3b3348]"
                 onClick={() => removeSlot(index)}
                 aria-label="Remove"
               >
@@ -656,14 +658,14 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
                   type="button"
                   variant="default"
                   size="icon"
-                  className="h-9 w-9 rounded-full shrink-0 bg-emerald-600/95 text-white shadow-sm hover:bg-emerald-500 hover:shadow-md hover:scale-[1.03] active:scale-100 transition-all"
+                  className="h-9 w-9 shrink-0 rounded-full bg-[#80778e] text-white shadow-sm transition-all hover:scale-[1.03] hover:bg-[#8c839a] hover:shadow-md active:scale-100"
                   aria-label="Add publisher or guest"
                 >
                   <Plus className="h-4 w-4" />
                 </Button>
               </DrawerTrigger>
-              <DrawerContent className="max-h-[70vh]">
-                <DrawerHeader className="text-center">
+              <DrawerContent className={cn("max-h-[70vh]", sidebarFormClasses.popover)}>
+                <DrawerHeader className="border-b border-border text-center dark:border-[#1c1921] dark:bg-[#181714]">
                   <DrawerTitle>Select publisher or guest</DrawerTitle>
                 </DrawerHeader>
                 <div className="overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+24px)] space-y-6">
@@ -676,7 +678,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
                             <Button
                               type="button"
                               variant="ghost"
-                              className="w-full justify-start gap-2 h-12 px-3"
+                              className="h-12 w-full justify-start gap-2 px-3 dark:text-[#fffaff] dark:hover:bg-[#3b3348]"
                               onClick={() => addSlot({ type: "publisher", id: participant.id })}
                             >
                               <Avatar className="h-8 w-8">
@@ -702,7 +704,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
                           key={name}
                           type="button"
                           variant="ghost"
-                          className="w-full justify-start gap-2 h-12 px-3"
+                          className="h-12 w-full justify-start gap-2 px-3 dark:text-[#fffaff] dark:hover:bg-[#3b3348]"
                           onClick={() => addSlot({ type: "guest", name })}
                         >
                           <Avatar className="h-8 w-8 shrink-0">
@@ -725,11 +727,12 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
                               if (name) addSlot({ type: "guest", name });
                             }
                           }}
-                          className="flex-1"
+                          className={cn("flex-1", sidebarFormClasses.input)}
                         />
                         <Button
                           type="button"
                           size="sm"
+                          className={sidebarFormClasses.primaryButton}
                           onClick={() => {
                             const name = newGuestName.trim();
                             if (name) addSlot({ type: "guest", name });
@@ -749,12 +752,12 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
       </div>
       
       <div className="grid gap-1">
-        <Label>Update Note</Label>
-        <Textarea value={note} onChange={e=>setNote(e.target.value)} className="min-h-[120px]" />
+        <Label className={sidebarFormClasses.label}>Update Note</Label>
+        <Textarea value={note} onChange={e=>setNote(e.target.value)} className={cn("min-h-[120px]", sidebarFormClasses.textarea)} />
       </div>
 
       <div className="grid gap-1 min-w-0 overflow-hidden">
-        <Label>To-Do</Label>
+        <Label className={sidebarFormClasses.label}>To-Do</Label>
         {todosLoaded && (
           <>
             <ul className="space-y-2 min-w-0">
@@ -767,7 +770,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
                       checked={item.is_done}
                       onCheckedChange={() => handleToggleTodo(item)}
                       aria-label={item.is_done ? "Mark not done" : "Mark done"}
-                      className="shrink-0"
+                      className="shrink-0 dark:border-[#80778e] dark:data-[state=checked]:bg-[#80778e]"
                     />
                     {isEditing ? (
                       <Input
@@ -790,7 +793,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
                             handleCancelEditTodo();
                           }
                         }}
-                        className="flex-1 min-w-0 h-8 text-sm"
+                        className={cn("h-8 min-w-0 flex-1 text-sm", sidebarFormClasses.input)}
                         autoFocus
                         aria-label="Edit to-do"
                       />
@@ -799,7 +802,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
                         type="button"
                         onClick={() => handleStartEditTodo(item, index)}
                         className={cn(
-                          "flex-1 text-sm min-w-0 truncate text-left py-1 rounded hover:bg-muted/50 active:bg-muted transition-colors",
+                          "min-w-0 flex-1 truncate rounded py-1 text-left text-sm transition-colors hover:bg-muted/50 active:bg-muted dark:hover:bg-[#3b3348]",
                           item.is_done && "text-muted-foreground line-through"
                         )}
                       >
@@ -812,7 +815,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
                         void handleSetTodoDeadline(item, index, date ?? null);
                       }}
                       placeholder={formatDeadlineLabel(item.deadline_date)}
-                      className="w-auto h-7 min-w-[98px] px-2 text-xs"
+                      className={cn("h-7 w-auto min-w-[98px] px-2 text-xs", sidebarFormClasses.button)}
                       mobileShowActions
                       mobileAllowClear
                       defaultToTodayOnOpen
@@ -821,7 +824,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="h-7 w-7 shrink-0"
+                      className="h-7 w-7 shrink-0 dark:text-[#ded6e7] dark:hover:bg-[#3b3348]"
                       onClick={() => handleRemoveTodo(item)}
                       aria-label="Remove to-do"
                     >
@@ -841,13 +844,13 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
                     if (e.key === "Escape") { setShowTodoInput(false); setTodoInput(""); }
                   }}
                   placeholder="To-do..."
-                  className="flex-1 min-w-0"
+                  className={cn("min-w-0 flex-1", sidebarFormClasses.input)}
                   autoFocus
                 />
-                <Button type="button" variant="secondary" size="sm" onClick={handleAddTodo} disabled={!todoInput.trim()} className="shrink-0">
+                <Button type="button" variant="secondary" size="sm" onClick={handleAddTodo} disabled={!todoInput.trim()} className={cn("shrink-0", sidebarFormClasses.primaryButton)}>
                   Add
                 </Button>
-                <Button type="button" variant="ghost" size="sm" onClick={() => { setShowTodoInput(false); setTodoInput(""); }} className="shrink-0">
+                <Button type="button" variant="ghost" size="sm" onClick={() => { setShowTodoInput(false); setTodoInput(""); }} className="shrink-0 dark:text-[#ded6e7] dark:hover:bg-[#3b3348]">
                   Cancel
                 </Button>
               </div>
@@ -856,7 +859,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
                 type="button"
                 variant="outline"
                 size="sm"
-                className="mt-2 gap-1 w-fit"
+                className={cn("mt-2 w-fit gap-1", sidebarFormClasses.button)}
                 onClick={() => setShowTodoInput(true)}
               >
                 <Plus className="h-4 w-4" />
@@ -880,7 +883,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
             </Button>
             <Drawer open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
               <DrawerContent
-                className="flex flex-col"
+                className={cn("flex flex-col", sidebarFormClasses.popover)}
                 style={{ maxHeight: "50vh", height: "50vh" }}
               >
                 <div className="flex min-h-0 flex-1 flex-col justify-center px-4">
@@ -892,7 +895,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
                       type="button"
                       variant="outline"
                       size="lg"
-                      className="h-12 w-full"
+                      className={cn("h-12 w-full", sidebarFormClasses.button)}
                       onClick={() => setShowDeleteConfirm(false)}
                     >
                       Cancel
@@ -937,7 +940,7 @@ export function VisitForm({ establishments, selectedEstablishmentId, onSaved, in
         ) : (
           <span />
         )}
-        <Button type="submit" disabled={saving}>
+        <Button type="submit" className={sidebarFormClasses.primaryButton} disabled={saving}>
           {saving ? "Saving..." : (initialVisit?.id ? 'Update' : 'Save')}
         </Button>
       </div>
