@@ -52,7 +52,8 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar variant="inset">
+    <div className="hidden 2xl:block">
+      <Sidebar variant="inset">
       <SidebarHeader>
         <div className="flex items-center gap-2 px-2 py-2">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
@@ -126,6 +127,7 @@ export function AppSidebar() {
           <OfflineIndicator variant="inline" />
         </div>
       </SidebarFooter>
-    </Sidebar>
+      </Sidebar>
+    </div>
   );
 }

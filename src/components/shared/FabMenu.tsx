@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ComponentProps, type ReactNode } from "react";
 import { Portal as RadixPortal } from "@radix-ui/react-portal";
-import { Button, type ButtonProps } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { FloatingActionButton } from "@/components/shared/FloatingActionButton";
 
 interface FabAction {
   label: string;
   icon?: ReactNode;
   onClick: () => void;
-  variant?: ButtonProps["variant"];
+  variant?: ComponentProps<typeof Button>["variant"];
 }
 
 interface FabMenuProps {
@@ -61,7 +61,7 @@ export function FabMenu({
           onClick={() => setExpanded((prev) => !prev)}
           label={label}
           size="lg"
-          className={`${expanded ? "rotate-90" : ""} ${mainClassName ?? ""}`.trim()}
+          className={`${mainClassName ?? ""}`.trim()}
           data-fab-menu={menuId}
         >
           {expanded ? mainIconOpen ?? mainIcon : mainIcon}
@@ -78,7 +78,9 @@ export function FabMenu({
             style={{
               bottom: `calc(max(env(safe-area-inset-bottom),0px) + ${actionOffsetStart + actionOffsetStep * index}px)`,
               opacity: expanded ? 1 : 0,
-              transform: expanded ? "translateY(0) scale(1)" : "translateY(8px) scale(0.95)",
+              transform: expanded
+                ? "translate3d(var(--fab-action-x, 0px), 0px, 0px) scale(1)"
+                : "translate3d(var(--fab-action-x, 0px), 8px, 0px) scale(0.95)",
               transition: "transform 180ms ease, opacity 180ms ease",
               transitionDelay: `${index * 50}ms`,
               willChange: "transform, opacity",

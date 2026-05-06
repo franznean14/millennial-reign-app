@@ -1,10 +1,10 @@
 "use client";
 
-import type { ReactNode } from "react";
-import { Button, type ButtonProps } from "@/components/ui/button";
+import type { ComponentProps, ReactNode } from "react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-interface FloatingActionButtonProps extends ButtonProps {
+interface FloatingActionButtonProps extends ComponentProps<typeof Button> {
   label: string;
   children: ReactNode;
 }

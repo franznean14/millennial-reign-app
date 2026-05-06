@@ -62,17 +62,12 @@ interface UnifiedPortaledControlsProps {
 
 type HeaderToastProp = { message: string; variant: HeaderToastVariant } | null;
 
-/** Tailwind `lg` — sidebar rail / large tablet (no app top bar; portaled tabs sit just under safe area). */
-const LG_MIN = 1024;
+/** Sidebar is disabled in current shell layout, so controls always span full width. */
+const SIDEBAR_MIN = Number.MAX_SAFE_INTEGER;
 
 /** Portaled section tabs: small inset under safe area (tighter on `lg+` beside sidebar). */
 function portaledChromeTopStyle(): string {
-  if (typeof window === "undefined") {
-    return "calc(var(--device-safe-top, 0px) + 6px)";
-  }
-  const w = window.innerWidth;
-  if (w >= LG_MIN) return "calc(var(--device-safe-top, 0px) + 4px)";
-  return "calc(var(--device-safe-top, 0px) + 6px)";
+  return "calc(max(env(safe-area-inset-top), var(--device-safe-top, 0px)) + 14px)";
 }
 
 /** Shared animation for toast ↔ header swap (spring + slide + scale) */
@@ -183,13 +178,16 @@ function BusinessControlsContent({
   return (
     <div
       className={`absolute z-[100] pointer-events-auto space-y-3 px-4 ${
-        typeof window !== "undefined" && window.innerWidth >= LG_MIN ? "left-64 right-0" : "left-0 right-0"
+        typeof window !== "undefined" && window.innerWidth >= SIDEBAR_MIN ? "left-64 right-0" : "left-0 right-0"
       }`}
       style={{
-        top: businessTab === "map" ? "calc(var(--device-safe-top, 0px) + 6px)" : portaledChromeTopStyle(),
+        top:
+          businessTab === "map"
+            ? "calc(max(env(safe-area-inset-top), var(--device-safe-top, 0px)) + 14px)"
+            : portaledChromeTopStyle(),
       }}
     >
-      {typeof window !== "undefined" && window.innerWidth < LG_MIN && (
+      {typeof window !== "undefined" && window.innerWidth < SIDEBAR_MIN && (
         <div className="w-full h-[52px] overflow-hidden">
           <AnimatePresence mode="wait">
             {headerToast?.message ? (
@@ -224,7 +222,7 @@ function BusinessControlsContent({
         </div>
       )}
 
-      {typeof window !== "undefined" && window.innerWidth >= LG_MIN && !isDetailsView && (
+      {typeof window !== "undefined" && window.innerWidth >= SIDEBAR_MIN && !isDetailsView && (
         <div className="w-full h-[52px] mb-2 overflow-hidden">
           <AnimatePresence mode="wait">
             {headerToast?.message ? (
@@ -254,7 +252,7 @@ function BusinessControlsContent({
         </div>
       )}
 
-      {typeof window !== "undefined" && window.innerWidth >= LG_MIN && isDetailsView && (
+      {typeof window !== "undefined" && window.innerWidth >= SIDEBAR_MIN && isDetailsView && (
         <AnimatePresence mode="wait">
           <motion.div
             key="desktop-details-header"
@@ -479,13 +477,13 @@ function CongregationControlsContent({
   return (
     <div
       className={`absolute z-[100] pointer-events-auto space-y-3 px-4 ${
-        typeof window !== "undefined" && window.innerWidth >= LG_MIN ? "left-64 right-0" : "left-0 right-0"
+        typeof window !== "undefined" && window.innerWidth >= SIDEBAR_MIN ? "left-64 right-0" : "left-0 right-0"
       }`}
       style={{
         top: portaledChromeTopStyle(),
       }}
     >
-      {typeof window !== "undefined" && window.innerWidth < LG_MIN && (
+      {typeof window !== "undefined" && window.innerWidth < SIDEBAR_MIN && (
         <div className="w-full h-[52px] overflow-hidden">
           <AnimatePresence mode="wait">
             {headerToast?.message ? (
@@ -516,7 +514,7 @@ function CongregationControlsContent({
         </div>
       )}
 
-      {typeof window !== "undefined" && window.innerWidth >= LG_MIN && isDetailsView && (
+      {typeof window !== "undefined" && window.innerWidth >= SIDEBAR_MIN && isDetailsView && (
         <AnimatePresence mode="wait">
           <motion.div
             key="desktop-details-header"
@@ -539,7 +537,7 @@ function CongregationControlsContent({
         </AnimatePresence>
       )}
 
-      {typeof window !== "undefined" && window.innerWidth >= LG_MIN && !isDetailsView && (
+      {typeof window !== "undefined" && window.innerWidth >= SIDEBAR_MIN && !isDetailsView && (
         <div className="w-full h-[52px] overflow-hidden">
           <AnimatePresence mode="wait">
             {headerToast?.message ? (
@@ -580,7 +578,7 @@ function HomeControlsContent({
   return (
     <div
       className={`absolute z-[100] pointer-events-auto space-y-3 px-4 ${
-        typeof window !== "undefined" && window.innerWidth >= LG_MIN ? "left-64 right-0" : "left-0 right-0"
+        typeof window !== "undefined" && window.innerWidth >= SIDEBAR_MIN ? "left-64 right-0" : "left-0 right-0"
       }`}
       style={{
         top: portaledChromeTopStyle(),
@@ -620,7 +618,7 @@ function AccountControlsContent({
   return (
     <div
       className={`absolute z-[100] pointer-events-auto space-y-3 px-4 ${
-        typeof window !== "undefined" && window.innerWidth >= LG_MIN ? "left-64 right-0" : "left-0 right-0"
+        typeof window !== "undefined" && window.innerWidth >= SIDEBAR_MIN ? "left-64 right-0" : "left-0 right-0"
       }`}
       style={{
         top: portaledChromeTopStyle(),
