@@ -24,6 +24,10 @@ function mergePointerDownOutsideForFabRoot(
     if (target?.closest?.(FAB_ROOT_SELECTOR)) {
       event.preventDefault();
     }
+    /** Bulk to-do tablet FAB + expanded menu (portaled outside `#fab-root`); keep sheet open on tap. */
+    if (target?.closest?.("[data-bulk-todo-sheet-fab]")) {
+      event.preventDefault();
+    }
     userHandler?.(event);
   };
 }

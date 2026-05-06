@@ -769,7 +769,7 @@ export function EstablishmentList({
       {/* Scrollable Table Body */}
       <div
         ref={tableBodyScrollRef}
-        className="flex-1 overflow-y-auto no-scrollbar overscroll-none pb-[calc(max(env(safe-area-inset-bottom),0px)+255px)] dark:bg-[#24231f]"
+        className="flex-1 overflow-y-auto no-scrollbar overscroll-none pb-[calc(max(env(safe-area-inset-bottom),0px)+255px)] md:pb-[max(env(safe-area-inset-bottom),0px)+16px)] dark:bg-[#24231f]"
         style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
       >
         <table className="w-full text-sm table-fixed">
@@ -898,7 +898,7 @@ export function EstablishmentList({
                         <div className={cn("mb-3 rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-wide dark:border-[#1c1921] dark:bg-[#30283c]", getStatusTitleColor(status))}>
                           {formatStatusText(status)}
                         </div>
-                        <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain pb-[calc(max(env(safe-area-inset-bottom),0px)+132px)] pr-1">
+                        <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain pb-[calc(max(env(safe-area-inset-bottom),0px)+132px)] md:pb-[max(env(safe-area-inset-bottom),0px)+12px)] pr-1">
                           {columnEstablishments.map((establishment, index) =>
                             renderDetailedView(establishment, index)
                           )}

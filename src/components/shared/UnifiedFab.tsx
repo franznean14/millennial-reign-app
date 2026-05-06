@@ -11,12 +11,22 @@ import { BulkTodoForm } from "@/components/business/BulkTodoForm";
 import FieldServiceForm from "@/components/fieldservice/FieldServiceForm";
 import { EventScheduleFormSheet } from "@/components/congregation/EventScheduleFormSheet";
 import { AddUserToCongregationForm } from "@/components/congregation/AddUserToCongregationForm";
-import { Plus, X, UserPlus, FilePlus2, Building2, Calendar, ListTodo } from "lucide-react";
+import { Plus, X, UserPlus, FilePlus2, Building2, Calendar, ListTodo, Send, Eraser, Trash2 } from "lucide-react";
 import type { EstablishmentWithDetails, HouseholderWithDetails } from "@/lib/db/business";
 import { useHomeTodoDetailsFabOptional } from "@/components/home/home-todo-details-fab-context";
+import { useMediaQuery } from "@/hooks/use-media-query";
+import { cn } from "@/lib/utils";
 
 type BusinessTab = "establishments" | "householders" | "map";
 type CongregationTab = "meetings" | "ministry" | "admin";
+
+type BulkTabletDockedFabAction = {
+  label: string;
+  icon: ReactElement;
+  onClick: () => void;
+  variant?: "default" | "outline" | "destructive" | "secondary" | "ghost" | "link";
+  className?: string;
+};
 
 interface UnifiedFabProps {
   currentSection: string;
@@ -74,6 +84,8 @@ export function UnifiedFab({
     !!homeDetailsFab || currentSection === "business" || currentSection.startsWith("business-");
   const stackBusinessLeftSheetAboveNestedDetails =
     homeDetailsFab?.stackLeftFormAboveNestedDetails ?? (!!selectedEstablishment && !!selectedHouseholder);
+
+  const isTabletUp = useMediaQuery("(min-width: 768px)");
 
   const getDraftBulkTodoKind = (): "new" | "edit" | "mixed" => {
     try {
@@ -205,6 +217,94 @@ export function UnifiedFab({
     showCallForm
   ]);
 
+  const [bulkSavedEditRowCount, setBulkSavedEditRowCount] = useState(0);
+
+  const readBulkDraftSavedEditCount = (): number => {
+    try {
+      if (typeof window === "undefined") return 0;
+      const raw = window.localStorage.getItem("business:bulk-todos:draft:v1");
+      if (!raw) return 0;
+      const parsed = JSON.parse(raw) as { rows?: Array<{ sourceTodoId?: string | null }> };
+      const draftRows = Array.isArray(parsed?.rows) ? parsed.rows : [];
+      return draftRows.filter(
+        (row) => typeof row?.sourceTodoId === "string" && row.sourceTodoId.length > 0
+      ).length;
+    } catch {
+      return 0;
+    }
+  };
+
+  useEffect(() => {
+    const sync = () => setBulkSavedEditRowCount(readBulkDraftSavedEditCount());
+    sync();
+    window.addEventListener("business-bulk-todos-draft-saved", sync);
+    return () => window.removeEventListener("business-bulk-todos-draft-saved", sync);
+  }, []);
+
+  useEffect(() => {
+    if (openKey === "business-bulk-todos") {
+      setBulkSavedEditRowCount(readBulkDraftSavedEditCount());
+    }
+  }, [openKey]);
+
+  const bulkFabTabletDocked =
+    useBusinessLeftSheet && openKey === "business-bulk-todos" && isTabletUp;
+
+  const bulkTabletFabDockedActions = useMemo((): BulkTabletDockedFabAction[] => {
+    const items: BulkTabletDockedFabAction[] = [
+      {
+        label: "Add More",
+        icon: <Plus className="size-6" />,
+        onClick: () => {
+          try {
+            window.dispatchEvent(new CustomEvent("business-bulk-todos-open-target-picker"));
+          } catch {
+            /* ignore */
+          }
+        },
+      },
+      {
+        label: "Submit Ready To-Dos",
+        icon: <Send className="size-6" />,
+        onClick: () => {
+          try {
+            window.dispatchEvent(new CustomEvent("business-bulk-todos-submit-ready"));
+          } catch {
+            /* ignore */
+          }
+        },
+      },
+      {
+        label: "Clear",
+        icon: <Eraser className="size-6" />,
+        onClick: () => {
+          try {
+            window.dispatchEvent(new CustomEvent("business-bulk-todos-request-clear"));
+          } catch {
+            /* ignore */
+          }
+        },
+        className:
+          "border-0 !bg-yellow-500 !text-gray-950 shadow-md hover:!bg-yellow-600 dark:!bg-yellow-500 dark:!text-gray-950 dark:hover:!bg-yellow-400",
+      },
+    ];
+    if (bulkSavedEditRowCount > 0) {
+      items.push({
+        label: "Delete All",
+        variant: "destructive",
+        icon: <Trash2 className="size-6" />,
+        onClick: () => {
+          try {
+            window.dispatchEvent(new CustomEvent("business-bulk-todos-request-delete-all-saved"));
+          } catch {
+            /* ignore */
+          }
+        },
+      });
+    }
+    return items;
+  }, [bulkSavedEditRowCount]);
+
   if (hideHomeFab || actions.length === 0) return null;
 
   const mainIcon = actions.length === 1 ? actions[0].icon : <Plus className="size-6" />;
@@ -213,10 +313,18 @@ export function UnifiedFab({
   return (
     <>
       <FabMenu
-        label="Actions"
+        label={bulkFabTabletDocked ? "Bulk to-do actions" : "Actions"}
+        tabletDockedToBulkTodoSheet={bulkFabTabletDocked}
+        tabletDockedActions={bulkFabTabletDocked ? bulkTabletFabDockedActions : undefined}
         mainIcon={mainIcon}
         mainIconOpen={mainIconOpen}
-        mainClassName="bg-primary text-primary-foreground md:h-[4.75rem] md:w-[4.75rem] md:[&_svg]:h-8 md:[&_svg]:w-8 md:!left-1/2 md:!right-auto md:!-translate-x-1/2 md:!bottom-[calc(max(env(safe-area-inset-bottom),0px)+28px)] dark:!bg-[#80778e] dark:!text-white dark:hover:!bg-[#8c839a]"
+        mainClassName={cn(
+          "bg-primary text-primary-foreground md:h-[4.75rem] md:w-[4.75rem] md:[&_svg]:h-8 md:[&_svg]:w-8 md:!right-auto md:!bottom-[calc(max(env(safe-area-inset-bottom),0px)+28px)] dark:!bg-[#80778e] dark:!text-white dark:hover:!bg-[#8c839a]",
+          "md:transition-[left,transform] md:duration-300 md:ease-[cubic-bezier(0.34,1.2,0.64,1)]",
+          bulkFabTabletDocked
+            ? "md:!left-[calc(100vw-min(100vw,72rem)-4.75rem)] md:!translate-x-0 md:!z-[145]"
+            : "md:!left-1/2 md:!-translate-x-1/2 md:!z-40"
+        )}
         actionClassName="md:!left-1/2 md:!right-auto md:[--fab-action-x:-50%] md:[--fab-action-offset-start:112px] md:[--fab-action-offset-step:0px] md:[--fab-action-closed-y:72px]"
         actions={actions.map((action) => ({
           label: action.label,
@@ -288,6 +396,7 @@ export function UnifiedFab({
         headerClassName={useBusinessLeftSheet ? undefined : "text-center"}
         desktopPresentation={useBusinessLeftSheet ? "left-sheet" : "auto"}
         leftSheetStackAboveNestedRight={stackBusinessLeftSheetAboveNestedDetails}
+        className="w-[min(100vw,48rem)] dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff] md:max-h-[100lvh]"
       >
         <TodoForm
           establishments={fabEstablishmentsForForms as Array<{ id?: string; name: string }>}
@@ -316,9 +425,15 @@ export function UnifiedFab({
             ? "Edit existing and create new to-dos in one submission."
             : bulkTodoKind === "edit"
               ? "Edit selected to-dos in one submission."
-              : "Create multiple to-dos in one submission."
+              : undefined
         }
-        headerClassName="text-center"
+        headerClassName={useBusinessLeftSheet ? undefined : "text-center"}
+        desktopPresentation={useBusinessLeftSheet ? "right-sheet" : "auto"}
+        className="w-[min(100vw,72rem)] dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff] md:max-h-[100lvh]"
+        drawerContentClassName="dark:border-[#1c1921] dark:bg-[#181714]"
+        sheetBodyScrollClassName="md:overflow-hidden md:flex md:flex-col md:min-h-0"
+        bodyClassName="md:flex-1 md:min-h-0 md:flex md:flex-col md:overflow-hidden md:pb-2"
+        skipFabRootInert={openKey === "business-bulk-todos" && isTabletUp}
       >
         <BulkTodoForm
           establishments={establishments}

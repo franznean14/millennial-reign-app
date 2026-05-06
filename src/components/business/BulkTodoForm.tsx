@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -20,6 +20,7 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
+  DrawerWideLeftContent,
 } from "@/components/ui/drawer";
 import {
   addStandaloneTodo,
@@ -32,16 +33,18 @@ import {
   type HouseholderWithDetails,
 } from "@/lib/db/business";
 import { getInitialsFromName } from "@/lib/utils/visit-history-ui";
-import { getBestStatus, getStatusTextColor, getStatusTitleColor } from "@/lib/utils/status-hierarchy";
+import { getBestStatus, getStatusTitleColor } from "@/lib/utils/status-hierarchy";
 import { formatStatusText } from "@/lib/utils/formatters";
 import { VisitStatusBadge } from "@/components/visit/VisitStatusBadge";
 import { FilterControls, type FilterBadge } from "@/components/shared/FilterControls";
 import { VisitFiltersForm, type VisitFilters, type VisitFilterOption } from "@/components/visit/VisitFiltersForm";
 import { buildFilterBadges } from "@/lib/utils/filter-badges";
 import { useMobile } from "@/lib/hooks/use-mobile";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/lib/utils";
+import { sidebarFormClasses } from "@/components/business/sidebar-form-styles";
 
 type BulkTodoDraftRow = {
   id: string;
@@ -121,6 +124,27 @@ const GUEST_NAMES_CACHE_KEY = "business:guest-names:local:v1";
 const TARGET_INSIGHTS_CACHE_KEY = "business:bulk-todos:target-insights:v1";
 const TARGET_INSIGHTS_CACHE_MAX_AGE_MS = 15 * 60 * 1000;
 const NEW_TODO_PICKER_ROW_ID = "__new-todo-picker__";
+
+/** Tablet bulk sheet buckets draft rows into three lanes from to-do body */
+type BulkTodoBodyLaneKey = "replenish" | "followUp" | "proposal";
+
+export function getBulkTodoBodyLane(body: string): BulkTodoBodyLaneKey {
+  const t = body.trim().toLowerCase();
+  if (/\bfollow\s+up\b/.test(t) || (t.includes("follow") && t.includes("up"))) return "followUp";
+  if (/\bproposal\b/.test(t) || /\bpropose\b/.test(t)) return "proposal";
+  return "replenish";
+}
+
+const BULK_TODO_TABLET_LANE_COLUMNS: ReadonlyArray<{
+  id: BulkTodoBodyLaneKey;
+  title: string;
+  /** Pipeline status token for lane header color ({@link getStatusTitleColor}) */
+  headerStatus: string;
+}> = [
+  { id: "replenish", title: "Replenish", headerStatus: "for_replenishment" },
+  { id: "followUp", title: "Follow Up", headerStatus: "for_follow_up" },
+  { id: "proposal", title: "Proposals", headerStatus: "for_scouting" },
+];
 const GUEST_SLOT_PREFIX = "guest::";
 const DEFAULT_TARGET_PICKER_FILTERS: VisitFilters = {
   search: "",
@@ -260,6 +284,7 @@ const getStatusDotColorClass = (status: string): string => {
     case "bible_study":
       return "bg-emerald-500";
     case "personal_territory":
+    case "personal_territory_other":
       return "bg-pink-500";
     case "for_replenishment":
       return "bg-purple-500";
@@ -318,6 +343,7 @@ export function BulkTodoForm({
   onDraftKindChange,
 }: BulkTodoFormProps) {
   const isMobile = useMobile();
+  const isTabletUp = useMediaQuery("(min-width: 768px)");
   const [rows, setRows] = useState<BulkTodoDraftRow[]>([]);
   const [draftHydrated, setDraftHydrated] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -345,6 +371,13 @@ export function BulkTodoForm({
   const [insightRefreshKey, setInsightRefreshKey] = useState(0);
   const [deletingSourceTodoRowId, setDeletingSourceTodoRowId] = useState<string | null>(null);
   const [submittingRowId, setSubmittingRowId] = useState<string | null>(null);
+
+  /** Populated once `addRow` is defined below; FAB companion invokes via window event on tablet. */
+  const companionAddPickerRef = useRef<(() => void) | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const companionFabSubmitRef = useRef<(() => void) | null>(null);
+  const companionFabClearRef = useRef<(() => void) | null>(null);
+  const companionFabDeleteAllRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     const loadParticipants = async () => {
@@ -377,6 +410,24 @@ export function BulkTodoForm({
     };
     loadParticipants();
   }, []);
+
+  useEffect(() => {
+    if (!isTabletUp) return;
+    const openPicker = () => companionAddPickerRef.current?.();
+    const submit = () => companionFabSubmitRef.current?.();
+    const clear = () => companionFabClearRef.current?.();
+    const deleteAllSaved = () => companionFabDeleteAllRef.current?.();
+    window.addEventListener("business-bulk-todos-open-target-picker", openPicker);
+    window.addEventListener("business-bulk-todos-submit-ready", submit);
+    window.addEventListener("business-bulk-todos-request-clear", clear);
+    window.addEventListener("business-bulk-todos-request-delete-all-saved", deleteAllSaved);
+    return () => {
+      window.removeEventListener("business-bulk-todos-open-target-picker", openPicker);
+      window.removeEventListener("business-bulk-todos-submit-ready", submit);
+      window.removeEventListener("business-bulk-todos-request-clear", clear);
+      window.removeEventListener("business-bulk-todos-request-delete-all-saved", deleteAllSaved);
+    };
+  }, [isTabletUp]);
 
   useEffect(() => {
     const loadCachedGuestNames = () => {
@@ -519,6 +570,11 @@ export function BulkTodoForm({
       );
     } catch (error) {
       console.error("[BulkTodoForm] Failed to persist draft:", error);
+    }
+    try {
+      window.dispatchEvent(new CustomEvent("business-bulk-todos-draft-saved"));
+    } catch {
+      /* ignore */
     }
   }, [rows, targetSearchByRow, targetFiltersByRow, draftHydrated]);
 
@@ -824,6 +880,18 @@ export function BulkTodoForm({
     sortedEstablishments,
     sortedHouseholders,
   ]);
+
+  const rowsByBulkTodoLane = useMemo(() => {
+    const buckets: Record<BulkTodoBodyLaneKey, BulkTodoDraftRow[]> = {
+      replenish: [],
+      followUp: [],
+      proposal: [],
+    };
+    for (const row of rows) {
+      buckets[getBulkTodoBodyLane(row.body)].push(row);
+    }
+    return buckets;
+  }, [rows]);
 
   useEffect(() => {
     const establishmentIds = insightTargetKeys
@@ -1589,7 +1657,7 @@ export function BulkTodoForm({
           setTargetFiltersPanelOpenByRow((prev) => ({ ...prev, [row.id]: open }));
         }}
       >
-        <DrawerContent className="max-h-[80vh]">
+        <DrawerContent className="max-h-[80vh] dark:border-[#1c1921] dark:bg-[#181714]">
           <DrawerHeader className="text-center">
             <DrawerTitle>Filter establishment/contact</DrawerTitle>
           </DrawerHeader>
@@ -1643,11 +1711,11 @@ export function BulkTodoForm({
               "w-full text-left rounded-md py-2 px-2 transition-colors cursor-pointer " +
               (bulkAddActive
                 ? bulkSelected
-                  ? "bg-secondary text-secondary-foreground"
-                  : "hover:bg-accent hover:text-accent-foreground"
+                  ? "bg-secondary text-secondary-foreground dark:bg-[#3b3348] dark:text-[#fffaff]"
+                  : "hover:bg-accent hover:text-accent-foreground dark:hover:bg-[#2a2534]/80"
                 : row.targetKey === option.key
-                  ? "bg-secondary text-secondary-foreground"
-                  : "hover:bg-accent hover:text-accent-foreground")
+                  ? "bg-secondary text-secondary-foreground dark:bg-[#3b3348] dark:text-[#fffaff]"
+                  : "hover:bg-accent hover:text-accent-foreground dark:hover:bg-[#2a2534]/80")
             }
             onClick={() => {
               if (bulkAddActive) {
@@ -1754,6 +1822,7 @@ export function BulkTodoForm({
   const addRow = () => {
     openTargetPickerForRow(NEW_TODO_PICKER_ROW_ID);
   };
+  companionAddPickerRef.current = addRow;
 
   const clearAllRows = () => {
     setRows([]);
@@ -2411,6 +2480,19 @@ export function BulkTodoForm({
   const canSubmit = !saving && !deletingAllSourceTodos && submitCount > 0;
   const savedTodoRowCount = rows.filter((row) => !!row.sourceTodoId).length;
 
+  companionFabSubmitRef.current = () => {
+    if (!canSubmit) return;
+    formRef.current?.requestSubmit();
+  };
+  companionFabClearRef.current = () => {
+    if (rows.length === 0) return;
+    setClearConfirmOpen(true);
+  };
+  companionFabDeleteAllRef.current = () => {
+    if (savedTodoRowCount === 0) return;
+    setDeleteAllSavedConfirmOpen(true);
+  };
+
   const resizeTodoBodyField = (element: HTMLTextAreaElement) => {
     element.style.height = "auto";
     const computedStyle = window.getComputedStyle(element);
@@ -2425,610 +2507,637 @@ export function BulkTodoForm({
     element.style.overflowY = element.scrollHeight > maxHeight ? "auto" : "hidden";
   };
 
-  return (
-    <form
-      className="flex flex-col gap-4 pt-2 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]"
-      onSubmit={handleSubmit}
+  const renderDraftRowMotionCard = (row: BulkTodoDraftRow) => (
+    <motion.div
+      key={row.id}
+      layout
+      initial={false}
+      animate={{ opacity: 1 }}
+      exit={{
+        opacity: 0,
+        scale: 0.97,
+        y: -10,
+        transition: { duration: 0.22, ease: [0.4, 0, 1, 1] },
+      }}
+      transition={{
+        layout: { type: "spring", stiffness: 420, damping: 34 },
+        opacity: { duration: 0.2 },
+      }}
+      className={cn(
+        "rounded-lg border p-3 space-y-3 overflow-hidden",
+        (row.sourceTodoId && hasRowChanged(row) && isRowComplete(row)) ||
+          (!row.sourceTodoId && !isRowBlank(row) && isRowComplete(row))
+          ? "border-emerald-400/70 bg-emerald-500/10 shadow-[0_0_0_1px_rgba(16,185,129,0.25),0_8px_22px_-16px_rgba(16,185,129,0.65)]"
+          : "border-border/80 dark:border-[#1c1921]/90 dark:bg-[#2a2534]/35"
+      )}
     >
-      <AnimatePresence initial={false} mode="popLayout">
-        {rows.map((row, index) => (
-          <motion.div
-            key={row.id}
-            layout
-            initial={false}
-            animate={{ opacity: 1 }}
-            exit={{
-              opacity: 0,
-              scale: 0.97,
-              y: -10,
-              transition: { duration: 0.22, ease: [0.4, 0, 1, 1] },
-            }}
-            transition={{
-              layout: { type: "spring", stiffness: 420, damping: 34 },
-              opacity: { duration: 0.2 },
-            }}
-            className={
-              "rounded-lg border p-3 space-y-3 overflow-hidden " +
-              (
-                (row.sourceTodoId && hasRowChanged(row) && isRowComplete(row)) ||
-                (!row.sourceTodoId && !isRowBlank(row) && isRowComplete(row))
-                  ? "border-emerald-400/70 bg-emerald-500/10 shadow-[0_0_0_1px_rgba(16,185,129,0.25),0_8px_22px_-16px_rgba(16,185,129,0.65)]"
-                  : ""
-              )
-            }
-          >
-          <div
-            className="flex items-center justify-between cursor-pointer"
-            role="button"
-            tabIndex={0}
-            onClick={() =>
-              setCollapsedByRow((prev) => ({ ...prev, [row.id]: !prev[row.id] }))
-            }
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                setCollapsedByRow((prev) => ({ ...prev, [row.id]: !prev[row.id] }));
+    <div
+      className="flex items-center justify-between cursor-pointer"
+      role="button"
+      tabIndex={0}
+      onClick={() =>
+        setCollapsedByRow((prev) => ({ ...prev, [row.id]: !prev[row.id] }))
+      }
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          setCollapsedByRow((prev) => ({ ...prev, [row.id]: !prev[row.id] }));
+        }
+      }}
+      aria-label={collapsedByRow[row.id] ? "Expand to-do card" : "Collapse to-do card"}
+    >
+      <div className="min-w-0 pr-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          {(() => {
+            const [targetType, targetId] = row.targetKey.split(":");
+            const householder = targetType === "householder" ? householdersById.get(targetId) : null;
+            const linkedEstablishment =
+              householder?.establishment_id ? establishmentById.get(householder.establishment_id) : null;
+            const establishmentStatus = linkedEstablishment
+              ? (linkedEstablishment.publisher_id
+                  ? "personal_territory"
+                  : getBestStatus(linkedEstablishment.statuses || []))
+              : "for_scouting";
+            const headerStatuses = getRowHeaderStatuses(row);
+            const statusSummary = headerStatuses.map((s) => formatStatusText(s)).join(", ");
+            const showStatusRow = headerStatuses.length > 0 || !!householder?.establishment_name;
+
+            return (
+              <>
+          <p className="text-sm font-medium truncate min-w-0">
+            {getRowTargetLabel(row, "Select Establishment or Contact")}
+          </p>
+          {showStatusRow ? (
+            <div className="flex items-center gap-1.5 shrink-0 min-w-0">
+              {headerStatuses.length > 0 ? (
+                <span
+                  className="flex items-center gap-0.5 shrink-0"
+                  title={statusSummary || undefined}
+                >
+                  {headerStatuses.map((status) => (
+                    <span
+                      key={`${row.id}-status-dot-${status}`}
+                      className={cn(
+                        "inline-block h-2 w-2 shrink-0 rounded-full ring-1 ring-background",
+                        getStatusDotColorClass(status)
+                      )}
+                      aria-hidden
+                    />
+                  ))}
+                  <span className="sr-only">{statusSummary}</span>
+                </span>
+              ) : null}
+              {householder?.establishment_name ? (
+                <span
+                  className={cn(
+                    "text-[10px] font-medium max-w-[160px] truncate",
+                    getStatusTitleColor(establishmentStatus)
+                  )}
+                  title={householder.establishment_name}
+                >
+                  {householder.establishment_name}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
+              </>
+            );
+          })()}
+        </div>
+        {row.targetKey.startsWith("establishment:") ? (() => {
+          const id = row.targetKey.slice("establishment:".length);
+          const area = establishmentById.get(id)?.area?.trim();
+          return area ? (
+            <p className="mt-0.5 text-[11px] text-muted-foreground truncate">{area}</p>
+          ) : null;
+        })() : null}
+        <p
+          className={`text-[11px] ${
+            row.sourceTodoId ? getStatusTitleColor("return_visit") : getStatusTitleColor("bible_study")
+          }`}
+        >
+          {row.sourceTodoId ? "(edit)" : "(new)"}
+        </p>
+      </div>
+      <div className="flex items-center gap-1">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={(e) => {
+            e.stopPropagation();
+            setCollapsedByRow((prev) => ({ ...prev, [row.id]: !prev[row.id] }));
+          }}
+          aria-label={collapsedByRow[row.id] ? "Expand to-do card" : "Collapse to-do card"}
+        >
+          {collapsedByRow[row.id] ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          disabled={
+            saving ||
+            deletingAllSourceTodos ||
+            deletingSourceTodoRowId === row.id ||
+            submittingRowId === row.id
+          }
+          onClick={(e) => {
+            e.stopPropagation();
+            removeRow(row.id);
+          }}
+          aria-label={`Remove to-do ${rows.findIndex((r) => r.id === row.id) + 1} from form`}
+        >
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+
+    {collapsedByRow[row.id] ? (
+      <div className="space-y-2 text-sm">
+        <p className="text-muted-foreground break-words">
+          {row.body.trim() || "No to-do text yet"}
+        </p>
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center">
+            {row.slots.length > 0 ? (
+              row.slots.map((slotValue, slotIndex) => {
+                const isGuest = isGuestSlotToken(slotValue);
+                const guestName = getGuestNameFromSlot(slotValue);
+                const selected = !isGuest ? getParticipantById(slotValue) : undefined;
+                const fullName = isGuest
+                  ? guestName || "Guest"
+                  : selected
+                    ? `${selected.first_name} ${selected.last_name}`
+                    : "Publisher";
+                return (
+                  <Avatar key={`${row.id}-summary-avatar-${slotValue}-${slotIndex}`} className={`h-6 w-6 ring-1 ring-background ${slotIndex > 0 ? "-ml-2" : ""}`}>
+                    {!isGuest && selected?.avatar_url ? <AvatarImage src={selected.avatar_url} alt={fullName} /> : null}
+                    <AvatarFallback
+                      className={isGuest ? "text-xs bg-amber-500/25 text-amber-800 dark:bg-amber-500/30 dark:text-amber-200 ring-1 ring-amber-500/50 dark:ring-amber-400/40" : "text-xs"}
+                    >
+                      {getInitialsFromName(fullName)}
+                    </AvatarFallback>
+                  </Avatar>
+                );
+              })
+            ) : (
+              <span className="text-xs text-muted-foreground">No assignees</span>
+            )}
+          </div>
+          <span className="text-xs text-muted-foreground">
+            {row.dueDate ? `Due ${formatTodoDate(row.dueDate)}` : "No due date"}
+          </span>
+        </div>
+      </div>
+    ) : (
+      <>
+        <div className="grid gap-1">
+          <Label className={sidebarFormClasses.label}>To-Do</Label>
+          <Textarea
+            value={row.body}
+            onChange={(e) => updateRow(row.id, { body: e.target.value })}
+            onInput={(e) => resizeTodoBodyField(e.currentTarget)}
+            ref={(element) => {
+              if (element) {
+                resizeTodoBodyField(element);
               }
             }}
-            aria-label={collapsedByRow[row.id] ? "Expand to-do card" : "Collapse to-do card"}
-          >
-            <div className="min-w-0 pr-2">
-              <div className="flex items-center gap-1.5 min-w-0">
-                {(() => {
-                  const [targetType, targetId] = row.targetKey.split(":");
-                  const householder = targetType === "householder" ? householdersById.get(targetId) : null;
-                  const linkedEstablishment =
-                    householder?.establishment_id ? establishmentById.get(householder.establishment_id) : null;
-                  const establishmentStatus = linkedEstablishment
-                    ? (linkedEstablishment.publisher_id
-                        ? "personal_territory"
-                        : getBestStatus(linkedEstablishment.statuses || []))
-                    : "for_scouting";
-                  const headerStatuses = getRowHeaderStatuses(row);
-                  const primaryStatus = headerStatuses[0];
-                  const overflowStatuses = headerStatuses.slice(1);
-                  const overflowSummary = overflowStatuses.map((s) => formatStatusText(s)).join(", ");
-                  const showStatusRow = headerStatuses.length > 0 || !!householder?.establishment_name;
+            placeholder="What needs to be done?"
+            rows={1}
+            className={cn("min-h-10 h-10 resize-none leading-5", sidebarFormClasses.textarea)}
+          />
+        </div>
 
-                  return (
-                    <>
-                <p className="text-sm font-medium truncate min-w-0">
-                  {getRowTargetLabel(row, "Select establishment or contact")}
-                </p>
-                {showStatusRow ? (
-                  <div className="flex items-center gap-1 shrink-0">
-                    {primaryStatus ? (
-                      <VisitStatusBadge
-                        key={`${row.id}-status-badge-${primaryStatus}`}
-                        status={primaryStatus}
-                        label={formatStatusText(primaryStatus)}
-                        className="max-w-[140px] truncate whitespace-nowrap"
-                      />
-                    ) : null}
-                    {overflowStatuses.length > 0 ? (
-                      <span
-                        className="flex items-center gap-0.5 px-0.5"
-                        title={overflowSummary || undefined}
-                      >
-                        {overflowStatuses.map((status) => (
-                          <span
-                            key={`${row.id}-status-dot-${status}`}
-                            className={cn(
-                              "inline-block h-2 w-2 shrink-0 rounded-full ring-1 ring-background",
-                              getStatusDotColorClass(status)
-                            )}
-                            aria-hidden
-                          />
-                        ))}
-                        <span className="sr-only">{overflowSummary}</span>
-                      </span>
-                    ) : null}
-                    {householder?.establishment_name ? (
-                      <VisitStatusBadge
-                        status={establishmentStatus}
-                        label={householder.establishment_name}
-                        className={cn(
-                          "max-w-[160px] truncate whitespace-nowrap",
-                          getStatusTextColor(establishmentStatus)
-                        )}
-                      />
-                    ) : null}
-                  </div>
-                ) : null}
-                    </>
-                  );
-                })()}
-              </div>
-              {row.targetKey.startsWith("establishment:") ? (() => {
-                const id = row.targetKey.slice("establishment:".length);
-                const area = establishmentById.get(id)?.area?.trim();
-                return area ? (
-                  <p className="mt-0.5 text-[11px] text-muted-foreground truncate">{area}</p>
-                ) : null;
-              })() : null}
-              <p
-                className={`text-[11px] ${
-                  row.sourceTodoId ? getStatusTitleColor("return_visit") : getStatusTitleColor("bible_study")
-                }`}
-              >
-                {row.sourceTodoId ? "(edit)" : "(new)"}
-              </p>
-            </div>
-            <div className="flex items-center gap-1">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setCollapsedByRow((prev) => ({ ...prev, [row.id]: !prev[row.id] }));
-                }}
-                aria-label={collapsedByRow[row.id] ? "Expand to-do card" : "Collapse to-do card"}
-              >
-                {collapsedByRow[row.id] ? <ChevronDown className="h-4 w-4" /> : <ChevronUp className="h-4 w-4" />}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                disabled={
-                  saving ||
-                  deletingAllSourceTodos ||
-                  deletingSourceTodoRowId === row.id ||
-                  submittingRowId === row.id
-                }
-                onClick={(e) => {
-                  e.stopPropagation();
-                  removeRow(row.id);
-                }}
-                aria-label={`Remove to-do ${index + 1} from form`}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          {collapsedByRow[row.id] ? (
-            <div className="space-y-2 text-sm">
-              {(() => {
-                const [targetType, targetId] = row.targetKey.split(":");
-                const establishment = targetType === "establishment" ? establishmentById.get(targetId) : null;
-                const householder = targetType === "householder" ? householdersById.get(targetId) : null;
-                return (
-                  <>
-                    <p className="text-muted-foreground break-words">
-                      {row.body.trim() || "No to-do text yet"}
-                    </p>
-                  </>
-                );
-              })()}
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center">
-                  {row.slots.length > 0 ? (
-                    row.slots.map((slotValue, slotIndex) => {
-                      const isGuest = isGuestSlotToken(slotValue);
-                      const guestName = getGuestNameFromSlot(slotValue);
-                      const selected = !isGuest ? getParticipantById(slotValue) : undefined;
-                      const fullName = isGuest
-                        ? guestName || "Guest"
-                        : selected
-                          ? `${selected.first_name} ${selected.last_name}`
-                          : "Publisher";
-                      return (
-                        <Avatar key={`${row.id}-summary-avatar-${slotValue}-${slotIndex}`} className={`h-6 w-6 ring-1 ring-background ${slotIndex > 0 ? "-ml-2" : ""}`}>
-                          {!isGuest && selected?.avatar_url ? <AvatarImage src={selected.avatar_url} alt={fullName} /> : null}
-                          <AvatarFallback
-                            className={isGuest ? "text-xs bg-amber-500/25 text-amber-800 dark:bg-amber-500/30 dark:text-amber-200 ring-1 ring-amber-500/50 dark:ring-amber-400/40" : "text-xs"}
-                          >
-                            {getInitialsFromName(fullName)}
-                          </AvatarFallback>
-                        </Avatar>
-                      );
-                    })
-                  ) : (
-                    <span className="text-xs text-muted-foreground">No assignees</span>
+        <div className="grid gap-1">
+          <Label className={sidebarFormClasses.label}>Publishers</Label>
+          <div className="flex items-center gap-2 min-w-0">
+            {row.slots.map((slotValue, slotIndex) => {
+              const isGuest = isGuestSlotToken(slotValue);
+              const guestName = getGuestNameFromSlot(slotValue);
+              const selected = !isGuest ? getParticipantById(slotValue) : undefined;
+              const fullName = isGuest
+                ? guestName || "Guest"
+                : selected
+                  ? `${selected.first_name} ${selected.last_name}`
+                  : "Publisher";
+              return (
+                <div
+                  key={`${row.id}-slot-${slotValue}-${slotIndex}`}
+                  className={cn(
+                    "flex min-w-0 flex-1 items-center gap-2 rounded-md border border-transparent bg-muted px-2 py-1.5",
+                    "dark:border-[#5a5068]/50 dark:bg-[#2a2534]/75"
                   )}
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  {row.dueDate ? `Due ${formatTodoDate(row.dueDate)}` : "No due date"}
-                </span>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="grid gap-1">
-                <Label>To-Do</Label>
-                <Textarea
-                  value={row.body}
-                  onChange={(e) => updateRow(row.id, { body: e.target.value })}
-                  onInput={(e) => resizeTodoBodyField(e.currentTarget)}
-                  ref={(element) => {
-                    if (element) {
-                      resizeTodoBodyField(element);
-                    }
-                  }}
-                  placeholder="What needs to be done?"
-                  rows={1}
-                  className="min-h-10 h-10 resize-none leading-5"
-                />
-              </div>
-
-              <div className="grid gap-1">
-                <Label>Publishers</Label>
-                <div className="flex items-center gap-2 min-w-0">
-                  {row.slots.map((slotValue, slotIndex) => {
-                    const isGuest = isGuestSlotToken(slotValue);
-                    const guestName = getGuestNameFromSlot(slotValue);
-                    const selected = !isGuest ? getParticipantById(slotValue) : undefined;
-                    const fullName = isGuest
-                      ? guestName || "Guest"
-                      : selected
-                        ? `${selected.first_name} ${selected.last_name}`
-                        : "Publisher";
-                    return (
-                      <div
-                        key={`${row.id}-slot-${slotValue}-${slotIndex}`}
-                        className="flex min-w-0 flex-1 items-center gap-2 rounded-md bg-muted px-2 py-1.5"
-                        title={fullName}
-                      >
-                        <Avatar className="h-6 w-6 shrink-0">
-                          {!isGuest && selected?.avatar_url ? <AvatarImage src={selected.avatar_url} alt={fullName} /> : null}
-                          <AvatarFallback
-                            className={isGuest ? "text-xs bg-amber-500/25 text-amber-800 dark:bg-amber-500/30 dark:text-amber-200 ring-1 ring-amber-500/50 dark:ring-amber-400/40" : "text-xs"}
-                          >
-                            {getInitialsFromName(fullName)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="min-w-0 flex-1 truncate text-sm">{fullName}</span>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0 shrink-0"
-                          onClick={() => removeSlot(row.id, slotIndex)}
-                          aria-label="Remove"
-                        >
-                          <X className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    );
-                  })}
-                  {row.slots.length < 2 && (
-                    <Drawer
-                      open={!!assigneeDrawerOpenByRow[row.id]}
-                      onOpenChange={(open) => {
-                        setAssigneeDrawerOpenByRow((prev) => ({ ...prev, [row.id]: open }));
-                        if (open) {
-                          void loadGuestNamesForAssignees();
-                        } else {
-                          setNewGuestNameByRow((prev) => ({ ...prev, [row.id]: "" }));
-                        }
-                      }}
+                  title={fullName}
+                >
+                  <Avatar className="h-6 w-6 shrink-0">
+                    {!isGuest && selected?.avatar_url ? <AvatarImage src={selected.avatar_url} alt={fullName} /> : null}
+                    <AvatarFallback
+                      className={isGuest ? "text-xs bg-amber-500/25 text-amber-800 dark:bg-amber-500/30 dark:text-amber-200 ring-1 ring-amber-500/50 dark:ring-amber-400/40" : "text-xs"}
                     >
-                      <DrawerTrigger asChild>
-                        <Button
-                          type="button"
-                          variant="default"
-                          size="icon"
-                          className="h-9 w-9 rounded-full shrink-0 bg-emerald-600/95 text-white shadow-sm hover:bg-emerald-500 hover:shadow-md hover:scale-[1.03] active:scale-100 transition-all"
-                          aria-label="Add publisher"
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </DrawerTrigger>
-                      <DrawerContent className="max-h-[70vh]">
-                        <DrawerHeader className="text-center">
-                          <DrawerTitle>Select publisher or guest</DrawerTitle>
-                        </DrawerHeader>
-                        <div className="overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+24px)] space-y-6">
-                          <section>
-                            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                              Publishers
-                            </h3>
-                            {participants.length > 0 ? (
-                              <ul className="space-y-1">
-                                {participants
-                                  .filter((participant) => !row.slots.includes(participant.id))
-                                  .map((participant) => (
-                                    <li key={participant.id}>
-                                      <Button
-                                        type="button"
-                                        variant="ghost"
-                                        className="w-full justify-start gap-2 h-12 px-3"
-                                        onClick={() => {
-                                          toggleSlot(row.id, participant.id);
-                                          setAssigneeDrawerOpenByRow((prev) => ({ ...prev, [row.id]: false }));
-                                        }}
-                                      >
-                                        <Avatar className="h-8 w-8">
-                                          <AvatarImage src={participant.avatar_url} />
-                                          <AvatarFallback className="text-xs">
-                                            {getInitialsFromName(`${participant.first_name} ${participant.last_name}`)}
-                                          </AvatarFallback>
-                                        </Avatar>
-                                        <span>
-                                          {participant.first_name} {participant.last_name}
-                                        </span>
-                                      </Button>
-                                    </li>
-                                  ))}
-                              </ul>
-                            ) : (
-                              <p className="text-sm text-muted-foreground py-2">No publishers available</p>
-                            )}
-                          </section>
-
-                          <section>
-                            <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                              Guest
-                            </h3>
-                            <div className="space-y-2">
-                              {existingGuestNames
-                                .filter((name) => {
-                                  const token = toGuestSlotToken(name);
-                                  return !row.slots.includes(token);
-                                })
-                                .map((name) => (
-                                  <Button
-                                    key={`${row.id}-guest-${name}`}
-                                    type="button"
-                                    variant="ghost"
-                                    className="w-full justify-start gap-2 h-12 px-3"
-                                    onClick={() => addGuestSlot(row.id, name)}
-                                  >
-                                    <Avatar className="h-8 w-8 shrink-0">
-                                      <AvatarFallback className="text-xs bg-amber-500/25 text-amber-800 dark:bg-amber-500/30 dark:text-amber-200 ring-1 ring-amber-500/50 dark:ring-amber-400/40">
-                                        {getInitialsFromName(name)}
-                                      </AvatarFallback>
-                                    </Avatar>
-                                    <span>{name}</span>
-                                  </Button>
-                                ))}
-                              <div className="flex gap-2 pt-1">
-                                <Input
-                                  placeholder="New guest name"
-                                  value={newGuestNameByRow[row.id] || ""}
-                                  onChange={(e) =>
-                                    setNewGuestNameByRow((prev) => ({ ...prev, [row.id]: e.target.value }))
-                                  }
-                                  onKeyDown={(e) => {
-                                    if (e.key === "Enter") {
-                                      e.preventDefault();
-                                      addGuestSlot(row.id, newGuestNameByRow[row.id] || "");
-                                    }
-                                  }}
-                                  className="flex-1"
-                                />
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  onClick={() => addGuestSlot(row.id, newGuestNameByRow[row.id] || "")}
-                                  disabled={!(newGuestNameByRow[row.id] || "").trim()}
-                                >
-                                  Add
-                                </Button>
-                              </div>
-                            </div>
-                          </section>
-                        </div>
-                      </DrawerContent>
-                    </Drawer>
-                  )}
+                      {getInitialsFromName(fullName)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="min-w-0 flex-1 truncate text-sm">{fullName}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 w-6 p-0 shrink-0"
+                    onClick={() => removeSlot(row.id, slotIndex)}
+                    aria-label="Remove"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
                 </div>
-              </div>
-
-              <div className="grid gap-1">
-                <Label>Due Date</Label>
-                <DatePicker
-                  date={parseDateString(row.dueDate)}
-                  onSelect={(date) => updateRow(row.id, { dueDate: date ? toLocalDateString(date) : null })}
-                  placeholder="Deadline date"
-                  mobileShowActions
-                  mobileAllowClear
-                  defaultToTodayOnOpen
-                />
-              </div>
-
-              <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                {(() => {
-                  if (row.targetKey === "none") return <span>Last Update: No target selected yet.</span>;
-                  const insight = latestInsightByTarget[row.targetKey];
-                  if (!insight) return <span>Last Update: No recent update.</span>;
-                  const label = insight.source === "todo" ? "Last To-Do" : "Last Call";
-                  const avatars = insight.avatars ?? [];
-                  return (
-                    <>
-                      {avatars.length > 0 ? (
-                        <div className="inline-flex shrink-0 items-center pr-0.5">
-                          {avatars.map((person, idx) => {
-                            const isGuest = isGuestSlotToken(person.id);
-                            const fullName = `${person.first_name} ${person.last_name}`.trim() || "Guest";
-                            const displayInitials = isGuest ? getInitialsFromName(person.first_name) : getInitialsFromName(fullName);
-                            return (
-                              <Avatar
-                                key={`${row.id}-insight-${idx}-${person.id}`}
-                                className={cn(
-                                  "h-5 w-5 border border-border/70 bg-background",
-                                  idx > 0 ? "-ml-2" : ""
-                                )}
-                                title={isGuest ? person.first_name : fullName}
-                              >
-                                {!isGuest && person.avatar_url ? (
-                                  <AvatarImage src={person.avatar_url} alt={fullName} />
-                                ) : null}
-                                <AvatarFallback
-                                  className={cn(
-                                    "text-[10px]",
-                                    isGuest
-                                      ? "bg-amber-500/25 text-amber-800 dark:bg-amber-500/30 dark:text-amber-200 ring-1 ring-amber-500/50 dark:ring-amber-400/40"
-                                      : undefined
-                                  )}
-                                >
-                                  {displayInitials}
-                                </AvatarFallback>
-                              </Avatar>
-                            );
-                          })}
-                          <span className="sr-only">
-                            {avatars
-                              .map((p) =>
-                                isGuestSlotToken(p.id) ? p.first_name : `${p.first_name} ${p.last_name}`.trim()
-                              )
-                              .join(", ")}
-                          </span>
-                        </div>
-                      ) : null}
-                      <span>{label}</span>
-                      {row.targetKey.startsWith("establishment:") && insight.householderName ? (
-                        <Badge
-                          variant="outline"
-                          className={cn(
-                            "h-5 px-1.5 text-[10px] capitalize",
-                            getHouseholderStatusBadgeClass(insight.householderStatus || "")
-                          )}
-                        >
-                          {insight.householderName}
-                        </Badge>
-                      ) : null}
-                      <span className="min-w-0 break-words">{insight.text}</span>
-                      {insight.dateValue ? (
-                        <span className={cn("font-medium shrink-0", getDateAgeColorClass(insight.dateValue))}>
-                          {formatTodoDate(insight.dateValue)}
-                        </span>
-                      ) : null}
-                    </>
-                  );
-                })()}
-              </div>
-
-              {(() => {
-                if (row.targetKey === "none") return null;
-                const pendingForTarget = pendingTodosByTarget[row.targetKey] ?? [];
-                const visiblePendingTodos = row.sourceTodoId
-                  ? pendingForTarget.filter((t) => t.id !== row.sourceTodoId)
-                  : pendingForTarget;
-                if (visiblePendingTodos.length === 0) return null;
-                return (
-                <div className="mt-2 space-y-1.5">
-                  <p className="text-xs text-muted-foreground">Pending To-Dos</p>
-                  <ul className="space-y-1">
-                    {visiblePendingTodos.map((pendingTodo) => {
-                      const assigneeIds = [pendingTodo.publisherId, pendingTodo.partnerId]
-                        .filter((value): value is string => !!value)
-                        .filter((value, idx, arr) => arr.indexOf(value) === idx)
-                        .slice(0, 2);
-                      const showContactBadgeOnEstablishment =
-                        row.targetKey.startsWith("establishment:") && !!pendingTodo.householderName;
-                      return (
-                        <li key={`${row.id}-pending-${pendingTodo.id}`} className="rounded-md px-1 py-1 text-xs">
-                          <div className="flex items-center gap-2 overflow-hidden">
-                            <Checkbox
-                              checked={false}
-                              onCheckedChange={(checked) => handlePendingTodoDoneChange(pendingTodo.id, checked === true)}
-                              className="shrink-0"
-                              aria-label="Mark pending to-do as done"
-                            />
-                            {assigneeIds.length > 0 ? (
-                              <div className="inline-flex items-center gap-1 shrink-0">
-                                {assigneeIds.map((id) => {
-                                  const profile = participantsById.get(id);
-                                  const fullName = profile ? `${profile.first_name} ${profile.last_name}`.trim() : "Assigned";
-                                  return (
-                                    <Avatar key={`${pendingTodo.id}-${id}`} className="h-5 w-5 border border-border/70">
-                                      {profile?.avatar_url ? <AvatarImage src={profile.avatar_url} alt={fullName} /> : null}
-                                      <AvatarFallback className="text-[10px]">{getInitialsFromName(fullName || "A")}</AvatarFallback>
-                                    </Avatar>
-                                  );
-                                })}
-                              </div>
-                            ) : null}
-                            <div className="min-w-0 flex-1 flex items-center gap-1">
-                              {showContactBadgeOnEstablishment ? (
-                                <Badge
-                                  variant="outline"
-                                  className={cn(
-                                    "h-5 px-1.5 text-[10px] capitalize shrink-0",
-                                    getHouseholderStatusBadgeClass(pendingTodo.householderStatus || "")
-                                  )}
-                                >
-                                  {pendingTodo.householderName}
-                                </Badge>
-                              ) : null}
-                              <span className="line-clamp-2 text-foreground/90 break-words">{pendingTodo.body || "No to-do text."}</span>
-                            </div>
-                            {pendingTodo.deadlineDate ? (
-                              <span className="text-xs text-muted-foreground shrink-0">
-                                {formatTodoDate(pendingTodo.deadlineDate)}
-                              </span>
-                            ) : null}
-                          </div>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-                );
-              })()}
-
-              {(row.sourceTodoId || !isRowBlank(row)) ? (
-                <div className="mt-3 flex justify-end border-t border-border/60 pt-2">
-                  {row.sourceTodoId ? (
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="icon"
-                      className="h-8 w-8 shrink-0 mr-2"
-                      disabled={
-                        deletingSourceTodoRowId === row.id ||
-                        submittingRowId === row.id ||
-                        deletingAllSourceTodos
-                      }
-                      aria-label={
-                        deletingSourceTodoRowId === row.id ? "Deleting to-do" : "Delete to-do permanently"
-                      }
-                      title="Delete to-do"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRequestDeleteSourceTodoRow(row);
-                      }}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  ) : null}
+              );
+            })}
+            {row.slots.length < 2 && (
+              <Drawer
+                open={!!assigneeDrawerOpenByRow[row.id]}
+                onOpenChange={(open) => {
+                  setAssigneeDrawerOpenByRow((prev) => ({ ...prev, [row.id]: open }));
+                  if (open) {
+                    void loadGuestNamesForAssignees();
+                  } else {
+                    setNewGuestNameByRow((prev) => ({ ...prev, [row.id]: "" }));
+                  }
+                }}
+              >
+                <DrawerTrigger asChild>
                   <Button
                     type="button"
                     variant="default"
-                    size="sm"
-                    className="h-8 shrink-0"
-                    disabled={
-                      saving ||
-                      deletingAllSourceTodos ||
-                      deletingSourceTodoRowId === row.id ||
-                      submittingRowId === row.id ||
-                      (row.sourceTodoId ? !hasRowChanged(row) : isRowBlank(row)) ||
-                      !isRowComplete(row)
-                    }
-                    aria-label={submittingRowId === row.id ? "Submitting to-do" : "Submit this to-do only"}
-                    title="Submit this to-do only"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      void handleSubmitSingleRow(row);
-                    }}
+                    size="icon"
+                    className={cn(
+                      "h-9 w-9 shrink-0 rounded-full text-white shadow-sm transition-all hover:scale-[1.03] hover:shadow-md active:scale-100",
+                      sidebarFormClasses.primaryButton
+                    )}
+                    aria-label="Add publisher"
                   >
-                    <Check className="h-3.5 w-3.5 mr-1" />
-                    {submittingRowId === row.id ? "Submitting..." : "Submit"}
+                    <Plus className="h-4 w-4" />
                   </Button>
-                </div>
-              ) : null}
-            </>
-          )}
-          </motion.div>
-        ))}
-      </AnimatePresence>
+                </DrawerTrigger>
+                <DrawerContent className="max-h-[70vh] dark:border-[#1c1921] dark:bg-[#181714]">
+                  <DrawerHeader className="text-center">
+                    <DrawerTitle>Select publisher or guest</DrawerTitle>
+                  </DrawerHeader>
+                  <div className="overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+24px)] space-y-6">
+                    <section>
+                      <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                        Publishers
+                      </h3>
+                      {participants.length > 0 ? (
+                        <ul className="space-y-1">
+                          {participants
+                            .filter((participant) => !row.slots.includes(participant.id))
+                            .map((participant) => (
+                              <li key={participant.id}>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  className="w-full justify-start gap-2 h-12 px-3"
+                                  onClick={() => {
+                                    toggleSlot(row.id, participant.id);
+                                    setAssigneeDrawerOpenByRow((prev) => ({ ...prev, [row.id]: false }));
+                                  }}
+                                >
+                                  <Avatar className="h-8 w-8">
+                                    <AvatarImage src={participant.avatar_url} />
+                                    <AvatarFallback className="text-xs">
+                                      {getInitialsFromName(`${participant.first_name} ${participant.last_name}`)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <span>
+                                    {participant.first_name} {participant.last_name}
+                                  </span>
+                                </Button>
+                              </li>
+                            ))}
+                        </ul>
+                      ) : (
+                        <p className="text-sm text-muted-foreground py-2">No publishers available</p>
+                      )}
+                    </section>
 
-      <div className="flex flex-wrap items-center gap-2">
+                    <section>
+                      <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                        Guest
+                      </h3>
+                      <div className="space-y-2">
+                        {existingGuestNames
+                          .filter((name) => {
+                            const token = toGuestSlotToken(name);
+                            return !row.slots.includes(token);
+                          })
+                          .map((name) => (
+                            <Button
+                              key={`${row.id}-guest-${name}`}
+                              type="button"
+                              variant="ghost"
+                              className="w-full justify-start gap-2 h-12 px-3"
+                              onClick={() => addGuestSlot(row.id, name)}
+                            >
+                              <Avatar className="h-8 w-8 shrink-0">
+                                <AvatarFallback className="text-xs bg-amber-500/25 text-amber-800 dark:bg-amber-500/30 dark:text-amber-200 ring-1 ring-amber-500/50 dark:ring-amber-400/40">
+                                  {getInitialsFromName(name)}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span>{name}</span>
+                            </Button>
+                          ))}
+                        <div className="flex gap-2 pt-1">
+                          <Input
+                            placeholder="New guest name"
+                            value={newGuestNameByRow[row.id] || ""}
+                            onChange={(e) =>
+                              setNewGuestNameByRow((prev) => ({ ...prev, [row.id]: e.target.value }))
+                            }
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                addGuestSlot(row.id, newGuestNameByRow[row.id] || "");
+                              }
+                            }}
+                            className={cn("flex-1", sidebarFormClasses.input)}
+                          />
+                          <Button
+                            type="button"
+                            size="sm"
+                            className={sidebarFormClasses.primaryButton}
+                            onClick={() => addGuestSlot(row.id, newGuestNameByRow[row.id] || "")}
+                            disabled={!(newGuestNameByRow[row.id] || "").trim()}
+                          >
+                            Add
+                          </Button>
+                        </div>
+                      </div>
+                    </section>
+                  </div>
+                </DrawerContent>
+              </Drawer>
+            )}
+          </div>
+        </div>
+
+        <div className="grid gap-1">
+          <Label className={sidebarFormClasses.label}>Due Date</Label>
+          <DatePicker
+            date={parseDateString(row.dueDate)}
+            onSelect={(date) => updateRow(row.id, { dueDate: date ? toLocalDateString(date) : null })}
+            placeholder="Deadline date"
+            mobileShowActions
+            mobileAllowClear
+            defaultToTodayOnOpen
+          />
+        </div>
+
+        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+          {(() => {
+            if (row.targetKey === "none") return <span>Last Update: No target selected yet.</span>;
+            const insight = latestInsightByTarget[row.targetKey];
+            if (!insight) return <span>Last Update: No recent update.</span>;
+            const label = insight.source === "todo" ? "Last To-Do" : "Last Call";
+            const avatars = insight.avatars ?? [];
+            return (
+              <>
+                {avatars.length > 0 ? (
+                  <div className="inline-flex shrink-0 items-center pr-0.5">
+                    {avatars.map((person, idx) => {
+                      const isGuest = isGuestSlotToken(person.id);
+                      const fullName = `${person.first_name} ${person.last_name}`.trim() || "Guest";
+                      const displayInitials = isGuest ? getInitialsFromName(person.first_name) : getInitialsFromName(fullName);
+                      return (
+                        <Avatar
+                          key={`${row.id}-insight-${idx}-${person.id}`}
+                          className={cn(
+                            "h-5 w-5 border border-border/70 bg-background",
+                            idx > 0 ? "-ml-2" : ""
+                          )}
+                          title={isGuest ? person.first_name : fullName}
+                        >
+                          {!isGuest && person.avatar_url ? (
+                            <AvatarImage src={person.avatar_url} alt={fullName} />
+                          ) : null}
+                          <AvatarFallback
+                            className={cn(
+                              "text-[10px]",
+                              isGuest
+                                ? "bg-amber-500/25 text-amber-800 dark:bg-amber-500/30 dark:text-amber-200 ring-1 ring-amber-500/50 dark:ring-amber-400/40"
+                                : undefined
+                            )}
+                          >
+                            {displayInitials}
+                          </AvatarFallback>
+                        </Avatar>
+                      );
+                    })}
+                    <span className="sr-only">
+                      {avatars
+                        .map((p) =>
+                          isGuestSlotToken(p.id) ? p.first_name : `${p.first_name} ${p.last_name}`.trim()
+                        )
+                        .join(", ")}
+                    </span>
+                  </div>
+                ) : null}
+                <span>{label}</span>
+                {row.targetKey.startsWith("establishment:") && insight.householderName ? (
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "h-5 px-1.5 text-[10px] capitalize",
+                      getHouseholderStatusBadgeClass(insight.householderStatus || "")
+                    )}
+                  >
+                    {insight.householderName}
+                  </Badge>
+                ) : null}
+                <span className="min-w-0 break-words">{insight.text}</span>
+                {insight.dateValue ? (
+                  <span className={cn("font-medium shrink-0", getDateAgeColorClass(insight.dateValue))}>
+                    {formatTodoDate(insight.dateValue)}
+                  </span>
+                ) : null}
+              </>
+            );
+          })()}
+        </div>
+
+        {(() => {
+          if (row.targetKey === "none") return null;
+          const pendingForTarget = pendingTodosByTarget[row.targetKey] ?? [];
+          const visiblePendingTodos = row.sourceTodoId
+            ? pendingForTarget.filter((t) => t.id !== row.sourceTodoId)
+            : pendingForTarget;
+          if (visiblePendingTodos.length === 0) return null;
+          return (
+          <div className="mt-2 space-y-1.5">
+            <p className="text-xs text-muted-foreground">Pending To-Dos</p>
+            <ul className="space-y-1">
+              {visiblePendingTodos.map((pendingTodo) => {
+                const assigneeIds = [pendingTodo.publisherId, pendingTodo.partnerId]
+                  .filter((value): value is string => !!value)
+                  .filter((value, idx, arr) => arr.indexOf(value) === idx)
+                  .slice(0, 2);
+                const showContactBadgeOnEstablishment =
+                  row.targetKey.startsWith("establishment:") && !!pendingTodo.householderName;
+                return (
+                  <li
+                    key={`${row.id}-pending-${pendingTodo.id}`}
+                    className="rounded-md border border-transparent px-1 py-1 text-xs dark:border-[#1c1921]/60 dark:bg-[#181714]/50"
+                  >
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <Checkbox
+                        checked={false}
+                        onCheckedChange={(checked) => handlePendingTodoDoneChange(pendingTodo.id, checked === true)}
+                        className="shrink-0"
+                        aria-label="Mark pending to-do as done"
+                      />
+                      {assigneeIds.length > 0 ? (
+                        <div className="inline-flex items-center gap-1 shrink-0">
+                          {assigneeIds.map((id) => {
+                            const profile = participantsById.get(id);
+                            const fullName = profile ? `${profile.first_name} ${profile.last_name}`.trim() : "Assigned";
+                            return (
+                              <Avatar key={`${pendingTodo.id}-${id}`} className="h-5 w-5 border border-border/70">
+                                {profile?.avatar_url ? <AvatarImage src={profile.avatar_url} alt={fullName} /> : null}
+                                <AvatarFallback className="text-[10px]">{getInitialsFromName(fullName || "A")}</AvatarFallback>
+                              </Avatar>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                      <div className="min-w-0 flex-1 flex items-center gap-1">
+                        {showContactBadgeOnEstablishment ? (
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "h-5 px-1.5 text-[10px] capitalize shrink-0",
+                              getHouseholderStatusBadgeClass(pendingTodo.householderStatus || "")
+                            )}
+                          >
+                            {pendingTodo.householderName}
+                          </Badge>
+                        ) : null}
+                        <span className="line-clamp-2 text-foreground/90 break-words">{pendingTodo.body || "No to-do text."}</span>
+                      </div>
+                      {pendingTodo.deadlineDate ? (
+                        <span className="text-xs text-muted-foreground shrink-0">
+                          {formatTodoDate(pendingTodo.deadlineDate)}
+                        </span>
+                      ) : null}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+          );
+        })()}
+
+        {(row.sourceTodoId || !isRowBlank(row)) ? (
+          <div className="mt-3 flex justify-end border-t border-border/60 pt-2 dark:border-[#1c1921]/80">
+            {row.sourceTodoId ? (
+              <Button
+                type="button"
+                variant="destructive"
+                size="icon"
+                className="h-8 w-8 shrink-0 mr-2"
+                disabled={
+                  deletingSourceTodoRowId === row.id ||
+                  submittingRowId === row.id ||
+                  deletingAllSourceTodos
+                }
+                aria-label={
+                  deletingSourceTodoRowId === row.id ? "Deleting to-do" : "Delete to-do permanently"
+                }
+                title="Delete to-do"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRequestDeleteSourceTodoRow(row);
+                }}
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              className={cn("h-8 shrink-0", sidebarFormClasses.primaryButton)}
+              disabled={
+                saving ||
+                deletingAllSourceTodos ||
+                deletingSourceTodoRowId === row.id ||
+                submittingRowId === row.id ||
+                (row.sourceTodoId ? !hasRowChanged(row) : isRowBlank(row)) ||
+                !isRowComplete(row)
+              }
+              aria-label={submittingRowId === row.id ? "Submitting to-do" : "Submit this to-do only"}
+              title="Submit this to-do only"
+              onClick={(e) => {
+                e.stopPropagation();
+                void handleSubmitSingleRow(row);
+              }}
+            >
+              <Check className="h-3.5 w-3.5 mr-1" />
+              {submittingRowId === row.id ? "Submitting..." : "Submit"}
+            </Button>
+          </div>
+        ) : null}
+      </>
+    )}
+    </motion.div>
+  );
+
+  return (
+    <form
+      ref={formRef}
+      className={cn(
+        "flex flex-col gap-4 pt-2 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]",
+        "md:flex-1 md:min-h-0 md:overflow-hidden md:gap-2 md:pb-[max(0.5rem,env(safe-area-inset-bottom))]",
+        sidebarFormClasses.form
+      )}
+      onSubmit={handleSubmit}
+    >
+      {!isTabletUp ? (
+      <AnimatePresence initial={false} mode="popLayout">
+        {rows.map((row) => renderDraftRowMotionCard(row))}
+      </AnimatePresence>
+      ) : (
+      <div className="hidden md:grid md:flex-1 md:min-h-0 md:grid-cols-3 md:gap-x-3 md:items-stretch">
+        {BULK_TODO_TABLET_LANE_COLUMNS.map(({ id, title, headerStatus }) => (
+          <div
+            key={id}
+            className="flex min-h-0 min-w-0 h-full max-h-full flex-col gap-2 overflow-hidden"
+          >
+            <div className="shrink-0 border-b border-[#1c1921]/80 bg-[#181714] pb-2 pt-0.5 dark:bg-[#181714]">
+              <p
+                className={cn(
+                  "text-center text-[11px] font-semibold uppercase tracking-wider",
+                  getStatusTitleColor(headerStatus)
+                )}
+              >
+                {title}
+              </p>
+            </div>
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+              <AnimatePresence initial={false} mode="popLayout">
+                {rowsByBulkTodoLane[id].map((row) => renderDraftRowMotionCard(row))}
+              </AnimatePresence>
+            </div>
+          </div>
+        ))}
+      </div>
+      )}
+
+
+      {!isTabletUp ? (
+      <div className="flex w-full flex-wrap items-center justify-between gap-2 shrink-0">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
         {isMobile ? (
           <Drawer
             open={!!targetPickerOpenByRow[NEW_TODO_PICKER_ROW_ID]}
@@ -3040,6 +3149,7 @@ export function BulkTodoForm({
               <Button
                 type="button"
                 variant="outline"
+                className={sidebarFormClasses.button}
                 onClick={addRow}
                 disabled={saving || deletingAllSourceTodos || !!submittingRowId || !!deletingSourceTodoRowId}
               >
@@ -3047,18 +3157,20 @@ export function BulkTodoForm({
                 Add Another To-Do
               </Button>
             </DrawerTrigger>
-            <DrawerContent className="max-h-[70vh]">
-              <DrawerHeader className="text-center">
-                <DrawerTitle>Select establishment or contact</DrawerTitle>
+            <DrawerContent className="max-h-[70vh] dark:border-[#1c1921] dark:bg-[#181714]">
+              <DrawerHeader className="text-center sm:text-center">
+                <DrawerTitle className="text-center">Select Establishment or Contact</DrawerTitle>
               </DrawerHeader>
-              <div className="px-4 pt-2 pb-[calc(env(safe-area-inset-bottom)+24px)] space-y-2 overflow-y-auto">
-                {renderTargetPickerControls({
-                  id: NEW_TODO_PICKER_ROW_ID,
-                  targetKey: "none",
-                  body: "",
-                  slots: [],
-                  dueDate: null,
-                })}
+              <div className="flex min-h-0 flex-1 flex-col px-4 pt-2 pb-[calc(env(safe-area-inset-bottom)+24px)]">
+                <div className="shrink-0 space-y-2">
+                  {renderTargetPickerControls({
+                    id: NEW_TODO_PICKER_ROW_ID,
+                    targetKey: "none",
+                    body: "",
+                    slots: [],
+                    dueDate: null,
+                  })}
+                </div>
                 {renderTargetPickerList(
                   {
                     id: NEW_TODO_PICKER_ROW_ID,
@@ -3067,7 +3179,7 @@ export function BulkTodoForm({
                     slots: [],
                     dueDate: null,
                   },
-                  "max-h-[42vh] overflow-y-auto space-y-1"
+                  "min-h-0 flex-1 overflow-y-auto space-y-1"
                 )}
               </div>
             </DrawerContent>
@@ -3083,6 +3195,7 @@ export function BulkTodoForm({
               <Button
                 type="button"
                 variant="outline"
+                className={sidebarFormClasses.button}
                 onClick={addRow}
                 disabled={saving || deletingAllSourceTodos || !!submittingRowId || !!deletingSourceTodoRowId}
               >
@@ -3090,7 +3203,10 @@ export function BulkTodoForm({
                 Add Another To-Do
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="center" className="w-[min(92vw,420px)] p-2">
+            <PopoverContent
+              align="center"
+              className={cn("w-[min(92vw,420px)] p-2", sidebarFormClasses.popover)}
+            >
               <div className="space-y-2">
                 {renderTargetPickerControls({
                   id: NEW_TODO_PICKER_ROW_ID,
@@ -3112,13 +3228,13 @@ export function BulkTodoForm({
               </div>
             </PopoverContent>
           </Popover>
-        )}
+          )}
         {rows.length > 0 ? (
-          <>
             <Button
               type="button"
               variant="outline"
-              className="text-red-400 border-red-500/40 hover:text-red-300 hover:border-red-400/60"
+              size="sm"
+              className="h-8 shrink-0 text-red-400 border-red-500/40 hover:text-red-300 hover:border-red-400/60"
               onClick={() => setClearConfirmOpen(true)}
               disabled={
                 saving ||
@@ -3129,13 +3245,96 @@ export function BulkTodoForm({
             >
               Clear
             </Button>
-          </>
         ) : null}
+        {savedTodoRowCount > 0 ? (
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            className="h-8 shrink-0 gap-1.5"
+            onClick={() => setDeleteAllSavedConfirmOpen(true)}
+            disabled={
+              saving ||
+              deletingAllSourceTodos ||
+              !!submittingRowId ||
+              !!deletingSourceTodoRowId ||
+              !!deleteSourceTodoConfirmRow
+            }
+            aria-label="Delete all saved to-dos from database"
+            title="Delete all saved to-dos from database"
+          >
+            <Trash2 className="h-3.5 w-3.5 shrink-0" />
+            Delete All
+          </Button>
+        ) : null}
+        </div>
+        <Button
+          type="submit"
+          size="sm"
+          disabled={!canSubmit}
+          className={cn(
+            "h-8 min-w-0 shrink-0 truncate text-xs sm:text-sm",
+            sidebarFormClasses.primaryButton
+          )}
+        >
+          {saving
+            ? "Submitting..."
+            : (() => {
+                const parts: string[] = [];
+                if (submittableEditCount > 0) parts.push(`${submittableEditCount} Edit`);
+                if (submittableNewCount > 0) parts.push(`${submittableNewCount} New`);
+                const detail = parts.length > 0 ? `(${parts.join(", ")})` : "";
+                return `Submit Ready To-Do${submitCount > 1 ? "s" : ""} ${detail}`.trim();
+              })()}
+        </Button>
       </div>
+      ) : null}
+
+      {isTabletUp ? (
+        <Drawer
+          open={!!targetPickerOpenByRow[NEW_TODO_PICKER_ROW_ID]}
+          onOpenChange={(open) => {
+            setTargetPickerOpenByRow((prev) => ({ ...prev, [NEW_TODO_PICKER_ROW_ID]: open }));
+          }}
+          direction="left"
+          modal
+          shouldScaleBackground={false}
+        >
+          <DrawerWideLeftContent className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff] md:max-h-[100lvh]">
+            <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+0.75rem)] text-center sm:text-center dark:border-[#1c1921]">
+              <DrawerTitle className="text-center text-base font-semibold">
+                Select Establishment or Contact
+              </DrawerTitle>
+              <DrawerDescription className="sr-only">Choose a target for the new to-do row.</DrawerDescription>
+            </DrawerHeader>
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+24px)] pt-3">
+              <div className="shrink-0 space-y-2">
+                {renderTargetPickerControls({
+                  id: NEW_TODO_PICKER_ROW_ID,
+                  targetKey: "none",
+                  body: "",
+                  slots: [],
+                  dueDate: null,
+                })}
+              </div>
+              {renderTargetPickerList(
+                {
+                  id: NEW_TODO_PICKER_ROW_ID,
+                  targetKey: "none",
+                  body: "",
+                  slots: [],
+                  dueDate: null,
+                },
+                "min-h-0 flex-1 overflow-y-auto overflow-x-hidden space-y-1"
+              )}
+            </div>
+          </DrawerWideLeftContent>
+        </Drawer>
+      ) : null}
 
       <Drawer open={clearConfirmOpen} onOpenChange={setClearConfirmOpen}>
         <DrawerContent
-          className="flex flex-col"
+          className="flex flex-col dark:border-[#1c1921] dark:bg-[#181714]"
           style={{ maxHeight: "50vh", height: "50vh" }}
         >
           <div className="flex flex-1 flex-col justify-center px-4 pt-2 min-h-0">
@@ -3178,7 +3377,7 @@ export function BulkTodoForm({
         }}
       >
         <DrawerContent
-          className="flex flex-col"
+          className="flex flex-col dark:border-[#1c1921] dark:bg-[#181714]"
           style={{ maxHeight: "50vh", height: "50vh" }}
         >
           <div className="flex flex-1 flex-col justify-center px-4 pt-2 min-h-0">
@@ -3195,7 +3394,7 @@ export function BulkTodoForm({
                 type="button"
                 variant="outline"
                 size="lg"
-                className="w-full h-12"
+                className={cn("h-12 w-full", sidebarFormClasses.button)}
                 disabled={deletingAllSourceTodos}
                 onClick={() => setDeleteAllSavedConfirmOpen(false)}
               >
@@ -3223,7 +3422,7 @@ export function BulkTodoForm({
         }}
       >
         <DrawerContent
-          className="flex flex-col"
+          className="flex flex-col dark:border-[#1c1921] dark:bg-[#181714]"
           style={{ maxHeight: "50vh", height: "50vh" }}
         >
           <div className="flex flex-1 flex-col justify-center px-4 pt-2 min-h-0">
@@ -3238,7 +3437,7 @@ export function BulkTodoForm({
                 type="button"
                 variant="outline"
                 size="lg"
-                className="w-full h-12"
+                className={cn("h-12 w-full", sidebarFormClasses.button)}
                 disabled={
                   (!!deleteSourceTodoConfirmRow &&
                     deletingSourceTodoRowId === deleteSourceTodoConfirmRow.id) ||
@@ -3276,7 +3475,7 @@ export function BulkTodoForm({
           if (!open) setDuplicateAddPrompt(null);
         }}
       >
-        <DrawerContent className="max-h-[55vh]">
+        <DrawerContent className="max-h-[55vh] dark:border-[#1c1921] dark:bg-[#181714]">
           <DrawerHeader className="text-center">
             <DrawerTitle>Duplicate target detected</DrawerTitle>
           </DrawerHeader>
@@ -3285,7 +3484,7 @@ export function BulkTodoForm({
               Some selected establishment/contact already exists in this form.
             </p>
             {duplicateAddPrompt?.duplicateTargetKeys?.length ? (
-              <div className="rounded-md border border-border/60 bg-muted/20 p-3">
+              <div className="rounded-md border border-border/60 bg-muted/20 p-3 dark:border-[#1c1921] dark:bg-[#2a2534]/40">
                 <p className="text-xs font-medium text-foreground/90 mb-2">
                   Duplicates ({duplicateAddPrompt.duplicateTargetKeys.length})
                 </p>
@@ -3305,7 +3504,7 @@ export function BulkTodoForm({
                 type="button"
                 variant="outline"
                 size="lg"
-                className="w-full h-12"
+                className={cn("h-12 w-full", sidebarFormClasses.button)}
                 onClick={() => resolveDuplicateAddPrompt("ignore-duplicates")}
               >
                 Ignore Duplicates
@@ -3313,7 +3512,7 @@ export function BulkTodoForm({
               <Button
                 type="button"
                 size="lg"
-                className="w-full h-12"
+                className={cn("h-12 w-full", sidebarFormClasses.primaryButton)}
                 onClick={() => resolveDuplicateAddPrompt("add-anyway")}
               >
                 Add Anyway
@@ -3323,40 +3522,6 @@ export function BulkTodoForm({
         </DrawerContent>
       </Drawer>
 
-      <div className="flex w-full flex-wrap items-center gap-2">
-        {savedTodoRowCount > 0 ? (
-          <Button
-            type="button"
-            variant="destructive"
-            size="sm"
-            className="h-8 shrink-0 gap-1.5"
-            onClick={() => setDeleteAllSavedConfirmOpen(true)}
-            disabled={
-              saving ||
-              deletingAllSourceTodos ||
-              !!submittingRowId ||
-              !!deletingSourceTodoRowId ||
-              !!deleteSourceTodoConfirmRow
-            }
-            aria-label="Delete all saved to-dos from database"
-          >
-            <Trash2 className="h-3.5 w-3.5 shrink-0" />
-            Delete All
-          </Button>
-        ) : null}
-        <div className="min-w-2 flex-1" aria-hidden />
-        <Button type="submit" disabled={!canSubmit} className="shrink-0">
-          {saving
-            ? "Submitting..."
-            : (() => {
-                const parts: string[] = [];
-                if (submittableEditCount > 0) parts.push(`${submittableEditCount} Edit`);
-                if (submittableNewCount > 0) parts.push(`${submittableNewCount} New`);
-                const detail = parts.length > 0 ? `(${parts.join(", ")})` : "";
-                return `Submit Ready To-Do${submitCount > 1 ? "s" : ""} ${detail}`.trim();
-              })()}
-        </Button>
-      </div>
     </form>
   );
 }

@@ -11,6 +11,7 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerWideLeftContentTop,
+  DrawerWideRightContent,
 } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
 
@@ -74,12 +75,20 @@ interface FormModalProps {
   /**
    * `"auto"`: centered dialog at {@link desktopQuery}, bottom drawer below that.
    * `"left-sheet"`: left edge sheet at {@link tabletQuery} (same pattern as home to-do detail forms), bottom drawer on phones.
+   * `"right-sheet"`: right edge sheet at {@link tabletQuery}, bottom drawer on phones.
    */
-  desktopPresentation?: "auto" | "left-sheet";
+  desktopPresentation?: "auto" | "left-sheet" | "right-sheet";
   /** Used when {@link desktopPresentation} is `"left-sheet"` to switch to bottom drawer on narrow viewports. */
   tabletQuery?: string;
   /** When using left sheet above home stacked contact pane (tablet). */
   leftSheetStackAboveNestedRight?: boolean;
+  /** When open, skip marking `#fab-root` inert so a docked FAB stays tappable (tablet bulk sheet). */
+  skipFabRootInert?: boolean;
+  /**
+   * Merged with the tablet left/right sheet main content wrapper (default scroll area).
+   * Use e.g. `md:overflow-hidden md:flex md:flex-col` when the child form manages its own scroll regions.
+   */
+  sheetBodyScrollClassName?: string;
 }
 
 export function FormModal({
@@ -96,6 +105,8 @@ export function FormModal({
   desktopPresentation = "auto",
   tabletQuery = "(min-width: 768px)",
   leftSheetStackAboveNestedRight = false,
+  skipFabRootInert = false,
+  sheetBodyScrollClassName,
 }: FormModalProps) {
   const isDesktop = useMediaQuery(desktopQuery);
   const isTabletUp = useMediaQuery(tabletQuery);
@@ -115,11 +126,13 @@ export function FormModal({
       return;
     }
 
-    const active = document.activeElement as HTMLElement | null;
-    if (active && fabRoot.contains(active)) {
-      active.blur();
+    if (!skipFabRootInert) {
+      const active = document.activeElement as HTMLElement | null;
+      if (active && fabRoot.contains(active)) {
+        active.blur();
+      }
+      fabRoot.setAttribute("inert", "");
     }
-    fabRoot.setAttribute("inert", "");
 
     // On mobile, keep form drawers above FAB/menu so submit controls remain tappable.
     if (isMobile) {
@@ -133,7 +146,9 @@ export function FormModal({
     }
 
     return () => {
-      fabRoot.removeAttribute("inert");
+      if (!skipFabRootInert) {
+        fabRoot.removeAttribute("inert");
+      }
       if (!isMobile) return;
 
       const currentCount = Number(fabRoot.dataset[OPEN_COUNT_KEY] ?? "0");
@@ -151,7 +166,7 @@ export function FormModal({
         fabRoot.dataset[OPEN_COUNT_KEY] = String(nextCount);
       }
     };
-  }, [open]);
+  }, [open, skipFabRootInert]);
 
   if (desktopPresentation === "left-sheet") {
     if (isTabletUp) {
@@ -165,7 +180,10 @@ export function FormModal({
         >
           <DrawerWideLeftContentTop
             stackAboveStackedRightSheet={leftSheetStackAboveNestedRight}
-            className={cn("dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]", className)}
+            className={cn(
+              "dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff] md:max-h-[100lvh]",
+              className
+            )}
           >
             <DrawerHeader
               className={cn(
@@ -176,12 +194,70 @@ export function FormModal({
               <DrawerTitle className="text-center text-lg font-bold">{title}</DrawerTitle>
               <DrawerDescription className={description ? undefined : "sr-only"}>{a11yDescription}</DrawerDescription>
             </DrawerHeader>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pt-2">
+            <div
+              className={cn(
+                "min-h-0 flex-1 overflow-y-auto overscroll-contain pt-2",
+                sheetBodyScrollClassName
+              )}
+            >
               <FormModalBody className={cn("pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]", bodyClassName)}>
                 {children}
               </FormModalBody>
             </div>
           </DrawerWideLeftContentTop>
+        </Drawer>
+      );
+    }
+
+    return (
+      <Drawer open={open} onOpenChange={onOpenChange}>
+        <DrawerContent
+          className={cn(
+            "dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]",
+            className,
+            drawerContentClassName
+          )}
+        >
+          <DrawerHeader className={cn("dark:bg-[#181714]", headerClassName)}>
+            <DrawerTitle>{title}</DrawerTitle>
+            <DrawerDescription className={description ? undefined : "sr-only"}>{a11yDescription}</DrawerDescription>
+          </DrawerHeader>
+          <FormModalBody className={bodyClassName}>{children}</FormModalBody>
+        </DrawerContent>
+      </Drawer>
+    );
+  }
+
+  if (desktopPresentation === "right-sheet") {
+    if (isTabletUp) {
+      return (
+        <Drawer open={open} onOpenChange={onOpenChange} direction="right" modal shouldScaleBackground={false}>
+          <DrawerWideRightContent
+            className={cn(
+              "dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff] md:max-h-[100lvh]",
+              className
+            )}
+          >
+            <DrawerHeader
+              className={cn(
+                "border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]",
+                headerClassName
+              )}
+            >
+              <DrawerTitle className="text-center text-lg font-bold">{title}</DrawerTitle>
+              <DrawerDescription className={description ? undefined : "sr-only"}>{a11yDescription}</DrawerDescription>
+            </DrawerHeader>
+            <div
+              className={cn(
+                "min-h-0 flex-1 overflow-y-auto overscroll-contain pt-2",
+                sheetBodyScrollClassName
+              )}
+            >
+              <FormModalBody className={cn("pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]", bodyClassName)}>
+                {children}
+              </FormModalBody>
+            </div>
+          </DrawerWideRightContent>
         </Drawer>
       );
     }
