@@ -20,6 +20,7 @@ import {
   DrawerWideLeftContentTop,
 } from "@/components/ui/drawer";
 import { useMediaQuery } from "@/hooks/use-media-query";
+import { cn } from "@/lib/utils";
 
 interface CallSectionProps {
   visits: VisitWithUser[];
@@ -72,7 +73,12 @@ export function CallSection({
         onClick={() => setEditVisit(visit)}
         index={index}
         total={total}
-        rootClassName="hover:bg-muted/50 rounded-lg transition-colors"
+        rootClassName={cn(
+          "rounded-lg transition-colors",
+          isDrawer
+            ? "hover:bg-muted/50 dark:hover:bg-[#2a2534]/85"
+            : "hover:bg-muted/50"
+        )}
         lineClassName={lineLengthClass}
         dot={
           <div
@@ -108,20 +114,34 @@ export function CallSection({
             ) : undefined
           }
           notes={visit.note}
-          notesClassName={!isDrawer ? "leading-relaxed line-clamp-1" : "leading-relaxed"}
+          notesClassName={cn(
+            !isDrawer ? "leading-relaxed line-clamp-1" : "leading-relaxed",
+            isDrawer && "dark:text-[#ded6e7]/90"
+          )}
         />
       </VisitTimelineRow>
     );
   };
 
   const callsListExpandedBody = (forDrawer: boolean) => (
-    <div className={forDrawer ? "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2" : "flex-1 overflow-y-auto p-4 pb-20"}>
+    <div
+      className={
+        forDrawer
+          ? "min-h-0 flex-1 overflow-y-auto overscroll-contain bg-background px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 dark:bg-[#181714]"
+          : "flex-1 overflow-y-auto p-4 pb-20"
+      }
+    >
       {isLoading ? (
         <div className="space-y-2">
           {[1, 2, 3, 4, 5].map((i) => (
             <div key={i} className="relative flex items-start w-full">
               {i < 5 && (
-                <div className="absolute left-[5px] top-[12px] w-0.5 h-[calc(100%+1.5rem)] bg-gray-500/60 z-0" />
+                <div
+                  className={cn(
+                    "absolute left-[5px] top-[12px] z-0 h-[calc(100%+1.5rem)] w-0.5",
+                    forDrawer ? "bg-[#5a5068]/45 dark:bg-[#5a5068]/40" : "bg-gray-500/60"
+                  )}
+                />
               )}
               <div className="relative flex-shrink-0 z-10">
                 <div className="w-3 h-3 bg-muted/60 rounded-full border-2 border-muted/60 blur-[2px] animate-pulse" />
@@ -228,16 +248,19 @@ export function CallSection({
           shouldScaleBackground={false}
         >
           {elevatedLeftPanels ? (
-            <DrawerWideLeftContentTop stackAboveStackedRightSheet className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
-              <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left dark:border-[#1c1921] dark:bg-[#181714]">
-                <DrawerTitle className="text-lg font-bold">Calls</DrawerTitle>
+            <DrawerWideLeftContentTop
+              stackAboveStackedRightSheet
+              className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff] md:max-h-[100lvh]"
+            >
+              <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center sm:text-center dark:border-[#1c1921] dark:bg-[#181714]">
+                <DrawerTitle className="text-center text-lg font-bold">Calls</DrawerTitle>
               </DrawerHeader>
               {callsListExpandedBody(true)}
             </DrawerWideLeftContentTop>
           ) : (
-            <DrawerWideLeftContent className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
-              <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left dark:border-[#1c1921] dark:bg-[#181714]">
-                <DrawerTitle className="text-lg font-bold">Calls</DrawerTitle>
+            <DrawerWideLeftContent className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff] md:max-h-[100lvh]">
+              <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center sm:text-center dark:border-[#1c1921] dark:bg-[#181714]">
+                <DrawerTitle className="text-center text-lg font-bold">Calls</DrawerTitle>
               </DrawerHeader>
               {callsListExpandedBody(true)}
             </DrawerWideLeftContent>

@@ -202,6 +202,8 @@ export interface HouseholderWithDetails {
   lng?: number | null;
   created_at?: string;
   last_visit_at?: string | null;
+  /** Total `calls` rows for this householder. Do not infer from summing `top_visitors` (that double-counts publisher+partner). */
+  visit_count?: number;
   assigned_user?: {
     id: string;
     first_name: string;
@@ -296,7 +298,7 @@ export async function getPersonalContactHouseholders(userId: string): Promise<Ar
 export async function listHouseholders(): Promise<HouseholderWithDetails[]> {
   const supabase = createSupabaseBrowserClient();
   await supabase.auth.getSession().catch(() => {});
-  const cacheKey = 'householders:list';
+  const cacheKey = 'householders:list:v2';
   try {
     // Return cached data immediately if available (for fast initial load)
     const cached = await cacheGet<HouseholderWithDetails[]>(cacheKey);
@@ -426,6 +428,7 @@ export async function listHouseholders(): Promise<HouseholderWithDetails[]> {
         lng: hh.lng ?? null,
         created_at: hh.created_at,
         last_visit_at,
+        visit_count: hhVisits.length,
         top_visitors: Array.from(visitors.values()).sort((a, b) => b.visit_count - a.visit_count)
       };
     });
@@ -2083,6 +2086,7 @@ export async function getHouseholderDetails(householderId: string): Promise<{
     lng: hh.lng,
     created_at: hh.created_at,
     last_visit_at,
+    visit_count: transformedVisits.length,
     assigned_user: publisher ? {
       id: publisher.id,
       first_name: publisher.first_name,

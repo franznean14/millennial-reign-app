@@ -485,7 +485,7 @@ export function AppClient() {
       // Hydrate from IndexedDB cache first for instant render.
       const [cachedEstablishments, cachedHouseholders] = await Promise.all([
         cacheGet<EstablishmentWithDetails[]>("establishments:with-details"),
-        cacheGet<HouseholderWithDetails[]>("householders:list"),
+        cacheGet<HouseholderWithDetails[]>("householders:list:v2"),
       ]);
       if (cachedEstablishments?.length) {
         setEstablishments(cachedEstablishments);

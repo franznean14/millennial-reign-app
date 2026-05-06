@@ -84,11 +84,10 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
         (householder) => householder.publisher_id && householder.publisher_id === userId
       );
       
-      // Sort by most visited (total visit count)
-      // Calculate total visits by summing visit_count from all top_visitors
+      // Sort by most visited (visit_count = number of calls rows)
       const sorted = owned.sort((a, b) => {
-        const aVisitCount = a.top_visitors?.reduce((sum, visitor) => sum + (visitor.visit_count || 0), 0) || 0;
-        const bVisitCount = b.top_visitors?.reduce((sum, visitor) => sum + (visitor.visit_count || 0), 0) || 0;
+        const aVisitCount = a.visit_count ?? 0;
+        const bVisitCount = b.visit_count ?? 0;
         
         // Sort by visit count (descending)
         if (bVisitCount !== aVisitCount) {

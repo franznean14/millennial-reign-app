@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { List, LayoutGrid, Table as TableIcon, Filter, User, UserCheck, X } from "lucide-react";
+import { List, LayoutGrid, Table as TableIcon, Filter, User, UserCheck, X, ChevronUp, ChevronDown } from "lucide-react";
 import { type EstablishmentWithDetails, type BusinessFiltersState } from "@/lib/db/business";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/sonner";
@@ -14,6 +14,10 @@ import { Button } from "@/components/ui/button";
 import { getStatusColor, getStatusTextColor, getBestStatus, getStatusTitleColor } from "@/lib/utils/status-hierarchy";
 import { useListViewMode } from "@/lib/hooks/use-list-view-mode";
 import { useInfiniteList } from "@/lib/hooks/use-infinite-list";
+import {
+  usePersistedTableSort,
+  type TableSortDir,
+} from "@/lib/hooks/use-persisted-table-sort";
 import { formatEstablishmentStatusCompactText, formatStatusText } from "@/lib/utils/formatters";
 import { getStudyBibleDarkCardFade, getStudyBibleDarkCardShade, studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 
@@ -51,6 +55,35 @@ const ESTABLISHMENT_DETAILED_COLUMN_ORDER = [
   "on_hold",
   "inappropriate",
 ];
+
+type EstTableSortKey =
+  | "name"
+  | "status"
+  | "area"
+  | "last_call"
+  | "calls"
+  | "contacts"
+  | "floor";
+
+const EST_TABLE_SORT_KEYS: readonly EstTableSortKey[] = [
+  "name",
+  "status",
+  "area",
+  "last_call",
+  "calls",
+  "contacts",
+  "floor",
+];
+
+const EST_TABLE_DEFAULT_DIRS: Record<EstTableSortKey, TableSortDir> = {
+  name: "asc",
+  status: "asc",
+  area: "asc",
+  last_call: "desc",
+  calls: "desc",
+  contacts: "desc",
+  floor: "asc",
+};
 
 function MarqueeCell({
   text
@@ -95,6 +128,66 @@ function NameWithAvatarsCell({
   );
 }
 
+function formatTableDate(value?: string | null) {
+  if (!value) return "-";
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" });
+}
+
+function EstablishmentTableSortTh({
+  label,
+  sortKey,
+  sort,
+  onToggle,
+  className,
+}: {
+  label: string;
+  sortKey: EstTableSortKey;
+  sort: { column: EstTableSortKey; dir: TableSortDir };
+  onToggle: (k: EstTableSortKey) => void;
+  className?: string;
+}) {
+  const active = sort.column === sortKey;
+  return (
+    <th
+      scope="col"
+      className={className}
+      aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
+    >
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onToggle(sortKey);
+        }}
+        className={cn(
+          "inline-flex min-h-11 w-full min-w-0 items-center gap-0.5 py-3 pl-3 pr-1 text-left font-medium touch-manipulation",
+          "rounded-md hover:bg-muted/25 active:bg-muted/40 dark:hover:bg-[#3b3348]/60 dark:active:bg-[#3b3348]",
+          active && "text-foreground dark:text-[#fffaff]"
+        )}
+      >
+        <span className="min-w-0 flex-1 truncate">{label}</span>
+        <span className="flex shrink-0 flex-col leading-none" aria-hidden="true">
+          <ChevronUp
+            className={cn(
+              "h-2.5 w-2.5",
+              active && sort.dir === "asc" ? "text-[#80778e]" : "opacity-30"
+            )}
+          />
+          <ChevronDown
+            className={cn(
+              "-mt-0.5 h-2.5 w-2.5",
+              active && sort.dir === "desc" ? "text-[#80778e]" : "opacity-30"
+            )}
+          />
+        </span>
+      </button>
+    </th>
+  );
+}
+
 export function EstablishmentList({ 
   establishments, 
   currentUserId,
@@ -123,8 +216,18 @@ export function EstablishmentList({
     onViewModeChange,
     storageKey: "establishment-view-mode",
     allowedModes: ["detailed", "compact", "table"],
-    cycleOrder: ["detailed", "compact", "table"]
+    cycleOrder: ["detailed", "compact", "table"],
   });
+
+  const { sort: establishmentTableSort, toggleColumn: toggleEstablishmentTableSort } =
+    usePersistedTableSort<EstTableSortKey>({
+      storageKey: "bwi-establishment-table-sort",
+      allowedColumns: EST_TABLE_SORT_KEYS,
+      defaultColumn: "name",
+      defaultDirs: EST_TABLE_DEFAULT_DIRS,
+    });
+
+  const tableBodyScrollRef = useRef<HTMLDivElement>(null);
 
   // Prevent page scrolling when in table view
   useEffect(() => {
@@ -137,16 +240,6 @@ export function EstablishmentList({
       document.body.style.overflow = '';
     };
   }, [viewMode]);
-  const { visibleCount, sentinelRef } = useInfiniteList({
-    itemsLength: establishments.length,
-    viewMode,
-    initialCounts: { detailed: 7, compact: 10, table: 40 },
-    stepCounts: { detailed: 5, compact: 10, table: 40 },
-  });
-  const visibleEstablishments = useMemo(
-    () => establishments.slice(0, visibleCount),
-    [establishments, visibleCount]
-  );
 
   const hasActiveFilters = !!filters && (
     !!filters.search ||
@@ -241,6 +334,92 @@ export function EstablishmentList({
     const best = getBestStatus(statuses);
     return statuses.filter((s) => s !== best);
   };
+
+  const sortedEstablishmentsForTable = useMemo(() => {
+    if (viewMode !== "table") return establishments;
+    const { column, dir } = establishmentTableSort;
+    const mult = dir === "asc" ? 1 : -1;
+    const list = [...establishments];
+
+    const cmpStr = (a: string, b: string) =>
+      mult * a.localeCompare(b, undefined, { sensitivity: "base" });
+    const cmpNum = (a: number, b: number) =>
+      mult * (a === b ? 0 : a < b ? -1 : 1);
+
+    /** YYYY-MM-DD; empty dates sort last regardless of asc/desc */
+    const cmpVisitDateStr = (
+      a: string | null | undefined,
+      b: string | null | undefined
+    ) => {
+      const av = (a ?? "").trim();
+      const bv = (b ?? "").trim();
+      if (!av && !bv) return 0;
+      if (!av) return 1;
+      if (!bv) return -1;
+      const raw = av.localeCompare(bv);
+      return mult * raw;
+    };
+
+    const statusSortLabel = (e: EstablishmentWithDetails) => {
+      if (e.publisher_id) return "personal territory";
+      if (e.statuses?.length)
+        return formatStatusCompactText(getBestStatus(e.statuses));
+      return "\uFFFF";
+    };
+
+    list.sort((ea, eb) => {
+      let cmp = 0;
+      switch (column) {
+        case "name":
+          cmp = cmpStr((ea.name || "").toLowerCase(), (eb.name || "").toLowerCase());
+          break;
+        case "status":
+          cmp = cmpStr(statusSortLabel(ea).toLowerCase(), statusSortLabel(eb).toLowerCase());
+          break;
+        case "area":
+          cmp = cmpStr((ea.area || "").toLowerCase(), (eb.area || "").toLowerCase());
+          break;
+        case "last_call":
+          cmp = cmpVisitDateStr(ea.last_visit_at, eb.last_visit_at);
+          break;
+        case "calls":
+          cmp = cmpNum(ea.visit_count ?? 0, eb.visit_count ?? 0);
+          break;
+        case "contacts":
+          cmp = cmpNum(ea.householder_count ?? 0, eb.householder_count ?? 0);
+          break;
+        case "floor":
+          cmp = cmpStr((ea.floor || "").toLowerCase(), (eb.floor || "").toLowerCase());
+          break;
+        default:
+          cmp = 0;
+      }
+      if (cmp !== 0) return cmp;
+      return (ea.name || "").localeCompare(eb.name || "", undefined, {
+        sensitivity: "base",
+      });
+    });
+    return list;
+  }, [viewMode, establishments, establishmentTableSort, formatStatusCompactText]);
+
+  const establishmentsForSlice = sortedEstablishmentsForTable;
+
+  const { visibleCount, sentinelRef } = useInfiniteList({
+    itemsLength: establishmentsForSlice.length,
+    viewMode,
+    initialCounts: { detailed: 7, compact: 10, table: 40 },
+    stepCounts: { detailed: 5, compact: 10, table: 40 },
+  });
+
+  const visibleEstablishments = useMemo(
+    () => establishmentsForSlice.slice(0, visibleCount),
+    [establishmentsForSlice, visibleCount]
+  );
+
+  useEffect(() => {
+    if (viewMode !== "table") return;
+    tableBodyScrollRef.current?.scrollTo({ top: 0 });
+  }, [viewMode, establishmentTableSort.column, establishmentTableSort.dir]);
 
   const renderDetailedView = (establishment: EstablishmentWithDetails, index: number) => (
     <motion.div
@@ -527,15 +706,61 @@ export function EstablishmentList({
   );
 
   const renderTableView = () => (
-    <div className={cn("w-full h-full flex flex-col overscroll-none rounded-lg border border-transparent", studyBibleDarkClasses.card)} style={{ overscrollBehavior: 'none' }}>
+    <div className={cn("w-full h-full flex flex-col overscroll-none overflow-hidden rounded-xl border border-border/70 dark:border-[#3a3342]", studyBibleDarkClasses.card)} style={{ overscrollBehavior: 'none' }}>
       {/* Fixed Table Header */}
       <div className="flex-shrink-0 border-b bg-background dark:border-[#1c1921] dark:bg-[#30283c]">
         <table className="w-full text-sm table-fixed">
           <thead>
             <tr className={cn("border-b dark:border-[#1c1921]", studyBibleDarkClasses.muted)}>
-              <th className="text-left py-3 px-3 w-[50%]">Name</th>
-              <th className="text-left py-3 px-3 w-[23%]">Status</th>
-              <th className="text-left py-3 px-3 w-[27%]">Area</th>
+              <EstablishmentTableSortTh
+                label="Name"
+                sortKey="name"
+                sort={establishmentTableSort}
+                onToggle={toggleEstablishmentTableSort}
+                className="w-[50%] md:w-[28%] p-0 align-bottom"
+              />
+              <EstablishmentTableSortTh
+                label="Status"
+                sortKey="status"
+                sort={establishmentTableSort}
+                onToggle={toggleEstablishmentTableSort}
+                className="w-[23%] md:w-[16%] p-0 align-bottom"
+              />
+              <EstablishmentTableSortTh
+                label="Area"
+                sortKey="area"
+                sort={establishmentTableSort}
+                onToggle={toggleEstablishmentTableSort}
+                className="w-[27%] md:w-[16%] p-0 align-bottom"
+              />
+              <EstablishmentTableSortTh
+                label="Last call"
+                sortKey="last_call"
+                sort={establishmentTableSort}
+                onToggle={toggleEstablishmentTableSort}
+                className="hidden md:table-cell w-[14%] p-0 align-bottom"
+              />
+              <EstablishmentTableSortTh
+                label="Calls"
+                sortKey="calls"
+                sort={establishmentTableSort}
+                onToggle={toggleEstablishmentTableSort}
+                className="hidden md:table-cell w-[9%] p-0 align-bottom"
+              />
+              <EstablishmentTableSortTh
+                label="Contacts"
+                sortKey="contacts"
+                sort={establishmentTableSort}
+                onToggle={toggleEstablishmentTableSort}
+                className="hidden md:table-cell w-[10%] p-0 align-bottom"
+              />
+              <EstablishmentTableSortTh
+                label="Floor"
+                sortKey="floor"
+                sort={establishmentTableSort}
+                onToggle={toggleEstablishmentTableSort}
+                className="hidden md:table-cell w-[7%] p-0 align-bottom"
+              />
             </tr>
           </thead>
         </table>
@@ -543,7 +768,8 @@ export function EstablishmentList({
       
       {/* Scrollable Table Body */}
       <div
-        className="flex-1 overflow-y-auto no-scrollbar overscroll-none pb-[calc(max(env(safe-area-inset-bottom),0px)+175px)] md:pb-0 dark:bg-[#24231f]"
+        ref={tableBodyScrollRef}
+        className="flex-1 overflow-y-auto no-scrollbar overscroll-none pb-[calc(max(env(safe-area-inset-bottom),0px)+255px)] dark:bg-[#24231f]"
         style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
       >
         <table className="w-full text-sm table-fixed">
@@ -551,13 +777,19 @@ export function EstablishmentList({
             {visibleEstablishments.map((establishment, index) => (
               <tr
                 key={establishment.id || index}
-                className="border-b hover:bg-muted/30 cursor-pointer dark:border-[#3a3342] dark:hover:bg-[#30283c]"
+                className={cn(
+                  "cursor-pointer border-b transition-colors",
+                  "dark:border-[#3a3342]",
+                  getStudyBibleDarkCardShade(String(establishment.id ?? establishment.name ?? index)),
+                  "hover:bg-muted/30",
+                  studyBibleDarkClasses.cardHover
+                )}
                 onClick={() => onEstablishmentClick(establishment)}
               >
-                <td className="p-3 min-w-0 w-[50%]">
+                <td className="p-3 min-w-0 w-[50%] md:w-[28%]">
                   <NameWithAvatarsCell name={establishment.name} visitors={establishment.top_visitors} />
                 </td>
-                <td className="p-3 w-[23%]">
+                <td className="p-3 w-[23%] md:w-[16%]">
                   <div className="flex items-center gap-1 min-w-0">
                     <Badge 
                       variant="outline" 
@@ -579,14 +811,26 @@ export function EstablishmentList({
                     )}
                   </div>
                 </td>
-                <td className="p-3 min-w-0 w-[27%]">
+                <td className="p-3 min-w-0 w-[27%] md:w-[16%]">
                   <MarqueeCell text={establishment.area || '-'} />
+                </td>
+                <td className="hidden md:table-cell p-3 min-w-0 md:w-[14%] text-muted-foreground dark:text-[#ded6e7]">
+                  {formatTableDate(establishment.last_visit_at)}
+                </td>
+                <td className="hidden md:table-cell p-3 md:w-[9%]">
+                  {establishment.visit_count ?? 0}
+                </td>
+                <td className="hidden md:table-cell p-3 md:w-[10%]">
+                  {establishment.householder_count ?? 0}
+                </td>
+                <td className="hidden md:table-cell p-3 min-w-0 md:w-[7%] text-muted-foreground dark:text-[#ded6e7]">
+                  <MarqueeCell text={establishment.floor || "-"} />
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-        {visibleCount < establishments.length && (
+        {visibleCount < establishmentsForSlice.length && (
           <div ref={sentinelRef} className="h-16 w-full" aria-label="Load more trigger" />
         )}
       </div>
@@ -671,7 +915,7 @@ export function EstablishmentList({
                 )}
               </div>
             )}
-            {visibleCount < establishments.length && (
+            {visibleCount < establishmentsForSlice.length && (
               <div
                 ref={sentinelRef}
                 className={cn("h-20 w-full", viewMode === "detailed" && "md:hidden")}

@@ -5,13 +5,17 @@ import { motion, AnimatePresence } from "motion/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { List, LayoutGrid, Table as TableIcon, Filter, User, UserCheck, X, Building2 } from "lucide-react";
+import { List, LayoutGrid, Table as TableIcon, Filter, User, UserCheck, X, Building2, ChevronUp, ChevronDown } from "lucide-react";
 import { type HouseholderWithDetails, type BusinessFiltersState } from "@/lib/db/business";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
 import { useListViewMode } from "@/lib/hooks/use-list-view-mode";
 import { useInfiniteList } from "@/lib/hooks/use-infinite-list";
+import {
+  usePersistedTableSort,
+  type TableSortDir,
+} from "@/lib/hooks/use-persisted-table-sort";
 import { formatHouseholderStatusCompactText, formatStatusText } from "@/lib/utils/formatters";
 import { getStudyBibleDarkCardFade, getStudyBibleDarkCardShade, studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 import { getStatusTitleColor } from "@/lib/utils/status-hierarchy";
@@ -45,6 +49,24 @@ const HOUSEHOLDER_DETAILED_COLUMN_ORDER = [
   "moved_branch",
   "resigned",
 ];
+
+type HhTableSortKey = "name" | "status" | "establishment" | "last_call" | "calls";
+
+const HH_TABLE_SORT_KEYS: readonly HhTableSortKey[] = [
+  "name",
+  "status",
+  "establishment",
+  "last_call",
+  "calls",
+];
+
+const HH_TABLE_DEFAULT_DIRS: Record<HhTableSortKey, TableSortDir> = {
+  name: "asc",
+  status: "asc",
+  establishment: "asc",
+  last_call: "desc",
+  calls: "desc",
+};
 
 function NameWithAvatarsCell({
   name,
@@ -88,6 +110,66 @@ function EstablishmentNameCell({ name }: { name: string }) {
   );
 }
 
+function formatTableDate(value?: string | null) {
+  if (!value) return "-";
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return "-";
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" });
+}
+
+function HouseholderTableSortTh({
+  label,
+  sortKey,
+  sort,
+  onToggle,
+  className,
+}: {
+  label: string;
+  sortKey: HhTableSortKey;
+  sort: { column: HhTableSortKey; dir: TableSortDir };
+  onToggle: (k: HhTableSortKey) => void;
+  className?: string;
+}) {
+  const active = sort.column === sortKey;
+  return (
+    <th
+      scope="col"
+      className={className}
+      aria-sort={active ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}
+    >
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onToggle(sortKey);
+        }}
+        className={cn(
+          "inline-flex min-h-11 w-full min-w-0 items-center gap-0.5 py-3 pl-3 pr-1 text-left font-medium touch-manipulation",
+          "rounded-md hover:bg-muted/25 active:bg-muted/40 dark:hover:bg-[#3b3348]/60 dark:active:bg-[#3b3348]",
+          active && "text-foreground dark:text-[#fffaff]"
+        )}
+      >
+        <span className="min-w-0 flex-1 truncate">{label}</span>
+        <span className="flex shrink-0 flex-col leading-none" aria-hidden="true">
+          <ChevronUp
+            className={cn(
+              "h-2.5 w-2.5",
+              active && sort.dir === "asc" ? "text-[#80778e]" : "opacity-30"
+            )}
+          />
+          <ChevronDown
+            className={cn(
+              "-mt-0.5 h-2.5 w-2.5",
+              active && sort.dir === "desc" ? "text-[#80778e]" : "opacity-30"
+            )}
+          />
+        </span>
+      </button>
+    </th>
+  );
+}
+
 export function HouseholderList({ 
   householders, 
   onHouseholderClick,
@@ -115,8 +197,18 @@ export function HouseholderList({
     onViewModeChange,
     storageKey: "householder-view-mode",
     allowedModes: ["detailed", "compact", "table"],
-    cycleOrder: ["detailed", "compact", "table"]
+    cycleOrder: ["detailed", "compact", "table"],
   });
+
+  const { sort: householderTableSort, toggleColumn: toggleHouseholderTableSort } =
+    usePersistedTableSort<HhTableSortKey>({
+      storageKey: "bwi-householder-table-sort",
+      allowedColumns: HH_TABLE_SORT_KEYS,
+      defaultColumn: "name",
+      defaultDirs: HH_TABLE_DEFAULT_DIRS,
+    });
+
+  const tableBodyScrollRef = useRef<HTMLDivElement>(null);
 
   // Prevent page scrolling when in table view
   useEffect(() => {
@@ -129,16 +221,6 @@ export function HouseholderList({
       document.body.style.overflow = '';
     };
   }, [viewMode]);
-  const { visibleCount, sentinelRef } = useInfiniteList({
-    itemsLength: householders.length,
-    viewMode,
-    initialCounts: { detailed: 7, compact: 10, table: 40 },
-    stepCounts: { detailed: 5, compact: 10, table: 40 },
-  });
-  const visibleHouseholders = useMemo(
-    () => householders.slice(0, visibleCount),
-    [householders, visibleCount]
-  );
 
   const hasActiveFilters = !!filters && (
     !!filters.search || (filters.statuses?.length ?? 0) > 0 || (filters.areas?.length ?? 0) > 0 || !!filters.myEstablishments
@@ -187,6 +269,86 @@ export function HouseholderList({
         return 'text-gray-600 border-gray-200 bg-gray-50 dark:text-gray-400 dark:border-gray-800 dark:bg-gray-950';
     }
   };
+
+  const getHouseholderCallTotal = (householder: HouseholderWithDetails) =>
+    householder.visit_count ?? 0;
+
+  const sortedHouseholdersForTable = useMemo(() => {
+    if (viewMode !== "table") return householders;
+    const { column, dir } = householderTableSort;
+    const mult = dir === "asc" ? 1 : -1;
+    const list = [...householders];
+
+    const cmpStr = (a: string, b: string) =>
+      mult * a.localeCompare(b, undefined, { sensitivity: "base" });
+    const cmpNum = (a: number, b: number) =>
+      mult * (a === b ? 0 : a < b ? -1 : 1);
+
+    const cmpVisitDateStr = (
+      a: string | null | undefined,
+      b: string | null | undefined
+    ) => {
+      const av = (a ?? "").trim();
+      const bv = (b ?? "").trim();
+      if (!av && !bv) return 0;
+      if (!av) return 1;
+      if (!bv) return -1;
+      return mult * av.localeCompare(bv);
+    };
+
+    list.sort((ha, hb) => {
+      let cmp = 0;
+      switch (column) {
+        case "name":
+          cmp = cmpStr((ha.name || "").toLowerCase(), (hb.name || "").toLowerCase());
+          break;
+        case "status":
+          cmp = cmpStr(
+            formatStatusCompactText(ha.status).toLowerCase(),
+            formatStatusCompactText(hb.status).toLowerCase()
+          );
+          break;
+        case "establishment":
+          cmp = cmpStr(
+            (ha.establishment_name || "").toLowerCase(),
+            (hb.establishment_name || "").toLowerCase()
+          );
+          break;
+        case "last_call":
+          cmp = cmpVisitDateStr(ha.last_visit_at, hb.last_visit_at);
+          break;
+        case "calls":
+          cmp = cmpNum(getHouseholderCallTotal(ha), getHouseholderCallTotal(hb));
+          break;
+        default:
+          cmp = 0;
+      }
+      if (cmp !== 0) return cmp;
+      return (ha.name || "").localeCompare(hb.name || "", undefined, {
+        sensitivity: "base",
+      });
+    });
+    return list;
+  }, [viewMode, householders, householderTableSort, formatStatusCompactText]);
+
+  const householdersForSlice = sortedHouseholdersForTable;
+
+  const { visibleCount, sentinelRef } = useInfiniteList({
+    itemsLength: householdersForSlice.length,
+    viewMode,
+    initialCounts: { detailed: 7, compact: 10, table: 40 },
+    stepCounts: { detailed: 5, compact: 10, table: 40 },
+  });
+
+  const visibleHouseholders = useMemo(
+    () => householdersForSlice.slice(0, visibleCount),
+    [householdersForSlice, visibleCount]
+  );
+
+  useEffect(() => {
+    if (viewMode !== "table") return;
+    tableBodyScrollRef.current?.scrollTo({ top: 0 });
+  }, [viewMode, householderTableSort.column, householderTableSort.dir]);
 
   const detailedStatusColumns = useMemo(() => {
     const statuses = Array.from(new Set(householders.map((householder) => householder.status || "potential")));
@@ -388,15 +550,47 @@ export function HouseholderList({
   );
 
   const renderTableView = () => (
-    <div className={cn("w-full h-full flex flex-col overscroll-none rounded-lg border border-transparent", studyBibleDarkClasses.card)} style={{ overscrollBehavior: 'none' }}>
+    <div className={cn("w-full h-full flex flex-col overscroll-none overflow-hidden rounded-xl border border-border/70 dark:border-[#3a3342]", studyBibleDarkClasses.card)} style={{ overscrollBehavior: 'none' }}>
       {/* Fixed Table Header */}
       <div className="flex-shrink-0 border-b bg-background dark:border-[#1c1921] dark:bg-[#30283c]">
         <table className="w-full text-sm table-fixed">
           <thead>
             <tr className={cn("border-b dark:border-[#1c1921]", studyBibleDarkClasses.muted)}>
-              <th className="text-left py-3 px-3 w-[40%]">Name</th>
-              <th className="text-left py-3 px-3 w-[20%]">Status</th>
-              <th className="text-left py-3 px-3 w-[40%]">Establishment</th>
+              <HouseholderTableSortTh
+                label="Name"
+                sortKey="name"
+                sort={householderTableSort}
+                onToggle={toggleHouseholderTableSort}
+                className="w-[40%] md:w-[30%] p-0 align-bottom"
+              />
+              <HouseholderTableSortTh
+                label="Status"
+                sortKey="status"
+                sort={householderTableSort}
+                onToggle={toggleHouseholderTableSort}
+                className="w-[20%] md:w-[16%] p-0 align-bottom"
+              />
+              <HouseholderTableSortTh
+                label="Establishment"
+                sortKey="establishment"
+                sort={householderTableSort}
+                onToggle={toggleHouseholderTableSort}
+                className="w-[40%] md:w-[30%] p-0 align-bottom"
+              />
+              <HouseholderTableSortTh
+                label="Last call"
+                sortKey="last_call"
+                sort={householderTableSort}
+                onToggle={toggleHouseholderTableSort}
+                className="hidden md:table-cell w-[14%] p-0 align-bottom"
+              />
+              <HouseholderTableSortTh
+                label="Calls"
+                sortKey="calls"
+                sort={householderTableSort}
+                onToggle={toggleHouseholderTableSort}
+                className="hidden md:table-cell w-[10%] p-0 align-bottom"
+              />
             </tr>
           </thead>
         </table>
@@ -404,7 +598,8 @@ export function HouseholderList({
       
       {/* Scrollable Table Body */}
       <div
-        className="flex-1 overflow-y-auto no-scrollbar overscroll-none pb-[calc(max(env(safe-area-inset-bottom),0px)+175px)] md:pb-0 dark:bg-[#24231f]"
+        ref={tableBodyScrollRef}
+        className="flex-1 overflow-y-auto no-scrollbar overscroll-none pb-[calc(max(env(safe-area-inset-bottom),0px)+255px)] dark:bg-[#24231f]"
         style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
       >
         <table className="w-full text-sm table-fixed">
@@ -412,13 +607,19 @@ export function HouseholderList({
             {visibleHouseholders.map((householder, index) => (
               <tr
                 key={householder.id || index}
-                className="border-b hover:bg-muted/30 cursor-pointer dark:border-[#3a3342] dark:hover:bg-[#30283c]"
+                className={cn(
+                  "cursor-pointer border-b transition-colors",
+                  "dark:border-[#3a3342]",
+                  getStudyBibleDarkCardShade(String(householder.id ?? householder.name ?? index)),
+                  "hover:bg-muted/30",
+                  studyBibleDarkClasses.cardHover
+                )}
                 onClick={() => onHouseholderClick(householder)}
               >
-                <td className="p-3 min-w-0 w-[40%]">
+                <td className="p-3 min-w-0 w-[40%] md:w-[30%]">
                   <NameWithAvatarsCell name={householder.name} visitors={householder.top_visitors} />
                 </td>
-                <td className="p-3 w-[20%]">
+                <td className="p-3 w-[20%] md:w-[16%]">
                   <div className="flex items-center gap-1 min-w-0">
                     <Badge 
                       variant="outline" 
@@ -428,16 +629,22 @@ export function HouseholderList({
                     </Badge>
                   </div>
                 </td>
-                <td className="p-3 min-w-0 w-[40%]">
+                <td className="p-3 min-w-0 w-[40%] md:w-[30%]">
                   {householder.establishment_name ? (
                     <EstablishmentNameCell name={householder.establishment_name} />
                   ) : null}
+                </td>
+                <td className="hidden md:table-cell p-3 min-w-0 md:w-[14%] text-muted-foreground dark:text-[#ded6e7]">
+                  {formatTableDate(householder.last_visit_at)}
+                </td>
+                <td className="hidden md:table-cell p-3 md:w-[10%]">
+                  {getHouseholderCallTotal(householder)}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-        {visibleCount < householders.length && (
+        {visibleCount < householdersForSlice.length && (
           <div ref={sentinelRef} className="h-16 w-full" aria-label="Load more trigger" />
         )}
       </div>
@@ -522,7 +729,7 @@ export function HouseholderList({
                 )}
               </div>
             )}
-            {visibleCount < householders.length && (
+            {visibleCount < householdersForSlice.length && (
               <div
                 ref={sentinelRef}
                 className={cn("h-20 w-full", viewMode === "detailed" && "md:hidden")}
