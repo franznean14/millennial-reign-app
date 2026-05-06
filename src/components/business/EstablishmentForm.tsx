@@ -89,10 +89,8 @@ const getEstablishmentStatusLabel = (value: string): string => {
 };
 
 export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, initialData, isEditing = false, draft: externalDraft, onDraftChange }: EstablishmentFormProps) {
-  // Persist unsaved draft locally to survive modal close
-  const draftKey = (isEditing && initialData?.id
-    ? `draft:establishment:edit:${initialData.id}`
-    : `draft:establishment:new`) + (selectedArea ? `:${selectedArea}` : "");
+  // Persist drafts only for new establishments. Edit forms must reflect the latest server/detail data.
+  const draftKey = `draft:establishment:new${selectedArea ? `:${selectedArea}` : ""}`;
   const draftAppliedRef = useRef(false);
   const isMobile = useMobile();
 
@@ -123,12 +121,53 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
   const [archiving, setArchiving] = useState(false);
   // Prevent emitting/saving empty draft before initial load completes
   const loadCompleteRef = useRef(false);
+  const latestDraftRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!isEditing || !initialData) return;
+    loadCompleteRef.current = false;
+    setName(initialData.name || "");
+    setDescription(initialData.description || "");
+    setArea(initialData.area || selectedArea || "");
+    setLat(initialData.lat ?? null);
+    setLng(initialData.lng ?? null);
+    setFloor(initialData.floor || "Ground Floor");
+    setStatus(normalizeEstablishmentStatusesForForm(initialData.statuses ?? []));
+    setNote(initialData.note || "");
+    setGps(initialData.lat != null && initialData.lng != null ? `${initialData.lat}, ${initialData.lng}` : "");
+    setShowAreaInput(false);
+    setShowFloorInput(false);
+    draftAppliedRef.current = false;
+    latestDraftRef.current = null;
+    try {
+      if (typeof window !== "undefined" && initialData.id) {
+        window.localStorage.removeItem(`draft:establishment:edit:${initialData.id}`);
+      }
+    } catch {}
+    loadCompleteRef.current = true;
+  }, [
+    isEditing,
+    initialData?.id,
+    initialData?.name,
+    initialData?.description,
+    initialData?.area,
+    initialData?.lat,
+    initialData?.lng,
+    initialData?.floor,
+    initialData?.note,
+    initialData?.statuses,
+    selectedArea,
+  ]);
 
   useEffect(() => {
     let active = true;
     (async () => {
       setAreas(await getUniqueAreas());
       setFloors(await getUniqueFloors());
+      if (isEditing) {
+        loadCompleteRef.current = true;
+        return;
+      }
       // Prefill from active business filters if available (localStorage)
       try {
         if (typeof window !== "undefined") {
@@ -174,7 +213,7 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
     })();
     return () => { active = false };
     // Re-load draft when the key changes (e.g., switching from new to edit or selectedArea changes)
-  }, [draftKey, externalDraft]);
+  }, [draftKey, externalDraft, isEditing]);
 
   // Update area when selectedArea prop changes (but do not override explicit user input)
   useEffect(() => {
@@ -184,9 +223,9 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
   }, [selectedArea]);
 
   // Keep the latest draft in a ref and persist with debounce
-  const latestDraftRef = useRef<any>(null);
   useEffect(() => {
     latestDraftRef.current = { name, description, area, lat, lng, floor, statuses: status, note, gps };
+    if (isEditing) return;
     // Do not emit/persist until initial load completes to avoid overwriting persisted data with empties
     if (!loadCompleteRef.current) return;
     if (onDraftChange) onDraftChange(latestDraftRef.current);
@@ -200,7 +239,7 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
     }, 150);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, description, area, lat, lng, floor, status, note, gps]);
+  }, [name, description, area, lat, lng, floor, status, note, gps, isEditing]);
 
   // Proactive duplicate detection as the user types (prefix match) - only for NEW establishments
   useEffect(() => {
@@ -226,6 +265,7 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
   // Flush draft immediately on unmount to avoid losing the latest edits when closing the modal quickly
   useEffect(() => {
     return () => {
+      if (isEditing) return;
       if (latestDraftRef.current && typeof window !== "undefined") {
         try {
           window.localStorage.setItem(draftKey, JSON.stringify(latestDraftRef.current));

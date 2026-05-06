@@ -13,6 +13,7 @@ import {
   Drawer,
   DrawerContent,
   DrawerHeader,
+  DrawerThinRightContent,
   DrawerTitle,
   DrawerTrigger,
 } from "@/components/ui/drawer";
@@ -28,6 +29,7 @@ import {
 } from "@/lib/db/business";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getInitialsFromName } from "@/lib/utils/visit-history-ui";
+import { useMediaQuery } from "@/hooks/use-media-query";
 
 type PublisherSlot = { type: "publisher"; id: string } | { type: "guest"; name: string };
 const PARTICIPANTS_CACHE_KEY = "business:participants:local:v1";
@@ -76,6 +78,7 @@ export function TodoForm({
     initialTodo?.deadline_date ? new Date(initialTodo.deadline_date) : null
   );
   const [saving, setSaving] = useState(false);
+  const usePublisherSidebar = useMediaQuery("(min-width: 768px)");
   const [participants, setParticipants] = useState<
     Array<{ id: string; first_name: string; last_name: string; avatar_url?: string }>
   >([]);
@@ -327,6 +330,99 @@ export function TodoForm({
     return slot.name;
   };
 
+  const publisherPickerContent = (
+    <>
+      <DrawerHeader className="border-b border-border pb-3 pt-4 text-center dark:border-[#1c1921] dark:bg-[#181714] md:pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)]">
+        <DrawerTitle className="text-center text-lg font-bold">Select publisher or guest</DrawerTitle>
+      </DrawerHeader>
+      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+24px)] pt-4 dark:bg-[#181714]">
+        <section>
+          <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground dark:text-[#ded6e7]/75">
+            Publishers
+          </h3>
+          {availableParticipants.length > 0 ? (
+            <ul className="space-y-1">
+              {availableParticipants.map((participant) => (
+                <li key={participant.id}>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-12 w-full justify-start gap-2 px-3 dark:text-[#fffaff] dark:hover:bg-[#3b3348]"
+                    onClick={() => addSlot({ type: "publisher", id: participant.id })}
+                  >
+                    <Avatar className="h-8 w-8">
+                      <AvatarImage src={participant.avatar_url} />
+                      <AvatarFallback className="text-xs">
+                        {getInitials(participant.first_name, participant.last_name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span>
+                      {participant.first_name} {participant.last_name}
+                    </span>
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="py-2 text-sm text-muted-foreground dark:text-[#ded6e7]/75">
+              No other publishers available
+            </p>
+          )}
+        </section>
+        <section>
+          <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground dark:text-[#ded6e7]/75">
+            Guest
+          </h3>
+          <div className="space-y-2">
+            {availableGuestNames.map((name) => (
+              <Button
+                key={name}
+                type="button"
+                variant="ghost"
+                className="h-12 w-full justify-start gap-2 px-3 dark:text-[#fffaff] dark:hover:bg-[#3b3348]"
+                onClick={() => addSlot({ type: "guest", name })}
+              >
+                <Avatar className="h-8 w-8 shrink-0">
+                  <AvatarFallback className="text-xs bg-amber-500/25 text-amber-800 ring-1 ring-amber-500/50 dark:bg-amber-500/30 dark:text-amber-200 dark:ring-amber-400/40">
+                    {getInitialsFromName(name)}
+                  </AvatarFallback>
+                </Avatar>
+                <span>{name}</span>
+              </Button>
+            ))}
+            <div className="flex gap-2 pt-1">
+              <Input
+                placeholder="New guest name"
+                value={newGuestName}
+                onChange={(e) => setNewGuestName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    const name = newGuestName.trim();
+                    if (name) addSlot({ type: "guest", name });
+                  }
+                }}
+                className={cn("flex-1", sidebarFormClasses.input)}
+              />
+              <Button
+                type="button"
+                size="sm"
+                className={sidebarFormClasses.primaryButton}
+                onClick={() => {
+                  const name = newGuestName.trim();
+                  if (name) addSlot({ type: "guest", name });
+                }}
+                disabled={!newGuestName.trim()}
+              >
+                Add
+              </Button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </>
+  );
+
   return (
     <form
       className={cn("grid gap-3 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]", sidebarFormClasses.form)}
@@ -485,6 +581,9 @@ export function TodoForm({
                 setAddPublisherDrawerOpen(open);
                 if (!open) setNewGuestName("");
               }}
+              {...(usePublisherSidebar
+                ? { direction: "right" as const, modal: true, nested: true, shouldScaleBackground: false }
+                : {})}
             >
               <DrawerTrigger asChild>
                 <Button
@@ -497,101 +596,15 @@ export function TodoForm({
                   <Plus className="h-4 w-4" />
                 </Button>
               </DrawerTrigger>
-              <DrawerContent className={cn("max-h-[70vh]", sidebarFormClasses.popover)}>
-                <DrawerHeader className="border-b border-border text-center dark:border-[#1c1921] dark:bg-[#181714]">
-                  <DrawerTitle>Select publisher or guest</DrawerTitle>
-                </DrawerHeader>
-                <div className="overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+24px)] space-y-6">
-                  <section>
-                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                      Publishers
-                    </h3>
-                    {availableParticipants.length > 0 ? (
-                      <ul className="space-y-1">
-                        {availableParticipants.map((participant) => (
-                          <li key={participant.id}>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              className="h-12 w-full justify-start gap-2 px-3 dark:text-[#fffaff] dark:hover:bg-[#3b3348]"
-                              onClick={() =>
-                                addSlot({ type: "publisher", id: participant.id })
-                              }
-                            >
-                              <Avatar className="h-8 w-8">
-                                <AvatarImage src={participant.avatar_url} />
-                                <AvatarFallback className="text-xs">
-                                  {getInitials(
-                                    participant.first_name,
-                                    participant.last_name
-                                  )}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span>
-                                {participant.first_name} {participant.last_name}
-                              </span>
-                            </Button>
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-sm text-muted-foreground py-2">
-                        No other publishers available
-                      </p>
-                    )}
-                  </section>
-                  <section>
-                    <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                      Guest
-                    </h3>
-                    <div className="space-y-2">
-                      {availableGuestNames.map((name) => (
-                        <Button
-                          key={name}
-                          type="button"
-                          variant="ghost"
-                          className="h-12 w-full justify-start gap-2 px-3 dark:text-[#fffaff] dark:hover:bg-[#3b3348]"
-                          onClick={() => addSlot({ type: "guest", name })}
-                        >
-                          <Avatar className="h-8 w-8 shrink-0">
-                            <AvatarFallback className="text-xs bg-amber-500/25 text-amber-800 dark:bg-amber-500/30 dark:text-amber-200 ring-1 ring-amber-500/50 dark:ring-amber-400/40">
-                              {getInitialsFromName(name)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span>{name}</span>
-                        </Button>
-                      ))}
-                      <div className="flex gap-2 pt-1">
-                        <Input
-                          placeholder="New guest name"
-                          value={newGuestName}
-                          onChange={(e) => setNewGuestName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              const name = newGuestName.trim();
-                              if (name) addSlot({ type: "guest", name });
-                            }
-                          }}
-                          className={cn("flex-1", sidebarFormClasses.input)}
-                        />
-                        <Button
-                          type="button"
-                          size="sm"
-                          className={sidebarFormClasses.primaryButton}
-                          onClick={() => {
-                            const name = newGuestName.trim();
-                            if (name) addSlot({ type: "guest", name });
-                          }}
-                          disabled={!newGuestName.trim()}
-                        >
-                          Add
-                        </Button>
-                      </div>
-                    </div>
-                  </section>
-                </div>
-              </DrawerContent>
+              {usePublisherSidebar ? (
+                <DrawerThinRightContent className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
+                  {publisherPickerContent}
+                </DrawerThinRightContent>
+              ) : (
+                <DrawerContent className={cn("max-h-[70vh]", sidebarFormClasses.popover)}>
+                  {publisherPickerContent}
+                </DrawerContent>
+              )}
             </Drawer>
           )}
         </div>
