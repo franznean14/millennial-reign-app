@@ -43,7 +43,6 @@ import { CongregationSection, type CongregationSectionProps } from "@/components
 import { AccountSection } from "@/components/sections/AccountSection";
 import { UnifiedFab } from "@/components/shared/UnifiedFab";
 const HomeSummary = dynamic(() => import("@/components/home/HomeSummary").then(m => m.HomeSummary), { ssr: false });
-const VisitHistory = dynamic(() => import("@/components/home/VisitHistory").then(m => m.VisitHistory), { ssr: false });
 // FAB handled by UnifiedFab
 
 

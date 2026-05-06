@@ -45,7 +45,7 @@ import { useMediaQuery } from "@/hooks/use-media-query";
 import { useHomeTodoDetailsFabOptional } from "@/components/home/home-todo-details-fab-context";
 import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 
-interface VisitHistoryProps {
+interface CallHistoryProps {
   userId: string;
   onVisitClick?: (visit: VisitRecord) => void;
   onNavigateToBusinessWithStatus?: (
@@ -169,7 +169,7 @@ function BwiStatusCell({
   return <div className={className}>{children}</div>;
 }
 
-export function VisitHistory({
+export function CallHistory({
   userId,
   onVisitClick,
   onNavigateToBusinessWithStatus,
@@ -178,7 +178,7 @@ export function VisitHistory({
   fabBridgeLayout,
   presentation = "tabs",
   className,
-}: VisitHistoryProps) {
+}: CallHistoryProps) {
   const needsCallsData = presentation !== "summary";
   const needsBwiSummaryData = presentation !== "calls";
   const [showDrawer, setShowDrawer] = useState(false);
@@ -514,11 +514,11 @@ export function VisitHistory({
     }
   };
 
-  const handleVisitHistoryPointerDown = () => {
+  const handleCallHistoryPointerDown = () => {
     visitHistoryPointerDownTabRef.current = activeTabRef.current;
   };
 
-  const handleVisitHistoryTabClick = (e: React.MouseEvent) => {
+  const handleCallHistoryTabClick = (e: React.MouseEvent) => {
     // Use the tab that was active at pointer-down time
     const tabAtPointerDown = visitHistoryPointerDownTabRef.current;
     if (tabAtPointerDown === "visit-history") {
@@ -1018,7 +1018,7 @@ export function VisitHistory({
   const homeDetailsFabCtx = useHomeTodoDetailsFabOptional();
   const setCallsHistoryFabOverride = homeDetailsFabCtx?.setCallsHistoryFabOverride;
 
-  const fabBridgeActiveForVisitHistory =
+  const fabBridgeActiveForCallHistory =
     fabBridgeLayout != null &&
     ((fabBridgeLayout === "belowXl" && !isXlViewport) || (fabBridgeLayout === "xlAndUp" && isXlViewport));
 
@@ -1029,7 +1029,7 @@ export function VisitHistory({
 
   /* eslint-disable react-hooks/exhaustive-deps -- refresh helpers read refs; omitting avoids effect churn */
   useEffect(() => {
-    if (!setCallsHistoryFabOverride || !fabBridgeActiveForVisitHistory) return;
+    if (!setCallsHistoryFabOverride || !fabBridgeActiveForCallHistory) return;
 
     if (shouldPublishCallsDetailsFab && callsDetailsFabFormConfig) {
       setCallsHistoryFabOverride({
@@ -1062,7 +1062,7 @@ export function VisitHistory({
       setCallsHistoryFabOverride(null);
     };
   }, [
-    fabBridgeActiveForVisitHistory,
+    fabBridgeActiveForCallHistory,
     setCallsHistoryFabOverride,
     callsDetailsFabFormConfig,
     callsDetailsFabSurface,
@@ -1733,8 +1733,8 @@ export function VisitHistory({
             </TabsTrigger>
             <TabsTrigger 
               value="visit-history"
-              onPointerDown={handleVisitHistoryPointerDown}
-              onClick={handleVisitHistoryTabClick}
+              onPointerDown={handleCallHistoryPointerDown}
+              onClick={handleCallHistoryTabClick}
               className={cn(
                 "rounded-tr-lg rounded-tl-none rounded-bl-none rounded-br-none",
                 "bg-primary text-primary-foreground dark:text-primary-foreground font-medium",
@@ -1790,8 +1790,11 @@ export function VisitHistory({
           if (!open) setShowFiltersDrawer(false);
         }}
       >
-        <DrawerContent className="max-h-[85vh] md:max-h-[92dvh]">
-          <DrawerHeader className="px-4 pt-4 pb-2 items-center shrink-0">
+        <DrawerContent
+          className="h-[85svh] max-h-[85svh] md:h-[92dvh] md:max-h-[92dvh] dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden"
+          handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
+        >
+          <DrawerHeader className="px-4 pt-4 pb-2 items-center shrink-0 dark:bg-[#181714]">
             <DrawerTitle className="flex w-full flex-wrap items-center justify-center gap-2 text-center text-lg font-bold">
               <KnockingDoorIcon />
               Calls
@@ -1804,7 +1807,7 @@ export function VisitHistory({
             </DrawerTitle>
           </DrawerHeader>
 
-          <div className="flex flex-col min-h-0 flex-1 px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] md:overflow-visible md:pb-[calc(max(env(safe-area-inset-bottom),0px)+24px)]">
+          <div className="flex min-h-0 flex-1 flex-col px-4 dark:bg-[#181714]">
             <div
               className={cn(
                 "mb-4 w-full flex shrink-0",
@@ -1888,7 +1891,9 @@ export function VisitHistory({
             <div
               className={cn(
                 "relative min-h-0 flex-1",
-                callsDrawerTabletLayout ? "" : "max-h-[70vh] overflow-y-auto"
+                callsDrawerTabletLayout
+                  ? "overflow-hidden"
+                  : "overflow-y-auto overscroll-contain pb-[calc(max(env(safe-area-inset-bottom),0px)+112px)]"
               )}
               tabIndex={-1}
               onFocus={(e) => {
@@ -1914,14 +1919,14 @@ export function VisitHistory({
               }}
             >
               {callsDrawerTabletLayout ? (
-                <div className="grid gap-3 pb-2 md:grid-cols-2 md:items-stretch md:gap-3 md:h-[calc(80dvh-10rem)] md:min-h-[320px]">
-                  <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-muted/15">
-                    <div className="shrink-0 border-b border-border px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                <div className="grid h-full min-h-0 gap-3 pb-2 md:grid-cols-2 md:items-stretch md:gap-3">
+                  <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-muted/15 dark:border-[#1c1921] dark:bg-[#2a2534]">
+                    <div className={cn("shrink-0 border-b border-border px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground dark:border-[#1c1921] dark:bg-[#30283c]", studyBibleDarkClasses.muted)}>
                       Establishments ({callsDrawerEstablishmentItems.length})
                     </div>
-                    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3">
+                    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pt-3 pb-[calc(max(env(safe-area-inset-bottom),0px)+88px)] dark:bg-[#2a2534]">
                       {callsDrawerEstablishmentItems.length === 0 ? (
-                        <p className="py-6 text-center text-sm text-muted-foreground">
+                        <p className={cn("py-6 text-center text-sm text-muted-foreground", studyBibleDarkClasses.muted)}>
                           No establishment calls yet.
                         </p>
                       ) : (
@@ -1929,13 +1934,13 @@ export function VisitHistory({
                       )}
                     </div>
                   </div>
-                  <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-muted/15">
-                    <div className="shrink-0 border-b border-border px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                  <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-muted/15 dark:border-[#1c1921] dark:bg-[#2a2534]">
+                    <div className={cn("shrink-0 border-b border-border px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground dark:border-[#1c1921] dark:bg-[#30283c]", studyBibleDarkClasses.muted)}>
                       Contacts ({callsDrawerContactItems.length})
                     </div>
-                    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3">
+                    <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pt-3 pb-[calc(max(env(safe-area-inset-bottom),0px)+88px)] dark:bg-[#2a2534]">
                       {callsDrawerContactItems.length === 0 ? (
-                        <p className="py-6 text-center text-sm text-muted-foreground">
+                        <p className={cn("py-6 text-center text-sm text-muted-foreground", studyBibleDarkClasses.muted)}>
                           No contact calls yet.
                         </p>
                       ) : (
@@ -1973,7 +1978,7 @@ export function VisitHistory({
 
               {loadingMore && (
                 <div className="py-4 text-center">
-                  <div className="text-sm opacity-70">Loading more visits...</div>
+                  <div className={cn("text-sm opacity-90", studyBibleDarkClasses.muted)}>Loading more visits...</div>
                 </div>
               )}
 
@@ -1983,11 +1988,14 @@ export function VisitHistory({
                 </Button>
               )}
 
-              {!hasMore && buildCallsStreamItems.drawer.length > 0 && (
+              {!callsDrawerTabletLayout && !hasMore && buildCallsStreamItems.drawer.length > 0 && (
                 <div className="py-4 text-center">
-                  <div className="text-sm opacity-70">No more visits to load</div>
+                  <div className={cn("text-sm opacity-90", studyBibleDarkClasses.muted)}>
+                    No more visits to load
+                  </div>
                 </div>
               )}
+
             </div>
           </div>
         </DrawerContent>
@@ -2012,11 +2020,11 @@ export function VisitHistory({
           nested
           shouldScaleBackground={false}
         >
-          <DrawerWideRightContent>
-            <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left">
+          <DrawerWideRightContent className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
+            <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left dark:border-[#1c1921] dark:bg-[#181714]">
               <DrawerTitle className="text-xl font-extrabold tracking-tight">{callsDetailsSheetTitle}</DrawerTitle>
             </DrawerHeader>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3 dark:bg-[#181714]">
               {renderCallsMainDetailsBody()}
             </div>
           </DrawerWideRightContent>
@@ -2036,11 +2044,14 @@ export function VisitHistory({
             }
           }}
         >
-          <DrawerContent className="max-h-[90vh]">
+          <DrawerContent
+            className="max-h-[90vh] dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
+            handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
+          >
             <DrawerHeader className="sr-only">
               <DrawerTitle>Call details</DrawerTitle>
             </DrawerHeader>
-            <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-3">
+            <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-3 dark:bg-[#181714]">
               {renderCallsMainDetailsBody()}
             </div>
           </DrawerContent>
@@ -2061,8 +2072,11 @@ export function VisitHistory({
           modal
           shouldScaleBackground={false}
         >
-          <DrawerWideRightContent stackAboveDetailsSheet>
-            <DrawerHeader className="border-b border-border px-2 pb-3 pt-4 text-left sm:px-4">
+          <DrawerWideRightContent
+            stackAboveDetailsSheet
+            className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
+          >
+            <DrawerHeader className="border-b border-border px-2 pb-3 pt-4 text-left sm:px-4 dark:border-[#1c1921] dark:bg-[#181714]">
               <div className="flex items-center gap-1 pr-1">
                 <Button
                   type="button"
@@ -2079,7 +2093,7 @@ export function VisitHistory({
                 </DrawerTitle>
               </div>
             </DrawerHeader>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3 dark:bg-[#181714]">
               {renderCallsContactSubdrawerBody()}
             </div>
           </DrawerWideRightContent>
@@ -2095,11 +2109,14 @@ export function VisitHistory({
             }
           }}
         >
-          <DrawerContent className="max-h-[90vh]">
+          <DrawerContent
+            className="max-h-[90vh] dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
+            handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
+          >
             <DrawerHeader className="sr-only">
               <DrawerTitle>Contact details</DrawerTitle>
             </DrawerHeader>
-            <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-3">
+            <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-3 dark:bg-[#181714]">
               {renderCallsContactSubdrawerBody()}
             </div>
           </DrawerContent>
@@ -2121,8 +2138,9 @@ export function VisitHistory({
         >
           <DrawerWideLeftContentTop
             stackAboveStackedRightSheet={callsContactSubdrawerOpen && callsDrawerTabletLayout}
+            className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
           >
-            <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left">
+            <DrawerHeader className="border-b border-border px-4 pb-3 pt-4 text-left dark:border-[#1c1921] dark:bg-[#181714]">
               <DrawerTitle className="text-lg font-bold">
                 {callsContactSubdrawerEntityEditOpen
                   ? "Edit Contact"
@@ -2131,7 +2149,7 @@ export function VisitHistory({
                     : "Edit Establishment"}
               </DrawerTitle>
             </DrawerHeader>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 dark:bg-[#181714]">
               {callsContactSubdrawerEntityEditOpen && selectedCallsContactDetails?.householder.id ? (
                 <HouseholderForm
                   key={selectedCallsContactDetails.householder.id}
@@ -2205,14 +2223,17 @@ export function VisitHistory({
 
       {/* Calls filter drawer (matches Filter To-Dos sheet) */}
       <Drawer open={showFiltersDrawer} onOpenChange={setShowFiltersDrawer}>
-        <DrawerContent className="max-h-[80vh]">
-          <DrawerHeader className="px-4 pt-4 pb-2 items-center">
+        <DrawerContent
+          className="max-h-[80vh] dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
+          handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
+        >
+          <DrawerHeader className="px-4 pt-4 pb-2 items-center dark:bg-[#181714]">
             <DrawerTitle className="flex w-full items-center justify-center gap-2 text-center text-lg font-bold">
               <KnockingDoorIcon />
               Filter Calls
             </DrawerTitle>
           </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
+          <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] dark:bg-[#181714]">
             {filterForm}
             <div className="flex justify-end pt-4">
               <Button type="button" variant="outline" onClick={() => setShowFiltersDrawer(false)}>

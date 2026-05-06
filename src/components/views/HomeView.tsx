@@ -2,7 +2,7 @@
 
 import { HomeSummary } from "@/components/home/HomeSummary";
 import { DesktopHomeSummary } from "@/components/home/DesktopHomeSummary";
-import { VisitHistory } from "@/components/home/VisitHistory";
+import { CallHistory } from "@/components/home/CallHistory";
 import { HomeTodoCard } from "@/components/home/HomeTodoCard";
 import { UpcomingEvents } from "@/components/home/UpcomingEvents";
 import { useSPA } from "@/components/SPAProvider";
@@ -87,7 +87,7 @@ export function HomeView({
           </div>
           {showBwi ? (
             <div className="min-w-0">
-              <VisitHistory
+              <CallHistory
                 userId={userId}
                 onVisitClick={onVisitClick}
                 onNavigateToBusinessWithStatus={onNavigateToBusinessWithStatus}
@@ -125,7 +125,7 @@ export function HomeView({
           </div>
           {showBwi ? (
             <div className="min-w-0 min-h-0">
-              <VisitHistory
+              <CallHistory
                 userId={userId}
                 onVisitClick={onVisitClick}
                 onNavigateToBusinessWithStatus={onNavigateToBusinessWithStatus}
@@ -149,7 +149,7 @@ export function HomeView({
               headerVariant="bar"
             />
             {showBwi ? (
-              <VisitHistory
+              <CallHistory
                 userId={userId}
                 onVisitClick={onVisitClick}
                 onNavigateToBusinessWithStatus={onNavigateToBusinessWithStatus}
