@@ -71,6 +71,7 @@ import { TodoForm } from "@/components/business/TodoForm";
 import { EstablishmentForm } from "@/components/business/EstablishmentForm";
 import { HouseholderForm } from "@/components/business/HouseholderForm";
 import { useMediaQuery } from "@/hooks/use-media-query";
+import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 
 const todoLayoutTransition = {
   type: "spring",
@@ -3039,12 +3040,15 @@ export function HomeTodoCard({
 
   return (
     <>
-      <div className={cn("rounded-lg border overflow-hidden bg-background", className)}>
+      <div className={cn("rounded-lg border overflow-hidden bg-background", studyBibleDarkClasses.todoCard, className)}>
         <div className="flex h-full min-h-0 flex-col p-4">
           <button
             type="button"
             onClick={() => setDrawerOpen(true)}
-            className="text-xs text-muted-foreground mb-4 flex items-center gap-1.5 w-full text-left hover:text-foreground transition-colors"
+            className={cn(
+              "text-xs text-muted-foreground mb-4 flex items-center gap-1.5 w-full text-left hover:text-foreground transition-colors",
+              studyBibleDarkClasses.muted
+            )}
           >
             <ListTodo className="h-4 w-4 shrink-0" />
             <span>To-Do</span>

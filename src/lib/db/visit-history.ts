@@ -30,6 +30,30 @@ type VisitQueryResult = {
   partner?: { first_name: string; last_name: string; avatar_url?: string | null } | null;
 };
 
+type ProfileRef = {
+  id?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  avatar_url?: string | null;
+};
+
+type EstablishmentRef = {
+  id?: string | null;
+  name?: string | null;
+  status?: string | null;
+  statuses?: string[] | null;
+  area?: string | null;
+};
+
+type HouseholderRef = {
+  id?: string | null;
+  name?: string | null;
+  status?: string | null;
+  establishment_id?: string | null;
+  publisher_id?: string | null;
+  business_establishments?: EstablishmentRef | EstablishmentRef[] | null;
+};
+
 type VisitWithUserRaw = {
   id: string;
   note?: string | null;
@@ -40,10 +64,10 @@ type VisitWithUserRaw = {
   partner_guest_name?: string | null;
   householder_id?: string | null;
   establishment_id?: string | null;
-  publisher?: any;
-  partner?: any;
-  householder?: any;
-  establishment?: any;
+  publisher?: ProfileRef | ProfileRef[] | null;
+  partner?: ProfileRef | ProfileRef[] | null;
+  householder?: HouseholderRef | HouseholderRef[] | null;
+  establishment?: EstablishmentRef | EstablishmentRef[] | null;
 };
 
 function isOffline() {
@@ -116,14 +140,9 @@ export async function getRecentBwiVisits(limit = 5, forceRefresh = false): Promi
   
   // Only use cache if not forcing refresh and we're offline
   if (!forceRefresh) {
-  const cached = await cacheGet<{ visits?: VisitRecord[] }>(cacheKey);
-  if (cached?.visits?.length) {
-      // If offline, return cached data
-      if (isOffline()) {
-    return cached.visits;
-      }
-      // If online, still return cached for speed, but fetch fresh in background
-      // (For now, we'll force refresh when events fire)
+    const cached = await cacheGet<{ visits?: VisitRecord[] }>(cacheKey);
+    if (cached?.visits?.length) {
+      return cached.visits;
     }
   }
 
@@ -199,37 +218,57 @@ export async function getBwiVisitsPage({
   return sorted;
 }
 
+function normalizeProfileRef(value: ProfileRef | ProfileRef[] | null | undefined): VisitWithUser["publisher"] {
+  const profile = Array.isArray(value) ? value[0] : value;
+  if (!profile?.id) return null;
+  return {
+    id: profile.id,
+    first_name: profile.first_name ?? "",
+    last_name: profile.last_name ?? "",
+    avatar_url: profile.avatar_url ?? undefined,
+  };
+}
+
+function normalizeHouseholderRef(value: HouseholderRef | HouseholderRef[] | null | undefined): VisitWithUser["householder"] {
+  const householder = Array.isArray(value) ? value[0] : value;
+  if (!householder?.id) return null;
+  return {
+    id: householder.id,
+    name: householder.name ?? "Contact",
+    status: householder.status ?? "potential",
+  };
+}
+
+function normalizeEstablishmentRef(value: EstablishmentRef | EstablishmentRef[] | null | undefined): VisitWithUser["establishment"] {
+  const establishment = Array.isArray(value) ? value[0] : value;
+  if (!establishment?.id) return null;
+  return {
+    id: establishment.id,
+    name: establishment.name ?? "Establishment",
+    status: getBestStatus(establishment.statuses || (establishment.status ? [establishment.status] : [])),
+  };
+}
+
 function normalizeVisitWithUser(visit: VisitWithUserRaw): VisitWithUser {
+  const publisher = normalizeProfileRef(visit.publisher);
+  const partner = normalizeProfileRef(visit.partner);
+  const householder = normalizeHouseholderRef(visit.householder);
+  const establishment = normalizeEstablishmentRef(visit.establishment);
+
   return {
     id: visit.id,
     note: visit.note ?? null,
     visit_date: visit.visit_date,
-    publisher_id:
-      visit.publisher_id ??
-      (Array.isArray(visit.publisher) ? (visit.publisher[0]?.id ?? null) : (visit.publisher?.id ?? null)),
-    partner_id:
-      visit.partner_id ??
-      (Array.isArray(visit.partner) ? (visit.partner[0]?.id ?? null) : (visit.partner?.id ?? null)),
+    publisher_id: visit.publisher_id ?? publisher?.id ?? null,
+    partner_id: visit.partner_id ?? partner?.id ?? null,
     publisher_guest_name: visit.publisher_guest_name ?? null,
     partner_guest_name: visit.partner_guest_name ?? null,
     householder_id: visit.householder_id ?? null,
     establishment_id: visit.establishment_id ?? null,
-    publisher: Array.isArray(visit.publisher) ? visit.publisher[0] || null : visit.publisher || null,
-    partner: Array.isArray(visit.partner) ? visit.partner[0] || null : visit.partner || null,
-    householder: Array.isArray(visit.householder) ? visit.householder[0] || null : visit.householder || null,
-    establishment: Array.isArray(visit.establishment)
-      ? visit.establishment[0]
-        ? {
-            ...visit.establishment[0],
-            status: getBestStatus((visit.establishment[0] as any)?.statuses || [])
-          }
-        : null
-      : visit.establishment
-        ? {
-            ...visit.establishment,
-            status: getBestStatus((visit.establishment as any)?.statuses || [])
-          }
-        : null
+    publisher,
+    partner,
+    householder,
+    establishment,
   };
 }
 

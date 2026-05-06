@@ -3,6 +3,7 @@
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { BarChart3, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 
 interface HomeTabToggleProps {
   value: 'summary' | 'events';
@@ -16,7 +17,13 @@ export function HomeTabToggle({
   className
 }: HomeTabToggleProps) {
   return (
-    <div className={cn("bg-background/95 backdrop-blur-sm border p-0.1 rounded-lg shadow-lg w-full relative overflow-hidden", className)}>
+    <div
+      className={cn(
+        "bg-background/95 backdrop-blur-sm border p-0.1 rounded-lg shadow-lg w-full relative overflow-hidden",
+        studyBibleDarkClasses.card,
+        className
+      )}
+    >
       <ToggleGroup
         type="single"
         value={value}
@@ -29,14 +36,20 @@ export function HomeTabToggle({
       >
         <ToggleGroupItem 
           value="summary" 
-          className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 w-full flex flex-col items-center justify-center gap-1 transition-colors"
+          className={cn(
+            "data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 w-full flex flex-col items-center justify-center gap-1 transition-colors",
+            "dark:data-[state=on]:!bg-[#80778e] dark:data-[state=on]:!text-white"
+          )}
         >
           <BarChart3 className="h-4 w-4 flex-shrink-0" />
           <span className="text-[10px] font-medium text-center">Summary</span>
         </ToggleGroupItem>
         <ToggleGroupItem 
           value="events" 
-          className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 w-full flex flex-col items-center justify-center gap-1 transition-colors"
+          className={cn(
+            "data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 w-full flex flex-col items-center justify-center gap-1 transition-colors",
+            "dark:data-[state=on]:!bg-[#80778e] dark:data-[state=on]:!text-white"
+          )}
         >
           <Calendar className="h-4 w-4 flex-shrink-0" />
           <span className="text-[10px] font-medium text-center">Events</span>

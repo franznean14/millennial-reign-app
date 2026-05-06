@@ -16,6 +16,8 @@ import { NumberFlowInput } from "@/components/ui/number-flow-input";
 import { FormModal } from "@/components/shared/FormModal";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { DailyRecord } from "@/lib/db/types";
+import { cn } from "@/lib/utils";
+import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 
 type StudyCount = [string, number];
 
@@ -732,13 +734,16 @@ export function DesktopHomeSummary({
   return (
     <>
       <div className="w-full min-w-0 space-y-4">
-        <Card>
+        <Card className={studyBibleDarkClasses.summaryCard}>
         <CardContent>
           <div className="space-y-6">
             {/* Hours Summary — only this region opens Monthly Records (not calendar / daily form). */}
             <button
               type="button"
-              className="w-full rounded-lg text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className={cn(
+                "w-full rounded-lg text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                studyBibleDarkClasses.cardHover
+              )}
               onClick={() => setRecordsDrawerOpen(true)}
               aria-label="Open monthly records"
             >
@@ -747,15 +752,15 @@ export function DesktopHomeSummary({
                   <div className="text-5xl font-semibold leading-tight">
                     <NumberFlow value={Number(fmtHours(monthHours))} locales="en-US" format={{ useGrouping: false }} />
                   </div>
-                  <div className="mt-0.5 text-sm opacity-70">Hours</div>
+                  <div className={cn("mt-0.5 text-sm opacity-70", studyBibleDarkClasses.muted)}>Hours</div>
                 </div>
                 {localPioneer ? (
                   <div className="text-right">
-                    <div className="text-xs opacity-70">This service year</div>
+                    <div className={cn("text-xs opacity-70", studyBibleDarkClasses.muted)}>This service year</div>
                     <div className="mt-1 text-2xl font-semibold leading-tight">
                       <NumberFlow key={`sy-hours-${dataLoaded}`} value={syHours} locales="en-US" format={{ useGrouping: false }} />
                     </div>
-                    <div className="text-xs opacity-70 mt-1">Since {(() => {
+                    <div className={cn("text-xs opacity-70 mt-1", studyBibleDarkClasses.muted)}>Since {(() => {
                       if (!serviceYearStart) return "—";
                       const parts = serviceYearStart.split("-");
                       if (parts.length >= 2) {

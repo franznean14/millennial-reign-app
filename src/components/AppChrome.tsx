@@ -10,6 +10,8 @@ import {
   SidebarProvider,
 } from "@/components/ui/sidebar";
 import { HomeTodoDetailsFabProvider } from "@/components/home/home-todo-details-fab-context";
+import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
+import { cn } from "@/lib/utils";
 
 // Defer non-critical chrome to reduce initial JS
 const OfflineInit = dynamic(() => import("@/components/OfflineInit"), { ssr: false });
@@ -72,7 +74,7 @@ export function AppChrome({ children }: AppChromeProps) {
       <SidebarProvider>
         <SidebarInset className="min-h-0">
           <HomeTodoDetailsFabProvider>
-            <div className="flex min-h-0 flex-1 flex-col px-4 w-full overflow-x-hidden">
+            <div className={cn("flex min-h-0 flex-1 flex-col px-4 w-full overflow-x-hidden", studyBibleDarkClasses.page)}>
               {children}
             </div>
           </HomeTodoDetailsFabProvider>

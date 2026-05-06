@@ -43,6 +43,7 @@ import { EstablishmentDetails } from "@/components/business/EstablishmentDetails
 import { HouseholderDetails } from "@/components/business/HouseholderDetails";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useHomeTodoDetailsFabOptional } from "@/components/home/home-todo-details-fab-context";
+import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 
 interface VisitHistoryProps {
   userId: string;
@@ -178,6 +179,8 @@ export function VisitHistory({
   presentation = "tabs",
   className,
 }: VisitHistoryProps) {
+  const needsCallsData = presentation !== "summary";
+  const needsBwiSummaryData = presentation !== "calls";
   const [showDrawer, setShowDrawer] = useState(false);
   const [showFiltersDrawer, setShowFiltersDrawer] = useState(false);
   const [showAreaDrawer, setShowAreaDrawer] = useState(false);
@@ -234,10 +237,10 @@ export function VisitHistory({
     loadMore,
     loadingMore,
     hasMore
-  } = useBwiVisitHistory({ userId });
+  } = useBwiVisitHistory({ userId, enabled: needsCallsData });
 
   useEffect(() => {
-    if (!userId) return;
+    if (!needsCallsData || !userId) return;
     let cancelled = false;
     const cacheKey = `home-calls-done-todos:${userId}`;
     const loadTodos = async () => {
@@ -262,7 +265,7 @@ export function VisitHistory({
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [needsCallsData, userId]);
 
   // Client-side search filtering - filters locally without updating hook state
   // This prevents all items from unmounting/remounting, only items that don't match will exit
@@ -379,12 +382,13 @@ export function VisitHistory({
   // Previously, switching to "Calls" before the fetch finished aborted the in-flight request (cleanup set
   // isMounted=false), so counts and hh-derived stats stayed at zero until something triggered a refetch.
   useEffect(() => {
-    if (!userId) return;
+    if (!needsBwiSummaryData || !userId) return;
 
     let cancelled = false;
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const loadBwiData = async () => {
+    const loadBwiData = async (options?: { forceRefresh?: boolean }) => {
+      const forceRefresh = options?.forceRefresh ?? false;
       const cacheKey = "bwi-summary-data";
       const cached = await cacheGet<{
         establishments?: EstablishmentWithDetails[];
@@ -396,6 +400,7 @@ export function VisitHistory({
           setBwiEstablishments(cached.establishments || []);
           setBwiHouseholders((cached.householders || []).filter((hh) => !!hh.establishment_id));
         }
+        if (!forceRefresh) return;
       }
 
       if (typeof navigator !== "undefined" && !navigator.onLine) {
@@ -419,7 +424,7 @@ export function VisitHistory({
     const scheduleRefetch = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
-        if (!cancelled) void loadBwiData();
+        if (!cancelled) void loadBwiData({ forceRefresh: true });
       }, 400);
     };
 
@@ -439,7 +444,7 @@ export function VisitHistory({
     refetchEvents.forEach((ev) => businessEventBus.subscribe(ev, scheduleRefetch));
 
     const onOnline = () => {
-      if (!cancelled) void loadBwiData();
+      if (!cancelled) void loadBwiData({ forceRefresh: true });
     };
     window.addEventListener("online", onOnline);
 
@@ -449,7 +454,7 @@ export function VisitHistory({
       refetchEvents.forEach((ev) => businessEventBus.unsubscribe(ev, scheduleRefetch));
       window.removeEventListener("online", onOnline);
     };
-  }, [userId]);
+  }, [needsBwiSummaryData, userId]);
 
   const establishmentStatusCounts = useMemo(() => {
     const counts = {
@@ -1560,8 +1565,8 @@ export function VisitHistory({
       </div>
 
       {/* Householder Status Section */}
-      <div className="pt-4 border-t pb-0">
-        <div className="text-xs text-muted-foreground mb-4">Householder status</div>
+      <div className={cn("pt-4 border-t pb-0", studyBibleDarkClasses.divider)}>
+        <div className={cn("text-xs text-muted-foreground mb-4", studyBibleDarkClasses.muted)}>Householder status</div>
 
         <div className="grid grid-cols-2 gap-4 items-end">
           <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "bible_study") : undefined}>
@@ -1612,13 +1617,22 @@ export function VisitHistory({
 
   return (
     <>
-      <div className={cn("rounded-lg border overflow-hidden bg-background", className)}>
+      <div
+        className={cn(
+          "rounded-lg border overflow-hidden bg-background",
+          presentation === "calls" ? studyBibleDarkClasses.callsCard : studyBibleDarkClasses.bwiCard,
+          className
+        )}
+      >
         {presentation === "summary" ? (
           <div className="flex h-full min-h-0 flex-col">
             <button
               type="button"
               onClick={() => setShowAreaDrawer(true)}
-              className="flex h-10 shrink-0 items-center justify-center gap-2 border-b px-4 text-sm font-medium hover:bg-muted/50"
+              className={cn(
+                "flex h-10 shrink-0 items-center justify-center gap-2 border-b px-4 text-sm font-medium hover:bg-muted/50",
+                studyBibleDarkClasses.header
+              )}
             >
               <Building2 className="h-4 w-4 shrink-0" />
               <span>{bwiAreaLabel}</span>
@@ -1633,7 +1647,10 @@ export function VisitHistory({
             <button
               type="button"
               onClick={() => setShowDrawer(true)}
-              className="flex h-10 shrink-0 items-center gap-2 border-b px-4 text-sm font-medium hover:bg-muted/50"
+              className={cn(
+                "flex h-10 shrink-0 items-center gap-2 border-b px-4 text-sm font-medium hover:bg-muted/50",
+                studyBibleDarkClasses.callsHeader
+              )}
             >
               <KnockingDoorIcon />
               <span>Calls</span>

@@ -6,6 +6,8 @@ import type { EstablishmentWithDetails, HouseholderWithDetails } from "@/lib/db/
 import type { VisitRecord } from "@/lib/utils/visit-history";
 import { HomeView } from "@/components/views/HomeView";
 import { SectionShell } from "@/components/shared/SectionShell";
+import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
+import { cn } from "@/lib/utils";
 
 type BusinessTab = "establishments" | "householders" | "map";
 type HomeTab = "summary" | "events";
@@ -151,7 +153,10 @@ export function HomeSection({
       {portaledControls}
       <SectionShell
         motionKey="home"
-        className="relative flex-1 min-h-0 overflow-y-auto overscroll-none scrollbar-hide pt-16 md:pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+86px)] w-full max-w-full overflow-x-hidden pb-[calc(max(env(safe-area-inset-bottom),0px)+88px)]"
+        className={cn(
+          "relative flex-1 min-h-0 overflow-y-auto overscroll-none scrollbar-hide pt-16 md:pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+86px)] w-full max-w-full overflow-x-hidden pb-[calc(max(env(safe-area-inset-bottom),0px)+88px)]",
+          studyBibleDarkClasses.page
+        )}
       >
       <HomeView
         userId={userId}

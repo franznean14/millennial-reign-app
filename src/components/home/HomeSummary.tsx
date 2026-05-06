@@ -12,6 +12,8 @@ import { Eye, Copy, ChevronLeft, ChevronRight } from "lucide-react";
 import InstallPrompt from "@/components/InstallPrompt";
 import { toast } from "@/components/ui/sonner";
 import type { DailyRecord } from "@/lib/db/types";
+import { cn } from "@/lib/utils";
+import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 
 type StudyCount = [string, number];
 
@@ -846,7 +848,11 @@ export function HomeSummary({
         <div className="grid gap-3 sm:grid-cols-3">
           {/* Combined hours card */}
           <div 
-            className="sm:col-span-3 rounded-lg border p-6 cursor-pointer hover:bg-muted/50 transition-colors"
+            className={cn(
+              "sm:col-span-3 rounded-lg border p-6 cursor-pointer hover:bg-muted/50 transition-colors",
+              studyBibleDarkClasses.summaryCard,
+              studyBibleDarkClasses.cardHover
+            )}
             onClick={() => setRecordsDrawerOpen(true)}
           >
             <div className="flex flex-row items-end justify-between gap-6">
@@ -854,15 +860,15 @@ export function HomeSummary({
                 <div className="text-5xl font-semibold leading-tight">
                   <NumberFlow value={Number(fmtHours(monthHours))} locales="en-US" format={{ useGrouping: false }} />
                 </div>
-                <div className="mt-0.5 text-sm opacity-70">Hours</div>
+                  <div className={cn("mt-0.5 text-sm opacity-70", studyBibleDarkClasses.muted)}>Hours</div>
               </div>
               {localPioneer ? (
                 <div className="text-right">
-                  <div className="text-xs opacity-70">This service year</div>
+                  <div className={cn("text-xs opacity-70", studyBibleDarkClasses.muted)}>This service year</div>
                   <div className="mt-1 text-2xl font-semibold leading-tight">
                     <NumberFlow key={`sy-hours-${dataLoaded}`} value={syHours} locales="en-US" format={{ useGrouping: false }} />
                   </div>
-                  <div className="text-xs opacity-70 mt-1">Since {(() => {
+                  <div className={cn("text-xs opacity-70 mt-1", studyBibleDarkClasses.muted)}>Since {(() => {
                     if (!serviceYearStart) return "—";
                     const parts = serviceYearStart.split("-");
                     if (parts.length >= 2) {

@@ -23,6 +23,7 @@ interface UseBwiVisitHistoryOptions {
   userId: string;
   recentLimit?: number;
   pageSize?: number;
+  enabled?: boolean;
 }
 
 interface VisitAddedBusPayload {
@@ -41,10 +42,11 @@ interface VisitAddedBusPayload {
 export function useBwiVisitHistory({
   userId,
   recentLimit = 5,
-  pageSize = 20
+  pageSize = 20,
+  enabled = true
 }: UseBwiVisitHistoryOptions) {
   const [visits, setVisits] = useState<VisitRecord[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [allVisitsRaw, setAllVisitsRaw] = useState<VisitRecord[]>([]);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
@@ -62,7 +64,10 @@ export function useBwiVisitHistory({
 
   const loadInitialVisits = useCallback(
     async (forceRefresh = false, options?: { suppressLoading?: boolean }) => {
-      if (!userId) return;
+      if (!enabled || !userId) {
+        setLoading(false);
+        return;
+      }
       const suppressLoading = options?.suppressLoading ?? false;
       if (!suppressLoading) setLoading(true);
       try {
@@ -76,12 +81,12 @@ export function useBwiVisitHistory({
         if (!suppressLoading) setLoading(false);
       }
     },
-    [userId, recentLimit]
+    [enabled, userId, recentLimit]
   );
 
   const loadAllVisits = useCallback(
     async (offset = 0, forceRefresh = false) => {
-      if (!userId) return;
+      if (!enabled || !userId) return;
       setLoadingMore(true);
       try {
         const sortedVisits = await getBwiVisitsPage({ userId, offset, pageSize, forceRefresh });
@@ -105,15 +110,20 @@ export function useBwiVisitHistory({
         setLoadingMore(false);
       }
     },
-    [userId, pageSize]
+    [enabled, userId, pageSize]
   );
 
   useEffect(() => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
     loadInitialVisits();
-  }, [loadInitialVisits]);
+  }, [enabled, loadInitialVisits]);
 
   // Listen for visit updates to refresh the list
   useEffect(() => {
+    if (!enabled) return;
     const handleVisitAdded = async (raw: unknown) => {
       // Clear cache first to ensure fresh data
       await cacheDelete("bwi-visits-all-v2");
@@ -141,14 +151,14 @@ export function useBwiVisitHistory({
             created_at: new Date().toISOString(),
             publisher_id: visitData.publisher_id,
             publisher: visitData.publisher ? {
-              first_name: visitData.publisher.first_name,
-              last_name: visitData.publisher.last_name,
-              avatar_url: visitData.publisher.avatar_url
+              first_name: visitData.publisher.first_name ?? "",
+              last_name: visitData.publisher.last_name ?? "",
+              avatar_url: visitData.publisher.avatar_url ?? undefined
             } : undefined,
             partner: visitData.partner ? {
-              first_name: visitData.partner.first_name,
-              last_name: visitData.partner.last_name,
-              avatar_url: visitData.partner.avatar_url
+              first_name: visitData.partner.first_name ?? "",
+              last_name: visitData.partner.last_name ?? "",
+              avatar_url: visitData.partner.avatar_url ?? undefined
             } : undefined
           };
         
@@ -230,7 +240,7 @@ export function useBwiVisitHistory({
       businessEventBus.unsubscribe('visit-updated', handleVisitUpdated);
       businessEventBus.unsubscribe('visit-deleted', handleVisitDeleted);
     };
-  }, [loadInitialVisits, loadAllVisits, allVisitsRaw.length, userId, recentLimit]);
+  }, [enabled, loadInitialVisits, loadAllVisits, allVisitsRaw.length, userId, recentLimit]);
 
   const filterOptions = useMemo(() => {
     const statusSet = new Set<string>();
@@ -402,10 +412,10 @@ export function useBwiVisitHistory({
   }, []);
 
   const loadMore = useCallback(() => {
-    if (!loadingMore && hasMore) {
+    if (enabled && !loadingMore && hasMore) {
       loadAllVisits(allVisitsRaw.length);
     }
-  }, [loadingMore, hasMore, loadAllVisits, allVisitsRaw.length]);
+  }, [enabled, loadingMore, hasMore, loadAllVisits, allVisitsRaw.length]);
 
   return {
     visits,
