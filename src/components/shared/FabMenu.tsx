@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useState, type ComponentProps, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
 import { Portal as RadixPortal } from "@radix-ui/react-portal";
 import { Button } from "@/components/ui/button";
 import { FloatingActionButton } from "@/components/shared/FloatingActionButton";
@@ -37,7 +37,42 @@ export function FabMenu({
   portalContainerId = "fab-root"
 }: FabMenuProps) {
   const [expanded, setExpanded] = useState(false);
+  const [renderActions, setRenderActions] = useState(false);
+  const [actionPositions, setActionPositions] = useState<Array<{ x: number; y: number }>>([]);
+  const actionButtonRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const unmountTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const openFrameRef = useRef<number | null>(null);
   const menuId = useId();
+  const actionLabelsKey = actions.map((action) => action.label).join("|");
+
+  const clearPendingAnimation = useCallback(() => {
+    if (unmountTimerRef.current) {
+      clearTimeout(unmountTimerRef.current);
+      unmountTimerRef.current = null;
+    }
+    if (openFrameRef.current !== null) {
+      cancelAnimationFrame(openFrameRef.current);
+      openFrameRef.current = null;
+    }
+  }, []);
+
+  const openMenu = useCallback(() => {
+    clearPendingAnimation();
+    setRenderActions(true);
+    openFrameRef.current = requestAnimationFrame(() => {
+      openFrameRef.current = null;
+      setExpanded(true);
+    });
+  }, [clearPendingAnimation]);
+
+  const closeMenu = useCallback(() => {
+    clearPendingAnimation();
+    setExpanded(false);
+    unmountTimerRef.current = setTimeout(() => {
+      setRenderActions(false);
+      unmountTimerRef.current = null;
+    }, 340);
+  }, [clearPendingAnimation]);
 
   useEffect(() => {
     if (!expanded) return;
@@ -45,11 +80,36 @@ export function FabMenu({
       const target = event.target as HTMLElement | null;
       if (!target) return;
       if (target.closest(`[data-fab-menu="${menuId}"]`)) return;
-      setExpanded(false);
+      closeMenu();
     };
     document.addEventListener("pointerdown", handlePointerDown, { capture: true });
     return () => document.removeEventListener("pointerdown", handlePointerDown, { capture: true } as any);
-  }, [expanded, menuId]);
+  }, [closeMenu, expanded, menuId]);
+
+  useEffect(() => clearPendingAnimation, [clearPendingAnimation]);
+
+  useLayoutEffect(() => {
+    if (!renderActions) return;
+
+    const buttonGap = actions.length === 3 ? 18 : 28;
+    const widths = actions.map((action, index) => {
+      return actionButtonRefs.current[index]?.offsetWidth ?? Math.max(150, action.label.length * 11 + 72);
+    });
+    const totalWidth = widths.reduce((total, width) => total + width, 0) + buttonGap * Math.max(0, widths.length - 1);
+    let cursor = -totalWidth / 2;
+
+    setActionPositions(
+      widths.map((width, index) => {
+        const x = cursor + width / 2;
+        cursor += width + buttonGap;
+
+        return {
+          x,
+          y: actions.length === 3 && index === 1 ? -22 : 0,
+        };
+      })
+    );
+  }, [actionLabelsKey, actions, renderActions]);
 
   if (actions.length === 0) return null;
 
@@ -59,7 +119,13 @@ export function FabMenu({
         container={typeof document !== "undefined" ? document.getElementById(portalContainerId) : undefined}
       >
         <FloatingActionButton
-          onClick={() => setExpanded((prev) => !prev)}
+          onClick={() => {
+            if (expanded) {
+              closeMenu();
+            } else {
+              openMenu();
+            }
+          }}
           label={label}
           size="lg"
           className={`${mainClassName ?? ""}`.trim()}
@@ -68,32 +134,45 @@ export function FabMenu({
           {expanded ? mainIconOpen ?? mainIcon : mainIcon}
         </FloatingActionButton>
       </RadixPortal>
-      {actions.map((action, index) => (
+      {renderActions && actions.map((action, index) => {
+        const fallbackSpacing = actions.length === 3 ? 185 : 240;
+        const fallbackX = (index - (actions.length - 1) / 2) * fallbackSpacing;
+        const position = actionPositions[index] ?? {
+          x: fallbackX,
+          y: actions.length === 3 && index === 1 ? -22 : 0,
+        };
+
+        return (
         <RadixPortal
           key={action.label}
           container={typeof document !== "undefined" ? document.getElementById(portalContainerId) : undefined}
         >
           <Button
+            ref={(node) => {
+              actionButtonRefs.current[index] = node;
+            }}
             variant={action.variant ?? "default"}
             className={cn(
-              "pointer-events-auto fixed right-4 z-40 rounded-full shadow-lg md:right-6 text-xl font-semibold px-6 py-6 dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff] dark:hover:bg-[#3b3348] dark:data-[state=open]:bg-[#3b3348]",
+              "pointer-events-auto fixed right-4 z-40 rounded-full shadow-lg md:right-6 md:z-10 text-xl font-semibold px-6 py-6 dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff] dark:hover:bg-[#3b3348] dark:data-[state=open]:bg-[#3b3348] md:[--fab-action-effective-row-x:var(--fab-action-row-x)] md:[--fab-action-effective-arc-y:var(--fab-action-arc-y)]",
               action.variant !== "outline" && "dark:!bg-[#80778e] dark:!text-white dark:hover:!bg-[#8c839a]",
               actionClassName
             )}
             style={{
-              bottom: `calc(max(env(safe-area-inset-bottom),0px) + ${actionOffsetStart + actionOffsetStep * index}px)`,
+              ["--fab-action-row-x" as string]: `${position.x}px`,
+              ["--fab-action-arc-y" as string]: `${position.y}px`,
+              bottom: `calc(max(env(safe-area-inset-bottom),0px) + var(--fab-action-offset-start, ${actionOffsetStart}px) + var(--fab-action-offset-step, ${actionOffsetStep * index}px))`,
               opacity: expanded ? 1 : 0,
               transform: expanded
-                ? "translate3d(var(--fab-action-x, 0px), 0px, 0px) scale(1)"
-                : "translate3d(var(--fab-action-x, 0px), 8px, 0px) scale(0.95)",
-              transition: "transform 180ms ease, opacity 180ms ease",
+                ? "translate3d(calc(var(--fab-action-x, 0px) + var(--fab-action-effective-row-x, 0px)), calc(var(--fab-action-open-y, 0px) + var(--fab-action-effective-arc-y, 0px)), 0px) scale(1)"
+                : "translate3d(var(--fab-action-x, 0px), var(--fab-action-closed-y, 8px), 0px) scale(0.92)",
+              transition: "transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 180ms ease",
               transitionDelay: `${index * 50}ms`,
               willChange: "transform, opacity",
               pointerEvents: expanded ? "auto" : "none"
             }}
             onClick={() => {
               action.onClick();
-              setExpanded(false);
+              closeMenu();
             }}
             data-fab-menu={menuId}
           >
@@ -103,7 +182,8 @@ export function FabMenu({
             </span>
           </Button>
         </RadixPortal>
-      ))}
+        );
+      })}
     </>
   );
 }

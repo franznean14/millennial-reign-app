@@ -211,8 +211,8 @@ export function UnifiedFab({
         label="Actions"
         mainIcon={mainIcon}
         mainIconOpen={mainIconOpen}
-        mainClassName="bg-primary text-primary-foreground md:h-16 md:w-16 md:!left-1/2 md:!right-auto md:!-translate-x-1/2 md:!bottom-[calc(max(env(safe-area-inset-bottom),0px)+24px)] dark:!bg-[#80778e] dark:!text-white dark:hover:!bg-[#8c839a]"
-        actionClassName="md:!left-1/2 md:!right-auto md:[--fab-action-x:-50%]"
+        mainClassName="bg-primary text-primary-foreground md:h-[4.75rem] md:w-[4.75rem] md:[&_svg]:h-8 md:[&_svg]:w-8 md:!left-1/2 md:!right-auto md:!-translate-x-1/2 md:!bottom-[calc(max(env(safe-area-inset-bottom),0px)+28px)] dark:!bg-[#80778e] dark:!text-white dark:hover:!bg-[#8c839a]"
+        actionClassName="md:!left-1/2 md:!right-auto md:[--fab-action-x:-50%] md:[--fab-action-offset-start:112px] md:[--fab-action-offset-step:0px] md:[--fab-action-closed-y:72px]"
         actions={actions.map((action) => ({
           label: action.label,
           icon: action.icon,
