@@ -4,7 +4,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { formatVisitDateCompact, visitDayKey } from "@/lib/utils/visit-history-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FormModal } from "@/components/shared/FormModal";
 import { Building2, ChevronLeft, ChevronRight, DoorOpen, ListTodo, UserRound } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { getTimelineLineStyle } from "@/lib/utils/visit-timeline";
@@ -57,6 +56,8 @@ interface VisitHistoryProps {
   onBwiAreaChange: (areas: string[]) => void;
   /** Match sibling HomeTodoCard so UnifiedFab bridges to this card at the same viewport. */
   fabBridgeLayout?: "belowXl" | "xlAndUp";
+  presentation?: "tabs" | "summary" | "calls";
+  className?: string;
 }
 
 type CallsStreamItem =
@@ -174,6 +175,8 @@ export function VisitHistory({
   bwiAreaFilter,
   onBwiAreaChange,
   fabBridgeLayout,
+  presentation = "tabs",
+  className,
 }: VisitHistoryProps) {
   const [showDrawer, setShowDrawer] = useState(false);
   const [showFiltersDrawer, setShowFiltersDrawer] = useState(false);
@@ -364,6 +367,13 @@ export function VisitHistory({
     // When BWI tab is already active, open area picker instead of cycling.
     setShowAreaDrawer(true);
   };
+
+  const bwiAreaLabel =
+    bwiAreaFilter.length === 0
+      ? "All"
+      : bwiAreaFilter.length === 1
+        ? bwiAreaFilter[0]
+        : `${bwiAreaFilter.length} Areas`;
 
   // BWI summary (establishment + householder counts) must not be tied to the "All" / "Calls" tab.
   // Previously, switching to "Calls" before the fetch finished aborted the in-flight request (cleanup set
@@ -1514,9 +1524,126 @@ export function VisitHistory({
     };
   }, []);
 
+  const renderBwiSummaryContent = () => (
+    <div className="space-y-6">
+      {/* Establishment Status Section */}
+      <div>
+        <div className="grid grid-cols-2 gap-4 items-end">
+          <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("establishments", "for_replenishment") : undefined}>
+            <div className={cn("text-5xl font-semibold leading-tight", getStatusTextColorClass("for_replenishment"))}>
+              <NumberFlow value={establishmentStatusCounts.for_replenishment} locales="en-US" format={{ useGrouping: false }} />
+            </div>
+            <div className="mt-1 text-sm opacity-70">For Replenishment</div>
+          </BwiStatusCell>
+          <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("establishments", "accepted_rack") : undefined}>
+            <div className={cn("text-2xl font-semibold", getStatusTextColorClass("accepted_rack"))}>
+              <NumberFlow value={establishmentStatusCounts.accepted_rack} locales="en-US" format={{ useGrouping: false }} />
+            </div>
+            <div className="text-sm opacity-70 mt-0.5">Rack Accepted</div>
+          </BwiStatusCell>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4 mt-4">
+          <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("establishments", "for_follow_up") : undefined}>
+            <div className={cn("text-2xl font-semibold", getStatusTextColorClass("for_follow_up"))}>
+              <NumberFlow value={establishmentStatusCounts.for_follow_up} locales="en-US" format={{ useGrouping: false }} />
+            </div>
+            <div className="text-sm opacity-70 mt-0.5">For Follow Up</div>
+          </BwiStatusCell>
+          <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("establishments", "for_scouting") : undefined}>
+            <div className={cn("text-2xl font-semibold", getStatusTextColorClass("for_scouting"))}>
+              <NumberFlow value={establishmentStatusCounts.for_scouting} locales="en-US" format={{ useGrouping: false }} />
+            </div>
+            <div className="text-sm opacity-70 mt-0.5">For Scouting</div>
+          </BwiStatusCell>
+        </div>
+      </div>
+
+      {/* Householder Status Section */}
+      <div className="pt-4 border-t pb-0">
+        <div className="text-xs text-muted-foreground mb-4">Householder status</div>
+
+        <div className="grid grid-cols-2 gap-4 items-end">
+          <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "bible_study") : undefined}>
+            <div className={cn("text-5xl font-semibold leading-tight", getStatusTextColorClass("bible_study"))}>
+              <NumberFlow value={householderStatusCounts.bible_study} locales="en-US" format={{ useGrouping: false }} />
+            </div>
+            <div className="mt-1 text-sm opacity-70">Bible Study</div>
+          </BwiStatusCell>
+          <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "return_visit") : undefined}>
+            <div className={cn("text-2xl font-semibold", getStatusTextColorClass("return_visit"))}>
+              <NumberFlow value={householderStatusCounts.return_visit} locales="en-US" format={{ useGrouping: false }} />
+            </div>
+            <div className="text-sm opacity-70 mt-0.5">Return Visit</div>
+          </BwiStatusCell>
+          <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "interested") : undefined}>
+            <div className={cn("text-2xl font-semibold", getStatusTextColorClass("interested"))}>
+              <NumberFlow value={householderStatusCounts.interested} locales="en-US" format={{ useGrouping: false }} />
+            </div>
+            <div className="text-sm opacity-70 mt-0.5">Interested</div>
+          </BwiStatusCell>
+          <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "potential") : undefined}>
+            <div className={cn("text-2xl font-semibold", getStatusTextColorClass("potential"))}>
+              <NumberFlow value={householderStatusCounts.potential} locales="en-US" format={{ useGrouping: false }} />
+            </div>
+            <div className="text-sm opacity-70 mt-0.5">Potential</div>
+          </BwiStatusCell>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderCallsPreviewContent = () => (
+    loading ? (
+      <div className="text-sm text-muted-foreground">Loading…</div>
+    ) : (
+      <div className="relative">
+        <VisitList
+          items={buildCallsStreamItems.preview}
+          getKey={(item) => item.key}
+          renderItem={(item, index, total) => renderVisitRow(item, index, total, false)}
+          className="space-y-6"
+          isEmpty={buildCallsStreamItems.preview.length === 0}
+          emptyText="No calls or to-dos recorded yet."
+        />
+      </div>
+    )
+  );
+
   return (
     <>
-      <div className="rounded-lg border overflow-hidden bg-background">
+      <div className={cn("rounded-lg border overflow-hidden bg-background", className)}>
+        {presentation === "summary" ? (
+          <div className="flex h-full min-h-0 flex-col">
+            <button
+              type="button"
+              onClick={() => setShowAreaDrawer(true)}
+              className="flex h-10 shrink-0 items-center justify-center gap-2 border-b px-4 text-sm font-medium hover:bg-muted/50"
+            >
+              <Building2 className="h-4 w-4 shrink-0" />
+              <span>{bwiAreaLabel}</span>
+              <ChevronRight className="h-4 w-4 opacity-70" />
+            </button>
+            <div className="min-h-0 overflow-y-auto p-4 scrollbar-hide">
+              {renderBwiSummaryContent()}
+            </div>
+          </div>
+        ) : presentation === "calls" ? (
+          <div className="flex h-full min-h-0 flex-col">
+            <button
+              type="button"
+              onClick={() => setShowDrawer(true)}
+              className="flex h-10 shrink-0 items-center gap-2 border-b px-4 text-sm font-medium hover:bg-muted/50"
+            >
+              <KnockingDoorIcon />
+              <span>Calls</span>
+              <ChevronRight className="ml-auto h-4 w-4 opacity-70" />
+            </button>
+            <div className="min-h-0 flex-1 overflow-y-auto p-4 scrollbar-hide">
+              {renderCallsPreviewContent()}
+            </div>
+          </div>
+        ) : (
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className="w-full grid grid-cols-2 mb-0 -mb-px p-0 h-auto bg-transparent gap-0 border-0 [&>*]:border-0 relative z-10">
             <TabsTrigger 
@@ -1543,7 +1670,7 @@ export function VisitHistory({
               >
                 <Building2 className="h-4 w-4 shrink-0" />
                 <span>
-                  {bwiLabelFlash ? "BWI" : bwiAreaFilter.length === 0 ? "All" : bwiAreaFilter.length === 1 ? bwiAreaFilter[0] : `${bwiAreaFilter.length} Areas`}
+                  {bwiLabelFlash ? "BWI" : bwiAreaLabel}
                 </span>
               </motion.div>
             </TabsTrigger>
@@ -1573,91 +1700,14 @@ export function VisitHistory({
           </TabsList>
           
           <TabsContent value="bwi" className="mt-0 rounded-b-lg bg-background p-4 overflow-y-auto scrollbar-hide">
-            <div className="space-y-6">
-                {/* Establishment Status Section */}
-                <div>
-                  <div className="grid grid-cols-2 gap-4 items-end">
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("establishments", "for_replenishment") : undefined}>
-                      <div className={cn("text-5xl font-semibold leading-tight", getStatusTextColorClass("for_replenishment"))}>
-                        <NumberFlow value={establishmentStatusCounts.for_replenishment} locales="en-US" format={{ useGrouping: false }} />
-                      </div>
-                      <div className="mt-1 text-sm opacity-70">For Replenishment</div>
-                    </BwiStatusCell>
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("establishments", "accepted_rack") : undefined}>
-                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("accepted_rack"))}>
-                        <NumberFlow value={establishmentStatusCounts.accepted_rack} locales="en-US" format={{ useGrouping: false }} />
-                      </div>
-                      <div className="text-sm opacity-70 mt-0.5">Rack Accepted</div>
-                    </BwiStatusCell>
-                  </div>
-                  
-                  <div className="grid grid-cols-2 gap-4 mt-4">
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("establishments", "for_follow_up") : undefined}>
-                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("for_follow_up"))}>
-                        <NumberFlow value={establishmentStatusCounts.for_follow_up} locales="en-US" format={{ useGrouping: false }} />
-                      </div>
-                      <div className="text-sm opacity-70 mt-0.5">For Follow Up</div>
-                    </BwiStatusCell>
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("establishments", "for_scouting") : undefined}>
-                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("for_scouting"))}>
-                        <NumberFlow value={establishmentStatusCounts.for_scouting} locales="en-US" format={{ useGrouping: false }} />
-                      </div>
-                      <div className="text-sm opacity-70 mt-0.5">For Scouting</div>
-                    </BwiStatusCell>
-                  </div>
-                </div>
-
-                {/* Householder Status Section */}
-                <div className="pt-4 border-t pb-0">
-                  <div className="text-xs text-muted-foreground mb-4">Householder status</div>
-                  
-                  <div className="grid grid-cols-2 gap-4 items-end">
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "bible_study") : undefined}>
-                      <div className={cn("text-5xl font-semibold leading-tight", getStatusTextColorClass("bible_study"))}>
-                        <NumberFlow value={householderStatusCounts.bible_study} locales="en-US" format={{ useGrouping: false }} />
-                      </div>
-                      <div className="mt-1 text-sm opacity-70">Bible Study</div>
-                    </BwiStatusCell>
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "return_visit") : undefined}>
-                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("return_visit"))}>
-                        <NumberFlow value={householderStatusCounts.return_visit} locales="en-US" format={{ useGrouping: false }} />
-                      </div>
-                      <div className="text-sm opacity-70 mt-0.5">Return Visit</div>
-                    </BwiStatusCell>
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "interested") : undefined}>
-                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("interested"))}>
-                        <NumberFlow value={householderStatusCounts.interested} locales="en-US" format={{ useGrouping: false }} />
-                      </div>
-                      <div className="text-sm opacity-70 mt-0.5">Interested</div>
-                    </BwiStatusCell>
-                    <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "potential") : undefined}>
-                      <div className={cn("text-2xl font-semibold", getStatusTextColorClass("potential"))}>
-                        <NumberFlow value={householderStatusCounts.potential} locales="en-US" format={{ useGrouping: false }} />
-                      </div>
-                      <div className="text-sm opacity-70 mt-0.5">Potential</div>
-                    </BwiStatusCell>
-                  </div>
-                </div>
-              </div>
+            {renderBwiSummaryContent()}
           </TabsContent>
           
           <TabsContent value="visit-history" className="mt-0 rounded-b-lg bg-background p-4">
-            {loading ? (
-              <div className="text-sm text-muted-foreground">Loading…</div>
-            ) : (
-              <div className="relative">
-                <VisitList
-                  items={buildCallsStreamItems.preview}
-                  getKey={(item) => item.key}
-                  renderItem={(item, index, total) => renderVisitRow(item, index, total, false)}
-                  className="space-y-6"
-                  isEmpty={buildCallsStreamItems.preview.length === 0}
-                  emptyText="No calls or to-dos recorded yet."
-                />
-              </div>
-            )}
+            {renderCallsPreviewContent()}
           </TabsContent>
         </Tabs>
+        )}
       </div>
 
       {/* Drawer: full calls list (matches To-Do drawer on tablet; two columns on md+) */}
@@ -2102,12 +2152,15 @@ export function VisitHistory({
       </Drawer>
 
       {/* Area picker drawer for BWI tab header */}
-      <FormModal
-        open={showAreaDrawer}
-        onOpenChange={setShowAreaDrawer}
-        title="Select Area"
-      >
-        <div className="space-y-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
+      <Drawer open={showAreaDrawer} onOpenChange={setShowAreaDrawer}>
+        <DrawerContent className="max-h-[80vh]">
+          <DrawerHeader className="px-4 pt-4 pb-2 items-center">
+            <DrawerTitle className="flex w-full items-center justify-center gap-2 text-center text-lg font-bold">
+              <Building2 className="h-5 w-5" />
+              Select Area
+            </DrawerTitle>
+          </DrawerHeader>
+          <div className="space-y-4 overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
@@ -2157,8 +2210,9 @@ export function VisitHistory({
               Done
             </Button>
           </div>
-        </div>
-      </FormModal>
+          </div>
+        </DrawerContent>
+      </Drawer>
     </>
   );
 }

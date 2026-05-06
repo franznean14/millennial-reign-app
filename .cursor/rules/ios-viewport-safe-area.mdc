@@ -1,0 +1,27 @@
+---
+description: iOS and iPadOS viewport/safe-area rules for app chrome and scroll shells
+alwaysApply: true
+---
+
+# iOS Viewport And Safe-Area Rules
+
+When fixing iPad or iOS layout clipping, black gaps, home-indicator space, or fixed bottom chrome, check the viewport unit model before changing padding or nav positioning.
+
+## iPad / Tablet (`min-width: 768px`)
+
+- For tablet+ app shells that must paint through the full iPad standalone viewport, prefer `100lvh` over `100dvh`.
+- `100dvh` can stop above the iPad standalone safe/home-indicator region, leaving a visible black/dead area below floating UI.
+- Keep this pattern consistent in full-height wrappers and table/list shells:
+  - `src/app/globals.css`: tablet+ `html, body` use `100lvh`.
+  - `src/components/ui/sidebar.tsx`: wrapper uses `md:h-[100lvh] md:max-h-[100lvh]`.
+  - Section shells such as Business use `md:h-[100lvh]`.
+  - Full-height table/list containers use `100lvh`.
+- Do not compensate for an incorrect tablet viewport model with arbitrary bottom padding or negative nav offsets until `dvh` vs `lvh` has been checked.
+
+## Mobile iOS (`max-width: 767px`)
+
+- Preserve existing mobile behavior unless the task explicitly asks to change mobile.
+- Do not globally switch phone layouts to `100lvh` without testing on iOS Safari and standalone PWA; browser chrome can make `lvh` hide content behind dynamic UI.
+- Use `env(safe-area-inset-top)` and `env(safe-area-inset-bottom)` for fixed top/bottom controls and scroll padding.
+- For scrollable mobile content behind fixed bottom navigation, keep bottom padding tied to the nav height plus safe area, for example `pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]`.
+- If mobile shows bottom clipping or dead space, first verify the root shell height, body padding, safe-area variables, and service-worker/cache freshness before moving fixed nav elements.

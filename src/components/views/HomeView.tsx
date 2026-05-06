@@ -7,11 +7,37 @@ import { HomeTodoCard } from "@/components/home/HomeTodoCard";
 import { UpcomingEvents } from "@/components/home/UpcomingEvents";
 import { useSPA } from "@/components/SPAProvider";
 import { cn } from "@/lib/utils";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import type { VisitRecord } from "@/lib/utils/visit-history";
+
+function getHomeDateRanges() {
+  // Calculate date ranges based on current date
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+
+  const ymd = (yy: number, mmIndex: number, dd: number) => {
+    const mm = String(mmIndex + 1).padStart(2, "0");
+    const ddStr = String(dd).padStart(2, "0");
+    return `${yy}-${mm}-${ddStr}`;
+  };
+
+  const monthStart = ymd(y, m, 1);
+  const nextMonthStart = m === 11 ? ymd(y + 1, 0, 1) : ymd(y, m + 1, 1);
+  const serviceYearStart = m >= 8 ? ymd(y, 8, 1) : ymd(y - 1, 8, 1);
+  const serviceYearEnd = m >= 8 ? ymd(y + 1, 8, 1) : ymd(y, 8, 1);
+
+  return {
+    monthStart,
+    nextMonthStart,
+    serviceYearStart,
+    serviceYearEnd,
+  };
+}
 
 interface HomeViewProps {
   userId: string;
-  onVisitClick?: (visit: any) => Promise<void>;
+  onVisitClick?: (visit: VisitRecord) => Promise<void>;
   onNavigateToCongregation?: () => void;
   onNavigateToBusinessWithStatus?: (
     tab: "establishments" | "householders",
@@ -38,37 +64,7 @@ export function HomeView({
   const { userPermissions } = useSPA();
   const showBwi = userPermissions.showBusiness;
 
-  const [dateRanges, setDateRanges] = useState({
-    monthStart: "",
-    nextMonthStart: "",
-    serviceYearStart: "",
-    serviceYearEnd: "",
-  });
-
-  useEffect(() => {
-    // Calculate date ranges based on current date
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = now.getMonth();
-    
-    const ymd = (yy: number, mmIndex: number, dd: number) => {
-      const mm = String(mmIndex + 1).padStart(2, "0");
-      const ddStr = String(dd).padStart(2, "0");
-      return `${yy}-${mm}-${ddStr}`;
-    };
-    
-    const monthStart = ymd(y, m, 1);
-    const nextMonthStart = m === 11 ? ymd(y + 1, 0, 1) : ymd(y, m + 1, 1);
-    const serviceYearStart = m >= 8 ? ymd(y, 8, 1) : ymd(y - 1, 8, 1);
-    const serviceYearEnd = m >= 8 ? ymd(y + 1, 8, 1) : ymd(y, 8, 1);
-    
-    setDateRanges({
-      monthStart,
-      nextMonthStart,
-      serviceYearStart,
-      serviceYearEnd,
-    });
-  }, []);
+  const [dateRanges] = useState(getHomeDateRanges);
 
   return (
     <div className="space-y-4 md:space-y-5 w-full max-w-full overflow-x-hidden">
@@ -77,13 +73,8 @@ export function HomeView({
         className={homeTab === "summary" ? "block" : "hidden"}
         aria-hidden={homeTab !== "summary"}
       >
-        {/* Below xl: stack on phones; lg+ iPad-style row — same instances as mobile, wider breakpoints only change layout. */}
-        <div
-          className={cn(
-            "xl:hidden flex flex-col gap-6",
-            showBwi ? "md:grid md:grid-cols-3 md:items-start md:gap-4" : "md:grid md:grid-cols-2 md:items-start md:gap-4"
-          )}
-        >
+        {/* Mobile: keep the existing stacked layout and combined BWI/Calls tabs. */}
+        <div className="flex flex-col gap-6 md:hidden">
           <div className="min-w-0">
             <HomeSummary
               userId={userId}
@@ -115,14 +106,14 @@ export function HomeView({
           </div>
         </div>
 
-        {/* xl+: same three-card row as tablet — DesktopHomeSummary is full-width inside its grid column (not w-1/3 of the page). */}
+        {/* Tablet / iPad: separate BWI summary from Calls; stack To-Do and Calls evenly on the right. */}
         <div
           className={cn(
-            "hidden xl:grid xl:items-start xl:gap-4",
-            showBwi ? "xl:grid-cols-3" : "xl:grid-cols-2"
+            "hidden md:grid md:items-start md:gap-4",
+            showBwi ? "md:grid-cols-3" : "md:grid-cols-2"
           )}
         >
-          <div className="min-w-0">
+          <div className="min-w-0 min-h-0">
             <DesktopHomeSummary
               userId={userId}
               monthStart={dateRanges.monthStart}
@@ -133,7 +124,30 @@ export function HomeView({
             />
           </div>
           {showBwi ? (
-            <div className="min-w-0">
+            <div className="min-w-0 min-h-0">
+              <VisitHistory
+                userId={userId}
+                onVisitClick={onVisitClick}
+                onNavigateToBusinessWithStatus={onNavigateToBusinessWithStatus}
+                bwiAreaFilter={bwiAreaFilter}
+                onBwiAreaChange={onBwiAreaChange}
+                presentation="summary"
+              />
+            </div>
+          ) : null}
+          <div
+            className={cn(
+              "grid min-w-0 min-h-0 gap-4 md:h-[calc(100lvh-max(env(safe-area-inset-top),var(--device-safe-top,0px))-224px)] md:min-h-[480px]",
+              showBwi ? "grid-rows-2" : "grid-rows-1"
+            )}
+          >
+            <HomeTodoCard
+              userId={userId}
+              fabBridgeLayout="xlAndUp"
+              onNavigateToTodoCall={onNavigateToTodoCall}
+              className="h-full min-h-0"
+            />
+            {showBwi ? (
               <VisitHistory
                 userId={userId}
                 onVisitClick={onVisitClick}
@@ -141,15 +155,10 @@ export function HomeView({
                 bwiAreaFilter={bwiAreaFilter}
                 onBwiAreaChange={onBwiAreaChange}
                 fabBridgeLayout="xlAndUp"
+                presentation="calls"
+                className="h-full min-h-0"
               />
-            </div>
-          ) : null}
-          <div className="min-w-0">
-            <HomeTodoCard
-              userId={userId}
-              fabBridgeLayout="xlAndUp"
-              onNavigateToTodoCall={onNavigateToTodoCall}
-            />
+            ) : null}
           </div>
         </div>
       </div>

@@ -840,8 +840,7 @@ export function HomeSummary({
   return (
     <>
       <section>
-        <div className="mb-3 flex items-center justify-between gap-2">
-          <h2 className="text-lg font-semibold">This Month</h2>
+        <div className="mb-3 flex items-center justify-end gap-2">
           <InstallPrompt compact />
         </div>
         <div className="grid gap-3 sm:grid-cols-3">

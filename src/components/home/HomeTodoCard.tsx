@@ -328,6 +328,7 @@ interface HomeTodoCardProps {
   preferLeftCompanionDrawer?: boolean;
   /** When set, only this responsive instance publishes UnifiedFab context (HomeView mounts two cards). */
   fabBridgeLayout?: "belowXl" | "xlAndUp";
+  className?: string;
 }
 
 export function HomeTodoCard({
@@ -341,6 +342,7 @@ export function HomeTodoCard({
   onNavigateToTodoCall,
   preferLeftCompanionDrawer = false,
   fabBridgeLayout,
+  className,
 }: HomeTodoCardProps) {
   const [openTodos, setOpenTodos] = useState<MyOpenCallTodoItem[]>(() => prefillOpenTodos ?? []);
   const [completedTodos, setCompletedTodos] = useState<MyOpenCallTodoItem[]>(() => prefillCompletedTodos ?? []);
@@ -3037,8 +3039,8 @@ export function HomeTodoCard({
 
   return (
     <>
-      <div className="rounded-lg border overflow-hidden bg-background">
-        <div className="p-4">
+      <div className={cn("rounded-lg border overflow-hidden bg-background", className)}>
+        <div className="flex h-full min-h-0 flex-col p-4">
           <button
             type="button"
             onClick={() => setDrawerOpen(true)}
@@ -3056,65 +3058,67 @@ export function HomeTodoCard({
             )}
             <ChevronRight className="h-3.5 w-3.5 ml-auto opacity-70" />
           </button>
-          <ul className="space-y-2.5">
-            {cardOpenTodos.length === 0 && cardCompletedTodos.length === 0 ? (
-              <li className="text-sm text-muted-foreground py-1">{emptyText}</li>
-            ) : (
-              displayTodos.map((todo, index) => (
-                <TodoRow
-                  key={todo.id}
-                  todo={todo}
-                  onMarkDone={handleMarkDone}
-                  onTap={hasNavigation ? handleTodoTap : undefined}
-                  showCheckbox
-                  currentUserId={userId}
-                  showAssigneeAvatars={showAssigneeAvatars}
-                  highlightOtherPublishers={showOtherPublisherDecorations}
-                  participantsById={participantsById}
-                  rowIndex={index}
-                  layoutId={`${layoutScopeId}-card-${todo.id}`}
-                  layoutTransition={todoLayoutTransition}
-                  hideHouseholderNameBadge={!!householderId}
-                  hideHouseholderEstablishmentBadge={!!householderId}
-                />
-              ))
-            )}
-          </ul>
-          {cardCompletedTodos.length > 0 && (
-            <>
-              <div className="text-xs text-muted-foreground mt-4 mb-2 font-medium inline-flex items-center gap-1.5">
-                <span>Done</span>
-                <Badge
-                  variant="secondary"
-                  className="h-4 rounded-full px-1.5 text-[10px] leading-none"
-                >
-                  {cardCompletedTodos.length}
-                </Badge>
-              </div>
-              {cardOpenTodos.length === 0 && (
-                <ul className="space-y-2.5">
-                  {cardCompletedTodos.slice(0, 1).map((todo, index) => (
-                    <TodoRow
-                      key={todo.id}
-                      todo={{ ...todo, is_done: true }}
-                      onMarkDone={handleMarkDone}
-                      onTap={hasNavigation ? handleTodoTap : undefined}
-                      showCheckbox
-                      currentUserId={userId}
-                      showAssigneeAvatars={showAssigneeAvatars}
-                      highlightOtherPublishers={showOtherPublisherDecorations}
-                      participantsById={participantsById}
-                      rowIndex={index}
-                      layoutId={`${layoutScopeId}-card-${todo.id}`}
-                      layoutTransition={todoLayoutTransition}
-                      hideHouseholderNameBadge={!!householderId}
-                      hideHouseholderEstablishmentBadge={!!householderId}
-                    />
-                  ))}
-                </ul>
+          <div className="min-h-0 flex-1 overflow-y-auto scrollbar-hide">
+            <ul className="space-y-2.5">
+              {cardOpenTodos.length === 0 && cardCompletedTodos.length === 0 ? (
+                <li className="text-sm text-muted-foreground py-1">{emptyText}</li>
+              ) : (
+                displayTodos.map((todo, index) => (
+                  <TodoRow
+                    key={todo.id}
+                    todo={todo}
+                    onMarkDone={handleMarkDone}
+                    onTap={hasNavigation ? handleTodoTap : undefined}
+                    showCheckbox
+                    currentUserId={userId}
+                    showAssigneeAvatars={showAssigneeAvatars}
+                    highlightOtherPublishers={showOtherPublisherDecorations}
+                    participantsById={participantsById}
+                    rowIndex={index}
+                    layoutId={`${layoutScopeId}-card-${todo.id}`}
+                    layoutTransition={todoLayoutTransition}
+                    hideHouseholderNameBadge={!!householderId}
+                    hideHouseholderEstablishmentBadge={!!householderId}
+                  />
+                ))
               )}
-            </>
-          )}
+            </ul>
+            {cardCompletedTodos.length > 0 && (
+              <>
+                <div className="text-xs text-muted-foreground mt-4 mb-2 font-medium inline-flex items-center gap-1.5">
+                  <span>Done</span>
+                  <Badge
+                    variant="secondary"
+                    className="h-4 rounded-full px-1.5 text-[10px] leading-none"
+                  >
+                    {cardCompletedTodos.length}
+                  </Badge>
+                </div>
+                {cardOpenTodos.length === 0 && (
+                  <ul className="space-y-2.5">
+                    {cardCompletedTodos.slice(0, 1).map((todo, index) => (
+                      <TodoRow
+                        key={todo.id}
+                        todo={{ ...todo, is_done: true }}
+                        onMarkDone={handleMarkDone}
+                        onTap={hasNavigation ? handleTodoTap : undefined}
+                        showCheckbox
+                        currentUserId={userId}
+                        showAssigneeAvatars={showAssigneeAvatars}
+                        highlightOtherPublishers={showOtherPublisherDecorations}
+                        participantsById={participantsById}
+                        rowIndex={index}
+                        layoutId={`${layoutScopeId}-card-${todo.id}`}
+                        layoutTransition={todoLayoutTransition}
+                        hideHouseholderNameBadge={!!householderId}
+                        hideHouseholderEstablishmentBadge={!!householderId}
+                      />
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
 

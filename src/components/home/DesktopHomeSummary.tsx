@@ -10,7 +10,7 @@ import { toast } from "@/components/ui/sonner";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { getDailyRecord, listDailyByMonth, upsertDailyRecord, isDailyEmpty, deleteDailyRecord } from "@/lib/db/dailyRecords";
 import { NumberFlowInput } from "@/components/ui/number-flow-input";
 import { FormModal } from "@/components/shared/FormModal";
@@ -435,24 +435,40 @@ export function DesktopHomeSummary({
     loadRecords();
   }, [recordsDrawerOpen, uid]);
 
-  // Cache for householder names (visit/householder IDs → name) so BS = unique householder names
+  // Cache for householder names (visit/householder IDs → name) so BS displays names instead of raw IDs.
   const [householderNamesCache, setHouseholderNamesCache] = useState<Map<string, string>>(new Map());
   const cacheRef = useRef<Map<string, string>>(new Map());
 
   useEffect(() => {
-    if (!uid || !recordsDrawerOpen) return;
+    if (!uid) return;
     const visitIds = new Set<string>();
     const householderIds = new Set<string>();
+
+    const collectStudyIds = (studyKeys: string[] | null | undefined) => {
+      if (!Array.isArray(studyKeys)) return;
+      studyKeys.forEach(bs => {
+        const key = bs?.trim();
+        if (!key) return;
+        if (key.startsWith("visit:")) visitIds.add(key.replace("visit:", ""));
+        else if (key.startsWith("householder:")) householderIds.add(key.replace("householder:", ""));
+      });
+    };
+
+    collectStudyIds(formStudies);
     dailyRecords.forEach(r => {
-      if (Array.isArray(r.bible_studies)) {
-        r.bible_studies.forEach(bs => {
-          if (bs && bs.trim()) {
-            if (bs.startsWith("visit:")) visitIds.add(bs.replace("visit:", ""));
-            else if (bs.startsWith("householder:")) householderIds.add(bs.replace("householder:", ""));
-          }
-        });
-      }
+      collectStudyIds(r.bible_studies);
     });
+
+    if (
+      Array.from(visitIds).every(id => cacheRef.current.has(`visit:${id}`)) &&
+      Array.from(householderIds).every(id => cacheRef.current.has(`householder:${id}`))
+    ) {
+      if (householderNamesCache !== cacheRef.current) {
+        setHouseholderNamesCache(cacheRef.current);
+      }
+      return;
+    }
+
     const fetchNames = async () => {
       try {
         const supabase = createSupabaseBrowserClient();
@@ -487,7 +503,7 @@ export function DesktopHomeSummary({
       }
     };
     if (visitIds.size > 0 || householderIds.size > 0) fetchNames();
-  }, [recordsDrawerOpen, dailyRecords, uid]);
+  }, [dailyRecords, formStudies, uid, householderNamesCache]);
 
   // Aggregate daily records by month — BS = unique householder names
   const monthlyAggregates = useMemo(() => {
@@ -599,20 +615,29 @@ export function DesktopHomeSummary({
     setSelectedMonth(addCalendarMonths(selectedMonth, 1));
   };
 
-  // Get month detail data — BS displayed as unique householder names
+  const resolveStudyName = (key: string) => householderNamesCache.get(key) ?? cacheRef.current.get(key) ?? key;
+
+  // Get month detail data — BS displayed as resolved names with session counts (matches mobile)
   const monthDetailData = useMemo(() => {
     if (!selectedMonth) return null;
-    const resolveToName = (key: string) => cacheRef.current.get(key) ?? key;
     const monthRecords = dailyRecords.filter(r => r.date.startsWith(selectedMonth));
     const totalHours = monthRecords.reduce((sum, r) => sum + (Number(r.hours) || 0), 0);
-    const uniqueBS = new Set<string>();
+    const bsSessionCounts = new Map<string, number>();
     monthRecords.forEach(r => {
       if (Array.isArray(r.bible_studies)) {
         r.bible_studies.forEach(bs => {
-          if (bs && bs.trim()) uniqueBS.add(resolveToName(bs.trim()));
+          if (bs && bs.trim()) {
+            const displayName = resolveStudyName(bs.trim());
+            if (displayName) {
+              bsSessionCounts.set(displayName, (bsSessionCounts.get(displayName) || 0) + 1);
+            }
+          }
         });
       }
     });
+    const bibleStudies = Array.from(bsSessionCounts.entries())
+      .map(([name, sessions]) => ({ name, sessions, id: null }))
+      .sort((a, b) => b.sessions - a.sessions || a.name.localeCompare(b.name));
     const notes = monthRecords
       .filter(r => r.note && r.note.trim())
       .map(r => ({
@@ -624,7 +649,7 @@ export function DesktopHomeSummary({
     return {
       month: selectedMonth,
       totalHours,
-      bibleStudies: Array.from(uniqueBS).sort(),
+      bibleStudies,
       notes,
     };
   }, [selectedMonth, dailyRecords, householderNamesCache]);
@@ -708,9 +733,6 @@ export function DesktopHomeSummary({
     <>
       <div className="w-full min-w-0 space-y-4">
         <Card>
-        <CardHeader>
-          <CardTitle>This Month</CardTitle>
-        </CardHeader>
         <CardContent>
           <div className="space-y-6">
             {/* Hours Summary — only this region opens Monthly Records (not calendar / daily form). */}
@@ -751,7 +773,6 @@ export function DesktopHomeSummary({
 
             {/* Calendar */}
             <div>
-              <div className="text-sm font-medium mb-3">Field Service Activity</div>
               <div className="flex items-center justify-between pb-3">
                 <Button variant="ghost" size="sm" onClick={() => changeStep(-1)}>
                   <ChevronLeft className="h-5 w-5" />
@@ -860,7 +881,7 @@ export function DesktopHomeSummary({
                 <div className="flex flex-wrap gap-2">
                   {formStudies.map((s) => (
                     <span key={s} className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs">
-                      {s}
+                      {resolveStudyName(s)}
                       <Button
                         variant="ghost"
                         size="sm"
@@ -1019,7 +1040,10 @@ export function DesktopHomeSummary({
                           <tbody>
                             {monthDetailData.bibleStudies.map((bs, idx) => (
                               <tr key={idx} className="border-b last:border-b-0">
-                                <td className="p-3">{bs}</td>
+                                <td className="p-3">{bs.name}</td>
+                                <td className="p-3 text-right text-muted-foreground">
+                                  {bs.sessions} session{bs.sessions !== 1 ? "s" : ""}
+                                </td>
                               </tr>
                             ))}
                           </tbody>
