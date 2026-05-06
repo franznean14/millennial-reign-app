@@ -64,6 +64,11 @@ interface FormModalProps {
   className?: string;
   headerClassName?: string;
   bodyClassName?: string;
+  /**
+   * Extra classes for the bottom {@link DrawerContent} on phone only (not the tablet+ left sheet or dialog).
+   * Use for drawer height, top offset (`mt-*`), etc.
+   */
+  drawerContentClassName?: string;
   /** Breakpoint for center dialog vs bottom sheet when {@link desktopPresentation} is `"auto"`. */
   desktopQuery?: string;
   /**
@@ -86,6 +91,7 @@ export function FormModal({
   className,
   headerClassName,
   bodyClassName,
+  drawerContentClassName,
   desktopQuery = "(min-width: 1280px)",
   desktopPresentation = "auto",
   tabletQuery = "(min-width: 768px)",
@@ -163,7 +169,7 @@ export function FormModal({
           >
             <DrawerHeader
               className={cn(
-                "border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]",
+                "border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center sm:text-center dark:border-[#1c1921] dark:bg-[#181714]",
                 headerClassName
               )}
             >
@@ -182,7 +188,13 @@ export function FormModal({
 
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className={cn("dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]", className)}>
+        <DrawerContent
+          className={cn(
+            "dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]",
+            className,
+            drawerContentClassName
+          )}
+        >
           <DrawerHeader className={cn("dark:bg-[#181714]", headerClassName)}>
             <DrawerTitle>{title}</DrawerTitle>
             <DrawerDescription className={description ? undefined : "sr-only"}>{a11yDescription}</DrawerDescription>
@@ -209,7 +221,13 @@ export function FormModal({
 
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent className={cn("dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]", className)}>
+      <DrawerContent
+        className={cn(
+          "dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]",
+          className,
+          drawerContentClassName
+        )}
+      >
         <DrawerHeader className={cn("dark:bg-[#181714]", headerClassName)}>
           <DrawerTitle>{title}</DrawerTitle>
           <DrawerDescription className={description ? undefined : "sr-only"}>{a11yDescription}</DrawerDescription>

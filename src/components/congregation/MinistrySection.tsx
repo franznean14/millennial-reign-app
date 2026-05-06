@@ -15,12 +15,17 @@ import { formatStatusText } from "@/lib/utils/formatters";
 import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
 import { cn } from "@/lib/utils";
 import { FormModal } from "@/components/shared/FormModal";
+import { EventScheduleFormSheet } from "@/components/congregation/EventScheduleFormSheet";
 import { businessEventBus } from "@/lib/events/business-events";
-import dynamic from "next/dynamic";
-
-const EventScheduleForm = dynamic(() => import("@/components/congregation/EventScheduleForm").then((m) => m.EventScheduleForm), {
-  ssr: false
-});
+import { useMediaQuery } from "@/hooks/use-media-query";
+import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
+import {
+  Drawer,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerWideRightContent,
+} from "@/components/ui/drawer";
 
 interface MinistrySectionProps {
   congregationData: Congregation;
@@ -42,6 +47,16 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
   const [activeDay, setActiveDay] = useState<string | null>(null);
   const [editScheduleOpen, setEditScheduleOpen] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState<EventSchedule | null>(null);
+
+  const isMdUp = useMediaQuery("(min-width: 768px)");
+
+  const openContactDetails = useCallback(
+    (householder: HouseholderWithDetails) => {
+      if (!isMdUp) setContactsDrawerOpen(false);
+      onContactClick?.(householder);
+    },
+    [isMdUp, onContactClick]
+  );
   
   const loadEvents = useCallback(async () => {
     if (!congregationData.id) {
@@ -252,24 +267,173 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
     }
   }, [schedulesDrawerOpen, daysWithSchedules]);
 
+  const scheduleDayToggleClass =
+    "flex h-11 min-w-0 items-center justify-center px-3 text-[11px] font-medium transition-colors data-[state=on]:!bg-[#80778e] data-[state=on]:!text-white data-[state=on]:shadow-sm dark:text-[#ded6e7] md:h-12";
+
+  const schedulesBody = (
+    <div
+      className={cn(
+        "flex flex-col gap-4 dark:text-[#fffaff]",
+        isMdUp ? "min-h-0 flex-1" : ""
+      )}
+    >
+      <div className="flex shrink-0 justify-center px-1">
+        <div className="relative w-full max-w-screen-sm overflow-hidden rounded-lg border border-border bg-background/95 p-0.5 shadow-lg backdrop-blur-sm dark:border-[#1c1921] dark:bg-[#2a2534]/95">
+          <div className="no-scrollbar w-full overflow-x-auto">
+            <ToggleGroup
+              type="single"
+              value={activeDay ?? "All"}
+              onValueChange={(v) => {
+                if (v) setActiveDay(v);
+              }}
+              className="h-full min-w-full justify-center"
+            >
+              <ToggleGroupItem value="All" className={scheduleDayToggleClass} title="All">
+                <span className="w-full truncate text-center font-medium">All</span>
+              </ToggleGroupItem>
+              {daysWithSchedules.map((dayNum) => (
+                <ToggleGroupItem
+                  key={dayNum}
+                  value={String(dayNum)}
+                  className={scheduleDayToggleClass}
+                  title={dayNames[dayNum]}
+                >
+                  <span className="w-full truncate text-center font-medium">{dayNames[dayNum]}</span>
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </div>
+        </div>
+      </div>
+
+      <div
+        className={cn(
+          "flex w-full flex-col overflow-hidden overscroll-none",
+          isMdUp
+            ? "min-h-0 flex-1 rounded-lg border dark:border-[#1c1921] dark:bg-[#181714]"
+            : "h-[calc(70vh)] max-md:max-h-[70dvh]"
+        )}
+      >
+        <div className="shrink-0 border-b bg-background dark:border-[#1c1921] dark:bg-[#181714]">
+          <table className="w-full table-fixed text-sm dark:text-[#fffaff]">
+            <thead>
+              <tr className="border-b dark:border-[#1c1921]">
+                <th className="w-[60%] px-3 py-3 text-left font-medium">Title</th>
+                <th className="w-[40%] px-3 py-3 text-center font-medium">Time</th>
+              </tr>
+            </thead>
+          </table>
+        </div>
+
+        <div
+          className="no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-none"
+          style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
+        >
+          <table className="w-full table-fixed text-sm dark:text-[#fffaff]">
+            <tbody>
+              {filteredSchedules.length === 0 ? (
+                <tr>
+                  <td colSpan={2} className="p-6 text-center text-sm text-muted-foreground dark:text-[#ded6e7]/85">
+                    No schedules found
+                  </td>
+                </tr>
+              ) : (
+                filteredSchedules.map((event) => (
+                  <tr
+                    key={event.id}
+                    className={cn(
+                      "border-b dark:border-[#1c1921]",
+                      canEdit ? "cursor-pointer hover:bg-muted/30 dark:hover:bg-[#2a2534]/85" : ""
+                    )}
+                    onClick={() => {
+                      if (canEdit && event.id) {
+                        setSelectedSchedule(event);
+                        setEditScheduleOpen(true);
+                      }
+                    }}
+                  >
+                    <td className="min-w-0 w-[60%] p-3">
+                      <div className="flex min-w-0 flex-col gap-1">
+                        <span className="truncate font-medium dark:text-[#fffaff]">{event.title}</span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {event.ministry_type && (
+                            <Badge
+                              variant="outline"
+                              className="h-4 w-fit border px-1.5 py-0 text-[10px] leading-none dark:border-[#1c1921]"
+                            >
+                              {formatMinistryType(event.ministry_type)}
+                            </Badge>
+                          )}
+                          {(activeDay === null || activeDay === "All") &&
+                            event.recurrence_pattern === "weekly" &&
+                            event.day_of_week != null && (
+                              <Badge
+                                variant="secondary"
+                                className="h-4 w-fit border px-1.5 py-0 text-[10px] leading-none dark:border-[#1c1921] dark:bg-[#30283c]"
+                              >
+                                {dayNames[event.day_of_week]}
+                              </Badge>
+                            )}
+                        </div>
+                      </div>
+                      {event.description && (
+                        <p className="mt-1 line-clamp-1 truncate text-xs text-muted-foreground dark:text-[#ded6e7]/75">
+                          {event.description}
+                        </p>
+                      )}
+                    </td>
+                    <td className="w-[40%] p-3">
+                      {event.is_all_day ? (
+                        <div className="text-center">
+                          <span className="text-xs text-muted-foreground dark:text-[#ded6e7]/80">All day</span>
+                        </div>
+                      ) : event.start_time ? (
+                        <div className="flex flex-col items-center text-xs dark:text-[#ded6e7]/85">
+                          <div>{formatTimeLabel(event.start_time)}</div>
+                          {event.end_time && (
+                            <>
+                              <div className="text-muted-foreground dark:text-[#ded6e7]/65">to</div>
+                              <div>{formatTimeLabel(event.end_time)}</div>
+                            </>
+                          )}
+                        </div>
+                      ) : null}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+
   
   return (
-    <div className="space-y-4">
-      <Card className="gap-2">
-        <CardHeader>
-          <button
-            type="button"
-            className="w-full flex items-center justify-between gap-3 text-left rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            onClick={() => setSchedulesDrawerOpen(true)}
+    <>
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3 md:items-start md:gap-6">
+        <div className="min-w-0">
+          <Card
+            className={cn(
+              "gap-0 overflow-hidden rounded-xl border py-0 shadow-md",
+              studyBibleDarkClasses.bwiCard
+            )}
           >
-            <CardTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5" />
-              Today
-            </CardTitle>
-            <ChevronRight className="h-4 w-4 opacity-70" />
-          </button>
-        </CardHeader>
-        <CardContent className="p-0">
+            <CardHeader className="rounded-t-xl border-b px-4 pt-3 !pb-3 dark:border-[#1c1921] dark:bg-[#2a2534]">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between gap-3 rounded-md text-left transition-colors hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#80778e] focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-offset-[#181714]"
+                onClick={() => setSchedulesDrawerOpen(true)}
+              >
+                <CardTitle className="flex items-center gap-2 text-base font-bold leading-tight dark:text-[#fffaff]">
+                  <Calendar className="h-5 w-5 shrink-0 opacity-90" />
+                  Today
+                </CardTitle>
+                <ChevronRight className="h-4 w-4 shrink-0 opacity-70 dark:text-[#ded6e7]" />
+              </button>
+            </CardHeader>
+            <CardContent className="p-0 pb-6 pt-2">
           {loading ? (
             <div className="px-4 py-2 space-y-2">
               {[1, 2].map((i) => (
@@ -293,33 +457,33 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
               ))}
             </div>
           ) : todayEvents.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <div className="px-4 py-8 text-center text-muted-foreground dark:text-[#ded6e7]/80">
+              <Calendar className="mx-auto mb-4 h-12 w-12 opacity-50" />
               <p className="text-sm">No ministry events scheduled for today</p>
             </div>
           ) : (
-            <div className="px-4 py-2 space-y-2">
+            <div className="space-y-2 px-4 py-2">
               {todayEvents.map((event) => {
                 const locLine = formatEventLocationSummaryForDisplay(event);
                 return (
-                <div key={event.id} className="px-3 py-2.5 rounded-lg hover:bg-muted/50 transition-colors">
+                <div key={event.id} className="rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/50 dark:hover:bg-[#2a2534]/85">
                   <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-medium text-sm">{event.title}</h4>
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1 flex items-center gap-2">
+                        <h4 className="text-sm font-medium dark:text-[#fffaff]">{event.title}</h4>
                         {event.ministry_type && (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 leading-none">
+                          <Badge variant="outline" className="h-4 border dark:border-[#1c1921] px-1.5 py-0 text-[10px] leading-none">
                             {formatMinistryType(event.ministry_type)}
                           </Badge>
                         )}
                         {event.recurrence_pattern !== 'none' && (
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 leading-none">
+                          <Badge variant="secondary" className="h-4 px-1.5 py-0 text-[10px] leading-none dark:border-[#1c1921] dark:bg-[#30283c]">
                             Recurring
                           </Badge>
                         )}
                       </div>
                       
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground dark:text-[#ded6e7]/80">
                         {!event.is_all_day && event.start_time && (
                           <div className="flex items-center gap-1">
                             <Clock className="h-3 w-3" />
@@ -330,7 +494,7 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
                           </div>
                         )}
                         {locLine ? (
-                          <div className="flex items-center gap-1 min-w-0">
+                          <div className="flex min-w-0 items-center gap-1">
                             <MapPin className="h-3 w-3 shrink-0" />
                             <span className="truncate">{locLine}</span>
                           </div>
@@ -338,7 +502,7 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
                       </div>
                       
                       {event.description && (
-                        <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">{event.description}</p>
+                        <p className="mt-1.5 line-clamp-2 text-xs text-muted-foreground dark:text-[#ded6e7]/70">{event.description}</p>
                       )}
                     </div>
                   </div>
@@ -349,22 +513,29 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
           )}
         </CardContent>
       </Card>
+        </div>
 
-      <Card>
-        <CardHeader>
-          <button
-            type="button"
-            className="w-full flex items-center justify-between gap-3 text-left rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            onClick={() => setContactsDrawerOpen(true)}
+        <div className="min-w-0">
+          <Card
+            className={cn(
+              "gap-0 overflow-hidden rounded-xl border py-0 shadow-md",
+              studyBibleDarkClasses.bwiCard
+            )}
           >
-            <CardTitle className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5" />
-              Contacts
-            </CardTitle>
-            <ChevronRight className="h-4 w-4 opacity-70" />
-          </button>
-        </CardHeader>
-        <CardContent className="p-0">
+            <CardHeader className="rounded-t-xl border-b px-4 pt-3 !pb-3 dark:border-[#1c1921] dark:bg-[#2a2534]">
+              <button
+                type="button"
+                className="flex w-full items-center justify-between gap-3 rounded-md text-left transition-colors hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#80778e] focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-offset-[#181714]"
+                onClick={() => setContactsDrawerOpen(true)}
+              >
+                <CardTitle className="flex items-center gap-2 text-base font-bold leading-tight dark:text-[#fffaff]">
+                  <BookOpen className="h-5 w-5 shrink-0 opacity-90" />
+                  Contacts
+                </CardTitle>
+                <ChevronRight className="h-4 w-4 shrink-0 opacity-70 dark:text-[#ded6e7]" />
+              </button>
+            </CardHeader>
+            <CardContent className="p-0 pb-6 pt-2">
           {bibleStudentsLoading ? (
             <div className="px-4 py-2 space-y-2">
               {[1, 2, 3].map((i) => (
@@ -383,13 +554,13 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
               ))}
             </div>
           ) : bibleStudents.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground px-4">
-            <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>No Bible students yet</p>
+            <div className="px-4 py-8 text-center text-muted-foreground dark:text-[#ded6e7]/75">
+              <BookOpen className="mx-auto mb-4 h-12 w-12 opacity-50" />
+              <p className="dark:text-[#fffaff]">No Bible students yet</p>
               <p className="text-sm">Bible students will appear here when assigned</p>
             </div>
           ) : (
-            <div className="px-4 py-2 space-y-2">
+            <div className="space-y-2 px-4 py-2">
               {bibleStudents.slice(0, 3).map((householder) => {
                 const initials = householder.name
                   .split(" ")
@@ -401,31 +572,31 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
                 return (
                   <div
                     key={householder.id}
-                    className="px-3 py-2.5 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    className="cursor-pointer rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#80778e] focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:hover:bg-[#2a2534]/85 dark:focus-visible:ring-offset-[#181714]"
                     role="button"
                     tabIndex={0}
-                    onClick={() => setContactsDrawerOpen(true)}
+                    onClick={() => openContactDetails(householder)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") {
                         event.preventDefault();
-                        setContactsDrawerOpen(true);
+                        openContactDetails(householder);
                       }
                     }}
                   >
                     <div className="flex items-center gap-3">
-                      <Avatar className="h-9 w-9">
-                        <AvatarFallback className="text-[11px] font-semibold">
+                      <Avatar className="h-9 w-9 border border-border dark:border-[#5a5068]/50">
+                        <AvatarFallback className="text-[11px] font-semibold dark:bg-[#30283c] dark:text-[#fffaff]">
                           {initials || "BS"}
                         </AvatarFallback>
                       </Avatar>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-3">
-                          <p className="text-sm font-medium truncate">{householder.name}</p>
+                          <p className="truncate text-sm font-medium dark:text-[#fffaff]">{householder.name}</p>
                           {householder.status && (
-                            <Badge 
-                              variant="outline" 
+                            <Badge
+                              variant="outline"
                               className={cn(
-                                "text-xs px-2 py-0.5 h-5 leading-none",
+                                "h-5 px-2 py-0.5 text-xs leading-none",
                                 getStatusTextColor(householder.status)
                               )}
                             >
@@ -433,7 +604,7 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
                             </Badge>
                           )}
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                        <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground dark:text-[#ded6e7]/75">
                           {(() => {
                             // If has establishment_id, show building icon
                             if (householder.establishment_id) {
@@ -468,41 +639,164 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
           )}
         </CardContent>
       </Card>
+        </div>
 
-      <FormModal
-        open={contactsDrawerOpen}
-        onOpenChange={setContactsDrawerOpen}
-        title="Contacts"
-      >
-        <div className="w-full h-[calc(70vh)] overflow-hidden flex flex-col overscroll-none">
-          {/* Fixed Table Header */}
-          <div className="flex-shrink-0 border-b bg-background">
-            <table className="w-full text-sm table-fixed">
+        <div className="min-w-0">
+          <Card
+            className={cn(
+              "gap-0 overflow-hidden rounded-xl border py-0 shadow-md",
+              studyBibleDarkClasses.bwiCard
+            )}
+          >
+            <CardHeader className="rounded-t-xl border-b px-4 pt-3 !pb-3 dark:border-[#1c1921] dark:bg-[#2a2534]">
+              <CardTitle className="text-base font-bold leading-tight dark:text-[#fffaff]">Ministry Assignments</CardTitle>
+            </CardHeader>
+            <CardContent className="px-4 pb-6 pt-4 sm:px-6">
+              <div className="py-8 text-center text-muted-foreground dark:text-[#ded6e7]/75">
+                <Users className="mx-auto mb-4 h-12 w-12 opacity-50" />
+                <p className="dark:text-[#fffaff]">No assignments available</p>
+                <p className="text-sm">Ministry assignments will appear here</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {isMdUp ? (
+        <Drawer
+          open={contactsDrawerOpen}
+          onOpenChange={setContactsDrawerOpen}
+          direction="right"
+          modal
+          nested
+          shouldScaleBackground={false}
+        >
+          <DrawerWideRightContent className="flex flex-col overflow-hidden dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff] md:max-h-[100lvh]">
+            <DrawerHeader className="shrink-0 border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+              <DrawerTitle className="text-center text-lg font-bold">Contacts</DrawerTitle>
+              <DrawerDescription className="sr-only">
+                Bible students and others you are assigned to as publisher.
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="flex min-h-0 flex-1 flex-col gap-4 px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+28px)] pt-4">
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden overscroll-none rounded-lg border dark:border-[#1c1921] dark:bg-[#181714]">
+                <div className="shrink-0 border-b bg-background dark:border-[#1c1921] dark:bg-[#181714]">
+                  <table className="w-full table-fixed text-sm dark:text-[#fffaff]">
+                    <thead>
+                      <tr className="border-b dark:border-[#1c1921]">
+                        <th className="w-[65%] px-3 py-3 text-left font-medium">Name</th>
+                        <th className="w-[35%] px-3 py-3 text-left font-medium">Status</th>
+                      </tr>
+                    </thead>
+                  </table>
+                </div>
+                <div
+                  className="no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-none"
+                  style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
+                >
+                  <table className="w-full table-fixed text-sm dark:text-[#fffaff]">
+                    <tbody>
+                      {bibleStudentsLoading ? (
+                        <>
+                          {[1, 2, 3, 4, 5].map((i) => (
+                            <tr key={i} className="border-b dark:border-[#1c1921]">
+                              <td className="min-w-0 w-[65%] p-3">
+                                <div className="flex min-w-0 items-center gap-3">
+                                  <div className="h-7 w-7 animate-pulse rounded-full bg-muted/60 blur-[2px]" />
+                                  <div className="h-4 w-32 animate-pulse rounded bg-muted/60 blur-[2px]" />
+                                </div>
+                              </td>
+                              <td className="w-[35%] p-3">
+                                <div className="h-5 w-20 animate-pulse rounded bg-muted/60 blur-[2px]" />
+                              </td>
+                            </tr>
+                          ))}
+                        </>
+                      ) : (
+                        bibleStudents.map((householder) => {
+                          const initials = householder.name
+                            .split(" ")
+                            .filter(Boolean)
+                            .slice(0, 2)
+                            .map((part) => part[0]?.toUpperCase())
+                            .join("");
+
+                          return (
+                            <tr
+                              key={householder.id}
+                              className="cursor-pointer border-b hover:bg-muted/30 dark:border-[#1c1921] dark:hover:bg-[#2a2534]/85"
+                              onClick={() => openContactDetails(householder)}
+                            >
+                              <td className="min-w-0 w-[65%] p-3">
+                                <div className="flex min-w-0 items-center gap-3">
+                                  <Avatar className="h-7 w-7">
+                                    <AvatarFallback className="text-[10px] font-semibold">{initials || "BS"}</AvatarFallback>
+                                  </Avatar>
+                                  <span className="truncate">{householder.name}</span>
+                                </div>
+                              </td>
+                              <td className="w-[35%] p-3">
+                                {householder.status ? (
+                                  <Badge
+                                    variant="outline"
+                                    className={cn(
+                                      "h-5 px-2 py-0.5 text-xs leading-none",
+                                      getStatusTextColor(householder.status)
+                                    )}
+                                  >
+                                    {formatBibleStudentStatus(householder.status)}
+                                  </Badge>
+                                ) : null}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </DrawerWideRightContent>
+        </Drawer>
+      ) : (
+        <FormModal
+          open={contactsDrawerOpen}
+          onOpenChange={setContactsDrawerOpen}
+          title="Contacts"
+          className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
+          headerClassName="text-center"
+        >
+        <div className="flex h-[calc(70vh)] w-full flex-col overflow-hidden overscroll-none dark:text-[#fffaff]">
+          <div className="shrink-0 border-b bg-background dark:border-[#1c1921] dark:bg-[#181714]">
+            <table className="w-full table-fixed text-sm">
               <thead>
-                <tr className="border-b">
-                  <th className="text-left py-3 px-3 w-[65%]">Name</th>
-                  <th className="text-left py-3 px-3 w-[35%]">Status</th>
+                <tr className="border-b dark:border-[#1c1921]">
+                  <th className="w-[65%] px-3 py-3 text-left">Name</th>
+                  <th className="w-[35%] px-3 py-3 text-left">Status</th>
                 </tr>
               </thead>
             </table>
           </div>
 
-          {/* Scrollable Table Body */}
-          <div className="flex-1 overflow-y-auto no-scrollbar overscroll-none" style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}>
-            <table className="w-full text-sm table-fixed">
+          <div
+            className="no-scrollbar flex-1 overflow-y-auto overscroll-none"
+            style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
+          >
+            <table className="w-full table-fixed text-sm">
               <tbody>
                 {bibleStudentsLoading ? (
                   <>
                     {[1, 2, 3, 4, 5].map((i) => (
-                      <tr key={i} className="border-b">
-                        <td className="p-3 min-w-0 w-[65%]">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className="h-7 w-7 bg-muted/60 rounded-full blur-[2px] animate-pulse" />
-                            <div className="h-4 bg-muted/60 rounded w-32 blur-[2px] animate-pulse" />
+                      <tr key={i} className="border-b dark:border-[#1c1921]">
+                        <td className="min-w-0 w-[65%] p-3">
+                          <div className="flex min-w-0 items-center gap-3">
+                            <div className="h-7 w-7 animate-pulse rounded-full bg-muted/60 blur-[2px]" />
+                            <div className="h-4 w-32 animate-pulse rounded bg-muted/60 blur-[2px]" />
                           </div>
                         </td>
-                        <td className="p-3 w-[35%]">
-                          <div className="h-5 bg-muted/60 rounded w-20 blur-[2px] animate-pulse" />
+                        <td className="w-[35%] p-3">
+                          <div className="h-5 w-20 animate-pulse rounded bg-muted/60 blur-[2px]" />
                         </td>
                       </tr>
                     ))}
@@ -519,26 +813,23 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
                   return (
                     <tr
                       key={householder.id}
-                      className="border-b hover:bg-muted/30 cursor-pointer"
-                      onClick={() => {
-                        setContactsDrawerOpen(false);
-                        onContactClick?.(householder);
-                      }}
+                      className="cursor-pointer border-b hover:bg-muted/30 dark:border-[#1c1921] dark:hover:bg-[#2a2534]/85"
+                      onClick={() => openContactDetails(householder)}
                     >
-                      <td className="p-3 min-w-0 w-[65%]">
-                        <div className="flex items-center gap-3 min-w-0">
+                      <td className="min-w-0 w-[65%] p-3">
+                        <div className="flex min-w-0 items-center gap-3">
                           <Avatar className="h-7 w-7">
                             <AvatarFallback className="text-[10px] font-semibold">{initials || "BS"}</AvatarFallback>
                           </Avatar>
                           <span className="truncate">{householder.name}</span>
                         </div>
                       </td>
-                      <td className="p-3 w-[35%]">
+                      <td className="w-[35%] p-3">
                         {householder.status ? (
                           <Badge 
                             variant="outline" 
                             className={cn(
-                              "text-xs px-2 py-0.5 h-5 leading-none",
+                              "h-5 px-2 py-0.5 text-xs leading-none",
                               getStatusTextColor(householder.status)
                             )}
                           >
@@ -554,166 +845,61 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
           </div>
         </div>
       </FormModal>
+      )}
 
-      <FormModal
-        open={schedulesDrawerOpen}
-        onOpenChange={setSchedulesDrawerOpen}
-        title="Ministry Schedules"
-      >
-        <div className="space-y-4">
-          <div className="flex justify-center">
-            <div className="bg-background/95 backdrop-blur-sm border p-0.1 rounded-lg shadow-lg w-full max-w-screen-sm relative overflow-hidden">
-              <div className="w-full overflow-x-auto no-scrollbar">
-                <ToggleGroup
-                  type="single"
-                  value={activeDay ?? 'All'}
-                  onValueChange={(v) => {
-                    if (v) setActiveDay(v);
-                  }}
-                  className="w-max min-w-full h-full justify-center"
-                >
-                  <ToggleGroupItem
-                    value="All"
-                    className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm min-w-0 px-3 h-12 flex items-center justify-center transition-colors"
-                    title="All"
-                  >
-                    <span className="text-[11px] font-medium text-center truncate w-full">All</span>
-                  </ToggleGroupItem>
-                  {daysWithSchedules.map((dayNum) => (
-                    <ToggleGroupItem
-                      key={dayNum}
-                      value={String(dayNum)}
-                      className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm min-w-0 px-3 h-12 flex items-center justify-center transition-colors"
-                      title={dayNames[dayNum]}
-                    >
-                      <span className="text-[11px] font-medium text-center truncate w-full">{dayNames[dayNum]}</span>
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
-              </div>
-            </div>
-          </div>
-
-          <div className="w-full h-[calc(70vh)] overflow-hidden flex flex-col overscroll-none">
-            {/* Fixed Table Header */}
-            <div className="flex-shrink-0 border-b bg-background">
-              <table className="w-full text-sm table-fixed">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-3 w-[60%]">Title</th>
-                    <th className="text-center py-3 px-3 w-[40%]">Time</th>
-                  </tr>
-                </thead>
-              </table>
-            </div>
-
-            {/* Scrollable Table Body */}
-            <div
-              className="flex-1 overflow-y-auto no-scrollbar overscroll-none"
-              style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
-            >
-              <table className="w-full text-sm table-fixed">
-                <tbody>
-                  {filteredSchedules.length === 0 ? (
-                    <tr>
-                      <td colSpan={2} className="p-6 text-center text-sm text-muted-foreground">
-                        No schedules found
-                      </td>
-                    </tr>
-                  ) : (
-                    filteredSchedules.map((event) => (
-                      <tr 
-                        key={event.id} 
-                        className={`border-b hover:bg-muted/30 ${canEdit ? 'cursor-pointer' : ''}`}
-                        onClick={() => {
-                          if (canEdit && event.id) {
-                            setSelectedSchedule(event);
-                            setEditScheduleOpen(true);
-                          }
-                        }}
-                      >
-                        <td className="p-3 min-w-0 w-[60%]">
-                          <div className="flex flex-col gap-1 min-w-0">
-                            <span className="truncate font-medium">{event.title}</span>
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              {event.ministry_type && (
-                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 leading-none w-fit">
-                                  {formatMinistryType(event.ministry_type)}
-                                </Badge>
-                              )}
-                              {(activeDay === null || activeDay === 'All') && event.recurrence_pattern === 'weekly' && event.day_of_week != null && (
-                                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4 leading-none w-fit">
-                                  {dayNames[event.day_of_week]}
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                          {event.description && (
-                            <p className="text-xs text-muted-foreground mt-1 line-clamp-1 truncate">{event.description}</p>
-                          )}
-                        </td>
-                        <td className="p-3 w-[40%]">
-                          {event.is_all_day ? (
-                            <div className="text-center">
-                              <span className="text-xs text-muted-foreground">All day</span>
-                            </div>
-                          ) : event.start_time ? (
-                            <div className="flex flex-col items-center text-xs">
-                              <div>{formatTimeLabel(event.start_time)}</div>
-                              {event.end_time && (
-                                <>
-                                  <div className="text-muted-foreground">to</div>
-                                  <div>{formatTimeLabel(event.end_time)}</div>
-                                </>
-                              )}
-                            </div>
-                          ) : null}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </FormModal>
-
-      {canEdit && (
-        <FormModal
-          open={editScheduleOpen}
-          onOpenChange={setEditScheduleOpen}
-          title={selectedSchedule ? "Edit Event Schedule" : "New Event Schedule"}
+      {isMdUp ? (
+        <Drawer
+          open={schedulesDrawerOpen}
+          onOpenChange={setSchedulesDrawerOpen}
+          direction="right"
+          modal
+          nested
+          shouldScaleBackground={false}
         >
-          {selectedSchedule && congregationData.id && (
-            <EventScheduleForm
-              congregationId={congregationData.id}
-              initialData={selectedSchedule}
-              isEditing={true}
-              onSaved={async (savedEvent) => {
-                if (savedEvent) {
-                  setEditScheduleOpen(false);
-                  setSelectedSchedule(null);
-                  await loadEvents();
-                }
-              }}
-            />
-          )}
+          <DrawerWideRightContent className="flex flex-col overflow-hidden dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff] md:max-h-[100lvh]">
+            <DrawerHeader className="shrink-0 border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+              <DrawerTitle className="text-center text-lg font-bold">Ministry Schedules</DrawerTitle>
+              <DrawerDescription className="sr-only">
+                Filter and view ministry events by day of week.
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="flex min-h-0 flex-1 flex-col px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+28px)] pt-4">
+              {schedulesBody}
+            </div>
+          </DrawerWideRightContent>
+        </Drawer>
+      ) : (
+        <FormModal
+          open={schedulesDrawerOpen}
+          onOpenChange={setSchedulesDrawerOpen}
+          title="Ministry Schedules"
+          description="Filter and view ministry events by day of week."
+          className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
+          headerClassName="text-center"
+        >
+          {schedulesBody}
         </FormModal>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Ministry Assignments</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>No assignments available</p>
-            <p className="text-sm">Ministry assignments will appear here</p>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+      {canEdit && congregationData.id ? (
+        <EventScheduleFormSheet
+          open={editScheduleOpen && selectedSchedule != null}
+          onOpenChange={(open) => {
+            setEditScheduleOpen(open);
+            if (!open) setSelectedSchedule(null);
+          }}
+          congregationId={congregationData.id}
+          initialData={selectedSchedule}
+          onSaved={async (savedEvent) => {
+            if (savedEvent) {
+              setEditScheduleOpen(false);
+              setSelectedSchedule(null);
+              await loadEvents();
+            }
+          }}
+        />
+      ) : null}
+
+    </>
   );
 }

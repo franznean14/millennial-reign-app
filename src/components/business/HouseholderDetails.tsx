@@ -13,7 +13,7 @@ import { HouseholderForm } from "@/components/business/HouseholderForm";
 import { CallForm } from "@/components/business/CallForm";
 import { TodoForm } from "@/components/business/TodoForm";
 import { CallSection } from "@/components/business/CallSection";
-import { type HouseholderWithDetails, type VisitWithUser, type MyOpenCallTodoItem, upsertHouseholder } from "@/lib/db/business";
+import { type HouseholderWithDetails, type VisitWithUser, type MyOpenCallTodoItem, upsertHouseholder, type HouseholderStatus } from "@/lib/db/business";
 import { deleteHouseholder, archiveHouseholder } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { cn } from "@/lib/utils";
@@ -21,6 +21,7 @@ import { formatStatusText } from "@/lib/utils/formatters";
 import {
   Drawer,
   DrawerContent,
+  DrawerDescription,
   DrawerHeader,
   DrawerTitle,
   DrawerFooter,
@@ -777,35 +778,73 @@ export function HouseholderDetails({
               />
       </FormModal>
 
-      {onRequestSummaryEdit ? null : (
-      <FormModal
-        open={isEditing}
-        onOpenChange={setIsEditing}
-        title="Edit Householder"
-        description="Update householder details"
-        headerClassName="text-center"
-      >
+      {onRequestSummaryEdit ? null : useLeftDetailPanels ? (
+        <Drawer
+          open={isEditing}
+          onOpenChange={setIsEditing}
+          direction="left"
+          modal
+          nested
+          shouldScaleBackground={false}
+        >
+          <DrawerWideLeftContentTop stackAboveStackedRightSheet className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
+            <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center sm:text-center dark:border-[#1c1921] dark:bg-[#181714]">
+              <DrawerTitle className="text-center text-lg font-bold">Edit Householder</DrawerTitle>
+              <DrawerDescription className="sr-only">Update householder details</DrawerDescription>
+            </DrawerHeader>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 dark:bg-[#181714]">
               <HouseholderForm
                 establishments={establishments}
                 selectedEstablishmentId={householder.establishment_id ?? undefined}
                 isEditing
                 context={context}
                 publisherId={publisherId ?? householder.publisher_id ?? undefined}
-          initialData={{
-            id: householder.id,
-            establishment_id: householder.establishment_id || "",
-            name: householder.name,
-            status: householder.status as any,
-            note: householder.note || null,
-            lat: householder.lat ?? null,
-            lng: householder.lng ?? null,
-            publisher_id: householder.publisher_id ?? null
-          }}
+                initialData={{
+                  id: householder.id,
+                  establishment_id: householder.establishment_id || "",
+                  name: householder.name,
+                  status: householder.status as HouseholderStatus,
+                  note: householder.note || null,
+                  lat: householder.lat ?? null,
+                  lng: householder.lng ?? null,
+                  publisher_id: householder.publisher_id ?? null,
+                }}
                 onSaved={onEditSaved}
                 onDelete={handleDelete}
                 onArchive={handleArchive}
               />
-      </FormModal>
+            </div>
+          </DrawerWideLeftContentTop>
+        </Drawer>
+      ) : (
+        <FormModal
+          open={isEditing}
+          onOpenChange={setIsEditing}
+          title="Edit Householder"
+          description="Update householder details"
+          headerClassName="text-center"
+        >
+          <HouseholderForm
+            establishments={establishments}
+            selectedEstablishmentId={householder.establishment_id ?? undefined}
+            isEditing
+            context={context}
+            publisherId={publisherId ?? householder.publisher_id ?? undefined}
+            initialData={{
+              id: householder.id,
+              establishment_id: householder.establishment_id || "",
+              name: householder.name,
+              status: householder.status as HouseholderStatus,
+              note: householder.note || null,
+              lat: householder.lat ?? null,
+              lng: householder.lng ?? null,
+              publisher_id: householder.publisher_id ?? null,
+            }}
+            onSaved={onEditSaved}
+            onDelete={handleDelete}
+            onArchive={handleArchive}
+          />
+        </FormModal>
       )}
 
       {editTodo ? (

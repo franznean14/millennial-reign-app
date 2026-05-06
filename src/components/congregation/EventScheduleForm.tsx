@@ -34,6 +34,14 @@ import { Calendar, Clock, Crosshair } from "lucide-react";
 import { DateRangeSelectContent } from "@/components/ui/date-range-select-modal";
 import { TimeSelectModal } from "@/components/ui/time-select-modal";
 import { format } from "date-fns";
+import { cn } from "@/lib/utils";
+import { sidebarFormClasses } from "@/components/business/sidebar-form-styles";
+
+/** Copy / hints aligned with congregation purple-gray palette (same as sidebar forms). */
+const SCHEDULE_FORM_HINT = "text-sm text-muted-foreground dark:text-[#ded6e7]/85";
+const SCHEDULE_FIELD_PLACEHOLDER = "text-muted-foreground dark:text-[#ded6e7]/60";
+const SCHEDULE_CHECKBOX_CLASS =
+  "dark:border-[#5a5068] dark:data-[state=checked]:border-[#80778e] dark:data-[state=checked]:bg-[#80778e] dark:data-[state=checked]:text-white";
 
 const MEMORIAL_DEFAULT_TITLE = "Memorial of Jesus' Death";
 
@@ -415,8 +423,8 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
           : "Choose when recurrence ends";
 
     return (
-      <div className="space-y-4 pb-10">
-        <div className="text-sm text-muted-foreground">{panelDescription}</div>
+      <div className={cn("space-y-4 pb-10", sidebarFormClasses.form)}>
+        <div className={SCHEDULE_FORM_HINT}>{panelDescription}</div>
 
         {activePanel === "date" && (
           <>
@@ -491,12 +499,12 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
   }
 
   return (
-    <form className="grid gap-3 pb-10" onSubmit={handleSubmit}>
+    <form className={cn("grid gap-4 pb-10 md:gap-[1.125rem]", sidebarFormClasses.form)} onSubmit={handleSubmit}>
       <div className="grid gap-1">
-        <Label>Event Type</Label>
+        <Label className={sidebarFormClasses.label}>Event Type</Label>
         <Select value={eventType} onValueChange={(v) => setEventType(v as EventType)}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
+          <SelectTrigger className={cn("h-10", sidebarFormClasses.selectTrigger)}><SelectValue /></SelectTrigger>
+          <SelectContent className={sidebarFormClasses.selectContent}>
             {EVENT_TYPE_SELECT_OPTIONS.map(({ value, label }) => (
               <SelectItem key={value} value={value}>
                 {label}
@@ -508,10 +516,10 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
 
       {eventType === 'ministry' && (
         <div className="grid gap-1">
-          <Label>Ministry Type</Label>
+          <Label className={sidebarFormClasses.label}>Ministry Type</Label>
           <Select value={ministryType} onValueChange={(v) => setMinistryType(v as MinistryType)}>
-            <SelectTrigger><SelectValue placeholder="Select ministry type" /></SelectTrigger>
-            <SelectContent>
+            <SelectTrigger className={cn("h-10", sidebarFormClasses.selectTrigger)}><SelectValue placeholder="Select ministry type" /></SelectTrigger>
+            <SelectContent className={sidebarFormClasses.selectContent}>
               <SelectItem value="house_to_house">House-to-House</SelectItem>
               <SelectItem value="business_witnessing">Business Witnessing</SelectItem>
               <SelectItem value="memorial_campaign">Memorial Campaign</SelectItem>
@@ -525,8 +533,9 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
       )}
 
       <div className="grid gap-1">
-        <Label>Title{eventType === "annual_pioneers_meeting" ? " (optional)" : ""}</Label>
+        <Label className={sidebarFormClasses.label}>Title{eventType === "annual_pioneers_meeting" ? " (optional)" : ""}</Label>
         <Input
+          className={sidebarFormClasses.input}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           required={eventType !== "annual_pioneers_meeting"}
@@ -535,16 +544,21 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
       </div>
 
       <div className="grid gap-1">
-        <Label>Description</Label>
-        <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
+        <Label className={sidebarFormClasses.label}>Description</Label>
+        <Textarea
+          className={cn(sidebarFormClasses.textarea, "min-h-[80px]")}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          rows={3}
+        />
       </div>
 
       <div className="grid gap-1">
-        <Label>Date</Label>
+        <Label className={sidebarFormClasses.label}>Date</Label>
         <Button
           type="button"
           variant="outline"
-          className="w-full justify-start text-left font-normal"
+          className={cn("w-full justify-start text-left font-normal", sidebarFormClasses.button)}
           onClick={() => setActivePanel("date")}
         >
           <Calendar className="mr-2 h-4 w-4" />
@@ -553,27 +567,28 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
           ) : startDate ? (
             <span>{format(startDate, "PPP")}</span>
           ) : (
-            <span className="text-muted-foreground">Select date or range</span>
+            <span className={SCHEDULE_FIELD_PLACEHOLDER}>Select date or range</span>
           )}
         </Button>
       </div>
 
-      <div className="flex items-center space-x-2">
-        <Checkbox 
-          id="all-day" 
-          checked={isAllDay} 
+      <div className="flex items-center space-x-2 rounded-lg border border-muted/40 bg-muted/30 px-3 py-2 dark:border-[#5a5068]/50 dark:bg-[#2a2534]/70">
+        <Checkbox
+          id="all-day"
+          className={SCHEDULE_CHECKBOX_CLASS}
+          checked={isAllDay}
           onCheckedChange={(checked) => setIsAllDay(checked === true)}
         />
-        <Label htmlFor="all-day" className="cursor-pointer">All Day Event</Label>
+        <Label htmlFor="all-day" className={cn("cursor-pointer", sidebarFormClasses.label)}>All Day Event</Label>
       </div>
 
       {!isAllDay && (
         <div className="grid gap-1">
-          <Label>Time</Label>
+          <Label className={sidebarFormClasses.label}>Time</Label>
           <Button
             type="button"
             variant="outline"
-            className="w-full justify-start text-left font-normal"
+            className={cn("w-full justify-start text-left font-normal", sidebarFormClasses.button)}
             onClick={() => setActivePanel("time")}
           >
             <Clock className="mr-2 h-4 w-4" />
@@ -582,17 +597,17 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
             ) : startTime ? (
               <span>{formatTimeLabel(startTime)} → Select end time</span>
             ) : (
-              <span className="text-muted-foreground">09:00AM → 05:00PM</span>
+              <span className={SCHEDULE_FIELD_PLACEHOLDER}>09:00AM → 05:00PM</span>
             )}
           </Button>
         </div>
       )}
 
       <div className="grid gap-1">
-        <Label>Recurrence</Label>
+        <Label className={sidebarFormClasses.label}>Recurrence</Label>
         <Select value={recurrencePattern} onValueChange={(v) => setRecurrencePattern(v as RecurrencePattern)}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>
+          <SelectTrigger className={cn("h-10", sidebarFormClasses.selectTrigger)}><SelectValue /></SelectTrigger>
+          <SelectContent className={sidebarFormClasses.selectContent}>
             <SelectItem value="none">No Recurrence</SelectItem>
             <SelectItem value="weekly">Weekly</SelectItem>
             <SelectItem value="monthly">Monthly</SelectItem>
@@ -604,10 +619,10 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
 
       {recurrencePattern === 'weekly' && (
         <div className="grid gap-1">
-          <Label>Day of Week</Label>
+          <Label className={sidebarFormClasses.label}>Day of Week</Label>
           <Select value={dayOfWeek} onValueChange={setDayOfWeek}>
-            <SelectTrigger><SelectValue placeholder="Select day" /></SelectTrigger>
-            <SelectContent>
+            <SelectTrigger className={cn("h-10", sidebarFormClasses.selectTrigger)}><SelectValue placeholder="Select day" /></SelectTrigger>
+            <SelectContent className={sidebarFormClasses.selectContent}>
               {weekDays.map(day => (
                 <SelectItem key={day.value} value={day.value}>{day.label}</SelectItem>
               ))}
@@ -618,9 +633,10 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
 
       {recurrencePattern === 'monthly' && (
         <div className="grid gap-1">
-          <Label>Day of Month (1-31)</Label>
+          <Label className={sidebarFormClasses.label}>Day of Month (1-31)</Label>
           <Input 
             type="number" 
+            className={sidebarFormClasses.input}
             min="1" 
             max="31" 
             value={dayOfMonth} 
@@ -633,10 +649,10 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
       {recurrencePattern === 'yearly' && (
         <>
           <div className="grid gap-1">
-            <Label>Month</Label>
+            <Label className={sidebarFormClasses.label}>Month</Label>
             <Select value={monthOfYear} onValueChange={setMonthOfYear}>
-              <SelectTrigger><SelectValue placeholder="Select month" /></SelectTrigger>
-              <SelectContent>
+              <SelectTrigger className={cn("h-10", sidebarFormClasses.selectTrigger)}><SelectValue placeholder="Select month" /></SelectTrigger>
+              <SelectContent className={sidebarFormClasses.selectContent}>
                 {months.map(month => (
                   <SelectItem key={month.value} value={month.value}>{month.label}</SelectItem>
                 ))}
@@ -644,9 +660,10 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
             </Select>
           </div>
           <div className="grid gap-1">
-            <Label>Day of Month (1-31)</Label>
+            <Label className={sidebarFormClasses.label}>Day of Month (1-31)</Label>
             <Input 
               type="number" 
+              className={sidebarFormClasses.input}
               min="1" 
               max="31" 
               value={dayOfMonth} 
@@ -660,9 +677,10 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
       {recurrencePattern !== 'none' && (
         <>
           <div className="grid gap-1">
-            <Label>Repeat Every (interval)</Label>
+            <Label className={sidebarFormClasses.label}>Repeat Every (interval)</Label>
             <Input 
               type="number" 
+              className={sidebarFormClasses.input}
               min="1" 
               value={recurrenceInterval} 
               onChange={(e) => setRecurrenceInterval(parseInt(e.target.value) || 1)}
@@ -670,18 +688,18 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
             />
           </div>
           <div className="grid gap-1">
-            <Label>Recurrence End Date (optional, leave empty for indefinite)</Label>
+            <Label className={sidebarFormClasses.label}>Recurrence End Date (optional, leave empty for indefinite)</Label>
             <Button
               type="button"
               variant="outline"
-              className="w-full justify-start text-left font-normal"
+              className={cn("w-full justify-start text-left font-normal", sidebarFormClasses.button)}
               onClick={() => setActivePanel("recurrence")}
             >
               <Calendar className="mr-2 h-4 w-4" />
               {recurrenceEndDate ? (
                 <span>{format(recurrenceEndDate, "PPP")}</span>
               ) : (
-                <span className="text-muted-foreground">Select recurrence end date</span>
+                <span className={SCHEDULE_FIELD_PLACEHOLDER}>Select recurrence end date</span>
               )}
             </Button>
           </div>
@@ -691,25 +709,26 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
       {eventTypeUsesVenueDetails(eventType) ? (
         <div className="grid gap-3">
           <div className="grid gap-1">
-            <Label>Venue name</Label>
+            <Label className={sidebarFormClasses.label}>Venue name</Label>
             <Input
+              className={sidebarFormClasses.input}
               value={venueName}
               onChange={(e) => setVenueName(e.target.value)}
               placeholder="e.g., Iloilo Convention Center"
             />
           </div>
           <div className="grid gap-1">
-            <Label>Address</Label>
+            <Label className={sidebarFormClasses.label}>Address</Label>
             <Textarea
               value={venueAddress}
               onChange={(e) => setVenueAddress(e.target.value)}
               placeholder="Street, barangay, city, postal code"
               rows={4}
-              className="min-h-[88px] resize-y"
+              className={cn(sidebarFormClasses.textarea, "min-h-[88px] resize-y")}
             />
           </div>
           <div className="grid gap-1">
-            <Label>Latitude & longitude</Label>
+            <Label className={sidebarFormClasses.label}>Latitude & longitude</Label>
             <div className="flex items-center gap-2">
               <Input
                 value={latLngInput}
@@ -729,14 +748,14 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
                   }
                 }}
                 placeholder="e.g. 10.714535, 122.545075"
-                className="min-w-0 flex-1"
+                className={cn(sidebarFormClasses.input, "min-w-0 flex-1")}
                 autoComplete="off"
               />
               <Button
                 type="button"
                 variant="outline"
                 size="icon"
-                className="shrink-0"
+                className={cn("shrink-0", sidebarFormClasses.button)}
                 aria-label="Use current location for coordinates"
                 onClick={() => {
                   if (!navigator.geolocation) {
@@ -765,9 +784,10 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
         </div>
       ) : !eventTypeImpliesKingdomHall(eventType) ? (
         <div className="grid gap-1">
-          <Label>Location</Label>
+          <Label className={sidebarFormClasses.label}>Location</Label>
           <div className="flex items-center gap-2">
             <Input
+              className={sidebarFormClasses.input}
               value={location}
               onChange={(e) => setLocation(e.target.value)}
               placeholder="e.g., Kingdom Hall"
@@ -776,6 +796,7 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
               type="button"
               variant="outline"
               size="icon"
+              className={sidebarFormClasses.button}
               aria-label="Use current location"
               onClick={() => {
                 if (!navigator.geolocation) {
@@ -802,9 +823,10 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
           </div>
           {showLocationCoords && (
             <div className="grid gap-1">
-              <Label className="text-xs text-muted-foreground">Lat / Long</Label>
+              <Label className={cn("text-xs text-muted-foreground", sidebarFormClasses.label)}>Lat / Long</Label>
               <Input
                 readOnly
+                className={cn(sidebarFormClasses.input, sidebarFormClasses.staticField)}
                 value={
                   locationLat !== null && locationLng !== null
                     ? `${locationLat.toFixed(6)}, ${locationLng.toFixed(6)}`
@@ -816,8 +838,8 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
         </div>
       ) : null}
 
-      <div className="flex justify-end py-4">
-        <Button type="submit" disabled={saving}>
+      <div className="mt-1 flex justify-end border-t border-border pt-5 dark:border-[#1c1921]">
+        <Button type="submit" size="lg" disabled={saving} className={sidebarFormClasses.primaryButton}>
           {saving ? (isEditing ? "Updating..." : "Creating...") : (isEditing ? "Update" : "Create")}
         </Button>
       </div>

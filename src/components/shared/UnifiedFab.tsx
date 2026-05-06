@@ -9,7 +9,7 @@ import { CallForm } from "@/components/business/CallForm";
 import { TodoForm } from "@/components/business/TodoForm";
 import { BulkTodoForm } from "@/components/business/BulkTodoForm";
 import FieldServiceForm from "@/components/fieldservice/FieldServiceForm";
-import { EventScheduleForm } from "@/components/congregation/EventScheduleForm";
+import { EventScheduleFormSheet } from "@/components/congregation/EventScheduleFormSheet";
 import { AddUserToCongregationForm } from "@/components/congregation/AddUserToCongregationForm";
 import { Plus, X, UserPlus, FilePlus2, Building2, Calendar, ListTodo } from "lucide-react";
 import type { EstablishmentWithDetails, HouseholderWithDetails } from "@/lib/db/business";
@@ -336,7 +336,11 @@ export function UnifiedFab({
         onOpenChange={(open) => setOpenKey(open ? "congregation-householder" : null)}
         title="New Householder"
         description="Add a personal householder with location"
+        desktopPresentation="left-sheet"
+        className="dark:border-[#1c1921] dark:bg-[#181714] md:max-h-[100lvh]"
         headerClassName="text-center"
+        drawerContentClassName="!mt-10 min-h-[72dvh] max-h-[calc(100dvh-4px)]"
+        bodyClassName="max-md:pb-[calc(max(env(safe-area-inset-bottom),0px)+112px)]"
       >
         <HouseholderForm
           establishments={[]}
@@ -351,7 +355,11 @@ export function UnifiedFab({
         onOpenChange={(open) => setOpenKey(open ? "congregation-user" : null)}
         title="Add Publisher"
         description="Add a user to this congregation."
+        desktopPresentation="left-sheet"
+        className="dark:border-[#1c1921] dark:bg-[#181714] md:max-h-[100lvh]"
         headerClassName="text-center"
+        drawerContentClassName="!mt-10 min-h-[72dvh] max-h-[calc(100dvh-4px)]"
+        bodyClassName="max-md:pb-[calc(max(env(safe-area-inset-bottom),0px)+112px)]"
       >
         {congregationId ? (
           <AddUserToCongregationForm
@@ -384,25 +392,20 @@ export function UnifiedFab({
         />
       </FormModal>
 
-      <FormModal
-        open={openKey === "congregation-schedule"}
-        onOpenChange={(open) => setOpenKey(open ? "congregation-schedule" : null)}
-        title="New Event Schedule"
-        description="Create a new event schedule"
-        headerClassName="text-center"
-      >
-        {congregationId ? (
-          <EventScheduleForm
-            congregationId={congregationId}
-            onSaved={() => {
-              try {
-                window.dispatchEvent(new CustomEvent("event-schedule-refresh"));
-              } catch {}
-              setOpenKey(null);
-            }}
-          />
-        ) : null}
-      </FormModal>
+      {congregationId ? (
+        <EventScheduleFormSheet
+          open={openKey === "congregation-schedule"}
+          onOpenChange={(open) => setOpenKey(open ? "congregation-schedule" : null)}
+          congregationId={congregationId}
+          initialData={null}
+          onSaved={() => {
+            try {
+              window.dispatchEvent(new CustomEvent("event-schedule-refresh"));
+            } catch {}
+            setOpenKey(null);
+          }}
+        />
+      ) : null}
 
       <FormModal
         open={openKey === "field-service"}

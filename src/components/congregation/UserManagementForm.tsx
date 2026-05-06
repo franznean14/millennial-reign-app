@@ -21,6 +21,8 @@ import {
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cacheSet } from "@/lib/offline/store";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { cn } from "@/lib/utils";
+import { sidebarFormClasses } from "@/components/business/sidebar-form-styles";
 
 interface UserManagementFormProps {
   user: Profile;
@@ -377,28 +379,36 @@ export function UserManagementForm({
 
   return (
     <>
-    <div className="space-y-6">
+    <div className={cn("space-y-6", sidebarFormClasses.form)}>
       {/* User Header */}
-      <div className="flex items-center gap-4 p-4 border rounded-lg">
-        <Avatar className="h-16 w-16">
+      <div
+        className={cn(
+          "flex items-center gap-4 rounded-xl border p-4",
+          sidebarFormClasses.panel,
+          "border-border dark:border-[#1c1921]"
+        )}
+      >
+        <Avatar className="h-16 w-16 border border-border dark:border-[#5a5068]/50">
           <AvatarImage src={user.avatar_url || undefined} />
-          <AvatarFallback className="text-lg">
+          <AvatarFallback className="bg-muted text-lg dark:bg-[#30283c] dark:text-[#fffaff]">
             {`${user.first_name?.[0] || ""}${user.last_name?.[0] || ""}`.toUpperCase()}
           </AvatarFallback>
         </Avatar>
-        <div>
-          <h2 className="text-xl font-semibold">{user.first_name} {user.last_name}</h2>
-          <p className="text-sm text-muted-foreground">
+        <div className="min-w-0">
+          <h2 className="text-xl font-semibold dark:text-[#fffaff]">
+            {user.first_name} {user.last_name}
+          </h2>
+          <p className="text-sm text-muted-foreground dark:text-[#ded6e7]/75">
             {user.username ? `@${user.username}` : "No username set"}
           </p>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6 pb-10">
+      <form onSubmit={handleSubmit} className="space-y-6 pb-8">
 
         {/* Congregation Assignment */}
         <div className="space-y-2">
-          <Label>Congregation Assignment</Label>
+          <Label className={sidebarFormClasses.label}>Congregation Assignment</Label>
           <Select
             disabled={!allowManage}
             value={formData.congregation_id || "none"}
@@ -407,10 +417,10 @@ export function UserManagementForm({
               congregation_id: value === "none" ? null : value 
             }))}
           >
-            <SelectTrigger>
+            <SelectTrigger className={cn("h-10", sidebarFormClasses.selectTrigger)}>
               <SelectValue placeholder="Select congregation" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className={sidebarFormClasses.selectContent}>
               <SelectItem value="none">No congregation</SelectItem>
               {congregationOptions.map((cong) => (
                 <SelectItem key={cong.id} value={cong.id}>
@@ -423,10 +433,16 @@ export function UserManagementForm({
 
         {showGuestPublisher && (
           <div className="space-y-2">
-            <Label>Guest publisher</Label>
-            <div className="flex items-center justify-between p-3 border rounded-md">
+            <Label className={sidebarFormClasses.label}>Guest publisher</Label>
+            <div
+              className={cn(
+                "flex items-center justify-between rounded-lg border p-3",
+                sidebarFormClasses.panel,
+                "dark:border-[#1c1921]"
+              )}
+            >
               <div className="min-w-0 flex-1 pr-2">
-                <div className="text-sm font-medium">Guest publisher</div>
+                <div className="text-sm font-medium dark:text-[#fffaff]">Guest publisher</div>
               </div>
               <Switch
                 id="cong-guest-switch"
@@ -448,11 +464,11 @@ export function UserManagementForm({
 
         {showGroupAssignment && (
           <div className="space-y-2">
-            <Label>Group Assignment</Label>
+            <Label className={sidebarFormClasses.label}>Group Assignment</Label>
             {showGroupInput ? (
               <div className="flex gap-2">
                 <Input
-                  className="flex-1"
+                  className={cn("flex-1", sidebarFormClasses.input)}
                   placeholder="Enter new group name"
                   value={formData.group_name}
                   disabled={!allowManage}
@@ -464,6 +480,7 @@ export function UserManagementForm({
                   variant="outline"
                   disabled={!allowManage}
                   onClick={() => setShowGroupInput(false)}
+                  className={sidebarFormClasses.button}
                 >
                   Cancel
                 </Button>
@@ -483,10 +500,10 @@ export function UserManagementForm({
                   }
                 }}
               >
-                <SelectTrigger>
+                <SelectTrigger className={cn("h-10", sidebarFormClasses.selectTrigger)}>
                   <SelectValue placeholder="Select group or add new" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className={sidebarFormClasses.selectContent}>
                   <SelectItem value="none">No group</SelectItem>
                   {groupOptions.map((group) => (
                     <SelectItem key={group} value={group}>
@@ -502,9 +519,14 @@ export function UserManagementForm({
 
         {/* Privileges */}
         <div className="space-y-2">
-          <Label>Privileges</Label>
+          <Label className={sidebarFormClasses.label}>Privileges</Label>
           {displayedPrivileges.length === 0 ? (
-            <div className="text-sm text-muted-foreground rounded-md border border-border px-3 py-2">
+            <div
+              className={cn(
+                "rounded-lg border px-3 py-2 text-sm text-muted-foreground",
+                sidebarFormClasses.staticField
+              )}
+            >
               No active privileges.
             </div>
           ) : (
@@ -524,7 +546,12 @@ export function UserManagementForm({
                       variant={formData.privileges.includes(privilege) ? "default" : "outline"}
                       disabled={!allowManage}
                       onClick={() => togglePrivilege(privilege)}
-                      className="justify-start w-full"
+                      className={cn(
+                        "w-full justify-start",
+                        formData.privileges.includes(privilege)
+                          ? sidebarFormClasses.primaryButton
+                          : sidebarFormClasses.button
+                      )}
                     >
                       {formData.privileges.includes(privilege) ? "✓ " : ""}
                       {privilege}
@@ -539,10 +566,16 @@ export function UserManagementForm({
         {/* BWI Participation */}
         {bwiEnabled && (
           <div className="space-y-2">
-            <Label>Business Witnessing Initiative (BWI)</Label>
-            <div className="flex items-center justify-between p-3 border rounded-md">
+            <Label className={sidebarFormClasses.label}>Business Witnessing Initiative (BWI)</Label>
+            <div
+              className={cn(
+                "flex items-center justify-between rounded-lg border p-3",
+                sidebarFormClasses.panel,
+                "dark:border-[#1c1921]"
+              )}
+            >
               <div>
-                <div className="text-sm font-medium">BWI Participant</div>
+                <div className="text-sm font-medium dark:text-[#fffaff]">BWI Participant</div>
               </div>
               <Switch
                 disabled={!allowManage}
@@ -554,9 +587,10 @@ export function UserManagementForm({
         )}
 
         <div
-          className={`flex flex-wrap items-center gap-2 border-t border-border pt-4 ${
+          className={cn(
+            "flex flex-wrap items-center gap-2 border-t border-border pt-4 dark:border-[#1c1921]",
             allowManage && user.congregation_id ? "justify-between" : "justify-start"
-          }`}
+          )}
         >
           {allowManage && user.congregation_id ? (
             <Button
@@ -570,11 +604,11 @@ export function UserManagementForm({
           ) : null}
           <div className="flex flex-wrap gap-2">
             {allowManage && hasFormChanges ? (
-              <Button type="submit" disabled={saving}>
+              <Button type="submit" disabled={saving} className={sidebarFormClasses.primaryButton}>
                 {saving ? "Saving..." : "Save Changes"}
               </Button>
             ) : (
-              <Button type="button" variant="outline" onClick={onClose}>
+              <Button type="button" variant="outline" className={sidebarFormClasses.button} onClick={onClose}>
                 {allowManage ? "Cancel" : "Close"}
               </Button>
             )}
@@ -583,27 +617,33 @@ export function UserManagementForm({
       </form>
     </div>
 
-    <Drawer open={removeConfirmOpen} onOpenChange={setRemoveConfirmOpen}>
+    <Drawer open={removeConfirmOpen} onOpenChange={setRemoveConfirmOpen} nested shouldScaleBackground={false}>
       <DrawerContent
-        className="flex flex-col !z-[100]"
-        overlayClassName="!z-[100]"
+        className={cn(
+          // Above DrawerWideLeftContentTop (130) and its stacked nested-right variant (160)
+          "flex flex-col !z-[171] dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]",
+          "nested-drawer"
+        )}
+        overlayClassName="!z-[170]"
         style={{ maxHeight: "50vh", height: "50vh" }}
       >
-        <div className="flex flex-1 flex-col justify-center px-4 min-h-0">
-          <DrawerHeader className="pt-6 px-4 pb-2 text-center sm:text-center">
-            <DrawerTitle className="text-center">Remove from congregation?</DrawerTitle>
+        <div className="flex min-h-0 flex-1 flex-col justify-center px-4">
+          <DrawerHeader className="px-4 pb-2 pt-6 text-center sm:text-center">
+            <DrawerTitle className="text-center text-lg font-semibold dark:text-[#fffaff]">
+              Remove from congregation?
+            </DrawerTitle>
           </DrawerHeader>
-          <DrawerDescription className="text-center px-2 pb-2">
+          <DrawerDescription className="px-2 pb-2 text-center dark:text-[#ded6e7]/85">
             {user.first_name} {user.last_name} will no longer be assigned to this congregation. Their account
             stays active; they can be added again later. Business witnessing (BWI) participation and guest-name
             links for this congregation are cleared.
           </DrawerDescription>
-          <DrawerFooter className="flex flex-col gap-3 p-0 pt-4 pb-2">
+          <DrawerFooter className="flex flex-col gap-3 p-0 pb-2 pt-4">
             <Button
               type="button"
               variant="outline"
               size="lg"
-              className="w-full h-12"
+              className={cn("h-12 w-full", sidebarFormClasses.button)}
               onClick={() => setRemoveConfirmOpen(false)}
               disabled={removing}
             >
@@ -613,7 +653,7 @@ export function UserManagementForm({
               type="button"
               size="lg"
               variant="destructive"
-              className="w-full h-12"
+              className="h-12 w-full"
               onClick={handleConfirmCongregationRemove}
               disabled={removing}
             >

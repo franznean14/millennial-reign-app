@@ -2,18 +2,18 @@
 
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { SectionShell } from "@/components/shared/SectionShell";
+import { cn } from "@/lib/utils";
+import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 import dynamic from "next/dynamic";
 import { toast } from "@/components/ui/sonner";
 import type { Congregation } from "@/lib/db/congregations";
 import type { HouseholderWithDetails, VisitWithUser } from "@/lib/db/business";
+import { CongregationView } from "@/components/views/CongregationView";
 
 const CongregationForm = dynamic(() => import("@/components/congregation/CongregationForm").then((m) => m.CongregationForm), {
   ssr: false
 });
 const FormModal = dynamic(() => import("@/components/shared/FormModal").then((m) => m.FormModal), {
-  ssr: false
-});
-const CongregationView = dynamic(() => import("@/components/views/CongregationView").then((m) => m.CongregationView), {
   ssr: false
 });
 // FAB handled by UnifiedFab
@@ -95,7 +95,10 @@ export function CongregationSection({
       {portaledControls}
       <SectionShell
         motionKey="congregation"
-        className="space-y-6 pb-20 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+80px)] md:pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+80px)]"
+        className={cn(
+          "space-y-6 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+80px)] md:pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+80px)]",
+          studyBibleDarkClasses.page
+        )}
       >
         {cong?.id ? (
           <CongregationView

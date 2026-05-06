@@ -5,9 +5,18 @@ import dynamic from "next/dynamic";
 import type { Congregation } from "@/lib/db/congregations";
 import type { HouseholderWithDetails, VisitWithUser } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
+import { useMediaQuery } from "@/hooks/use-media-query";
+import { HomeMobileDetailsDrawer } from "@/components/home/HomeMobileDetailsDrawer";
 import { MeetingsSection } from "../congregation/MeetingsSection";
 import { MinistrySection } from "../congregation/MinistrySection";
 import { CongregationAdminEventsCard } from "../congregation/CongregationAdminEventsCard";
+import {
+  Drawer,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerWideRightContent,
+} from "@/components/ui/drawer";
 
 // Dynamic import to avoid circular dependencies
 type CongregationMembersCardProps = {
@@ -56,6 +65,7 @@ interface CongregationViewProps {
 }
 
 export function CongregationView({ data, onEdit, canEdit, canManageCongregationUsers = false, initialTab = 'meetings', congregationTab: externalCongregationTab, onCongregationTabChange: externalOnCongregationTabChange, userId, isElder = false, selectedHouseholder, selectedHouseholderDetails, onSelectHouseholder, onSelectHouseholderDetails, onClearSelectedHouseholder, loadHouseholderDetails }: CongregationViewProps) {
+  const isMdUp = useMediaQuery("(min-width: 768px)");
   const [internalCongregationTab, setInternalCongregationTab] = useState<'meetings' | 'ministry' | 'admin'>(initialTab);
   
   // Use external state if provided, otherwise use internal state
@@ -159,13 +169,39 @@ export function CongregationView({ data, onEdit, canEdit, canManageCongregationU
       console.error("Failed to load householder details:", error);
     }
   }, [loadHouseholderDetails, onSelectHouseholder]);
+
+  const ministryContactDetailsTitle =
+    selectedHouseholderDetails?.householder?.name ?? selectedHouseholder?.name ?? "Contact Details";
+
+  const ministryContactDetailsBody =
+    selectedHouseholder ? (
+      <HouseholderDetails
+        householder={selectedHouseholderDetails?.householder || selectedHouseholder}
+        visits={selectedHouseholderDetails?.visits || []}
+        establishment={selectedHouseholderDetails?.establishment || null}
+        establishments={
+          selectedHouseholderDetails?.establishment ? [selectedHouseholderDetails.establishment] : []
+        }
+        context="congregation"
+        showEstablishment={false}
+        publisherId={(selectedHouseholderDetails?.householder || selectedHouseholder).publisher_id ?? null}
+        isLoading={!selectedHouseholderDetails}
+        preferLeftDetailPanel
+        onBackClick={() => onClearSelectedHouseholder()}
+      />
+    ) : null;
+
   return (
     <>
       <div className="space-y-6">
       
       {/* Meetings tab: keep mounted but hidden so member list state + cache path feel instant when switching tabs */}
       <div
-        className={congregationTab === "meetings" ? "space-y-6" : "hidden"}
+        className={
+          congregationTab === "meetings"
+            ? "grid grid-cols-1 gap-6 md:grid-cols-2 md:items-start md:gap-6"
+            : "hidden"
+        }
         aria-hidden={congregationTab !== "meetings"}
       >
         <MeetingsSection congregationData={data} />
@@ -176,24 +212,56 @@ export function CongregationView({ data, onEdit, canEdit, canManageCongregationU
         />
       </div>
 
-      {congregationTab === 'ministry' && (
-        selectedHouseholder ? (
-          <HouseholderDetails
-            householder={selectedHouseholderDetails?.householder || selectedHouseholder}
-            visits={selectedHouseholderDetails?.visits || []}
-            establishment={selectedHouseholderDetails?.establishment || null}
-            establishments={selectedHouseholderDetails?.establishment ? [selectedHouseholderDetails.establishment] : []}
-            context="congregation"
-            showEstablishment={false}
-            publisherId={(selectedHouseholderDetails?.householder || selectedHouseholder).publisher_id ?? null}
-            isLoading={!selectedHouseholderDetails}
-            onBackClick={() => {
-              onClearSelectedHouseholder();
-            }}
+      {congregationTab === "ministry" && (
+        <>
+          <MinistrySection
+            congregationData={data}
+            userId={userId}
+            onContactClick={handleContactOpen}
+            canEdit={canEdit}
           />
-        ) : (
-          <MinistrySection congregationData={data} userId={userId} onContactClick={handleContactOpen} canEdit={canEdit} />
-        )
+          {/* Mobile: same bottom details sheet as Home (calls / to-dos). Tablet+: right edge drawer. */}
+          {isMdUp ? (
+            <Drawer
+              open={Boolean(selectedHouseholder)}
+              onOpenChange={(open) => {
+                if (!open) onClearSelectedHouseholder();
+              }}
+              direction="right"
+              modal
+              nested
+              shouldScaleBackground={false}
+            >
+              <DrawerWideRightContent
+                stackAboveDetailsSheet
+                className="flex flex-col overflow-hidden dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff] md:max-h-[100lvh]"
+              >
+                <DrawerHeader className="shrink-0 border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+                  <DrawerTitle className="text-center text-xl font-extrabold tracking-tight">
+                    {ministryContactDetailsTitle}
+                  </DrawerTitle>
+                  <DrawerDescription className="sr-only">
+                    Return visits, notes, and congregation contact actions.
+                  </DrawerDescription>
+                </DrawerHeader>
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3 dark:bg-[#181714]">
+                  {ministryContactDetailsBody}
+                </div>
+              </DrawerWideRightContent>
+            </Drawer>
+          ) : (
+            <HomeMobileDetailsDrawer
+              open={Boolean(selectedHouseholder)}
+              onOpenChange={(open) => {
+                if (!open) onClearSelectedHouseholder();
+              }}
+              title={ministryContactDetailsTitle}
+              bodyClassName="space-y-3"
+            >
+              {ministryContactDetailsBody}
+            </HomeMobileDetailsDrawer>
+          )}
+        </>
       )}
       
       {congregationTab === 'admin' && isElder && data.id && (

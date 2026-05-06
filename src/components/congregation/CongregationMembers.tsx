@@ -12,11 +12,20 @@ import { UserManagementForm } from "./UserManagementForm";
 import { FormModal } from "@/components/shared/FormModal";
 import type { Profile } from "@/lib/db/types";
 import { cn } from "@/lib/utils";
+import { useMediaQuery } from "@/hooks/use-media-query";
+import {
+  Drawer,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerWideRightContent,
+} from "@/components/ui/drawer";
 import {
   CONG_BWI_BADGE_CLASS,
   CONG_ROLE_BADGE_CLASSES,
   getPrimaryRoleDisplay,
 } from "@/lib/utils/congregation-member-roles";
+import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 
 const GUEST_MEMBERS_TAB = "__cong_guest_members__";
 
@@ -56,6 +65,7 @@ export function CongregationMembers({
   /** Active BWI participants in this congregation (for list badges). */
   const [bwiParticipantIds, setBwiParticipantIds] = useState<Set<string>>(() => new Set());
   const previousCongregationIdRef = useRef<string | null>(null);
+  const isMdUp = useMediaQuery("(min-width: 768px)");
 
   /**
    * Cache-first: show IndexedDB immediately, refresh in background without a loading flash.
@@ -246,7 +256,7 @@ export function CongregationMembers({
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 flex items-center gap-2 flex-wrap">
-                <p className={compact ? "text-sm font-medium truncate" : "text-sm font-medium truncate"}>
+                <p className="truncate text-sm font-medium dark:text-[#fffaff]">
                   {member.first_name} {member.last_name}
                 </p>
                 {member.is_congregation_guest ? (
@@ -292,33 +302,175 @@ export function CongregationMembers({
     );
   };
 
+  const membersDirectoryBody = (
+    <>
+      <div className="flex justify-center">
+        <div
+          className={cn(
+            "relative w-full max-w-screen-sm overflow-hidden rounded-lg border p-0.5 shadow-lg backdrop-blur-sm",
+            studyBibleDarkClasses.card
+          )}
+        >
+          <div className="no-scrollbar w-full overflow-x-auto">
+            <ToggleGroup
+              type="single"
+              value={activeGroup}
+              onValueChange={(v) => {
+                if (v) setActiveGroup(v);
+              }}
+              className="h-full min-w-full w-max justify-center"
+            >
+              {groupTabValues.map((g) => (
+                <ToggleGroupItem
+                  key={g}
+                  value={g}
+                  className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex min-h-12 min-w-0 max-w-[100px] items-center justify-center px-3 py-2 transition-colors dark:text-[#ded6e7] dark:hover:bg-[#3b3348] dark:data-[state=on]:!bg-[#80778e] dark:data-[state=on]:!text-white"
+                  title={g === GUEST_MEMBERS_TAB ? "Guest" : g}
+                >
+                  <span className="w-full whitespace-normal break-words text-center text-[11px] font-medium">
+                    {g === GUEST_MEMBERS_TAB ? "Guest" : g}
+                  </span>
+                </ToggleGroupItem>
+              ))}
+            </ToggleGroup>
+          </div>
+        </div>
+      </div>
+
+      <div
+        className={cn(
+          "flex w-full flex-col overflow-hidden overscroll-none rounded-xl border dark:border-[#1c1921] dark:bg-[#181714]",
+          isMdUp ? "min-h-0 flex-1" : "h-[calc(70vh)]"
+        )}
+      >
+        <div className="flex-shrink-0 border-b bg-background dark:border-[#1c1921] dark:bg-[#30283c]">
+          <table className="w-full table-fixed text-sm">
+            <thead>
+              <tr className="border-b dark:border-[#1c1921]">
+                <th className="w-[70%] px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-[#ded6e7]">
+                  Name
+                </th>
+                <th className="w-[30%] px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-[#ded6e7]">
+                  Role
+                </th>
+              </tr>
+            </thead>
+          </table>
+        </div>
+
+        <div
+          className="no-scrollbar flex-1 overflow-y-auto overscroll-none dark:bg-[#181714]"
+          style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
+        >
+          <table className="w-full table-fixed text-sm">
+            <tbody>
+              {filteredMembers.map((member) => {
+                const initials =
+                  `${member.first_name?.[0] || ""}${member.last_name?.[0] || ""}`.toUpperCase() || "U";
+                const role = getPrimaryRoleDisplay(member.privileges);
+                const showBwi = bwiParticipantIds.has(member.id);
+                return (
+                  <tr
+                    key={member.id}
+                    className="cursor-pointer border-b transition-colors hover:bg-muted/30 dark:border-[#3a3342] dark:hover:bg-[#2a2534]"
+                    onClick={() => {
+                      setSelectedUser(member);
+                      setUserManagementModalOpen(true);
+                    }}
+                  >
+                    <td className="w-[70%] min-w-0 p-3">
+                      <div className="flex min-w-0 items-center gap-3">
+                        <Avatar className="h-7 w-7">
+                          <AvatarImage src={member.avatar_url || undefined} />
+                          <AvatarFallback className="text-[10px] font-semibold">{initials}</AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <div className="flex min-w-0 flex-wrap items-center gap-2">
+                            <span className="truncate dark:text-[#fffaff]">
+                              {member.first_name} {member.last_name}
+                            </span>
+                            {member.is_congregation_guest ? (
+                              <Badge
+                                variant="secondary"
+                                className="h-4 shrink-0 px-1.5 py-0 text-[10px] font-normal leading-none"
+                              >
+                                Guest
+                              </Badge>
+                            ) : null}
+                            {getPrivilegeIcon(member.privileges)}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="w-[30%] p-3 align-top">
+                      <div className="flex flex-wrap justify-end gap-1">
+                        {role ? (
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "h-4 border px-1.5 py-0 text-[10px] font-medium leading-none",
+                              CONG_ROLE_BADGE_CLASSES[role.tone]
+                            )}
+                          >
+                            {role.label}
+                          </Badge>
+                        ) : null}
+                        {showBwi ? (
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "h-4 border px-1.5 py-0 text-[10px] font-medium leading-none",
+                              CONG_BWI_BADGE_CLASS
+                            )}
+                            title="Business Witnessing Initiative participant"
+                          >
+                            BWI
+                          </Badge>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </>
+  );
+
   return (
     <>
-      <Card className="gap-2">
-        <CardHeader>
+      <Card
+        className={cn(
+          "min-w-0 gap-0 overflow-hidden rounded-xl border py-0 shadow-md",
+          studyBibleDarkClasses.bwiCard
+        )}
+      >
+        <CardHeader className="rounded-t-xl border-b px-4 pt-3 !pb-3 dark:border-[#1c1921] dark:bg-[#2a2534]">
           <button
             type="button"
-            className="w-full flex items-center justify-between gap-3 text-left rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            className="flex w-full items-center justify-between gap-3 rounded-md text-left transition-colors hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#80778e] focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-offset-[#181714]"
             onClick={() => setMembersDrawerOpen(true)}
           >
-            <CardTitle className="text-base flex items-center gap-2">
-              <Users className="h-5 w-5" />
+            <CardTitle className="flex items-center gap-2 text-base font-bold leading-tight dark:text-[#fffaff]">
+              <Users className="h-5 w-5 shrink-0 opacity-90" />
               Congregation Members
             </CardTitle>
-            <ChevronRight className="h-4 w-4 opacity-70" />
+            <ChevronRight className="h-4 w-4 shrink-0 opacity-70 dark:text-[#ded6e7]" />
           </button>
         </CardHeader>
-        <CardContent className="p-0">
+        <CardContent className="space-y-2 p-0 pb-6 pt-2">
           {loading ? (
-            <div className="px-4 pb-4 text-sm text-muted-foreground">Loading...</div>
+            <div className="px-4 pb-4 text-sm text-muted-foreground dark:text-[#ded6e7]/80">Loading...</div>
           ) : previewMembers.length === 0 ? (
-            <div className="px-4 pb-6 text-sm text-muted-foreground">No members found.</div>
+            <div className="px-4 pb-6 text-sm text-muted-foreground dark:text-[#ded6e7]/75">No members found.</div>
           ) : (
-            <div className="px-4 py-2 space-y-2">
+            <div className="space-y-2 px-4 py-2">
               {previewMembers.map((member) => (
                 <div
                   key={member.id}
-                  className="px-3 py-2.5 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
+                  className="cursor-pointer rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/50 dark:hover:bg-[#2a2534]/85"
                   role="button"
                   tabIndex={0}
                   onClick={() => setMembersDrawerOpen(true)}
@@ -337,140 +489,40 @@ export function CongregationMembers({
         </CardContent>
       </Card>
 
-      <FormModal
-        open={membersDrawerOpen}
-        onOpenChange={setMembersDrawerOpen}
-        title="Congregation Members"
-      >
-        <div className="space-y-4">
-          <div className="flex justify-center">
-            <div className="bg-background/95 backdrop-blur-sm border p-0.1 rounded-lg shadow-lg w-full max-w-screen-sm relative overflow-hidden">
-              <div className="w-full overflow-x-auto no-scrollbar">
-                <ToggleGroup
-                  type="single"
-                  value={activeGroup}
-                  onValueChange={(v) => {
-                    if (v) setActiveGroup(v);
-                  }}
-                  className="w-max min-w-full h-full justify-center"
-                >
-                  {groupTabValues.map((g) => (
-                    <ToggleGroupItem
-                      key={g}
-                      value={g}
-                      className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm min-w-0 max-w-[100px] px-3 min-h-12 py-2 flex items-center justify-center transition-colors"
-                      title={g === GUEST_MEMBERS_TAB ? "Guest" : g}
-                    >
-                      <span className="text-[11px] font-medium text-center whitespace-normal break-words w-full">
-                        {g === GUEST_MEMBERS_TAB ? "Guest" : g}
-                      </span>
-                    </ToggleGroupItem>
-                  ))}
-                </ToggleGroup>
-              </div>
+      {isMdUp ? (
+        <Drawer
+          open={membersDrawerOpen}
+          onOpenChange={setMembersDrawerOpen}
+          direction="right"
+          modal
+          shouldScaleBackground={false}
+        >
+          <DrawerWideRightContent className="flex flex-col overflow-hidden dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff] md:max-h-[100lvh]">
+            <DrawerHeader className="shrink-0 border-b px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+              <DrawerTitle className="text-center text-lg font-bold">Congregation Members</DrawerTitle>
+              <DrawerDescription className="sr-only">
+                Browse and filter congregation members by group or role.
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="flex min-h-0 flex-1 flex-col gap-4 px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+28px)] pt-4">
+              {membersDirectoryBody}
             </div>
-          </div>
+          </DrawerWideRightContent>
+        </Drawer>
+      ) : (
+        <FormModal open={membersDrawerOpen} onOpenChange={setMembersDrawerOpen} title="Congregation Members">
+          <div className="space-y-4">{membersDirectoryBody}</div>
+        </FormModal>
+      )}
 
-          <div className="w-full h-[calc(70vh)] overflow-hidden flex flex-col overscroll-none">
-            {/* Fixed Table Header */}
-            <div className="flex-shrink-0 border-b bg-background">
-              <table className="w-full text-sm table-fixed">
-                <thead>
-                  <tr className="border-b">
-                    <th className="text-left py-3 px-3 w-[70%]">Name</th>
-                    <th className="text-left py-3 px-3 w-[30%]">Role</th>
-                  </tr>
-                </thead>
-              </table>
-            </div>
-
-            {/* Scrollable Table Body */}
-            <div
-              className="flex-1 overflow-y-auto no-scrollbar overscroll-none"
-              style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
-            >
-              <table className="w-full text-sm table-fixed">
-                <tbody>
-                  {filteredMembers.map((member) => {
-                    const initials = `${member.first_name?.[0] || ""}${member.last_name?.[0] || ""}`.toUpperCase() || "U";
-                    const role = getPrimaryRoleDisplay(member.privileges);
-                    const showBwi = bwiParticipantIds.has(member.id);
-                    return (
-                      <tr
-                        key={member.id}
-                        className="border-b hover:bg-muted/30 cursor-pointer"
-                        onClick={() => {
-                          setSelectedUser(member);
-                          setUserManagementModalOpen(true);
-                        }}
-                      >
-                        <td className="p-3 min-w-0 w-[70%]">
-                          <div className="flex items-center gap-3 min-w-0">
-                            <Avatar className="h-7 w-7">
-                              <AvatarImage src={member.avatar_url || undefined} />
-                              <AvatarFallback className="text-[10px] font-semibold">{initials}</AvatarFallback>
-                            </Avatar>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2 min-w-0 flex-wrap">
-                                <span className="truncate">
-                                  {member.first_name} {member.last_name}
-                                </span>
-                                {member.is_congregation_guest ? (
-                                  <Badge
-                                    variant="secondary"
-                                    className="text-[10px] px-1.5 py-0 h-4 leading-none shrink-0 font-normal"
-                                  >
-                                    Guest
-                                  </Badge>
-                                ) : null}
-                                {getPrivilegeIcon(member.privileges)}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="p-3 w-[30%] align-top">
-                          <div className="flex flex-wrap gap-1 justify-end">
-                            {role ? (
-                              <Badge
-                                variant="outline"
-                                className={cn(
-                                  "text-[10px] px-1.5 py-0 h-4 leading-none font-medium border",
-                                  CONG_ROLE_BADGE_CLASSES[role.tone],
-                                )}
-                              >
-                                {role.label}
-                              </Badge>
-                            ) : null}
-                            {showBwi ? (
-                              <Badge
-                                variant="outline"
-                                className={cn(
-                                  "text-[10px] px-1.5 py-0 h-4 leading-none font-medium border",
-                                  CONG_BWI_BADGE_CLASS,
-                                )}
-                                title="Business Witnessing Initiative participant"
-                              >
-                                BWI
-                              </Badge>
-                            ) : null}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </FormModal>
-
-      {/* User Management Modal */}
+      {/* Manage User: left sheet on tablet+ (stack above members right drawer), bottom sheet on phone */}
       <FormModal
         open={userManagementModalOpen}
         onOpenChange={setUserManagementModalOpen}
         title="Manage User"
-        className="sm:max-w-2xl"
+        desktopPresentation="left-sheet"
+        className="dark:border-[#1c1921] dark:bg-[#181714] md:max-h-[100lvh]"
+        headerClassName="text-center"
       >
         {selectedUser && (
           <UserManagementForm

@@ -1,11 +1,11 @@
 "use client";
 
-import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Calendar, ChevronRight, LayoutList, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FormModal } from "@/components/shared/FormModal";
+import { EventScheduleFormSheet } from "@/components/congregation/EventScheduleFormSheet";
 import { VisitTimelineRow } from "@/components/visit/VisitTimelineRow";
 import { VisitList } from "@/components/visit/VisitList";
 import { getTimelineLineStyle } from "@/lib/utils/visit-timeline";
@@ -28,11 +28,6 @@ import {
 } from "@/lib/utils/event-location-display";
 import { EventScheduleLocationBlock } from "@/components/congregation/EventScheduleLocationBlock";
 import { EventScheduleDirectionsLink } from "@/components/congregation/EventScheduleDirectionsLink";
-
-const EventScheduleForm = dynamic(
-  () => import("@/components/congregation/EventScheduleForm").then((m) => m.EventScheduleForm),
-  { ssr: false }
-);
 
 const PREVIEW_LIMIT = 5;
 
@@ -414,33 +409,25 @@ export function CongregationAdminEventsCard({ congregationId, canEdit }: Congreg
       </FormModal>
 
       {canEdit ? (
-        <FormModal
+        <EventScheduleFormSheet
           open={editEvent != null}
           onOpenChange={(open) => {
             if (!open) setEditEvent(null);
           }}
-          title="Edit Event Schedule"
-          headerClassName="text-center"
-        >
-          {editEvent ? (
-            <EventScheduleForm
-              congregationId={congregationId}
-              initialData={editEvent}
-              isEditing
-              onSaved={async (saved) => {
-                if (saved) {
-                  setEditEvent(null);
-                  await load();
-                  try {
-                    window.dispatchEvent(new CustomEvent("event-schedule-refresh"));
-                  } catch {
-                    /* ignore */
-                  }
-                }
-              }}
-            />
-          ) : null}
-        </FormModal>
+          congregationId={congregationId}
+          initialData={editEvent}
+          onSaved={async (saved) => {
+            if (saved) {
+              setEditEvent(null);
+              await load();
+              try {
+                window.dispatchEvent(new CustomEvent("event-schedule-refresh"));
+              } catch {
+                /* ignore */
+              }
+            }
+          }}
+        />
       ) : null}
 
       {!canEdit && (
