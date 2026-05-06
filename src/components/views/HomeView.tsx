@@ -146,6 +146,7 @@ export function HomeView({
               fabBridgeLayout="xlAndUp"
               onNavigateToTodoCall={onNavigateToTodoCall}
               className="h-full min-h-0"
+              headerVariant="bar"
             />
             {showBwi ? (
               <VisitHistory

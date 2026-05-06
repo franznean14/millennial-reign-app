@@ -860,15 +860,15 @@ export function HomeSummary({
                 <div className="text-5xl font-semibold leading-tight">
                   <NumberFlow value={Number(fmtHours(monthHours))} locales="en-US" format={{ useGrouping: false }} />
                 </div>
-                  <div className={cn("mt-0.5 text-sm opacity-70", studyBibleDarkClasses.muted)}>Hours</div>
+                  <div className={cn("mt-0.5 text-sm opacity-80 dark:opacity-100", studyBibleDarkClasses.muted)}>Hours</div>
               </div>
               {localPioneer ? (
                 <div className="text-right">
-                  <div className={cn("text-xs opacity-70", studyBibleDarkClasses.muted)}>This service year</div>
+                  <div className={cn("text-xs opacity-80 dark:opacity-100", studyBibleDarkClasses.muted)}>This service year</div>
                   <div className="mt-1 text-2xl font-semibold leading-tight">
                     <NumberFlow key={`sy-hours-${dataLoaded}`} value={syHours} locales="en-US" format={{ useGrouping: false }} />
                   </div>
-                  <div className={cn("text-xs opacity-70 mt-1", studyBibleDarkClasses.muted)}>Since {(() => {
+                  <div className={cn("text-xs opacity-80 mt-1 dark:opacity-100", studyBibleDarkClasses.muted)}>Since {(() => {
                     if (!serviceYearStart) return "—";
                     const parts = serviceYearStart.split("-");
                     if (parts.length >= 2) {

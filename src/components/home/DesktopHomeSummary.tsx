@@ -752,15 +752,15 @@ export function DesktopHomeSummary({
                   <div className="text-5xl font-semibold leading-tight">
                     <NumberFlow value={Number(fmtHours(monthHours))} locales="en-US" format={{ useGrouping: false }} />
                   </div>
-                  <div className={cn("mt-0.5 text-sm opacity-70", studyBibleDarkClasses.muted)}>Hours</div>
+                  <div className={cn("mt-0.5 text-sm opacity-80 dark:opacity-100", studyBibleDarkClasses.muted)}>Hours</div>
                 </div>
                 {localPioneer ? (
                   <div className="text-right">
-                    <div className={cn("text-xs opacity-70", studyBibleDarkClasses.muted)}>This service year</div>
+                    <div className={cn("text-xs opacity-80 dark:opacity-100", studyBibleDarkClasses.muted)}>This service year</div>
                     <div className="mt-1 text-2xl font-semibold leading-tight">
                       <NumberFlow key={`sy-hours-${dataLoaded}`} value={syHours} locales="en-US" format={{ useGrouping: false }} />
                     </div>
-                    <div className={cn("text-xs opacity-70 mt-1", studyBibleDarkClasses.muted)}>Since {(() => {
+                    <div className={cn("text-xs opacity-80 mt-1 dark:opacity-100", studyBibleDarkClasses.muted)}>Since {(() => {
                       if (!serviceYearStart) return "—";
                       const parts = serviceYearStart.split("-");
                       if (parts.length >= 2) {
@@ -792,7 +792,7 @@ export function DesktopHomeSummary({
               </div>
               {mode === "days" && (
                 <>
-                  <div className="grid grid-cols-7 gap-1 px-1 text-xs opacity-70">
+                  <div className={cn("grid grid-cols-7 gap-1 px-1 text-xs opacity-80 dark:opacity-100", studyBibleDarkClasses.subtle)}>
                     {"S,M,T,W,T,F,S".split(",").map((d, i) => (
                       <div key={`${d}-${i}`} className="text-center">
                         {d}
@@ -865,10 +865,9 @@ export function DesktopHomeSummary({
 
             {/* Form Fields */}
             <div>
-              <div className="text-sm font-medium mb-3">Daily Record</div>
               <div className="space-y-4">
-              <div className="grid gap-1 text-sm place-items-center">
-                <span className="opacity-70">Hours</span>
+              <div className="grid gap-3 text-sm place-items-center">
+                <span className={cn("opacity-80 dark:opacity-100", studyBibleDarkClasses.muted)}>Hours</span>
                 <NumberFlowInput
                   value={parseInt(hours) || 0}
                   onChange={(newValue) => {
@@ -882,7 +881,7 @@ export function DesktopHomeSummary({
                 />
               </div>
               <div className="grid gap-1 text-sm">
-                <span className="opacity-70">Bible Studies</span>
+                <span className={cn("opacity-80 dark:opacity-100", studyBibleDarkClasses.muted)}>Bible Studies</span>
                 <div className="flex flex-wrap gap-2">
                   {formStudies.map((s) => (
                     <span key={s} className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs">
@@ -911,15 +910,15 @@ export function DesktopHomeSummary({
                 />
               </div>
               <div className="grid gap-1 text-sm">
-                <span className="opacity-70">Note</span>
+                <span className={cn("opacity-80 dark:opacity-100", studyBibleDarkClasses.muted)}>Note</span>
                 <Textarea 
-                  className="min-h-[112px]" 
+                  className="min-h-[112px] dark:border-[#5a5068] dark:bg-[#2a2534] dark:text-[#fffaff] dark:placeholder:text-[#ded6e7]/70" 
                   value={note} 
                   onChange={(e) => { 
                     setNote(e.target.value); 
                     setDirty(true); 
                   }} 
-                  placeholder="Optional note for this day" 
+                  placeholder="Credits...?" 
                 />
               </div>
             </div>

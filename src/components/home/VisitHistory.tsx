@@ -1157,7 +1157,7 @@ export function VisitHistory({
           onClick={() => openCallsDetailsDrawer({ kind: "todo", todo })}
           index={index}
           total={total}
-          rootClassName="hover:opacity-80 transition-opacity"
+          rootClassName="rounded-md dark:bg-transparent hover:opacity-80 transition-opacity"
           lineStyle={{
             ...getTimelineLineStyle(isDrawer),
             left: 11,
@@ -1203,13 +1203,13 @@ export function VisitHistory({
           avatarFooter={
             <div className="flex flex-col items-end gap-1 text-right max-w-[10rem]">
               {displayDate ? (
-                <span className="text-xs text-muted-foreground tabular-nums leading-tight">
+                <span className={cn("text-xs text-muted-foreground tabular-nums leading-tight", studyBibleDarkClasses.callsMuted)}>
                   {formatVisitDateCompact(displayDate)}
                 </span>
               ) : null}
               {areaLabel ? (
                 <span
-                  className="text-xs text-muted-foreground leading-snug break-words"
+                  className={cn("text-xs text-muted-foreground leading-snug break-words", studyBibleDarkClasses.callsMuted)}
                   title={areaLabel}
                 >
                   {areaLabel}
@@ -1246,7 +1246,11 @@ export function VisitHistory({
             }
             notes={todo.body}
             notesClassName={
-              isDrawer ? "leading-relaxed line-clamp-4" : "mt-0 line-clamp-2"
+              cn(
+                isDrawer ? "leading-relaxed line-clamp-4" : "mt-0 line-clamp-2",
+                "dark:font-medium",
+                studyBibleDarkClasses.callsText
+              )
             }
           />
         </VisitTimelineRow>
@@ -1268,7 +1272,7 @@ export function VisitHistory({
         onClick={() => openCallsDetailsDrawer({ kind: "visit", visit })}
         index={index}
         total={total}
-        rootClassName="hover:opacity-80 transition-opacity"
+        rootClassName="rounded-md dark:bg-transparent hover:opacity-80 transition-opacity"
         lineStyle={{
           ...getTimelineLineStyle(isDrawer),
           // Center the vertical timeline line with the 24px icon marker.
@@ -1302,12 +1306,12 @@ export function VisitHistory({
         }
         avatarFooter={
           <div className="flex flex-col items-end gap-1 text-right max-w-[10rem]">
-            <span className="text-xs text-muted-foreground tabular-nums leading-tight">
+            <span className={cn("text-xs text-muted-foreground tabular-nums leading-tight", studyBibleDarkClasses.callsMuted)}>
               {formatVisitDateCompact(visit.visit_date)}
             </span>
             {areaLabel ? (
               <span
-                className="text-xs text-muted-foreground leading-snug break-words"
+                className={cn("text-xs text-muted-foreground leading-snug break-words", studyBibleDarkClasses.callsMuted)}
                 title={areaLabel}
               >
                 {areaLabel}
@@ -1344,7 +1348,11 @@ export function VisitHistory({
           }
           notes={visit.notes}
           notesClassName={
-            isDrawer ? "leading-relaxed line-clamp-4" : "mt-0 line-clamp-2"
+            cn(
+              isDrawer ? "leading-relaxed line-clamp-4" : "mt-0 line-clamp-2",
+              "dark:font-medium",
+              studyBibleDarkClasses.callsText
+            )
           }
         />
       </VisitTimelineRow>
@@ -1533,65 +1541,93 @@ export function VisitHistory({
     <div className="space-y-6">
       {/* Establishment Status Section */}
       <div>
-        <div className="grid grid-cols-2 gap-4 items-end">
-          <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("establishments", "for_replenishment") : undefined}>
-            <div className={cn("text-5xl font-semibold leading-tight", getStatusTextColorClass("for_replenishment"))}>
+        <div className={cn("grid grid-cols-2 gap-4", presentation === "summary" ? "items-center text-center" : "items-end")}>
+          <BwiStatusCell
+            onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("establishments", "for_replenishment") : undefined}
+            className={presentation === "summary" ? "text-center" : undefined}
+          >
+            <div
+              className={cn(
+                "leading-tight",
+                presentation === "summary" ? "text-6xl font-bold" : "text-5xl font-semibold",
+                getStatusTextColorClass("for_replenishment")
+              )}
+            >
               <NumberFlow value={establishmentStatusCounts.for_replenishment} locales="en-US" format={{ useGrouping: false }} />
             </div>
-            <div className="mt-1 text-sm opacity-70">For Replenishment</div>
+            <div className={cn("mt-1 text-sm opacity-80 dark:opacity-100", studyBibleDarkClasses.muted)}>For Replenishment</div>
           </BwiStatusCell>
-          <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("establishments", "accepted_rack") : undefined}>
-            <div className={cn("text-2xl font-semibold", getStatusTextColorClass("accepted_rack"))}>
+          <BwiStatusCell
+            onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("establishments", "accepted_rack") : undefined}
+            className={presentation === "summary" ? "text-center" : undefined}
+          >
+            <div className={cn(presentation === "summary" ? "text-5xl font-bold leading-tight" : "text-2xl font-semibold", getStatusTextColorClass("accepted_rack"))}>
               <NumberFlow value={establishmentStatusCounts.accepted_rack} locales="en-US" format={{ useGrouping: false }} />
             </div>
-            <div className="text-sm opacity-70 mt-0.5">Rack Accepted</div>
+            <div className={cn("text-sm opacity-80 mt-0.5 dark:opacity-100", studyBibleDarkClasses.muted)}>Rack Accepted</div>
           </BwiStatusCell>
-        </div>
 
-        <div className="grid grid-cols-2 gap-4 mt-4">
-          <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("establishments", "for_follow_up") : undefined}>
-            <div className={cn("text-2xl font-semibold", getStatusTextColorClass("for_follow_up"))}>
+          <BwiStatusCell
+            onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("establishments", "for_follow_up") : undefined}
+            className={presentation === "summary" ? "text-center" : undefined}
+          >
+            <div className={cn(presentation === "summary" ? "text-5xl font-bold leading-tight" : "text-2xl font-semibold", getStatusTextColorClass("for_follow_up"))}>
               <NumberFlow value={establishmentStatusCounts.for_follow_up} locales="en-US" format={{ useGrouping: false }} />
             </div>
-            <div className="text-sm opacity-70 mt-0.5">For Follow Up</div>
+            <div className={cn("text-sm opacity-80 mt-0.5 dark:opacity-100", studyBibleDarkClasses.muted)}>For Follow Up</div>
           </BwiStatusCell>
-          <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("establishments", "for_scouting") : undefined}>
-            <div className={cn("text-2xl font-semibold", getStatusTextColorClass("for_scouting"))}>
+          <BwiStatusCell
+            onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("establishments", "for_scouting") : undefined}
+            className={presentation === "summary" ? "text-center" : undefined}
+          >
+            <div className={cn(presentation === "summary" ? "text-5xl font-bold leading-tight" : "text-2xl font-semibold", getStatusTextColorClass("for_scouting"))}>
               <NumberFlow value={establishmentStatusCounts.for_scouting} locales="en-US" format={{ useGrouping: false }} />
             </div>
-            <div className="text-sm opacity-70 mt-0.5">For Scouting</div>
+            <div className={cn("text-sm opacity-80 mt-0.5 dark:opacity-100", studyBibleDarkClasses.muted)}>For Scouting</div>
           </BwiStatusCell>
         </div>
       </div>
 
       {/* Householder Status Section */}
       <div className={cn("pt-4 border-t pb-0", studyBibleDarkClasses.divider)}>
-        <div className={cn("text-xs text-muted-foreground mb-4", studyBibleDarkClasses.muted)}>Householder status</div>
+        <div className={cn("text-xs text-muted-foreground mb-4", presentation === "summary" && "text-center", studyBibleDarkClasses.muted)}>Householder</div>
 
-        <div className="grid grid-cols-2 gap-4 items-end">
-          <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "bible_study") : undefined}>
-            <div className={cn("text-5xl font-semibold leading-tight", getStatusTextColorClass("bible_study"))}>
+        <div className={cn("grid grid-cols-2 gap-4", presentation === "summary" ? "items-center text-center" : "items-end")}>
+          <BwiStatusCell
+            onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "bible_study") : undefined}
+            className={presentation === "summary" ? "text-center" : undefined}
+          >
+            <div className={cn(presentation === "summary" ? "text-5xl font-bold leading-tight" : "text-5xl font-semibold leading-tight", getStatusTextColorClass("bible_study"))}>
               <NumberFlow value={householderStatusCounts.bible_study} locales="en-US" format={{ useGrouping: false }} />
             </div>
-            <div className="mt-1 text-sm opacity-70">Bible Study</div>
+            <div className={cn("mt-1 text-sm opacity-80 dark:opacity-100", studyBibleDarkClasses.muted)}>Bible Study</div>
           </BwiStatusCell>
-          <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "return_visit") : undefined}>
-            <div className={cn("text-2xl font-semibold", getStatusTextColorClass("return_visit"))}>
+          <BwiStatusCell
+            onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "return_visit") : undefined}
+            className={presentation === "summary" ? "text-center" : undefined}
+          >
+            <div className={cn(presentation === "summary" ? "text-5xl font-bold leading-tight" : "text-2xl font-semibold", getStatusTextColorClass("return_visit"))}>
               <NumberFlow value={householderStatusCounts.return_visit} locales="en-US" format={{ useGrouping: false }} />
             </div>
-            <div className="text-sm opacity-70 mt-0.5">Return Visit</div>
+            <div className={cn("text-sm opacity-80 mt-0.5 dark:opacity-100", studyBibleDarkClasses.muted)}>Return Visit</div>
           </BwiStatusCell>
-          <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "interested") : undefined}>
-            <div className={cn("text-2xl font-semibold", getStatusTextColorClass("interested"))}>
+          <BwiStatusCell
+            onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "interested") : undefined}
+            className={presentation === "summary" ? "text-center" : undefined}
+          >
+            <div className={cn(presentation === "summary" ? "text-5xl font-bold leading-tight" : "text-2xl font-semibold", getStatusTextColorClass("interested"))}>
               <NumberFlow value={householderStatusCounts.interested} locales="en-US" format={{ useGrouping: false }} />
             </div>
-            <div className="text-sm opacity-70 mt-0.5">Interested</div>
+            <div className={cn("text-sm opacity-80 mt-0.5 dark:opacity-100", studyBibleDarkClasses.muted)}>Interested</div>
           </BwiStatusCell>
-          <BwiStatusCell onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "potential") : undefined}>
-            <div className={cn("text-2xl font-semibold", getStatusTextColorClass("potential"))}>
+          <BwiStatusCell
+            onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "potential") : undefined}
+            className={presentation === "summary" ? "text-center" : undefined}
+          >
+            <div className={cn(presentation === "summary" ? "text-5xl font-bold leading-tight" : "text-2xl font-semibold", getStatusTextColorClass("potential"))}>
               <NumberFlow value={householderStatusCounts.potential} locales="en-US" format={{ useGrouping: false }} />
             </div>
-            <div className="text-sm opacity-70 mt-0.5">Potential</div>
+            <div className={cn("text-sm opacity-80 mt-0.5 dark:opacity-100", studyBibleDarkClasses.muted)}>Potential</div>
           </BwiStatusCell>
         </div>
       </div>
@@ -1610,6 +1646,7 @@ export function VisitHistory({
           className="space-y-6"
           isEmpty={buildCallsStreamItems.preview.length === 0}
           emptyText="No calls or to-dos recorded yet."
+                  emptyClassName={cn("text-sm text-muted-foreground", studyBibleDarkClasses.callsMuted)}
         />
       </div>
     )
@@ -1671,12 +1708,15 @@ export function VisitHistory({
                 "rounded-tl-lg rounded-tr-none rounded-bl-none rounded-br-none",
                 "bg-primary text-primary-foreground dark:text-primary-foreground font-medium",
                 "data-[state=active]:!bg-background data-[state=active]:!text-foreground",
+                "dark:bg-[#2a2534] dark:text-[#ded6e7] dark:data-[state=active]:!bg-[#30283c] dark:data-[state=active]:!text-white",
                 "shadow-none",
                 "relative h-10 px-4",
                 "transition-all duration-200",
                 "hover:bg-primary/90 data-[state=active]:hover:!bg-background",
+                "dark:hover:bg-[#342a43] dark:data-[state=active]:hover:!bg-[#30283c]",
                 "!border-0 focus-visible:ring-0 focus-visible:outline-none",
                 "[&>svg]:text-primary-foreground data-[state=active]:[&>svg]:text-foreground",
+                "dark:[&>svg]:text-[#ded6e7] dark:data-[state=active]:[&>svg]:text-white",
                 "after:hidden"
               )}
             >
@@ -1699,12 +1739,15 @@ export function VisitHistory({
                 "rounded-tr-lg rounded-tl-none rounded-bl-none rounded-br-none",
                 "bg-primary text-primary-foreground dark:text-primary-foreground font-medium",
                 "data-[state=active]:!bg-background data-[state=active]:!text-foreground",
+                "dark:bg-[#2a2534] dark:text-[#ded6e7] dark:data-[state=active]:!bg-[#30283c] dark:data-[state=active]:!text-white",
                 "shadow-none",
                 "relative h-10 px-4",
                 "transition-all duration-200",
                 "hover:bg-primary/90 data-[state=active]:hover:!bg-background",
+                "dark:hover:bg-[#342a43] dark:data-[state=active]:hover:!bg-[#30283c]",
                 "!border-0 focus-visible:ring-0 focus-visible:outline-none",
                 "[&>svg]:text-primary-foreground data-[state=active]:[&>svg]:text-foreground",
+                "dark:[&>svg]:text-[#ded6e7] dark:data-[state=active]:[&>svg]:text-white",
                 "after:hidden"
               )}
             >
@@ -1716,11 +1759,23 @@ export function VisitHistory({
             </TabsTrigger>
           </TabsList>
           
-          <TabsContent value="bwi" className="mt-0 rounded-b-lg bg-background p-4 overflow-y-auto scrollbar-hide">
+          <TabsContent
+            value="bwi"
+            className={cn(
+              "mt-0 rounded-b-lg bg-background p-4 overflow-y-auto scrollbar-hide",
+              studyBibleDarkClasses.bwiCard
+            )}
+          >
             {renderBwiSummaryContent()}
           </TabsContent>
           
-          <TabsContent value="visit-history" className="mt-0 rounded-b-lg bg-background p-4">
+          <TabsContent
+            value="visit-history"
+            className={cn(
+              "mt-0 rounded-b-lg bg-background p-4",
+              studyBibleDarkClasses.bwiCard
+            )}
+          >
             {renderCallsPreviewContent()}
           </TabsContent>
         </Tabs>

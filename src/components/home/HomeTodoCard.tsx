@@ -330,6 +330,7 @@ interface HomeTodoCardProps {
   /** When set, only this responsive instance publishes UnifiedFab context (HomeView mounts two cards). */
   fabBridgeLayout?: "belowXl" | "xlAndUp";
   className?: string;
+  headerVariant?: "default" | "bar";
 }
 
 export function HomeTodoCard({
@@ -344,6 +345,7 @@ export function HomeTodoCard({
   preferLeftCompanionDrawer = false,
   fabBridgeLayout,
   className,
+  headerVariant = "default",
 }: HomeTodoCardProps) {
   const [openTodos, setOpenTodos] = useState<MyOpenCallTodoItem[]>(() => prefillOpenTodos ?? []);
   const [completedTodos, setCompletedTodos] = useState<MyOpenCallTodoItem[]>(() => prefillCompletedTodos ?? []);
@@ -3041,13 +3043,15 @@ export function HomeTodoCard({
   return (
     <>
       <div className={cn("rounded-lg border overflow-hidden bg-background", studyBibleDarkClasses.todoCard, className)}>
-        <div className="flex h-full min-h-0 flex-col p-4">
+        <div className={cn("flex h-full min-h-0 flex-col", headerVariant === "bar" ? "" : "p-4")}>
           <button
             type="button"
             onClick={() => setDrawerOpen(true)}
             className={cn(
-              "text-xs text-muted-foreground mb-4 flex items-center gap-1.5 w-full text-left hover:text-foreground transition-colors",
-              studyBibleDarkClasses.muted
+              headerVariant === "bar"
+                ? "flex h-10 shrink-0 items-center gap-2 border-b px-4 text-sm font-medium hover:bg-muted/50 transition-colors"
+                : "text-xs text-muted-foreground mb-4 flex items-center gap-1.5 w-full text-left hover:text-foreground transition-colors",
+              headerVariant === "bar" ? studyBibleDarkClasses.callsHeader : studyBibleDarkClasses.muted
             )}
           >
             <ListTodo className="h-4 w-4 shrink-0" />
@@ -3060,12 +3064,12 @@ export function HomeTodoCard({
                 {openCount}
               </Badge>
             )}
-            <ChevronRight className="h-3.5 w-3.5 ml-auto opacity-70" />
+              <ChevronRight className="h-3.5 w-3.5 ml-auto opacity-80 dark:opacity-100" />
           </button>
-          <div className="min-h-0 flex-1 overflow-y-auto scrollbar-hide">
+          <div className={cn("min-h-0 flex-1 overflow-y-auto scrollbar-hide", headerVariant === "bar" && "p-4")}>
             <ul className="space-y-2.5">
               {cardOpenTodos.length === 0 && cardCompletedTodos.length === 0 ? (
-                <li className="text-sm text-muted-foreground py-1">{emptyText}</li>
+                <li className={cn("text-sm text-muted-foreground py-1", studyBibleDarkClasses.muted)}>{emptyText}</li>
               ) : (
                 displayTodos.map((todo, index) => (
                   <TodoRow
@@ -3089,7 +3093,7 @@ export function HomeTodoCard({
             </ul>
             {cardCompletedTodos.length > 0 && (
               <>
-                <div className="text-xs text-muted-foreground mt-4 mb-2 font-medium inline-flex items-center gap-1.5">
+                <div className={cn("text-xs text-muted-foreground mt-4 mb-2 font-medium inline-flex items-center gap-1.5", studyBibleDarkClasses.muted)}>
                   <span>Done</span>
                   <Badge
                     variant="secondary"

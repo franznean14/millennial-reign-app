@@ -17,6 +17,8 @@ import { outboxEnqueue } from "@/lib/offline/store";
 import { VisitForm } from "@/components/business/VisitForm";
 import { ChevronLeft } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
+import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 
 function toLocalStr(d: Date) {
   const y = d.getFullYear();
@@ -1254,15 +1256,15 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
             </div>
           </div>
           <div className="grid gap-1 text-sm">
-            <span className="opacity-70">Note</span>
+            <span className={cn("opacity-80 dark:opacity-100", studyBibleDarkClasses.muted)}>Note</span>
             <Textarea 
-              className="min-h-[112px]" 
+              className="min-h-[112px] dark:border-[#5a5068] dark:bg-[#2a2534] dark:text-[#fffaff] dark:placeholder:text-[#ded6e7]/70" 
               value={note} 
               onChange={(e) => { 
                 setNote(e.target.value); 
                 setDirty(true); 
               }} 
-              placeholder="Optional note for this day" 
+              placeholder="Credits...?" 
             />
           </div>
         </div>
