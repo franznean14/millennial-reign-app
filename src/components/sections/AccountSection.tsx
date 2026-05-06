@@ -72,7 +72,7 @@ export function AccountSection({
   return (
     <SectionShell
       motionKey="account"
-      className="space-y-6 pb-20 pt-[60px] md:pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+72px)]"
+      className="space-y-6 pb-20 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+60px)] md:pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+72px)]"
     >
         <div className="space-y-6 p-4">
           {accountTab === "profile" ? (

@@ -29,7 +29,7 @@ export const metadata: Metadata = {
       { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
     ],
     apple: "/apple-touch-icon.png",
-    other: [{ rel: "mask-icon", url: "/safari-pinned-tab.svg", color: "#000000" }],
+    other: [{ rel: "mask-icon", url: "/safari-pinned-tab.svg", color: "#24231f" }],
   },
 };
 
@@ -43,7 +43,7 @@ export default function RootLayout({
       <head>
         {/* Explicitly include manifest link to ensure it loads on all routes */}
         <link rel="manifest" href="/manifest.webmanifest" />
-        <meta name="theme-color" content="#000000" />
+        <meta name="theme-color" content="#24231f" />
         
         {/* iOS PWA specific meta tags */}
         <meta name="apple-mobile-web-app-capable" content="yes" />

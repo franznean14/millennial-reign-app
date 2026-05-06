@@ -74,7 +74,7 @@ export function HomeView({
         aria-hidden={homeTab !== "summary"}
       >
         {/* Mobile: keep the existing stacked layout and combined BWI/Calls tabs. */}
-        <div className="flex flex-col gap-6 md:hidden">
+        <div className="flex flex-col gap-4 md:hidden">
           <div className="min-w-0">
             <HomeSummary
               userId={userId}

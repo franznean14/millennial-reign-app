@@ -23,5 +23,20 @@ When fixing iPad or iOS layout clipping, black gaps, home-indicator space, or fi
 - Preserve existing mobile behavior unless the task explicitly asks to change mobile.
 - Do not globally switch phone layouts to `100lvh` without testing on iOS Safari and standalone PWA; browser chrome can make `lvh` hide content behind dynamic UI.
 - Use `env(safe-area-inset-top)` and `env(safe-area-inset-bottom)` for fixed top/bottom controls and scroll padding.
+- Do not add safe-area padding directly to `body`; it creates an unpainted strip above the app on iOS. Keep `body.has-device-safe-top { padding-top: 0; }` and offset actual chrome/components instead.
+- Keep body scrolling disabled on mobile; sections provide their own scroll containers. Body scroll can create extra safe-area slack near the bottom nav.
+- For phone shells that must paint behind the translucent iOS status bar, keep the app shell fixed to the viewport on mobile and avoid black PWA colors. The manifest/theme color should match the app page surface, not `#000000`.
 - For scrollable mobile content behind fixed bottom navigation, keep bottom padding tied to the nav height plus safe area, for example `pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]`.
 - If mobile shows bottom clipping or dead space, first verify the root shell height, body padding, safe-area variables, and service-worker/cache freshness before moving fixed nav elements.
+
+### Mobile Black Status Strip Fix
+
+If mobile content appears clipped by a black strip above the app, compare the normal app shell to an open Vaul drawer. Drawers paint as fixed viewport layers, so the status-area strip can disappear while the regular shell still exposes the PWA/body paint behind it.
+
+Use this app-wide pattern:
+
+- Keep `body.has-device-safe-top` at `padding-top: 0`; never bring back body safe-area padding to move content.
+- Keep the mobile app shell fixed to the viewport, for example `max-md:!fixed max-md:!inset-0 max-md:!overflow-hidden` on the root shell wrapper.
+- Set mobile/PWA paint colors to the app surface color, not black. Keep `theme-color`, manifest `theme_color`, and manifest `background_color` aligned with the page surface (currently `#24231f`).
+- Move content down with section-level padding, not body padding. Use `pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+<existing-offset>)]` on scrollable section shells.
+- Keep the top safe area painted by the app background; only the content should move down.

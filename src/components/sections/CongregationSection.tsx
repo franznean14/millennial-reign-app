@@ -95,7 +95,7 @@ export function CongregationSection({
       {portaledControls}
       <SectionShell
         motionKey="congregation"
-        className="space-y-6 pb-20 pt-[80px] md:pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+80px)]"
+        className="space-y-6 pb-20 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+80px)] md:pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+80px)]"
       >
         {cong?.id ? (
           <CongregationView

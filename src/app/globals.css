@@ -61,7 +61,8 @@ body {
 }
 
 body.has-device-safe-top {
-  padding-top: var(--device-safe-top);
+  /* Component chrome owns safe-area offsets; body padding creates an unpainted strip on iOS. */
+  padding-top: 0;
 }
 
 /* Tablet+ should use full dynamic viewport height without body top padding shrinkage.
@@ -309,6 +310,11 @@ body.has-device-safe-top {
 
 /* Prevent viewport changes from affecting fixed elements */
 @media (max-width: 768px) {
+  html.dark,
+  html.dark body {
+    background-color: #24231f;
+  }
+
   /* Ensure fixed elements stay fixed regardless of viewport changes */
   .fixed-navbar, nav[class*="fixed"], header[class*="sticky"] {
     position: fixed !important;
@@ -328,7 +334,7 @@ body.has-device-safe-top {
     min-height: 100vh;
     min-height: 100dvh;
     overflow-x: hidden !important;
-    overflow-y: auto !important; /* Allow vertical scrolling */
+    overflow-y: hidden !important; /* Sections provide app scrolling; body scroll creates mobile safe-area slack. */
     /* Prevent body from becoming scrollable when keyboard opens */
     position: relative !important;
   }

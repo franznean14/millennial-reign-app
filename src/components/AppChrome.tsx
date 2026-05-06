@@ -71,7 +71,7 @@ export function AppChrome({ children }: AppChromeProps) {
       <OnlineBanner />
       <BiometricGate />
       
-      <SidebarProvider>
+      <SidebarProvider className="max-md:!fixed max-md:!inset-0 max-md:!h-auto max-md:!max-h-none max-md:!overflow-hidden">
         <SidebarInset className="min-h-0">
           <HomeTodoDetailsFabProvider>
             <div className={cn("flex min-h-0 flex-1 flex-col px-4 w-full overflow-x-hidden", studyBibleDarkClasses.page)}>
