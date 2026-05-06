@@ -141,7 +141,7 @@ function SidebarProvider({
           className={cn(
             // h-svh (not min-h-svh): min-height lets the shell grow with content so inner
             // overflow-y-auto sections never become scroll containers on mobile (Android).
-            "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex h-svh max-h-svh min-h-0 w-full",
+            "group/sidebar-wrapper has-data-[variant=inset]:bg-sidebar flex h-svh max-h-svh min-h-0 w-full md:h-[100lvh] md:max-h-[100lvh]",
             className
           )}
           {...props}
@@ -627,13 +627,9 @@ function SidebarMenuSkeleton({
         />
       )}
       <Skeleton
-        className="h-4 max-w-(--skeleton-width) flex-1"
+        className="h-4 flex-1"
         data-sidebar="menu-skeleton-text"
-        style={
-          {
-            "--skeleton-width": width,
-          } as React.CSSProperties
-        }
+        width={width}
       />
     </div>
   )

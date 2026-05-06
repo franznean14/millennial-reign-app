@@ -100,7 +100,7 @@ export function AppChrome({ children }: AppChromeProps) {
         </nav>
 
         {/* Bottom Navigation (Tablet / iPad Pro) */}
-        <nav className="pointer-events-none fixed inset-x-0 bottom-0 z-20 hidden md:block">
+        <nav className="pointer-events-none fixed inset-x-0 z-20 hidden md:block bottom-[calc(max(env(safe-area-inset-bottom),0px)+14px)]">
           <div className="mx-auto flex w-[min(92vw,760px)] items-center justify-center px-3">
             <div className="pointer-events-auto flex w-full items-center justify-between rounded-full border border-border/60 bg-background/90 px-4 py-2 shadow-2xl backdrop-blur supports-[backdrop-filter]:bg-background/75">
               <div className="flex min-w-0 flex-1 items-center justify-evenly gap-2">

@@ -151,7 +151,7 @@ export function HomeSection({
       {portaledControls}
       <SectionShell
         motionKey="home"
-        className="relative flex-1 min-h-0 overflow-y-auto overscroll-none scrollbar-hide pt-16 md:pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+74px)] w-full max-w-full overflow-x-hidden pb-[calc(max(env(safe-area-inset-bottom),0px)+88px)]"
+        className="relative flex-1 min-h-0 overflow-y-auto overscroll-none scrollbar-hide pt-16 md:pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+86px)] w-full max-w-full overflow-x-hidden pb-[calc(max(env(safe-area-inset-bottom),0px)+88px)]"
       >
       <HomeView
         userId={userId}

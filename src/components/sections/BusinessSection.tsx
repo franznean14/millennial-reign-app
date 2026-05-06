@@ -266,7 +266,7 @@ export function BusinessSection({
         className={
           businessTab === "map" && !selectedEstablishment && !selectedHouseholder
             ? "fixed inset-0 z-10"
-            : "relative h-[calc(100vh-80px)] overflow-y-auto space-y-4 px-0 pb-20 pt-[90px] md:pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+84px)]"
+            : "relative h-[calc(100vh-80px)] md:h-[100lvh] overflow-y-auto space-y-4 px-0 pb-20 md:pb-0 pt-[90px] md:pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+84px)]"
         }
       >
         <StickySearchBar

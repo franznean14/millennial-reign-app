@@ -371,7 +371,7 @@ export function HouseholderList({
       
       {/* Scrollable Table Body */}
       <div
-        className="flex-1 overflow-y-auto no-scrollbar overscroll-none pb-[calc(max(env(safe-area-inset-bottom),0px)+175px)]"
+        className="flex-1 overflow-y-auto no-scrollbar overscroll-none pb-[calc(max(env(safe-area-inset-bottom),0px)+175px)] md:pb-0"
         style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
       >
         <table className="w-full text-sm table-fixed">
@@ -422,8 +422,8 @@ export function HouseholderList({
         viewMode === "table"
           ? {
               overscrollBehavior: "none",
-              // Full dynamic viewport height minus bottom nav height (80px)
-              height: "calc(100dvh - 80px)"
+              // Use the large viewport on tablet+ so iPad paints through the bottom safe area.
+              height: "100lvh"
             }
           : undefined
       }

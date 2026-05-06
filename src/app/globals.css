@@ -64,6 +64,21 @@ body.has-device-safe-top {
   padding-top: var(--device-safe-top);
 }
 
+/* Tablet+ should use full dynamic viewport height without body top padding shrinkage.
+   Safe-area offsets are handled by component-level chrome positioning. */
+@media (min-width: 768px) {
+  html,
+  body {
+    height: 100lvh;
+    min-height: 100lvh;
+    max-height: 100lvh;
+  }
+
+  body.has-device-safe-top {
+    padding-top: 0;
+  }
+}
+
 /* Fix for iOS PWA viewport issues */
 @supports (-webkit-touch-callout: none) {
   body {
