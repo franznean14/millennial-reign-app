@@ -15,6 +15,7 @@ import { getStatusColor, getStatusTextColor, getBestStatus } from "@/lib/utils/s
 import { useListViewMode } from "@/lib/hooks/use-list-view-mode";
 import { useInfiniteList } from "@/lib/hooks/use-infinite-list";
 import { formatEstablishmentStatusCompactText, formatStatusText } from "@/lib/utils/formatters";
+import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 
 interface EstablishmentListProps {
   establishments: EstablishmentWithDetails[];
@@ -484,12 +485,12 @@ export function EstablishmentList({
   );
 
   const renderTableView = () => (
-    <div className="w-full h-full flex flex-col overscroll-none" style={{ overscrollBehavior: 'none' }}>
+    <div className={cn("w-full h-full flex flex-col overscroll-none rounded-lg border border-transparent", studyBibleDarkClasses.card)} style={{ overscrollBehavior: 'none' }}>
       {/* Fixed Table Header */}
-      <div className="flex-shrink-0 border-b bg-background">
+      <div className="flex-shrink-0 border-b bg-background dark:border-[#1c1921] dark:bg-[#30283c]">
         <table className="w-full text-sm table-fixed">
           <thead>
-            <tr className="border-b">
+            <tr className={cn("border-b dark:border-[#1c1921]", studyBibleDarkClasses.muted)}>
               <th className="text-left py-3 px-3 w-[50%]">Name</th>
               <th className="text-left py-3 px-3 w-[23%]">Status</th>
               <th className="text-left py-3 px-3 w-[27%]">Area</th>
@@ -500,7 +501,7 @@ export function EstablishmentList({
       
       {/* Scrollable Table Body */}
       <div
-        className="flex-1 overflow-y-auto no-scrollbar overscroll-none pb-[calc(max(env(safe-area-inset-bottom),0px)+175px)] md:pb-0"
+        className="flex-1 overflow-y-auto no-scrollbar overscroll-none pb-[calc(max(env(safe-area-inset-bottom),0px)+175px)] md:pb-0 dark:bg-[#24231f]"
         style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
       >
         <table className="w-full text-sm table-fixed">
@@ -508,7 +509,7 @@ export function EstablishmentList({
             {visibleEstablishments.map((establishment, index) => (
               <tr
                 key={establishment.id || index}
-                className="border-b hover:bg-muted/30 cursor-pointer"
+                className="border-b hover:bg-muted/30 cursor-pointer dark:border-[#3a3342] dark:hover:bg-[#30283c]"
                 onClick={() => onEstablishmentClick(establishment)}
               >
                 <td className="p-3 min-w-0 w-[50%]">
@@ -554,7 +555,7 @@ export function EstablishmentList({
     <div
       className={
         viewMode === 'table'
-          ? "w-full overflow-hidden flex flex-col overscroll-none mt-6"
+          ? "w-full overflow-hidden flex flex-col overscroll-none mt-10"
           : "w-full"
       }
       style={

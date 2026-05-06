@@ -71,7 +71,7 @@ export function AppChrome({ children }: AppChromeProps) {
       <OnlineBanner />
       <BiometricGate />
       
-      <SidebarProvider className="max-md:!fixed max-md:!inset-0 max-md:!h-auto max-md:!max-h-none max-md:!overflow-hidden">
+      <SidebarProvider className="max-md:!fixed max-md:!inset-x-0 max-md:!top-0 max-md:!bottom-auto max-md:!h-[100lvh] max-md:!max-h-[100lvh] max-md:!overflow-hidden">
         <SidebarInset className="min-h-0">
           <HomeTodoDetailsFabProvider>
             <div className={cn("flex min-h-0 flex-1 flex-col px-4 w-full overflow-x-hidden", studyBibleDarkClasses.page)}>
@@ -81,7 +81,7 @@ export function AppChrome({ children }: AppChromeProps) {
         </SidebarInset>
         
         {/* Bottom Navigation (Mobile) */}
-        <nav className="fixed inset-x-0 bottom-0 z-20 border-t border-border/70 bg-background/80 backdrop-blur md:hidden pb-[env(safe-area-inset-bottom)]">
+        <nav className="absolute inset-x-0 bottom-0 z-20 border-t border-border/70 bg-background/80 backdrop-blur md:hidden pb-[env(safe-area-inset-bottom)]">
           <div className="mx-auto flex max-w-screen-sm items-stretch justify-around">
             {navItems.map(({ id, label, icon: Icon }) => {
               const isActive = currentSection === id;
