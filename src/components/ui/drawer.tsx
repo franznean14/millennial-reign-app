@@ -110,8 +110,9 @@ export const DrawerContent = React.forwardRef<
   React.ElementRef<typeof DrawerPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content> & {
     overlayClassName?: string;
+    handleClassName?: string;
   }
->(({ className, overlayClassName, children, onPointerDownOutside, ...props }, ref) => {
+>(({ className, overlayClassName, handleClassName, children, onPointerDownOutside, ...props }, ref) => {
   const visualViewport = useVisualViewport();
   
   // Check if this is a nested drawer (time picker) that needs to be taller
@@ -174,7 +175,7 @@ export const DrawerContent = React.forwardRef<
         {...props}
         onPointerDownOutside={mergePointerDownOutsideForFabRoot(onPointerDownOutside)}
       >
-        <div className="mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted" />
+        <div className={cn("mx-auto mt-4 h-2 w-[100px] rounded-full bg-muted", handleClassName)} />
         <div 
           className="min-h-0 flex-1 overflow-y-auto overscroll-contain mt-3 pt-1 drawer-content-inner" 
           style={{ 
