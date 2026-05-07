@@ -74,7 +74,9 @@ export function useBwiVisitHistory({
         const sortedVisits = await getRecentBwiVisits(recentLimit, forceRefresh);
         setVisits(sortedVisits);
         // Seed full-list state so Calls drawer opens with immediate rows.
-        setAllVisitsRaw((prev) => (prev.length > 0 ? prev : sortedVisits));
+        setAllVisitsRaw((prev) =>
+          prev.length > 0 ? prev : dedupeAndSortVisits(sortedVisits)
+        );
       } catch (error) {
         console.error("Error loading visit history:", error);
       } finally {
@@ -91,17 +93,22 @@ export function useBwiVisitHistory({
       try {
         const sortedVisits = await getBwiVisitsPage({ userId, offset, pageSize, forceRefresh });
         if (offset === 0) {
+          const next = dedupeAndSortVisits(sortedVisits);
           // Only update if data actually changed to avoid unnecessary re-renders
           setAllVisitsRaw((prev) => {
             // Check if data is the same (same IDs in same order)
-            if (prev.length === sortedVisits.length && 
-                prev.every((v, i) => v.id === sortedVisits[i]?.id)) {
+            if (
+              prev.length === next.length &&
+              prev.every((v, i) => v.id === next[i]?.id)
+            ) {
               return prev; // No change, return previous to avoid re-render
             }
-            return sortedVisits;
+            return next;
           });
         } else {
-          setAllVisitsRaw((prev) => [...prev, ...sortedVisits]);
+          // Dedupe after append: concurrent loadMore or overlapping fetches can duplicate rows;
+          // merged sort also keeps global order correct across dual-stream pages.
+          setAllVisitsRaw((prev) => dedupeAndSortVisits([...prev, ...sortedVisits]));
         }
         setHasMore(sortedVisits.length === pageSize * 2);
       } catch (error) {
