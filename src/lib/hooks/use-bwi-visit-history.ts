@@ -87,9 +87,14 @@ export function useBwiVisitHistory({
   );
 
   const loadAllVisits = useCallback(
-    async (offset = 0, forceRefresh = false) => {
+    async (
+      offset = 0,
+      forceRefresh = false,
+      options?: { initialLoad?: boolean }
+    ) => {
       if (!enabled || !userId) return;
-      setLoadingMore(true);
+      const initialLoad = options?.initialLoad ?? false;
+      if (!initialLoad) setLoadingMore(true);
       try {
         const sortedVisits = await getBwiVisitsPage({ userId, offset, pageSize, forceRefresh });
         if (offset === 0) {
@@ -105,6 +110,8 @@ export function useBwiVisitHistory({
             }
             return next;
           });
+          // Keep hook `visits` aligned for optimistic event handlers + any future consumers
+          setVisits(next.slice(0, recentLimit));
         } else {
           // Dedupe after append: concurrent loadMore or overlapping fetches can duplicate rows;
           // merged sort also keeps global order correct across dual-stream pages.
@@ -114,19 +121,37 @@ export function useBwiVisitHistory({
       } catch (error) {
         console.error("Error loading more visits:", error);
       } finally {
-        setLoadingMore(false);
+        if (!initialLoad) setLoadingMore(false);
       }
     },
-    [enabled, userId, pageSize]
+    [enabled, userId, pageSize, recentLimit]
   );
 
+  // Online: same first-page fetch + merge as the Calls drawer (forced), so the Home card matches.
+  // Offline: cache-backed recent list only (getBwiVisitsPage falls back to IndexedDB).
   useEffect(() => {
-    if (!enabled) {
+    if (!enabled || !userId) {
       setLoading(false);
       return;
     }
-    loadInitialVisits();
-  }, [enabled, loadInitialVisits]);
+    let cancelled = false;
+    const run = async () => {
+      setLoading(true);
+      try {
+        if (typeof navigator !== "undefined" && navigator.onLine) {
+          await loadAllVisits(0, true, { initialLoad: true });
+        } else {
+          await loadInitialVisits(false, { suppressLoading: true });
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    void run();
+    return () => {
+      cancelled = true;
+    };
+  }, [enabled, userId, loadAllVisits, loadInitialVisits]);
 
   // Listen for visit updates to refresh the list
   useEffect(() => {
@@ -204,6 +229,18 @@ export function useBwiVisitHistory({
       }
     };
 
+    /** Establishment/householder status (and names) on list rows are denormalized at fetch time; refetch visits when those entities change. */
+    const handleEstablishmentOrHouseholderUpdated = async () => {
+      await cacheDelete("bwi-visits-all-v2");
+      for (let i = 0; i < 10; i++) {
+        await cacheDelete(`bwi-all-visits-v2-${userId ?? "all"}-${i * 20}`);
+      }
+      loadInitialVisits(true, { suppressLoading: true });
+      if (allVisitsRaw.length > 0) {
+        loadAllVisits(0, true);
+      }
+    };
+
     const handleVisitDeleted = async (deletedVisit: { id: string }) => {
       const visitId = deletedVisit?.id;
       if (!visitId) return;
@@ -241,11 +278,15 @@ export function useBwiVisitHistory({
     businessEventBus.subscribe('visit-added', handleVisitAdded);
     businessEventBus.subscribe('visit-updated', handleVisitUpdated);
     businessEventBus.subscribe('visit-deleted', handleVisitDeleted);
+    businessEventBus.subscribe('establishment-updated', handleEstablishmentOrHouseholderUpdated);
+    businessEventBus.subscribe('householder-updated', handleEstablishmentOrHouseholderUpdated);
 
     return () => {
       businessEventBus.unsubscribe('visit-added', handleVisitAdded);
       businessEventBus.unsubscribe('visit-updated', handleVisitUpdated);
       businessEventBus.unsubscribe('visit-deleted', handleVisitDeleted);
+      businessEventBus.unsubscribe('establishment-updated', handleEstablishmentOrHouseholderUpdated);
+      businessEventBus.unsubscribe('householder-updated', handleEstablishmentOrHouseholderUpdated);
     };
   }, [enabled, loadInitialVisits, loadAllVisits, allVisitsRaw.length, userId, recentLimit]);
 

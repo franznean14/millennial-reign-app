@@ -1888,14 +1888,18 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
   const cacheKey = `establishment:details:${establishmentId}`;
   
   try {
-    // Cache-first for instant rendering (online and offline).
-    const cached = await cacheGet<{
-      establishment: EstablishmentWithDetails;
-      visits: VisitWithUser[];
-      householders: HouseholderWithDetails[];
-    }>(cacheKey);
-    if (cached) return cached;
-  
+    // Offline-first: serve last details from IndexedDB when we cannot reach the network reliably.
+    // When online, always fetch fresh visits — cache-only returns were leaving Calls sections stale until another interaction.
+    const offline = typeof navigator !== "undefined" && !navigator.onLine;
+    if (offline) {
+      const cached = await cacheGet<{
+        establishment: EstablishmentWithDetails;
+        visits: VisitWithUser[];
+        householders: HouseholderWithDetails[];
+      }>(cacheKey);
+      if (cached) return cached;
+    }
+
   // Get establishment details — exclude soft-deleted/archived (same filter as list so details detect delete)
   const { data: establishment } = await supabase
     .from('business_establishments')
@@ -1995,8 +1999,6 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
   return result;
   } catch (error) {
     console.error('Error fetching establishment details:', error);
-    const isOffline = typeof navigator !== 'undefined' && !navigator.onLine;
-    if (!isOffline) return null;
     const cached = await cacheGet<{
       establishment: EstablishmentWithDetails;
       visits: VisitWithUser[];
@@ -2016,13 +2018,16 @@ export async function getHouseholderDetails(householderId: string): Promise<{
   const cacheKey = `householder:details:v3:${householderId}`;
   
   try {
-    // Cache-first for instant rendering (online and offline).
-    const cached = await cacheGet<{
-      householder: HouseholderWithDetails;
-      visits: VisitWithUser[];
+    // Offline-first only; when online, fetch fresh visits for the Calls section (same as establishment details).
+    const offline = typeof navigator !== "undefined" && !navigator.onLine;
+    if (offline) {
+      const cached = await cacheGet<{
+        householder: HouseholderWithDetails;
+        visits: VisitWithUser[];
         establishment?: { id: string; name: string; area?: string | null; statuses?: string[] | null } | null;
-    }>(cacheKey);
-    if (cached) return cached;
+      }>(cacheKey);
+      if (cached) return cached;
+    }
 
   // Householder with establishment and publisher profile
   // Fetch visits first to ensure they're always loaded, even if householder query fails

@@ -138,10 +138,11 @@ async function fetchHouseholderVisits(limit: number, offset: number) {
 export async function getRecentBwiVisits(limit = 5, forceRefresh = false): Promise<VisitRecord[]> {
   const cacheKey = "bwi-visits-all-v2";
   
-  // Only use cache if not forcing refresh and we're offline
+  // Offline-first: use cache only when offline. When online, always refetch so the Home Calls card
+  // stays current (IndexedDB snapshots were masking fresh visits until the drawer forced a refresh).
   if (!forceRefresh) {
     const cached = await cacheGet<{ visits?: VisitRecord[] }>(cacheKey);
-    if (cached?.visits?.length) {
+    if (cached?.visits?.length && isOffline()) {
       return cached.visits;
     }
   }
@@ -184,16 +185,11 @@ export async function getBwiVisitsPage({
     await cacheDelete(cacheKey);
   }
   
-  // Only use cache if not forcing refresh
+  // Offset 0: use cache only when offline. When online, fetch so merged list matches server order.
   if (!forceRefresh && offset === 0) {
-  const cached = await cacheGet<{ visits?: VisitRecord[] }>(cacheKey);
-    if (cached?.visits?.length) {
-      // If offline, return cached data
-      if (isOffline()) {
-        return cached.visits;
-      }
-      // If online and not forcing refresh, return cached for speed
-    return cached.visits;
+    const cached = await cacheGet<{ visits?: VisitRecord[] }>(cacheKey);
+    if (cached?.visits?.length && isOffline()) {
+      return cached.visits;
     }
   }
 

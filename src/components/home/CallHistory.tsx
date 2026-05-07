@@ -36,7 +36,15 @@ import { getSelectedStatusColor } from "@/lib/utils/status-filter-styles";
 import NumberFlow from "@number-flow/react";
 import { cacheGet, cacheSet, cacheDelete } from "@/lib/offline/store";
 import { businessEventBus, type BusinessEventType } from "@/lib/events/business-events";
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerWideLeftContentTop, DrawerWideRightContent } from "@/components/ui/drawer";
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerWideLeftContent,
+  DrawerWideLeftContentTop,
+  DrawerWideRightContent,
+} from "@/components/ui/drawer";
 import { EstablishmentForm } from "@/components/business/EstablishmentForm";
 import { HouseholderForm } from "@/components/business/HouseholderForm";
 import { EstablishmentDetails } from "@/components/business/EstablishmentDetails";
@@ -223,7 +231,6 @@ export function CallHistory({
   const isTypingRef = useRef(false);
 
   const {
-    visits,
     loading,
     allVisitsRawCount,
     filteredVisits: hookFilteredVisits,
@@ -643,11 +650,14 @@ export function CallHistory({
         return b.key.localeCompare(a.key);
       });
     };
+    // Single source of truth with the drawer: hook `visits` only reflected the small
+    // getRecentBwiVisits() payload and could stay stale after loadAllVisits refreshes allVisitsRaw.
+    const streamItems = toItems(filteredVisits);
     return {
-      preview: toItems(visits).slice(0, 5),
-      drawer: toItems(filteredVisits),
+      preview: streamItems.slice(0, 5),
+      drawer: streamItems,
     };
-  }, [visits, filteredVisits, filteredCallTodos]);
+  }, [filteredVisits, filteredCallTodos]);
 
   const callsDrawerTabletLayout = useMediaQuery("(min-width: 768px)");
   const isXlViewport = useMediaQuery("(min-width: 1280px)");
@@ -2204,27 +2214,32 @@ export function CallHistory({
         </Drawer>
       ) : null}
 
-      {/* Calls filter drawer (matches Filter To-Dos sheet) */}
-      <Drawer open={showFiltersDrawer} onOpenChange={setShowFiltersDrawer}>
-        <DrawerContent
-          className="max-h-[80vh] dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
-          handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
-        >
-          <DrawerHeader className="px-4 pt-4 pb-2 items-center dark:bg-[#181714]">
+      {/* Calls filter: left sheet (opens over Calls list drawer) */}
+      <Drawer
+        open={showFiltersDrawer}
+        onOpenChange={setShowFiltersDrawer}
+        direction="left"
+        modal
+        shouldScaleBackground={false}
+      >
+        <DrawerWideLeftContent className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
+          <DrawerHeader className="shrink-0 border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
             <DrawerTitle className="flex w-full items-center justify-center gap-2 text-center text-lg font-bold">
               <KnockingDoorIcon />
               Filter Calls
             </DrawerTitle>
           </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] dark:bg-[#181714]">
-            {filterForm}
-            <div className="flex justify-end pt-4">
-              <Button type="button" variant="outline" onClick={() => setShowFiltersDrawer(false)}>
-                Done
-              </Button>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden dark:bg-[#181714]">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
+              {filterForm}
+              <div className="flex justify-end pt-4">
+                <Button type="button" variant="outline" onClick={() => setShowFiltersDrawer(false)}>
+                  Done
+                </Button>
+              </div>
             </div>
           </div>
-        </DrawerContent>
+        </DrawerWideLeftContent>
       </Drawer>
 
       {/* Area picker drawer for BWI tab header */}
