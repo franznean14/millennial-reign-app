@@ -404,9 +404,8 @@ export function CallHistory({
     let cancelled = false;
     let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 
-    const loadBwiData = async (options?: { forceRefresh?: boolean }) => {
-      const forceRefresh = options?.forceRefresh ?? false;
-      const cacheKey = "bwi-summary-data";
+    const loadBwiData = async () => {
+      const cacheKey = `bwi-summary-data:${userId}`;
       const cached = await cacheGet<{
         establishments?: EstablishmentWithDetails[];
         householders?: HouseholderWithDetails[];
@@ -417,7 +416,6 @@ export function CallHistory({
           setBwiEstablishments(cached.establishments || []);
           setBwiHouseholders((cached.householders || []).filter((hh) => !!hh.establishment_id));
         }
-        if (!forceRefresh) return;
       }
 
       if (typeof navigator !== "undefined" && !navigator.onLine) {
@@ -441,7 +439,7 @@ export function CallHistory({
     const scheduleRefetch = () => {
       if (debounceTimer) clearTimeout(debounceTimer);
       debounceTimer = setTimeout(() => {
-        if (!cancelled) void loadBwiData({ forceRefresh: true });
+        if (!cancelled) void loadBwiData();
       }, 400);
     };
 
@@ -461,15 +459,22 @@ export function CallHistory({
     refetchEvents.forEach((ev) => businessEventBus.subscribe(ev, scheduleRefetch));
 
     const onOnline = () => {
-      if (!cancelled) void loadBwiData({ forceRefresh: true });
+      if (!cancelled) void loadBwiData();
     };
     window.addEventListener("online", onOnline);
+
+    const onBwiResume = () => {
+      if (document.visibilityState !== "visible" || cancelled) return;
+      scheduleRefetch();
+    };
+    document.addEventListener("visibilitychange", onBwiResume);
 
     return () => {
       cancelled = true;
       if (debounceTimer) clearTimeout(debounceTimer);
       refetchEvents.forEach((ev) => businessEventBus.unsubscribe(ev, scheduleRefetch));
       window.removeEventListener("online", onOnline);
+      document.removeEventListener("visibilitychange", onBwiResume);
     };
   }, [needsBwiSummaryData, userId]);
 

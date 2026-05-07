@@ -227,6 +227,9 @@ export function HomeSummary({
     }
   };
 
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+
   // Update timezone-based ranges
   useEffect(() => {
     if (!timeZone) return;
@@ -249,7 +252,19 @@ export function HomeSummary({
   useEffect(() => {
     if (!uid) return;
     refresh();
-  }, [uid, range.mStart, range.mNext, range.syStart, range.syEnd]);
+  }, [uid, range.mStart, range.mNext, range.syStart, range.syEnd, isOffline]);
+
+  // Refetch hours when returning to the app (SPA tab / iOS PWA resume)
+  useEffect(() => {
+    if (!uid) return;
+    const onResume = () => {
+      if (document.visibilityState !== "visible") return;
+      if (typeof navigator !== "undefined" && !navigator.onLine) return;
+      void refreshRef.current();
+    };
+    document.addEventListener("visibilitychange", onResume);
+    return () => document.removeEventListener("visibilitychange", onResume);
+  }, [uid]);
 
   // Subscribe to realtime updates
   useEffect(() => {

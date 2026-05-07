@@ -242,6 +242,9 @@ export function DesktopHomeSummary({
     }
   };
 
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+
   // Field service form functions
   const loadMonthMarks = async () => {
     try {
@@ -338,7 +341,19 @@ export function DesktopHomeSummary({
   useEffect(() => {
     if (!uid) return;
     refresh();
-  }, [uid, range.mStart, range.mNext, range.syStart, range.syEnd]);
+  }, [uid, range.mStart, range.mNext, range.syStart, range.syEnd, isOffline]);
+
+  // Refetch hours when returning to the app (tablet / PWA)
+  useEffect(() => {
+    if (!uid) return;
+    const onResume = () => {
+      if (document.visibilityState !== "visible") return;
+      if (typeof navigator !== "undefined" && !navigator.onLine) return;
+      void refreshRef.current();
+    };
+    document.addEventListener("visibilitychange", onResume);
+    return () => document.removeEventListener("visibilitychange", onResume);
+  }, [uid]);
 
   useEffect(() => {
     loadMonthMarks();
