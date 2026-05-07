@@ -565,7 +565,7 @@ export function BusinessSection({
               shouldScaleBackground={false}
             >
               <DrawerWideRightContent className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
-                <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+                <DrawerHeader className="px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:bg-[#181714]">
                   <DrawerTitle className="text-center text-xl font-extrabold tracking-tight">
                     {selectedEstablishmentDetails?.establishment.name || selectedEstablishment?.name || "Establishment Details"}
                   </DrawerTitle>
@@ -587,7 +587,7 @@ export function BusinessSection({
               shouldScaleBackground={false}
             >
               <DrawerWideRightContent className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
-                <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+                <DrawerHeader className="px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:bg-[#181714]">
                   <DrawerTitle className="text-center text-xl font-extrabold tracking-tight">
                     {selectedHouseholderDetails?.householder.name || selectedHouseholder?.name || "Contact Details"}
                   </DrawerTitle>
@@ -611,7 +611,7 @@ export function BusinessSection({
                 stackAboveDetailsSheet
                 className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
               >
-                <DrawerHeader className="border-b border-border px-2 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-left sm:px-4 dark:border-[#1c1921] dark:bg-[#181714]">
+                <DrawerHeader className="px-2 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-left sm:px-4 dark:bg-[#181714]">
                   <div className="relative flex items-center justify-center gap-1 pr-1">
                     <Button
                       type="button"
@@ -647,7 +647,7 @@ export function BusinessSection({
                 stackAboveStackedRightSheet={!!selectedHouseholder && !!selectedEstablishment}
                 className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
               >
-                <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+                <DrawerHeader className="px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:bg-[#181714]">
                   <DrawerTitle className="text-center text-lg font-bold">
                     {businessEditSheet === "householder" ? "Edit Contact" : "Edit Establishment"}
                   </DrawerTitle>

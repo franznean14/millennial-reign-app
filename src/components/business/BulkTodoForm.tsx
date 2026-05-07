@@ -3301,7 +3301,7 @@ export function BulkTodoForm({
           shouldScaleBackground={false}
         >
           <DrawerWideLeftContent className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff] md:max-h-[100lvh]">
-            <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+0.75rem)] text-center sm:text-center dark:border-[#1c1921]">
+            <DrawerHeader className="px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+0.75rem)] text-center sm:text-center">
               <DrawerTitle className="text-center text-base font-semibold">
                 Select Establishment or Contact
               </DrawerTitle>

@@ -117,7 +117,7 @@ export function DatePicker({
         shouldScaleBackground={false}
       >
         <DrawerThinRightContent className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
-          <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+          <DrawerHeader className="px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:bg-[#181714]">
             <DrawerTitle className="text-center text-lg font-bold">Select Date</DrawerTitle>
             <DrawerDescription className="dark:text-[#ded6e7]/75">Choose a date</DrawerDescription>
           </DrawerHeader>

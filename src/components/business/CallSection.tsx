@@ -252,14 +252,14 @@ export function CallSection({
               stackAboveStackedRightSheet
               className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff] md:max-h-[100lvh]"
             >
-              <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center sm:text-center dark:border-[#1c1921] dark:bg-[#181714]">
+              <DrawerHeader className="px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center sm:text-center dark:bg-[#181714]">
                 <DrawerTitle className="text-center text-lg font-bold">Calls</DrawerTitle>
               </DrawerHeader>
               {callsListExpandedBody(true)}
             </DrawerWideLeftContentTop>
           ) : (
             <DrawerWideLeftContent className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff] md:max-h-[100lvh]">
-              <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center sm:text-center dark:border-[#1c1921] dark:bg-[#181714]">
+              <DrawerHeader className="px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center sm:text-center dark:bg-[#181714]">
                 <DrawerTitle className="text-center text-lg font-bold">Calls</DrawerTitle>
               </DrawerHeader>
               {callsListExpandedBody(true)}
@@ -284,7 +284,7 @@ export function CallSection({
           shouldScaleBackground={false}
         >
           <DrawerWideLeftContentTop stackAboveStackedRightSheet className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
-            <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+            <DrawerHeader className="px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:bg-[#181714]">
               <DrawerTitle className="text-center text-lg font-bold">Edit Call</DrawerTitle>
             </DrawerHeader>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">

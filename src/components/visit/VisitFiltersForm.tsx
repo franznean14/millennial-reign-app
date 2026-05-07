@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -17,9 +17,11 @@ import {
 import { DateRangeSelectContent } from "@/components/ui/date-range-select-modal";
 import { format } from "date-fns";
 import { Calendar, X } from "lucide-react";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
+import type { Variants } from "motion/react";
 import { cn } from "@/lib/utils";
 import { useMediaQuery } from "@/hooks/use-media-query";
+import { getStudyBibleDarkCardShade, studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 
 export interface VisitFilters {
   search: string;
@@ -57,13 +59,12 @@ interface VisitFiltersFormProps {
   assigneeHelpText?: string;
   /** Calls history: button opens the same date-range UI as event schedules. */
   showCallDateFilter?: boolean;
-  /** To-do due date control (home). Paired with assignees on md+ when `compactTabletLayout`. */
-  dueDateFilter?: ReactNode;
   /**
-   * When true with a date slot (`dueDateFilter` and/or `showCallDateFilter`), md+ layout is a 3-column row:
-   * Status | Areas | (due/call date above assignees).
+   * To-do due date (`YYYY-MM-DD`), same `DateRangeSelectContent` + drawer/modal as Call date.
+   * Pass `onDueDateYmdChange` to enable.
    */
-  compactTabletLayout?: boolean;
+  dueDateYmd?: string | null;
+  onDueDateYmdChange?: (ymd: string | null) => void;
   onFiltersChange: (filters: VisitFilters) => void;
   onClearFilters: () => void;
 }
@@ -79,6 +80,28 @@ function parseYmdLocal(ymd: string | null): Date | undefined {
 const DEFAULT_ASSIGNEE_HELP =
   "Show to-dos where this publisher or partner is assigned.";
 
+/** Stagger children for filter sections (Calls / to-do drawer mount). */
+const FILTER_STAGGER: Variants = {
+  hidden: {},
+  show: {
+    transition: { staggerChildren: 0.06, delayChildren: 0.04 },
+  },
+};
+
+const FILTER_SECTION: Variants = {
+  hidden: { opacity: 0, y: 12 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.28, ease: [0.4, 0, 0.2, 1] },
+  },
+  exit: {
+    opacity: 0,
+    y: -6,
+    transition: { duration: 0.18, ease: [0.4, 0, 0.2, 1] },
+  },
+};
+
 export function VisitFiltersForm({
   filters,
   statusOptions,
@@ -86,13 +109,23 @@ export function VisitFiltersForm({
   assigneeOptions,
   assigneeHelpText = DEFAULT_ASSIGNEE_HELP,
   showCallDateFilter = false,
-  dueDateFilter,
-  compactTabletLayout = false,
+  dueDateYmd = null,
+  onDueDateYmdChange,
   onFiltersChange,
   onClearFilters
 }: VisitFiltersFormProps) {
   const [callDateModalOpen, setCallDateModalOpen] = useState(false);
+  const [dueDateModalOpen, setDueDateModalOpen] = useState(false);
   const isCallDateTabletDrawer = useMediaQuery("(min-width: 768px)");
+
+  const callDateDrawerPanelClass = useMemo(
+    () => getStudyBibleDarkCardShade("bwi-visit-filters-call-date"),
+    []
+  );
+  const dueDateDrawerPanelClass = useMemo(
+    () => getStudyBibleDarkCardShade("bwi-visit-filters-due-date"),
+    []
+  );
 
   const callDateButtonLabel = useMemo(() => {
     const from = filters.callDateFrom;
@@ -105,6 +138,13 @@ export function VisitFiltersForm({
     if (!end) return format(start, "MMMM d, yyyy");
     return `${format(start, "MMMM d, yyyy")} → ${format(end, "MMMM d, yyyy")}`;
   }, [filters.callDateFrom, filters.callDateTo]);
+
+  const dueDateButtonLabel = useMemo(() => {
+    if (!dueDateYmd) return null;
+    const d = parseYmdLocal(dueDateYmd);
+    if (!d) return null;
+    return format(d, "MMMM d, yyyy");
+  }, [dueDateYmd]);
 
   const toggleStatus = (status: string) => {
     onFiltersChange({
@@ -138,7 +178,8 @@ export function VisitFiltersForm({
     filters.areas.length > 0 ||
     filters.assigneeIds.length > 0 ||
     filters.callDateFrom != null ||
-    filters.callDateTo != null;
+    filters.callDateTo != null ||
+    dueDateYmd != null;
 
   const callBody = (
     <DateRangeSelectContent
@@ -181,10 +222,17 @@ export function VisitFiltersForm({
             nested
             shouldScaleBackground={false}
           >
-            <DrawerThinRightContent>
-              <DrawerHeader className="border-b border-border px-4 text-left">
+            <DrawerThinRightContent
+              className={cn(
+                "dark:border-[#1c1921] dark:text-[#fffaff]",
+                callDateDrawerPanelClass
+              )}
+            >
+              <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-left">
                 <DrawerTitle>Call date</DrawerTitle>
-                <DrawerDescription>Choose a single date or select a range</DrawerDescription>
+                <DrawerDescription className={studyBibleDarkClasses.muted}>
+                  Choose a single date or select a range
+                </DrawerDescription>
               </DrawerHeader>
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+24px)] pt-4">
                 {callBody}
@@ -204,6 +252,128 @@ export function VisitFiltersForm({
           </FormModal>
         )
     : null;
+
+  const dueDateBody =
+    onDueDateYmdChange != null ? (
+      <DateRangeSelectContent
+        startDate={parseYmdLocal(dueDateYmd)}
+        allowRange={false}
+        showActions
+        showClearAction={Boolean(dueDateYmd)}
+        onClearAction={() => {
+          onDueDateYmdChange(null);
+          setDueDateModalOpen(false);
+        }}
+        onSelect={() => {}}
+        onConfirm={(start) => {
+          onDueDateYmdChange(format(start, "yyyy-MM-dd"));
+          setDueDateModalOpen(false);
+        }}
+        onCancel={() => setDueDateModalOpen(false)}
+      />
+    ) : null;
+
+  const dueDateModal =
+    onDueDateYmdChange != null && dueDateBody != null
+      ? isCallDateTabletDrawer
+        ? (
+            <Drawer
+              open={dueDateModalOpen}
+              onOpenChange={setDueDateModalOpen}
+              direction="right"
+              modal
+              nested
+              shouldScaleBackground={false}
+            >
+              <DrawerThinRightContent
+                className={cn(
+                  "dark:border-[#1c1921] dark:text-[#fffaff]",
+                  dueDateDrawerPanelClass
+                )}
+              >
+                <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-left">
+                  <DrawerTitle>Due date</DrawerTitle>
+                  <DrawerDescription className={studyBibleDarkClasses.muted}>
+                    Choose a due date
+                  </DrawerDescription>
+                </DrawerHeader>
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+24px)] pt-4">
+                  {dueDateBody}
+                </div>
+              </DrawerThinRightContent>
+            </Drawer>
+          )
+        : (
+            <FormModal
+              open={dueDateModalOpen}
+              onOpenChange={setDueDateModalOpen}
+              title="Due date"
+              description="Choose a due date"
+              className="sm:max-w-[640px]"
+            >
+              {dueDateBody}
+            </FormModal>
+          )
+      : null;
+
+  const dueDateFieldsOnly =
+    onDueDateYmdChange != null ? (
+      <div className="space-y-2">
+        <Label>Due date</Label>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-9 w-full justify-start rounded-md px-3 font-normal text-left"
+          aria-label={dueDateButtonLabel ? `Due date: ${dueDateButtonLabel}` : "Select due date"}
+          onClick={(e) => {
+            const target = e.target as HTMLElement;
+            if (target.closest(".due-date-clear")) return;
+            setDueDateModalOpen(true);
+          }}
+        >
+          <Calendar className="h-4 w-4 shrink-0" aria-hidden />
+          <span
+            className={cn(
+              "text-sm min-w-0 flex-1 truncate text-left",
+              !dueDateButtonLabel && "text-muted-foreground"
+            )}
+          >
+            {dueDateButtonLabel ?? "Select date"}
+          </span>
+          {dueDateButtonLabel ? (
+            <div
+              className="due-date-clear filter-x-button h-4 w-4 shrink-0 flex items-center justify-center cursor-pointer hover:opacity-70"
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onDueDateYmdChange(null);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onDueDateYmdChange(null);
+                }
+              }}
+              role="button"
+              tabIndex={0}
+              aria-label="Clear due date"
+            >
+              <X className="h-4 w-4 pointer-events-none" />
+            </div>
+          ) : null}
+        </Button>
+      </div>
+    ) : null;
+
+  const dueDateSection =
+    onDueDateYmdChange != null ? (
+      <>
+        {dueDateFieldsOnly}
+        {dueDateModal}
+      </>
+    ) : null;
 
   const callDateFieldsOnly = showCallDateFilter ? (
     <div className="space-y-2">
@@ -357,50 +527,56 @@ export function VisitFiltersForm({
       </div>
     ) : null;
 
-  const clearFiltersButton = hasActiveFilters ? (
-    <Button variant="outline" size="sm" onClick={onClearFilters} className="w-full">
-      Clear Filters
-    </Button>
-  ) : null;
-
-  const useCompactTablet =
-    compactTabletLayout && (dueDateFilter != null || showCallDateFilter);
-  const pairedDateSlot = dueDateFilter ?? callDateFieldsOnly;
-
-  if (useCompactTablet) {
-    return (
-      <div className="space-y-5 md:space-y-4">
-        <div className="flex flex-col gap-6 md:hidden">
-          {pairedDateSlot}
-          {statusSection}
-          {areasSection}
-          {assigneesSection}
-        </div>
-        <div className="hidden md:grid md:grid-cols-3 md:gap-4 md:items-start">
-          <div className="min-w-0">{statusSection}</div>
-          <div className="min-w-0">{areasSection}</div>
-          <div className="min-w-0 flex min-h-0 flex-col gap-4">
-            {pairedDateSlot}
-            {assigneesSection}
-          </div>
-        </div>
-        {showCallDateFilter ? callDateModal : null}
-        {clearFiltersButton}
-      </div>
-    );
-  }
+  const clearFiltersButton = (
+    <AnimatePresence initial={false} mode="popLayout">
+      {hasActiveFilters ? (
+        <motion.div
+          key="clear-filters-btn"
+          layout
+          variants={FILTER_SECTION}
+          initial="hidden"
+          animate="show"
+          exit="exit"
+        >
+          <Button variant="outline" size="sm" onClick={onClearFilters} className="w-full">
+            Clear Filters
+          </Button>
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  );
 
   return (
     <div className="space-y-6">
-      <div className="space-y-4">
-        {callDateSection}
-
-        {statusSection}
-
-        {areasSection}
-
-        {assigneesSection}
-      </div>
+      <motion.div
+        className="flex flex-col gap-6"
+        variants={FILTER_STAGGER}
+        initial="hidden"
+        animate="show"
+      >
+        <motion.div variants={FILTER_SECTION}>{statusSection}</motion.div>
+        <motion.div variants={FILTER_SECTION}>{areasSection}</motion.div>
+        {showCallDateFilter ? (
+          <motion.div variants={FILTER_SECTION}>{callDateSection}</motion.div>
+        ) : null}
+        {onDueDateYmdChange != null ? (
+          <motion.div variants={FILTER_SECTION}>{dueDateSection}</motion.div>
+        ) : null}
+        <AnimatePresence initial={false} mode="popLayout">
+          {assigneesSection ? (
+            <motion.div
+              key="assignees-default"
+              layout
+              variants={FILTER_SECTION}
+              initial="hidden"
+              animate="show"
+              exit="exit"
+            >
+              {assigneesSection}
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+      </motion.div>
 
       {clearFiltersButton}
     </div>

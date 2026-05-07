@@ -236,7 +236,7 @@ export function CongregationView({ data, onEdit, canEdit, canManageCongregationU
                 stackAboveDetailsSheet
                 className="flex flex-col overflow-hidden dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff] md:max-h-[100lvh]"
               >
-                <DrawerHeader className="shrink-0 border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+                <DrawerHeader className="shrink-0 px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:bg-[#181714]">
                   <DrawerTitle className="text-center text-xl font-extrabold tracking-tight">
                     {ministryContactDetailsTitle}
                   </DrawerTitle>

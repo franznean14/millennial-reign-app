@@ -579,7 +579,7 @@ export function CallForm({ establishments, selectedEstablishmentId, onSaved, ini
 
   const publisherPickerContent = (
     <>
-      <DrawerHeader className="border-b border-border pb-3 pt-4 text-center dark:border-[#1c1921] dark:bg-[#181714] md:pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)]">
+      <DrawerHeader className="pb-3 pt-4 text-center dark:bg-[#181714] md:pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)]">
         <DrawerTitle className="text-center text-lg font-bold">Select publisher or guest</DrawerTitle>
       </DrawerHeader>
       <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+24px)] pt-4 dark:bg-[#181714]">

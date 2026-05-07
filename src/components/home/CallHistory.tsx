@@ -51,7 +51,7 @@ import { EstablishmentDetails } from "@/components/business/EstablishmentDetails
 import { HouseholderDetails } from "@/components/business/HouseholderDetails";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useHomeTodoDetailsFabOptional } from "@/components/home/home-todo-details-fab-context";
-import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
+import { getStudyBibleDarkCardShade, studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 import { HomeMobileDetailsDrawer } from "@/components/home/HomeMobileDetailsDrawer";
 
 interface CallHistoryProps {
@@ -246,6 +246,15 @@ export function CallHistory({
     loadingMore,
     hasMore
   } = useBwiVisitHistory({ userId, enabled: needsCallsData });
+
+  const callsDrawerPanelClass = useMemo(
+    () => getStudyBibleDarkCardShade(`bwi-calls-list-drawer:${userId}`),
+    [userId]
+  );
+  const callsFilterDrawerPanelClass = useMemo(
+    () => getStudyBibleDarkCardShade(`bwi-calls-filter-drawer:${userId}`),
+    [userId]
+  );
 
   useEffect(() => {
     if (!needsCallsData || !userId) return;
@@ -551,7 +560,6 @@ export function CallHistory({
       assigneeOptions={assigneeFilterOptions}
       assigneeHelpText="Show calls where this publisher or partner participated."
       showCallDateFilter
-      compactTabletLayout
       onFiltersChange={setFilters}
       onClearFilters={clearFilters}
     />
@@ -1802,10 +1810,13 @@ export function CallHistory({
         }}
       >
         <DrawerContent
-          className="h-[85svh] max-h-[85svh] md:h-[92dvh] md:max-h-[92dvh] dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden"
+          className={cn(
+            "h-[85svh] max-h-[85svh] md:h-[92dvh] md:max-h-[92dvh] dark:border-[#1c1921] dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
+            callsDrawerPanelClass
+          )}
           handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
         >
-          <DrawerHeader className="px-4 pt-4 pb-2 items-center shrink-0 dark:bg-[#181714]">
+          <DrawerHeader className="px-4 pt-4 pb-2 items-center shrink-0 bg-transparent">
             <DrawerTitle className="flex w-full flex-wrap items-center justify-center gap-2 text-center text-lg font-bold">
               <KnockingDoorIcon />
               Calls
@@ -1818,7 +1829,7 @@ export function CallHistory({
             </DrawerTitle>
           </DrawerHeader>
 
-          <div className="flex min-h-0 flex-1 flex-col px-4 dark:bg-[#181714]">
+          <div className="flex min-h-0 flex-1 flex-col px-4">
             <div
               className={cn(
                 "mb-4 w-full flex shrink-0",
@@ -2032,7 +2043,7 @@ export function CallHistory({
           shouldScaleBackground={false}
         >
           <DrawerWideRightContent className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
-            <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+            <DrawerHeader className="px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:bg-[#181714]">
               <DrawerTitle className="text-center text-xl font-extrabold tracking-tight">{callsDetailsSheetTitle}</DrawerTitle>
             </DrawerHeader>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3 dark:bg-[#181714]">
@@ -2078,7 +2089,7 @@ export function CallHistory({
             stackAboveDetailsSheet
             className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
           >
-            <DrawerHeader className="border-b border-border px-2 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-left sm:px-4 dark:border-[#1c1921] dark:bg-[#181714]">
+            <DrawerHeader className="px-2 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-left sm:px-4 dark:bg-[#181714]">
               <div className="relative flex items-center justify-center gap-1 pr-1">
                 <Button
                   type="button"
@@ -2133,7 +2144,7 @@ export function CallHistory({
             stackAboveStackedRightSheet={callsContactSubdrawerOpen && callsDrawerTabletLayout}
             className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
           >
-            <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+            <DrawerHeader className="px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:bg-[#181714]">
               <DrawerTitle className="text-center text-lg font-bold">
                 {callsContactSubdrawerEntityEditOpen
                   ? "Edit Contact"
@@ -2222,14 +2233,19 @@ export function CallHistory({
         modal
         shouldScaleBackground={false}
       >
-        <DrawerWideLeftContent className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
-          <DrawerHeader className="shrink-0 border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+        <DrawerWideLeftContent
+          className={cn(
+            "dark:border-[#1c1921] dark:text-[#fffaff]",
+            callsFilterDrawerPanelClass
+          )}
+        >
+          <DrawerHeader className="shrink-0 bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
             <DrawerTitle className="flex w-full items-center justify-center gap-2 text-center text-lg font-bold">
               <KnockingDoorIcon />
               Filter Calls
             </DrawerTitle>
           </DrawerHeader>
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden dark:bg-[#181714]">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
               {filterForm}
               <div className="flex justify-end pt-4">

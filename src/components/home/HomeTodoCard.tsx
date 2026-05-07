@@ -41,7 +41,6 @@ import {
   type VisitAssigneeFilterOption,
 } from "@/components/visit/VisitFiltersForm";
 import { buildFilterBadges } from "@/lib/utils/filter-badges";
-import { DatePicker } from "@/components/ui/date-picker";
 import {
   Drawer,
   DrawerContent,
@@ -71,7 +70,7 @@ import { TodoForm } from "@/components/business/TodoForm";
 import { EstablishmentForm } from "@/components/business/EstablishmentForm";
 import { HouseholderForm } from "@/components/business/HouseholderForm";
 import { useMediaQuery } from "@/hooks/use-media-query";
-import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
+import { studyBibleDarkClasses, getStudyBibleDarkCardShade } from "@/lib/theme/study-bible-dark";
 import { HomeMobileDetailsDrawer } from "@/components/home/HomeMobileDetailsDrawer";
 
 const todoLayoutTransition = {
@@ -433,6 +432,32 @@ export function HomeTodoCard({
       : userId
         ? `user:${userId}`
         : null;
+
+  const todoDrawerShadeKey = scopeKey ?? `anon:${layoutScopeId}`;
+  const todoMainDrawerPanelClass = useMemo(
+    () => getStudyBibleDarkCardShade(`bwi-todos-list-drawer:${todoDrawerShadeKey}`),
+    [todoDrawerShadeKey]
+  );
+  const todoFilterDrawerPanelClass = useMemo(
+    () => getStudyBibleDarkCardShade(`bwi-todos-filter-drawer:${filterScopeKey ?? todoDrawerShadeKey}`),
+    [filterScopeKey, todoDrawerShadeKey]
+  );
+  const todoDetailsSheetPanelClass = useMemo(
+    () => getStudyBibleDarkCardShade(`bwi-todos-details:${todoDrawerShadeKey}`),
+    [todoDrawerShadeKey]
+  );
+  const todoContactSheetPanelClass = useMemo(
+    () => getStudyBibleDarkCardShade(`bwi-todos-contact:${todoDrawerShadeKey}`),
+    [todoDrawerShadeKey]
+  );
+  const todoEntityEditSheetPanelClass = useMemo(
+    () => getStudyBibleDarkCardShade(`bwi-todos-entity-edit:${todoDrawerShadeKey}`),
+    [todoDrawerShadeKey]
+  );
+  const todoEditorSheetPanelClass = useMemo(
+    () => getStudyBibleDarkCardShade(`bwi-todos-editor:${todoDrawerShadeKey}`),
+    [todoDrawerShadeKey]
+  );
 
   const loadTodos = useCallback((opts?: { useCache?: boolean; forceNetwork?: boolean; trustFreshLocalCache?: boolean }) => {
     if (!scopeKey) return;
@@ -3162,8 +3187,10 @@ export function HomeTodoCard({
           : {})}
       >
         {prefersCompanionLeftTodoDrawer ? (
-          <DrawerWideLeftContent className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
-            <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+          <DrawerWideLeftContent
+            className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", todoMainDrawerPanelClass)}
+          >
+            <DrawerHeader className="shrink-0 bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
               <DrawerTitle className="flex w-full flex-wrap items-center justify-center gap-2 text-center text-lg font-bold">
                 <ListTodo className="h-4 w-4 shrink-0" />
                 To-Do
@@ -3181,16 +3208,21 @@ export function HomeTodoCard({
                 </Badge>
               </DrawerTitle>
             </DrawerHeader>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 dark:bg-[#181714]">
-              {renderTodoDrawerBody()}
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
+                {renderTodoDrawerBody()}
+              </div>
             </div>
           </DrawerWideLeftContent>
         ) : (
           <DrawerContent
-            className="max-h-[85vh] md:max-h-[80dvh] dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
+            className={cn(
+              "h-[85svh] max-h-[85svh] md:h-[92dvh] md:max-h-[92dvh] dark:border-[#1c1921] dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
+              todoMainDrawerPanelClass
+            )}
             handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
           >
-            <DrawerHeader className="px-4 pt-4 pb-2 items-center dark:bg-[#181714]">
+            <DrawerHeader className="px-4 pt-4 pb-2 items-center shrink-0 bg-transparent">
               <DrawerTitle className="flex w-full flex-wrap items-center justify-center gap-2 text-center text-lg font-bold">
                 <ListTodo className="h-4 w-4 shrink-0" />
                 To-Do
@@ -3208,8 +3240,17 @@ export function HomeTodoCard({
                 </Badge>
               </DrawerTitle>
             </DrawerHeader>
-            <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] md:overflow-visible md:pb-[calc(max(env(safe-area-inset-bottom),0px)+24px)] dark:bg-[#181714]">
-              {renderTodoDrawerBody()}
+            <div className="flex min-h-0 flex-1 flex-col px-4">
+              <div
+                className={cn(
+                  "relative min-h-0 flex-1",
+                  isTodoDetailsSideLayout
+                    ? "overflow-hidden"
+                    : "overflow-y-auto overscroll-contain pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]"
+                )}
+              >
+                {renderTodoDrawerBody()}
+              </div>
             </div>
           </DrawerContent>
         )}
@@ -3248,51 +3289,40 @@ export function HomeTodoCard({
         </DrawerContent>
       </Drawer>
 
-      <Drawer open={filterDrawerOpen} onOpenChange={setFilterDrawerOpen}>
-        <DrawerContent
-          className="max-h-[80vh] dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
-          handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
+      <Drawer open={filterDrawerOpen} onOpenChange={setFilterDrawerOpen} direction="left" modal shouldScaleBackground={false}>
+        <DrawerWideLeftContent
+          className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", todoFilterDrawerPanelClass)}
         >
-          <DrawerHeader className="px-4 pt-4 pb-2 items-center dark:bg-[#181714]">
+          <DrawerHeader className="shrink-0 bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
             <DrawerTitle className="flex w-full items-center justify-center gap-2 text-center text-lg font-bold">
               <ListTodo className="h-4 w-4 shrink-0" />
               Filter To-Dos
             </DrawerTitle>
           </DrawerHeader>
-          <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] dark:bg-[#181714]">
-            <VisitFiltersForm
-              filters={filters}
-              statusOptions={statusOptions}
-              areaOptions={areaOptions}
-              assigneeOptions={assigneeFilterOptions}
-              compactTabletLayout
-              dueDateFilter={
-                <div className="space-y-2">
-                  <Label>Due Date</Label>
-                  <DatePicker
-                    date={dueDateFilter ?? undefined}
-                    onSelect={(date) => setDueDateFilter(date ?? null)}
-                    placeholder="Select due date"
-                    mobileShowActions
-                    mobileAllowClear
-                    defaultToTodayOnOpen
-                  />
-                </div>
-              }
-              onFiltersChange={setFilters}
-              onClearFilters={clearFilters}
-            />
-            <div className="flex justify-end pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setFilterDrawerOpen(false)}
-              >
-                Done
-              </Button>
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
+              <VisitFiltersForm
+                filters={filters}
+                statusOptions={statusOptions}
+                areaOptions={areaOptions}
+                assigneeOptions={assigneeFilterOptions}
+                dueDateYmd={dueDateFilter ? toLocalDateString(dueDateFilter) : null}
+                onDueDateYmdChange={(ymd) => setDueDateFilter(ymd ? parseLocalDateString(ymd) : null)}
+                onFiltersChange={setFilters}
+                onClearFilters={clearFilters}
+              />
+              <div className="flex justify-end pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setFilterDrawerOpen(false)}
+                >
+                  Done
+                </Button>
+              </div>
             </div>
           </div>
-        </DrawerContent>
+        </DrawerWideLeftContent>
       </Drawer>
 
       {isTodoDetailsSideLayout ? (
@@ -3304,13 +3334,15 @@ export function HomeTodoCard({
         nested
         shouldScaleBackground={false}
       >
-        <DrawerWideRightContent className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
-          <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+        <DrawerWideRightContent
+          className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", todoDetailsSheetPanelClass)}
+        >
+          <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
             <DrawerTitle className="text-center text-xl font-extrabold tracking-tight">{isHouseholderDetail
                 ? (selectedHouseholder?.name || selectedTodoForDetails?.context_name || "Contact Details")
                 : (selectedEstablishmentDetails?.name || selectedTodoForDetails?.context_name || "Establishment Details")}</DrawerTitle>
           </DrawerHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3 dark:bg-[#181714]">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3">
             {renderTodoDetailsBody()}
           </div>
         </DrawerWideRightContent>
@@ -3319,6 +3351,7 @@ export function HomeTodoCard({
       <HomeMobileDetailsDrawer
         open={todoDetailsDrawerOpen}
         onOpenChange={handleTodoDetailsDrawerChange}
+        contentClassName={todoDetailsSheetPanelClass}
         title={
           isHouseholderDetail
             ? (selectedHouseholder?.name || selectedTodoForDetails?.context_name || "Contact Details")
@@ -3345,8 +3378,11 @@ export function HomeTodoCard({
           modal
           shouldScaleBackground={false}
         >
-          <DrawerWideRightContent stackAboveDetailsSheet className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
-            <DrawerHeader className="border-b border-border px-2 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-left sm:px-4 dark:border-[#1c1921] dark:bg-[#181714]">
+          <DrawerWideRightContent
+            stackAboveDetailsSheet
+            className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", todoContactSheetPanelClass)}
+          >
+            <DrawerHeader className="bg-transparent px-2 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-left sm:px-4">
               <div className="relative flex items-center justify-center gap-1 pr-1">
                 <Button
                   type="button"
@@ -3363,7 +3399,7 @@ export function HomeTodoCard({
                 </DrawerTitle>
               </div>
             </DrawerHeader>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3 dark:bg-[#181714]">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3">
               {renderContactSubdrawerBody()}
             </div>
           </DrawerWideRightContent>
@@ -3377,6 +3413,7 @@ export function HomeTodoCard({
               setSelectedContactFromEstablishment(null);
             }
           }}
+          contentClassName={todoContactSheetPanelClass}
           title={contactSubdrawerHouseholder?.name || "Contact Details"}
           bodyClassName="space-y-3"
         >
@@ -3400,12 +3437,12 @@ export function HomeTodoCard({
         >
           <DrawerWideLeftContentTop
             stackAboveStackedRightSheet={contactDetailsSubdrawerOpen && isTodoDetailsSideLayout}
-            className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
+            className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", todoEntityEditSheetPanelClass)}
           >
-            <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+            <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
               <DrawerTitle className="text-center text-lg font-bold">{entityEditDrawerTitle}</DrawerTitle>
             </DrawerHeader>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 dark:bg-[#181714]">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
               {entityEditForms}
             </div>
           </DrawerWideLeftContentTop>
@@ -3420,7 +3457,7 @@ export function HomeTodoCard({
             }
           }}
           title={entityEditDrawerTitle}
-          contentClassName="md:max-h-[80dvh]"
+          contentClassName={cn(todoEntityEditSheetPanelClass, "md:max-h-[80dvh]")}
         >
           {entityEditForms}
         </HomeMobileDetailsDrawer>
@@ -3441,12 +3478,12 @@ export function HomeTodoCard({
         >
           <DrawerWideLeftContentTop
             stackAboveStackedRightSheet={contactDetailsSubdrawerOpen && isTodoDetailsSideLayout}
-            className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
+            className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", todoEditorSheetPanelClass)}
           >
-            <DrawerHeader className="border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]">
+            <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
               <DrawerTitle className="text-center text-lg font-bold">Edit To-Do</DrawerTitle>
             </DrawerHeader>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 dark:bg-[#181714]">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
               <TodoForm
                 establishments={todoEditorContext.establishments}
                 selectedEstablishmentId={todoEditorContext.selectedEstablishmentId}
