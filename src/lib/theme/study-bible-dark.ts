@@ -28,6 +28,12 @@ export const studyBibleDarkClasses = {
   callsText: "dark:text-[#fff7ff]",
   callsMuted: "dark:text-[#e8e0ef]",
   divider: "dark:border-[#1c1921]",
+  /** Popovers, auxiliary bottom drawers, confirm sheets from bulk BWI flows */
+  popoverPanel: "dark:border-[#1c1921] dark:bg-[#342a43] dark:text-[#fffaff]",
+  /** Lane / section title strip inside bulk sheets */
+  laneTitleBar: "dark:bg-[#272133]",
+  /** Dashed empty-state well before any rows exist */
+  sheetEmptyWell: "dark:border-[#1c1921] dark:bg-[#30283c]/40",
 } as const;
 
 const studyBibleDarkCardShadeClasses = [

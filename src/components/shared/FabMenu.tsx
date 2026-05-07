@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ComponentProps, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type ComponentProps, type CSSProperties, type ReactNode } from "react";
 import { Portal as RadixPortal } from "@radix-ui/react-portal";
 import { ChevronUp, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FloatingActionButton } from "@/components/shared/FloatingActionButton";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 interface FabAction {
@@ -32,6 +33,10 @@ interface FabMenuProps {
    * instead of {@link actions}.
    */
   tabletDockedActions?: FabAction[];
+  /**
+   * Matches bulk tablet sheet width `min(100vw, N rem)` so FAB and dock actions align with the drawer edge.
+   */
+  tabletDockedSheetMaxWidthRem?: number;
 }
 
 export function FabMenu({
@@ -46,6 +51,7 @@ export function FabMenu({
   portalContainerId = "fab-root",
   tabletDockedToBulkTodoSheet = false,
   tabletDockedActions,
+  tabletDockedSheetMaxWidthRem = 72,
 }: FabMenuProps) {
   const [expanded, setExpanded] = useState(false);
   const [renderActions, setRenderActions] = useState(false);
@@ -128,12 +134,31 @@ export function FabMenu({
     );
   }, [actionLabelsKey, actions, renderActions, tabletDockedToBulkTodoSheet]);
 
-  const DOCKED_STEP_PX = 52;
-
-  const dockedBulkMenuPositionClass =
-    "left-auto right-[min(100vw,72rem)] max-w-[min(22rem,calc(100vw-min(100vw,72rem)-5rem))] justify-start";
+  /** Icon actions stack upward from anchor; matches ~h-11 + gap. */
+  const DOCKED_ICON_STEP_PX = 54;
 
   if (actions.length === 0) return null;
+
+  /** Match drawer width from viewport right; FAB sits slightly left of the sheet (outside its left edge). */
+  const sheetRem = tabletDockedSheetMaxWidthRem;
+  const dockFabRightExpr = `min(100vw, ${sheetRem}rem) + max(12px,env(safe-area-inset-right,0px))`;
+
+  /** FAB uses md:w-[4.75rem]; dock icons md:size-12 (3rem). Same `right` pins right edges; add to `right` so vertical stack centers match the wider FAB. */
+  const DOCK_ICON_CENTER_NUDGE_CSS = `(4.75rem - 3rem) / 2`;
+
+  const dockedMainFabStyle: CSSProperties | undefined = tabletDockedToBulkTodoSheet
+    ? {
+        left: "auto",
+        right: `calc(${dockFabRightExpr})`,
+        bottom: `calc(max(env(safe-area-inset-bottom),0px) + 28px)`,
+        zIndex: 145,
+      }
+    : undefined;
+
+  /** Horizontally aligns stack with FAB (narrower squares vs wide circle). */
+  const dockedIconActionsRightCss = tabletDockedToBulkTodoSheet
+    ? `calc(${dockFabRightExpr} + ${DOCK_ICON_CENTER_NUDGE_CSS})`
+    : "";
 
   return (
     <>
@@ -150,6 +175,8 @@ export function FabMenu({
           }}
           label={label}
           size="lg"
+          omitDefaultHorizontalAnchor={tabletDockedToBulkTodoSheet}
+          style={dockedMainFabStyle}
           className={`${mainClassName ?? ""}`.trim()}
           data-fab-menu={menuId}
           {...(tabletDockedToBulkTodoSheet ? { "data-bulk-todo-sheet-fab": "" as const } : {})}
@@ -219,62 +246,69 @@ export function FabMenu({
         );
       })}
       {renderActions && tabletDockedToBulkTodoSheet && (tabletDockedActions?.length ?? 0) > 0
-        ? (tabletDockedActions ?? []).map((action, index) => (
+        ? (tabletDockedActions ?? []).map((action, index) => {
+            const variantResolved =
+              action.variant === "destructive" || action.label === "Delete All" ? "destructive" : "outline";
+
+            return (
             <RadixPortal
               key={`docked-${action.label}`}
               container={typeof document !== "undefined" ? document.getElementById(portalContainerId) : undefined}
             >
-              <Button
-                variant={action.className ? "default" : (action.variant ?? "default")}
-                className={cn(
-                  action.className
-                    ? cn(
-                        "pointer-events-auto fixed z-[145] rounded-full px-5 py-3.5 text-left text-base font-semibold shadow-lg md:px-6 md:py-4 md:text-lg",
-                        dockedBulkMenuPositionClass,
-                        action.className
-                      )
-                    : cn(
-                        "pointer-events-auto fixed z-[145] rounded-full px-5 py-3.5 text-left text-base font-semibold shadow-lg md:px-6 md:py-4 md:text-lg",
-                        dockedBulkMenuPositionClass,
-                        "dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff] dark:hover:bg-[#3b3348]",
-                        (action.variant ?? "default") !== "outline" &&
-                          (action.variant ?? "default") !== "destructive" &&
-                          "dark:!bg-[#80778e] dark:!text-white dark:hover:!bg-[#8c839a]",
-                        (action.variant ?? "default") === "outline" &&
-                          "border-red-500/40 bg-transparent text-red-400 hover:bg-red-500/10 hover:text-red-300 dark:border-red-500/50 dark:bg-transparent dark:text-red-400",
-                        (action.variant ?? "default") === "destructive" &&
-                          "border-red-600/50 bg-red-600 text-white hover:bg-red-700 dark:bg-red-900/90 dark:text-red-50 dark:hover:bg-red-800/90"
-                      )
-                )}
-                style={{
-                  bottom: `calc(max(env(safe-area-inset-bottom),0px) + 28px + 4.75rem + 6px + ${index * DOCKED_STEP_PX}px)`,
-                  opacity: expanded ? 1 : 0,
-                  transform: expanded
-                    ? "translate3d(0, 0, 0) scale(1)"
-                    : "translate3d(0, 12px, 0) scale(0.92)",
-                  transition: "transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 180ms ease",
-                  transitionDelay: `${index * 28}ms`,
-                  willChange: "transform, opacity",
-                  pointerEvents: expanded ? "auto" : "none",
-                }}
-                onClick={() => {
-                  action.onClick();
-                  closeMenu();
-                }}
-                data-fab-menu={menuId}
-                data-bulk-todo-sheet-fab=""
-              >
-                <span className="flex min-w-0 items-center">
-                  {action.icon ? (
-                    <span className="mr-3 shrink-0 [&_svg]:h-6 [&_svg]:w-6 md:[&_svg]:h-7 md:[&_svg]:w-7">
-                      {action.icon}
-                    </span>
-                  ) : null}
-                  <span className="min-w-0 truncate">{action.label}</span>
-                </span>
-              </Button>
+              <Tooltip delayDuration={400}>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={variantResolved}
+                    size="icon"
+                    aria-label={action.label}
+                    className={cn(
+                      "pointer-events-auto fixed z-[145] size-11 rounded-xl shadow-lg md:size-12",
+                      "touch-manipulation border md:rounded-[0.875rem]",
+                      action.className
+                        ? cn(
+                            "dark:border-[#1c1921]",
+                            action.className
+                          )
+                        : variantResolved === "destructive"
+                          ? "dark:border-red-900/70"
+                          : cn(
+                              "border-[#3a3631] bg-[#2a2823] text-[#fdf8f4] hover:bg-[#39352f]",
+                              "dark:border-[#2e2933] dark:bg-[#332d39] dark:text-[#fffaff] dark:hover:bg-[#403948]"
+                            )
+                    )}
+                    style={{
+                      left: "auto",
+                      right: dockedIconActionsRightCss,
+                      bottom: `calc(max(env(safe-area-inset-bottom),0px) + 28px + 4.75rem + 10px + ${index * DOCKED_ICON_STEP_PX}px)`,
+                      opacity: expanded ? 1 : 0,
+                      transform: expanded
+                        ? "translate3d(0, 0, 0) scale(1)"
+                        : "translate3d(0, 14px, 0) scale(0.88)",
+                      transition: "transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 180ms ease",
+                      transitionDelay: `${index * 22}ms`,
+                      willChange: "transform, opacity",
+                      pointerEvents: expanded ? "auto" : "none",
+                    }}
+                    onClick={() => {
+                      action.onClick();
+                      closeMenu();
+                    }}
+                    data-fab-menu={menuId}
+                    data-bulk-todo-sheet-fab=""
+                  >
+                    {action.icon ? (
+                      <span className="[&_svg]:size-[1.15rem] md:[&_svg]:size-[1.35rem]">{action.icon}</span>
+                    ) : null}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={10} align="center" className="text-xs dark:border-[#1c1921] dark:bg-[#fdf8f4] dark:text-[#231f29]">
+                  {action.label}
+                </TooltipContent>
+              </Tooltip>
             </RadixPortal>
-          ))
+            );
+          })
         : null}
     </>
   );

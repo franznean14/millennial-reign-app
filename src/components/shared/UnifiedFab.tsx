@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactElement } from "react";
+import { useEffect, useMemo, useState, type ReactElement, useCallback } from "react";
 import { FormModal } from "@/components/shared/FormModal";
 import { FabMenu } from "@/components/shared/FabMenu";
 import { EstablishmentForm } from "@/components/business/EstablishmentForm";
 import { HouseholderForm } from "@/components/business/HouseholderForm";
 import { CallForm } from "@/components/business/CallForm";
 import { TodoForm } from "@/components/business/TodoForm";
-import { BulkTodoForm } from "@/components/business/BulkTodoForm";
+import { BulkTodoForm, BULK_TODO_TABLET_SHEET_MAX_REM, type BulkTodoTabletBulkSheetTier } from "@/components/business/BulkTodoForm";
 import FieldServiceForm from "@/components/fieldservice/FieldServiceForm";
 import { EventScheduleFormSheet } from "@/components/congregation/EventScheduleFormSheet";
 import { AddUserToCongregationForm } from "@/components/congregation/AddUserToCongregationForm";
@@ -81,11 +81,29 @@ export function UnifiedFab({
     homeFabBridge?.callsHistoryFabOverride ?? homeFabBridge?.todoDetailsFabOverride ?? null;
   const hideHomeFab = currentSection === "home" && !!homeFabBridge?.hideHomeFab;
   const useBusinessLeftSheet =
-    !!homeDetailsFab || currentSection === "business" || currentSection.startsWith("business-");
+    !!homeDetailsFab ||
+    currentSection === "business" ||
+    currentSection.startsWith("business-") ||
+    /** Home loads bulk to-dos via {@link open-business-bulk-todos} without fab override; use tablet sheet, not desktop dialog. */
+    currentSection === "home";
   const stackBusinessLeftSheetAboveNestedDetails =
     homeDetailsFab?.stackLeftFormAboveNestedDetails ?? (!!selectedEstablishment && !!selectedHouseholder);
 
   const isTabletUp = useMediaQuery("(min-width: 768px)");
+  const [bulkTodoTabletTier, setBulkTodoTabletTier] = useState<BulkTodoTabletBulkSheetTier>(3);
+  /** Tier ⅓ (~24rem) felt too cramped for cards; align one- and two-lane tiers with half of max width until three lanes fill the sheet. */
+  const bulkTabletSheetMaxWidthRem =
+    bulkTodoTabletTier <= 2 ? (2 / 3) * BULK_TODO_TABLET_SHEET_MAX_REM : BULK_TODO_TABLET_SHEET_MAX_REM;
+  /** Tier 3 keeps per-lane scroll; tiers 1–2 use the wider (⅔ max) strip with sheet-level scrolling. */
+  const bulkTabletUnifiedLaneScrollInSheet = bulkTodoTabletTier <= 2;
+
+  const handleBulkTodoTabletTierChange = useCallback((tier: BulkTodoTabletBulkSheetTier) => {
+    setBulkTodoTabletTier(tier);
+  }, []);
+
+  useEffect(() => {
+    if (openKey !== "business-bulk-todos") setBulkTodoTabletTier(3);
+  }, [openKey]);
 
   const getDraftBulkTodoKind = (): "new" | "edit" | "mixed" => {
     try {
@@ -319,13 +337,14 @@ export function UnifiedFab({
         mainIcon={mainIcon}
         mainIconOpen={mainIconOpen}
         mainClassName={cn(
-          "bg-primary text-primary-foreground md:h-[4.75rem] md:w-[4.75rem] md:[&_svg]:h-8 md:[&_svg]:w-8 md:!right-auto md:!bottom-[calc(max(env(safe-area-inset-bottom),0px)+28px)] dark:!bg-[#80778e] dark:!text-white dark:hover:!bg-[#8c839a]",
+          "bg-primary text-primary-foreground md:h-[4.75rem] md:w-[4.75rem] md:[&_svg]:h-8 md:[&_svg]:w-8 dark:!bg-[#80778e] dark:!text-white dark:hover:!bg-[#8c839a]",
+          !bulkFabTabletDocked &&
+            "md:!bottom-[calc(max(env(safe-area-inset-bottom),0px)+28px)]",
           "md:transition-[left,transform] md:duration-300 md:ease-[cubic-bezier(0.34,1.2,0.64,1)]",
-          bulkFabTabletDocked
-            ? "md:!left-[calc(100vw-min(100vw,72rem)-4.75rem)] md:!translate-x-0 md:!z-[145]"
-            : "md:!left-1/2 md:!-translate-x-1/2 md:!z-40"
+          bulkFabTabletDocked ? "" : "md:!left-1/2 md:!-translate-x-1/2 md:!z-40 md:!right-auto"
         )}
         actionClassName="md:!left-1/2 md:!right-auto md:[--fab-action-x:-50%] md:[--fab-action-offset-start:112px] md:[--fab-action-offset-step:0px] md:[--fab-action-closed-y:72px]"
+        tabletDockedSheetMaxWidthRem={bulkTabletSheetMaxWidthRem}
         actions={actions.map((action) => ({
           label: action.label,
           icon: action.icon,
@@ -429,15 +448,23 @@ export function UnifiedFab({
         }
         headerClassName={useBusinessLeftSheet ? undefined : "text-center"}
         desktopPresentation={useBusinessLeftSheet ? "right-sheet" : "auto"}
-        className="w-[min(100vw,72rem)] dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff] md:max-h-[100lvh]"
-        drawerContentClassName="dark:border-[#1c1921] dark:bg-[#181714]"
-        sheetBodyScrollClassName="md:overflow-hidden md:flex md:flex-col md:min-h-0"
-        bodyClassName="md:flex-1 md:min-h-0 md:flex md:flex-col md:overflow-hidden md:pb-2"
+        className={`w-[min(100vw,${bulkTabletSheetMaxWidthRem}rem)] md:max-h-[100lvh]`}
+        drawerContentClassName="dark:border-[#1c1921]"
+        sheetBodyScrollClassName={
+          bulkTabletUnifiedLaneScrollInSheet
+            ? "md:flex md:flex-col md:min-h-0"
+            : "md:overflow-hidden md:flex md:flex-col md:min-h-0"
+        }
+        bodyClassName={cn(
+          "md:flex-1 md:min-h-0 md:flex md:flex-col md:pb-2",
+          bulkTabletUnifiedLaneScrollInSheet ? "md:overflow-visible" : "md:overflow-hidden"
+        )}
         skipFabRootInert={openKey === "business-bulk-todos" && isTabletUp}
       >
         <BulkTodoForm
           establishments={establishments}
           householders={householders}
+          onTabletBulkSheetTierChange={handleBulkTodoTabletTierChange}
           onDraftKindChange={setBulkTodoKind}
           onSaved={() => {
             setOpenKey(null);

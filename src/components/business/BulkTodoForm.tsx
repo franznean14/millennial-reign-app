@@ -20,6 +20,7 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerTrigger,
+  DrawerThinRightContent,
   DrawerWideLeftContent,
 } from "@/components/ui/drawer";
 import {
@@ -45,6 +46,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { sidebarFormClasses } from "@/components/business/sidebar-form-styles";
+import { getStudyBibleDarkCardShade, studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 
 type BulkTodoDraftRow = {
   id: string;
@@ -62,11 +64,18 @@ type BulkTodoDraftRow = {
   };
 };
 
+export type BulkTodoTabletBulkSheetTier = 1 | 2 | 3;
+
 interface BulkTodoFormProps {
   establishments: EstablishmentWithDetails[];
   householders: HouseholderWithDetails[];
   onSaved: () => void;
   onDraftKindChange?: (kind: "new" | "edit" | "mixed") => void;
+  /**
+   * Tablet+: called when lanes with at least one row change (sheet width tiers ⅓ · ⅔ · full vs
+   * {@link BULK_TODO_TABLET_SHEET_MAX_REM}).
+   */
+  onTabletBulkSheetTierChange?: (tier: BulkTodoTabletBulkSheetTier) => void;
 }
 
 type PersonAvatar = {
@@ -145,6 +154,10 @@ const BULK_TODO_TABLET_LANE_COLUMNS: ReadonlyArray<{
   { id: "followUp", title: "Follow Up", headerStatus: "for_follow_up" },
   { id: "proposal", title: "Proposals", headerStatus: "for_scouting" },
 ];
+
+/** When all three lanes have rows on tablet+, the bulk sheet spans this width; one lane matches ⅓. */
+export const BULK_TODO_TABLET_SHEET_MAX_REM = 72;
+
 const GUEST_SLOT_PREFIX = "guest::";
 const DEFAULT_TARGET_PICKER_FILTERS: VisitFilters = {
   search: "",
@@ -341,6 +354,7 @@ export function BulkTodoForm({
   householders,
   onSaved,
   onDraftKindChange,
+  onTabletBulkSheetTierChange,
 }: BulkTodoFormProps) {
   const isMobile = useMobile();
   const isTabletUp = useMediaQuery("(min-width: 768px)");
@@ -892,6 +906,30 @@ export function BulkTodoForm({
     }
     return buckets;
   }, [rows]);
+
+  const visibleTabletLaneDefs = useMemo(
+    () => BULK_TODO_TABLET_LANE_COLUMNS.filter(({ id }) => rowsByBulkTodoLane[id].length > 0),
+    [rowsByBulkTodoLane]
+  );
+
+  /** Non-empty buckets only; widths tier ⅓ · ⅔ · full vs {@link BULK_TODO_TABLET_SHEET_MAX_REM}. */
+  const tabletLaneWidthTier = useMemo((): BulkTodoTabletBulkSheetTier => {
+    const n = visibleTabletLaneDefs.length;
+    return n <= 1 ? 1 : n === 2 ? 2 : 3;
+  }, [visibleTabletLaneDefs]);
+
+  /** Tiers 1–2: sheet body scroll + two card columns when a single lane fills the ⅔-max strip. */
+  const tabletBulkUseSheetLaneScroll = tabletLaneWidthTier <= 2;
+
+  useEffect(() => {
+    if (!onTabletBulkSheetTierChange) return;
+    if (!isTabletUp) {
+      /* Phone uses full-width drawer; keep tier neutral for docked FAB when crossing breakpoint. */
+      onTabletBulkSheetTierChange(3);
+      return;
+    }
+    onTabletBulkSheetTierChange(tabletLaneWidthTier);
+  }, [isTabletUp, tabletLaneWidthTier, onTabletBulkSheetTierChange]);
 
   useEffect(() => {
     const establishmentIds = insightTargetKeys
@@ -1633,7 +1671,10 @@ export function BulkTodoForm({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
             transition={{ duration: 0.16, ease: "easeOut" }}
-            className="flex items-center justify-between rounded-md border bg-muted/25 px-3 py-2"
+            className={cn(
+              "flex items-center justify-between rounded-md border px-3 py-2",
+              studyBibleDarkClasses.summaryCard
+            )}
           >
             <div className="text-sm text-muted-foreground">
               Select all visible
@@ -1657,9 +1698,10 @@ export function BulkTodoForm({
           setTargetFiltersPanelOpenByRow((prev) => ({ ...prev, [row.id]: open }));
         }}
       >
-        <DrawerContent className="max-h-[80vh] dark:border-[#1c1921] dark:bg-[#181714]">
-          <DrawerHeader className="text-center">
+        <DrawerContent className={cn("max-h-[80vh]", studyBibleDarkClasses.popoverPanel)}>
+          <DrawerHeader className="bg-transparent text-center">
             <DrawerTitle>Filter establishment/contact</DrawerTitle>
+            <DrawerDescription className="sr-only">Adjust filters for establishments and contacts.</DrawerDescription>
           </DrawerHeader>
           <div className="overflow-y-auto px-4 pt-2 pb-[calc(env(safe-area-inset-bottom)+24px)]">
             <VisitFiltersForm
@@ -2524,11 +2566,11 @@ export function BulkTodoForm({
         opacity: { duration: 0.2 },
       }}
       className={cn(
-        "rounded-lg border p-3 space-y-3 overflow-hidden",
+        "w-full max-w-full min-w-0 rounded-lg border p-3 space-y-3 overflow-hidden",
         (row.sourceTodoId && hasRowChanged(row) && isRowComplete(row)) ||
           (!row.sourceTodoId && !isRowBlank(row) && isRowComplete(row))
           ? "border-emerald-400/70 bg-emerald-500/10 shadow-[0_0_0_1px_rgba(16,185,129,0.25),0_8px_22px_-16px_rgba(16,185,129,0.65)]"
-          : "border-border/80 dark:border-[#1c1921]/90 dark:bg-[#2a2534]/35"
+          : studyBibleDarkClasses.todoCard
       )}
     >
     <div
@@ -2711,174 +2753,304 @@ export function BulkTodoForm({
           />
         </div>
 
-        <div className="grid gap-1">
+        <div className="grid min-w-0 w-full gap-1">
           <Label className={sidebarFormClasses.label}>Publishers</Label>
-          <div className="flex items-center gap-2 min-w-0">
-            {row.slots.map((slotValue, slotIndex) => {
-              const isGuest = isGuestSlotToken(slotValue);
-              const guestName = getGuestNameFromSlot(slotValue);
-              const selected = !isGuest ? getParticipantById(slotValue) : undefined;
-              const fullName = isGuest
-                ? guestName || "Guest"
-                : selected
-                  ? `${selected.first_name} ${selected.last_name}`
-                  : "Publisher";
-              return (
-                <div
-                  key={`${row.id}-slot-${slotValue}-${slotIndex}`}
-                  className={cn(
-                    "flex min-w-0 flex-1 items-center gap-2 rounded-md border border-transparent bg-muted px-2 py-1.5",
-                    "dark:border-[#5a5068]/50 dark:bg-[#2a2534]/75"
-                  )}
-                  title={fullName}
-                >
-                  <Avatar className="h-6 w-6 shrink-0">
-                    {!isGuest && selected?.avatar_url ? <AvatarImage src={selected.avatar_url} alt={fullName} /> : null}
-                    <AvatarFallback
-                      className={isGuest ? "text-xs bg-amber-500/25 text-amber-800 dark:bg-amber-500/30 dark:text-amber-200 ring-1 ring-amber-500/50 dark:ring-amber-400/40" : "text-xs"}
-                    >
-                      {getInitialsFromName(fullName)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="min-w-0 flex-1 truncate text-sm">{fullName}</span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 shrink-0"
-                    onClick={() => removeSlot(row.id, slotIndex)}
-                    aria-label="Remove"
-                  >
-                    <X className="h-3 w-3" />
-                  </Button>
-                </div>
-              );
-            })}
-            {row.slots.length < 2 && (
-              <Drawer
-                open={!!assigneeDrawerOpenByRow[row.id]}
-                onOpenChange={(open) => {
-                  setAssigneeDrawerOpenByRow((prev) => ({ ...prev, [row.id]: open }));
-                  if (open) {
-                    void loadGuestNamesForAssignees();
-                  } else {
-                    setNewGuestNameByRow((prev) => ({ ...prev, [row.id]: "" }));
-                  }
-                }}
+          <div className="min-w-0 w-full space-y-2">
+            {row.slots.length > 0 ? (
+              <div
+                className={cn(
+                  "grid min-w-0 w-full gap-2",
+                  row.slots.length >= 2
+                    ? isTabletUp
+                      ? "grid-cols-1"
+                      : "grid-cols-1 sm:grid-cols-2"
+                    : "grid-cols-1"
+                )}
               >
-                <DrawerTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="default"
-                    size="icon"
-                    className={cn(
-                      "h-9 w-9 shrink-0 rounded-full text-white shadow-sm transition-all hover:scale-[1.03] hover:shadow-md active:scale-100",
-                      sidebarFormClasses.primaryButton
-                    )}
-                    aria-label="Add publisher"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </DrawerTrigger>
-                <DrawerContent className="max-h-[70vh] dark:border-[#1c1921] dark:bg-[#181714]">
-                  <DrawerHeader className="text-center">
-                    <DrawerTitle>Select publisher or guest</DrawerTitle>
-                  </DrawerHeader>
-                  <div className="overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+24px)] space-y-6">
-                    <section>
-                      <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                        Publishers
-                      </h3>
-                      {participants.length > 0 ? (
-                        <ul className="space-y-1">
-                          {participants
-                            .filter((participant) => !row.slots.includes(participant.id))
-                            .map((participant) => (
-                              <li key={participant.id}>
+                {row.slots.map((slotValue, slotIndex) => {
+                  const isGuest = isGuestSlotToken(slotValue);
+                  const guestName = getGuestNameFromSlot(slotValue);
+                  const selected = !isGuest ? getParticipantById(slotValue) : undefined;
+                  const fullName = isGuest
+                    ? guestName || "Guest"
+                    : selected
+                      ? `${selected.first_name} ${selected.last_name}`
+                      : "Publisher";
+                  return (
+                    <div
+                      key={`${row.id}-slot-${slotValue}-${slotIndex}`}
+                      className={cn(
+                        "flex min-h-0 min-w-0 w-full max-w-full items-center gap-2 overflow-hidden rounded-md border border-transparent bg-muted px-2 py-1.5",
+                        "dark:border-[#5a5068]/50 dark:bg-[#2a2534]/75"
+                      )}
+                      title={fullName}
+                    >
+                      <Avatar className="h-6 w-6 shrink-0">
+                        {!isGuest && selected?.avatar_url ? <AvatarImage src={selected.avatar_url} alt={fullName} /> : null}
+                        <AvatarFallback
+                          className={
+                            isGuest
+                              ? "text-xs bg-amber-500/25 text-amber-800 dark:bg-amber-500/30 dark:text-amber-200 ring-1 ring-amber-500/50 dark:ring-amber-400/40"
+                              : "text-xs"
+                          }
+                        >
+                          {getInitialsFromName(fullName)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="min-w-0 flex-1 truncate text-sm">{fullName}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 shrink-0"
+                        onClick={() => removeSlot(row.id, slotIndex)}
+                        aria-label="Remove"
+                      >
+                        <X className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+            {row.slots.length < 2 ? (
+              <div className="flex min-w-0 justify-end">
+                <Drawer
+                  open={!!assigneeDrawerOpenByRow[row.id]}
+                  onOpenChange={(open) => {
+                    setAssigneeDrawerOpenByRow((prev) => ({ ...prev, [row.id]: open }));
+                    if (open) {
+                      void loadGuestNamesForAssignees();
+                    } else {
+                      setNewGuestNameByRow((prev) => ({ ...prev, [row.id]: "" }));
+                    }
+                  }}
+                  {...(isTabletUp
+                    ? { direction: "right" as const, modal: true, nested: true, shouldScaleBackground: false }
+                    : {})}
+                >
+                  <DrawerTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="icon"
+                      className={cn(
+                        "h-9 w-9 shrink-0 rounded-full text-white shadow-sm transition-all hover:scale-[1.03] hover:shadow-md active:scale-100",
+                        sidebarFormClasses.primaryButton
+                      )}
+                      aria-label="Add publisher"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </DrawerTrigger>
+                  {isTabletUp ? (
+                    <DrawerThinRightContent
+                      stackAboveDetailsSheet
+                      className={cn(
+                        "md:max-h-[100lvh]",
+                        "dark:border-[#1c1921] dark:text-[#fffaff]",
+                        studyBibleDarkClasses.popoverPanel,
+                        getStudyBibleDarkCardShade("bwi-bulk-todo-assignee-picker")
+                      )}
+                    >
+                      <DrawerHeader className="shrink-0 border-b border-border/50 bg-transparent px-4 py-3 text-center dark:border-[#1c1921]/80">
+                        <DrawerTitle className="text-base font-semibold">Select publisher or guest</DrawerTitle>
+                      </DrawerHeader>
+                      <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+24px)] pt-2 space-y-6">
+                        <section>
+                          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                            Publishers
+                          </h3>
+                          {participants.length > 0 ? (
+                            <ul className="space-y-1">
+                              {participants
+                                .filter((participant) => !row.slots.includes(participant.id))
+                                .map((participant) => (
+                                  <li key={participant.id}>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      className="w-full justify-start gap-2 h-12 px-3"
+                                      onClick={() => {
+                                        toggleSlot(row.id, participant.id);
+                                        setAssigneeDrawerOpenByRow((prev) => ({ ...prev, [row.id]: false }));
+                                      }}
+                                    >
+                                      <Avatar className="h-8 w-8">
+                                        <AvatarImage src={participant.avatar_url} />
+                                        <AvatarFallback className="text-xs">
+                                          {getInitialsFromName(`${participant.first_name} ${participant.last_name}`)}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                      <span>
+                                        {participant.first_name} {participant.last_name}
+                                      </span>
+                                    </Button>
+                                  </li>
+                                ))}
+                            </ul>
+                          ) : (
+                            <p className="text-sm text-muted-foreground py-2">No publishers available</p>
+                          )}
+                        </section>
+
+                        <section>
+                          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                            Guest
+                          </h3>
+                          <div className="space-y-2">
+                            {existingGuestNames
+                              .filter((name) => {
+                                const token = toGuestSlotToken(name);
+                                return !row.slots.includes(token);
+                              })
+                              .map((name) => (
                                 <Button
+                                  key={`${row.id}-guest-${name}`}
                                   type="button"
                                   variant="ghost"
                                   className="w-full justify-start gap-2 h-12 px-3"
-                                  onClick={() => {
-                                    toggleSlot(row.id, participant.id);
-                                    setAssigneeDrawerOpenByRow((prev) => ({ ...prev, [row.id]: false }));
-                                  }}
+                                  onClick={() => addGuestSlot(row.id, name)}
                                 >
-                                  <Avatar className="h-8 w-8">
-                                    <AvatarImage src={participant.avatar_url} />
-                                    <AvatarFallback className="text-xs">
-                                      {getInitialsFromName(`${participant.first_name} ${participant.last_name}`)}
+                                  <Avatar className="h-8 w-8 shrink-0">
+                                    <AvatarFallback className="text-xs bg-amber-500/25 text-amber-800 dark:bg-amber-500/30 dark:text-amber-200 ring-1 ring-amber-500/50 dark:ring-amber-400/40">
+                                      {getInitialsFromName(name)}
                                     </AvatarFallback>
                                   </Avatar>
-                                  <span>
-                                    {participant.first_name} {participant.last_name}
-                                  </span>
+                                  <span>{name}</span>
                                 </Button>
-                              </li>
-                            ))}
-                        </ul>
-                      ) : (
-                        <p className="text-sm text-muted-foreground py-2">No publishers available</p>
-                      )}
-                    </section>
-
-                    <section>
-                      <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
-                        Guest
-                      </h3>
-                      <div className="space-y-2">
-                        {existingGuestNames
-                          .filter((name) => {
-                            const token = toGuestSlotToken(name);
-                            return !row.slots.includes(token);
-                          })
-                          .map((name) => (
-                            <Button
-                              key={`${row.id}-guest-${name}`}
-                              type="button"
-                              variant="ghost"
-                              className="w-full justify-start gap-2 h-12 px-3"
-                              onClick={() => addGuestSlot(row.id, name)}
-                            >
-                              <Avatar className="h-8 w-8 shrink-0">
-                                <AvatarFallback className="text-xs bg-amber-500/25 text-amber-800 dark:bg-amber-500/30 dark:text-amber-200 ring-1 ring-amber-500/50 dark:ring-amber-400/40">
-                                  {getInitialsFromName(name)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span>{name}</span>
-                            </Button>
-                          ))}
-                        <div className="flex gap-2 pt-1">
-                          <Input
-                            placeholder="New guest name"
-                            value={newGuestNameByRow[row.id] || ""}
-                            onChange={(e) =>
-                              setNewGuestNameByRow((prev) => ({ ...prev, [row.id]: e.target.value }))
-                            }
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") {
-                                e.preventDefault();
-                                addGuestSlot(row.id, newGuestNameByRow[row.id] || "");
-                              }
-                            }}
-                            className={cn("flex-1", sidebarFormClasses.input)}
-                          />
-                          <Button
-                            type="button"
-                            size="sm"
-                            className={sidebarFormClasses.primaryButton}
-                            onClick={() => addGuestSlot(row.id, newGuestNameByRow[row.id] || "")}
-                            disabled={!(newGuestNameByRow[row.id] || "").trim()}
-                          >
-                            Add
-                          </Button>
-                        </div>
+                              ))}
+                            <div className="flex gap-2 pt-1">
+                              <Input
+                                placeholder="New guest name"
+                                value={newGuestNameByRow[row.id] || ""}
+                                onChange={(e) =>
+                                  setNewGuestNameByRow((prev) => ({ ...prev, [row.id]: e.target.value }))
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    addGuestSlot(row.id, newGuestNameByRow[row.id] || "");
+                                  }
+                                }}
+                                className={cn("flex-1", sidebarFormClasses.input)}
+                              />
+                              <Button
+                                type="button"
+                                size="sm"
+                                className={sidebarFormClasses.primaryButton}
+                                onClick={() => addGuestSlot(row.id, newGuestNameByRow[row.id] || "")}
+                                disabled={!(newGuestNameByRow[row.id] || "").trim()}
+                              >
+                                Add
+                              </Button>
+                            </div>
+                          </div>
+                        </section>
                       </div>
-                    </section>
-                  </div>
-                </DrawerContent>
-              </Drawer>
-            )}
+                    </DrawerThinRightContent>
+                  ) : (
+                    <DrawerContent className={cn("max-h-[70vh]", studyBibleDarkClasses.popoverPanel)}>
+                      <DrawerHeader className="bg-transparent text-center">
+                        <DrawerTitle>Select publisher or guest</DrawerTitle>
+                      </DrawerHeader>
+                      <div className="overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+24px)] space-y-6">
+                        <section>
+                          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                            Publishers
+                          </h3>
+                          {participants.length > 0 ? (
+                            <ul className="space-y-1">
+                              {participants
+                                .filter((participant) => !row.slots.includes(participant.id))
+                                .map((participant) => (
+                                  <li key={participant.id}>
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      className="w-full justify-start gap-2 h-12 px-3"
+                                      onClick={() => {
+                                        toggleSlot(row.id, participant.id);
+                                        setAssigneeDrawerOpenByRow((prev) => ({ ...prev, [row.id]: false }));
+                                      }}
+                                    >
+                                      <Avatar className="h-8 w-8">
+                                        <AvatarImage src={participant.avatar_url} />
+                                        <AvatarFallback className="text-xs">
+                                          {getInitialsFromName(`${participant.first_name} ${participant.last_name}`)}
+                                        </AvatarFallback>
+                                      </Avatar>
+                                      <span>
+                                        {participant.first_name} {participant.last_name}
+                                      </span>
+                                    </Button>
+                                  </li>
+                                ))}
+                            </ul>
+                          ) : (
+                            <p className="text-sm text-muted-foreground py-2">No publishers available</p>
+                          )}
+                        </section>
+
+                        <section>
+                          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                            Guest
+                          </h3>
+                          <div className="space-y-2">
+                            {existingGuestNames
+                              .filter((name) => {
+                                const token = toGuestSlotToken(name);
+                                return !row.slots.includes(token);
+                              })
+                              .map((name) => (
+                                <Button
+                                  key={`${row.id}-guest-${name}`}
+                                  type="button"
+                                  variant="ghost"
+                                  className="w-full justify-start gap-2 h-12 px-3"
+                                  onClick={() => addGuestSlot(row.id, name)}
+                                >
+                                  <Avatar className="h-8 w-8 shrink-0">
+                                    <AvatarFallback className="text-xs bg-amber-500/25 text-amber-800 dark:bg-amber-500/30 dark:text-amber-200 ring-1 ring-amber-500/50 dark:ring-amber-400/40">
+                                      {getInitialsFromName(name)}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <span>{name}</span>
+                                </Button>
+                              ))}
+                            <div className="flex gap-2 pt-1">
+                              <Input
+                                placeholder="New guest name"
+                                value={newGuestNameByRow[row.id] || ""}
+                                onChange={(e) =>
+                                  setNewGuestNameByRow((prev) => ({ ...prev, [row.id]: e.target.value }))
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    e.preventDefault();
+                                    addGuestSlot(row.id, newGuestNameByRow[row.id] || "");
+                                  }
+                                }}
+                                className={cn("flex-1", sidebarFormClasses.input)}
+                              />
+                              <Button
+                                type="button"
+                                size="sm"
+                                className={sidebarFormClasses.primaryButton}
+                                onClick={() => addGuestSlot(row.id, newGuestNameByRow[row.id] || "")}
+                                disabled={!(newGuestNameByRow[row.id] || "").trim()}
+                              >
+                                Add
+                              </Button>
+                            </div>
+                          </div>
+                        </section>
+                      </div>
+                    </DrawerContent>
+                  )}
+                </Drawer>
+              </div>
+            ) : null}
           </div>
         </div>
 
@@ -2987,7 +3159,9 @@ export function BulkTodoForm({
                 return (
                   <li
                     key={`${row.id}-pending-${pendingTodo.id}`}
-                    className="rounded-md border border-transparent px-1 py-1 text-xs dark:border-[#1c1921]/60 dark:bg-[#181714]/50"
+                    className={cn(
+                      "rounded-md border border-transparent px-1 py-1 text-xs dark:border-[#1c1921]/50 dark:bg-[#342a43]/55"
+                    )}
                   >
                     <div className="flex items-center gap-2 overflow-hidden">
                       <Checkbox
@@ -3098,7 +3272,10 @@ export function BulkTodoForm({
       ref={formRef}
       className={cn(
         "flex flex-col gap-4 pt-2 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]",
-        "md:flex-1 md:min-h-0 md:overflow-hidden md:gap-2 md:pb-[max(0.5rem,env(safe-area-inset-bottom))]",
+        "md:gap-2 md:pb-[max(0.5rem,env(safe-area-inset-bottom))]",
+        tabletBulkUseSheetLaneScroll
+          ? "md:flex-none md:min-h-0 md:overflow-visible"
+          : "md:flex-1 md:min-h-0 md:overflow-hidden",
         sidebarFormClasses.form
       )}
       onSubmit={handleSubmit}
@@ -3107,24 +3284,65 @@ export function BulkTodoForm({
       <AnimatePresence initial={false} mode="popLayout">
         {rows.map((row) => renderDraftRowMotionCard(row))}
       </AnimatePresence>
+      ) : visibleTabletLaneDefs.length === 0 ? (
+      <div
+        className={cn(
+          "hidden md:flex md:min-h-[10rem] md:flex-1 md:flex-col md:items-center md:justify-center md:rounded-xl border border-dashed md:px-5 md:text-center",
+          studyBibleDarkClasses.sheetEmptyWell
+        )}
+      >
+        <p className={cn("max-w-[22rem] text-sm leading-relaxed", studyBibleDarkClasses.muted)}>
+          No to-dos in this bulk session yet. Add a row below—the lane columns appear when you add content.
+        </p>
+      </div>
       ) : (
-      <div className="hidden md:grid md:flex-1 md:min-h-0 md:grid-cols-3 md:gap-x-3 md:items-stretch">
-        {BULK_TODO_TABLET_LANE_COLUMNS.map(({ id, title, headerStatus }) => (
+      <div
+        className={cn(
+          "hidden md:grid md:gap-3 md:items-stretch md:rounded-xl md:border md:p-2 md:shadow-inner",
+          studyBibleDarkClasses.divider,
+          getStudyBibleDarkCardShade("bwi-bulk-todos-lane-columns"),
+          visibleTabletLaneDefs.length <= 1 && "md:grid-cols-1",
+          visibleTabletLaneDefs.length === 2 && "md:grid-cols-2",
+          visibleTabletLaneDefs.length >= 3 && "md:grid-cols-3",
+          tabletBulkUseSheetLaneScroll ? "md:flex-none md:min-h-0" : "md:flex-1 md:min-h-0"
+        )}
+      >
+        {visibleTabletLaneDefs.map(({ id, title, headerStatus }) => (
           <div
             key={id}
-            className="flex min-h-0 min-w-0 h-full max-h-full flex-col gap-2 overflow-hidden"
+            className={cn(
+              "flex min-w-0 w-full max-w-full flex-col gap-2 rounded-lg shadow-sm",
+              tabletBulkUseSheetLaneScroll ? "overflow-visible" : "min-h-0 h-full max-h-full overflow-hidden",
+              studyBibleDarkClasses.todoCard
+            )}
           >
-            <div className="shrink-0 border-b border-[#1c1921]/80 bg-[#181714] pb-2 pt-0.5 dark:bg-[#181714]">
+            <div
+              className={cn(
+                "shrink-0 border-b px-3 py-2.5",
+                studyBibleDarkClasses.divider,
+                studyBibleDarkClasses.laneTitleBar
+              )}
+            >
               <p
                 className={cn(
-                  "text-center text-[11px] font-semibold uppercase tracking-wider",
+                  "text-center text-[11px] font-semibold uppercase tracking-[0.08em]",
                   getStatusTitleColor(headerStatus)
                 )}
               >
                 {title}
               </p>
             </div>
-            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-0.5 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+            <div
+              className={cn(
+                "min-w-0 px-2 pb-2",
+                tabletBulkUseSheetLaneScroll &&
+                  visibleTabletLaneDefs.length === 1 &&
+                  "md:grid md:grid-cols-2 md:gap-x-3 md:gap-y-4 md:items-start",
+                tabletBulkUseSheetLaneScroll && visibleTabletLaneDefs.length !== 1 && "flex flex-col gap-3 overflow-visible",
+                !tabletBulkUseSheetLaneScroll &&
+                  "min-h-0 flex-1 space-y-3 overflow-y-auto overflow-x-hidden overscroll-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+              )}
+            >
               <AnimatePresence initial={false} mode="popLayout">
                 {rowsByBulkTodoLane[id].map((row) => renderDraftRowMotionCard(row))}
               </AnimatePresence>
@@ -3157,9 +3375,10 @@ export function BulkTodoForm({
                 Add Another To-Do
               </Button>
             </DrawerTrigger>
-            <DrawerContent className="max-h-[70vh] dark:border-[#1c1921] dark:bg-[#181714]">
-              <DrawerHeader className="text-center sm:text-center">
+            <DrawerContent className={cn("max-h-[70vh]", studyBibleDarkClasses.popoverPanel)}>
+              <DrawerHeader className="bg-transparent text-center sm:text-center dark:text-[#fffaff]">
                 <DrawerTitle className="text-center">Select Establishment or Contact</DrawerTitle>
+                <DrawerDescription className="sr-only">Choose establishments or contacts to attach to bulk to-dos.</DrawerDescription>
               </DrawerHeader>
               <div className="flex min-h-0 flex-1 flex-col px-4 pt-2 pb-[calc(env(safe-area-inset-bottom)+24px)]">
                 <div className="shrink-0 space-y-2">
@@ -3300,8 +3519,13 @@ export function BulkTodoForm({
           modal
           shouldScaleBackground={false}
         >
-          <DrawerWideLeftContent className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff] md:max-h-[100lvh]">
-            <DrawerHeader className="px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+0.75rem)] text-center sm:text-center">
+          <DrawerWideLeftContent
+            className={cn(
+              "dark:border-[#1c1921] dark:text-[#fffaff] md:max-h-[100lvh]",
+              getStudyBibleDarkCardShade("bwi-bulk-todos-target-picker:left")
+            )}
+          >
+            <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+0.75rem)] text-center sm:text-center dark:text-[#fffaff]">
               <DrawerTitle className="text-center text-base font-semibold">
                 Select Establishment or Contact
               </DrawerTitle>
@@ -3334,13 +3558,18 @@ export function BulkTodoForm({
 
       <Drawer open={clearConfirmOpen} onOpenChange={setClearConfirmOpen}>
         <DrawerContent
-          className="flex flex-col dark:border-[#1c1921] dark:bg-[#181714]"
+          className={cn(
+            "flex flex-col dark:border-[#1c1921] dark:text-[#fffaff]",
+            getStudyBibleDarkCardShade("bwi-bulk-todos-confirm-clear")
+          )}
           style={{ maxHeight: "50vh", height: "50vh" }}
         >
           <div className="flex flex-1 flex-col justify-center px-4 pt-2 min-h-0">
-            <DrawerHeader className="pt-6 px-4 pb-2 text-center">
-              <DrawerTitle className="text-center">Clear all to-dos?</DrawerTitle>
-              <DrawerDescription className="text-center text-muted-foreground">
+            <DrawerHeader className="bg-transparent pt-6 px-4 pb-2 text-center">
+              <DrawerTitle className="text-center text-[#fffaff] dark:text-[#fffaff]">
+                Clear all to-dos?
+              </DrawerTitle>
+              <DrawerDescription className={cn("text-center", studyBibleDarkClasses.muted)}>
                 Removes every row from this form only. Saved to-dos are not deleted from the database.
               </DrawerDescription>
             </DrawerHeader>
@@ -3377,13 +3606,18 @@ export function BulkTodoForm({
         }}
       >
         <DrawerContent
-          className="flex flex-col dark:border-[#1c1921] dark:bg-[#181714]"
+          className={cn(
+            "flex flex-col dark:border-[#1c1921] dark:text-[#fffaff]",
+            getStudyBibleDarkCardShade("bwi-bulk-todos-confirm-delete-saved")
+          )}
           style={{ maxHeight: "50vh", height: "50vh" }}
         >
           <div className="flex flex-1 flex-col justify-center px-4 pt-2 min-h-0">
-            <DrawerHeader className="pt-6 px-4 pb-2 text-center">
-              <DrawerTitle className="text-center">Delete all saved to-dos?</DrawerTitle>
-              <DrawerDescription className="text-center text-muted-foreground">
+            <DrawerHeader className="bg-transparent pt-6 px-4 pb-2 text-center">
+              <DrawerTitle className="text-center text-[#fffaff] dark:text-[#fffaff]">
+                Delete all saved to-dos?
+              </DrawerTitle>
+              <DrawerDescription className={cn("text-center", studyBibleDarkClasses.muted)}>
                 {savedTodoRowCount === 1
                   ? "This will permanently remove 1 saved to-do from the database. New drafts in this form are kept."
                   : `This will permanently remove ${savedTodoRowCount} saved to-dos from the database. New drafts in this form are kept.`}
@@ -3422,13 +3656,18 @@ export function BulkTodoForm({
         }}
       >
         <DrawerContent
-          className="flex flex-col dark:border-[#1c1921] dark:bg-[#181714]"
+          className={cn(
+            "flex flex-col dark:border-[#1c1921] dark:text-[#fffaff]",
+            getStudyBibleDarkCardShade("bwi-bulk-todos-confirm-delete-row")
+          )}
           style={{ maxHeight: "50vh", height: "50vh" }}
         >
           <div className="flex flex-1 flex-col justify-center px-4 pt-2 min-h-0">
-            <DrawerHeader className="pt-6 px-4 pb-2 text-center">
-              <DrawerTitle className="text-center">Delete this to-do?</DrawerTitle>
-              <DrawerDescription className="text-center text-muted-foreground">
+            <DrawerHeader className="bg-transparent pt-6 px-4 pb-2 text-center">
+              <DrawerTitle className="text-center text-[#fffaff] dark:text-[#fffaff]">
+                Delete this to-do?
+              </DrawerTitle>
+              <DrawerDescription className={cn("text-center", studyBibleDarkClasses.muted)}>
                 This will remove the to-do from the database and cannot be undone.
               </DrawerDescription>
             </DrawerHeader>
@@ -3475,16 +3714,28 @@ export function BulkTodoForm({
           if (!open) setDuplicateAddPrompt(null);
         }}
       >
-        <DrawerContent className="max-h-[55vh] dark:border-[#1c1921] dark:bg-[#181714]">
-          <DrawerHeader className="text-center">
+        <DrawerContent
+          className={cn(
+            "max-h-[55vh]",
+            studyBibleDarkClasses.popoverPanel,
+            getStudyBibleDarkCardShade("bwi-bulk-todos-duplicate-prompt")
+          )}
+        >
+          <DrawerHeader className="bg-transparent text-center dark:text-[#fffaff]">
             <DrawerTitle>Duplicate target detected</DrawerTitle>
+            <DrawerDescription className={cn("sr-only")}>Resolve duplicate establishments or contacts.</DrawerDescription>
           </DrawerHeader>
           <div className="px-4 pb-4 space-y-3">
-            <p className="text-sm text-muted-foreground">
+            <p className={cn("text-sm", studyBibleDarkClasses.muted)}>
               Some selected establishment/contact already exists in this form.
             </p>
             {duplicateAddPrompt?.duplicateTargetKeys?.length ? (
-              <div className="rounded-md border border-border/60 bg-muted/20 p-3 dark:border-[#1c1921] dark:bg-[#2a2534]/40">
+              <div
+                className={cn(
+                  "rounded-md border p-3 dark:border-[#1c1921]",
+                  studyBibleDarkClasses.laneTitleBar
+                )}
+              >
                 <p className="text-xs font-medium text-foreground/90 mb-2">
                   Duplicates ({duplicateAddPrompt.duplicateTargetKeys.length})
                 </p>

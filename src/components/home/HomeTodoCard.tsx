@@ -43,6 +43,7 @@ import { buildFilterBadges } from "@/lib/utils/filter-badges";
 import {
   Drawer,
   DrawerContent,
+  DrawerDescription,
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
@@ -456,6 +457,10 @@ export function HomeTodoCard({
   );
   const todoEditorSheetPanelClass = useMemo(
     () => getStudyBibleDarkCardShade(`bwi-todos-editor:${todoDrawerShadeKey}`),
+    [todoDrawerShadeKey]
+  );
+  const todoBulkEditPickerPanelClass = useMemo(
+    () => getStudyBibleDarkCardShade(`bwi-todos-bulk-edit-picker:${todoDrawerShadeKey}`),
     [todoDrawerShadeKey]
   );
 
@@ -3484,87 +3489,194 @@ export function HomeTodoCard({
       </FormModal>
       )}
 
-      <FormModal
-        open={bulkEditPromptOpen}
-        onOpenChange={setBulkEditPromptOpen}
-        title="Edit To-Dos"
-        description="Select which filtered to-dos to load into bulk edit."
-        headerClassName="text-center"
-      >
-        <div className="space-y-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
-          <div className="overflow-hidden rounded-md border">
-            {selectableTodos.length === 0 ? (
-              <p className="text-sm text-muted-foreground px-2 py-3">No to-dos available from current filters.</p>
-            ) : (
-              <>
-                <div className="flex items-center gap-2 border-b bg-muted/25 px-3 py-2">
-                  <Checkbox
-                    id="bulk-edit-select-all"
-                    checked={
-                      bulkEditSelectAllState.allSelected
-                        ? true
-                        : bulkEditSelectAllState.someSelected
-                          ? "indeterminate"
-                          : false
-                    }
-                    onCheckedChange={(value) => toggleBulkEditSelectAll(value === true)}
-                    aria-label={bulkEditSelectAllState.allSelected ? "Unselect all" : "Select all"}
-                  />
-                  <Label htmlFor="bulk-edit-select-all" className="text-sm font-medium cursor-pointer">
-                    Select all
-                  </Label>
-                </div>
-                <div className="max-h-[50vh] overflow-y-auto space-y-3 p-2">
-                  {selectableAssignedTodos.length > 0 ? (
-                    <div className="space-y-2">
-                      <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        To-Do ({selectableAssignedTodos.length})
-                      </p>
-                      {selectableAssignedTodos.map((todo) => (
-                        <BulkEditTodoListItem
-                          key={todo.id}
-                          todo={todo}
-                          checked={selectedTodoIds.includes(todo.id)}
-                          participantsById={participantsById}
-                          onCheckedChange={(next) => toggleSelectedTodo(todo.id, next)}
-                        />
-                      ))}
-                    </div>
-                  ) : null}
-                  {selectableUnassignedTodos.length > 0 ? (
-                    <div className="space-y-2">
-                      <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                        Open ({selectableUnassignedTodos.length})
-                      </p>
-                      {selectableUnassignedTodos.map((todo) => (
-                        <BulkEditTodoListItem
-                          key={todo.id}
-                          todo={todo}
-                          checked={selectedTodoIds.includes(todo.id)}
-                          participantsById={participantsById}
-                          onCheckedChange={(next) => toggleSelectedTodo(todo.id, next)}
-                        />
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              </>
+      {isTodoDetailsSideLayout ? (
+        <Drawer
+          open={bulkEditPromptOpen}
+          onOpenChange={setBulkEditPromptOpen}
+          direction="right"
+          modal
+          nested
+          shouldScaleBackground={false}
+        >
+          <DrawerWideRightContent
+            className={cn(
+              "dark:border-[#1c1921] dark:text-[#fffaff] md:max-h-[100lvh]",
+              todoBulkEditPickerPanelClass
             )}
+          >
+            <DrawerHeader className="bg-transparent shrink-0 px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
+              <DrawerTitle className="text-center text-xl font-bold">Edit To-Dos</DrawerTitle>
+              <DrawerDescription className="sr-only">
+                Select which filtered to-dos to load into bulk edit.
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
+              <div className="flex min-h-0 flex-1 flex-col space-y-4 overflow-hidden">
+                <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border">
+                  {selectableTodos.length === 0 ? (
+                    <p className="text-sm text-muted-foreground px-2 py-3">
+                      No to-dos available from current filters.
+                    </p>
+                  ) : (
+                    <>
+                      <div className="flex shrink-0 items-center gap-2 border-b bg-muted/25 px-3 py-2">
+                        <Checkbox
+                          id="bulk-edit-select-all-tablet"
+                          checked={
+                            bulkEditSelectAllState.allSelected
+                              ? true
+                              : bulkEditSelectAllState.someSelected
+                                ? "indeterminate"
+                                : false
+                          }
+                          onCheckedChange={(value) => toggleBulkEditSelectAll(value === true)}
+                          aria-label={
+                            bulkEditSelectAllState.allSelected ? "Unselect all" : "Select all"
+                          }
+                        />
+                        <Label
+                          htmlFor="bulk-edit-select-all-tablet"
+                          className="cursor-pointer text-sm font-medium"
+                        >
+                          Select all
+                        </Label>
+                      </div>
+                      <div className="min-h-0 flex-1 overflow-y-auto space-y-3 p-2">
+                        {selectableAssignedTodos.length > 0 ? (
+                          <div className="space-y-2">
+                            <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              To-Do ({selectableAssignedTodos.length})
+                            </p>
+                            {selectableAssignedTodos.map((todo) => (
+                              <BulkEditTodoListItem
+                                key={todo.id}
+                                todo={todo}
+                                checked={selectedTodoIds.includes(todo.id)}
+                                participantsById={participantsById}
+                                onCheckedChange={(next) => toggleSelectedTodo(todo.id, next)}
+                              />
+                            ))}
+                          </div>
+                        ) : null}
+                        {selectableUnassignedTodos.length > 0 ? (
+                          <div className="space-y-2">
+                            <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              Open ({selectableUnassignedTodos.length})
+                            </p>
+                            {selectableUnassignedTodos.map((todo) => (
+                              <BulkEditTodoListItem
+                                key={todo.id}
+                                todo={todo}
+                                checked={selectedTodoIds.includes(todo.id)}
+                                participantsById={participantsById}
+                                onCheckedChange={(next) => toggleSelectedTodo(todo.id, next)}
+                              />
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    </>
+                  )}
+                </div>
+                <div className="flex shrink-0 justify-end gap-2">
+                  <Button type="button" variant="outline" onClick={() => setBulkEditPromptOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={confirmBulkEdit}
+                    disabled={selectedTodoIds.length === 0}
+                  >
+                    Load Selected ({selectedTodoIds.length})
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </DrawerWideRightContent>
+        </Drawer>
+      ) : (
+        <FormModal
+          open={bulkEditPromptOpen}
+          onOpenChange={setBulkEditPromptOpen}
+          title="Edit To-Dos"
+          description="Select which filtered to-dos to load into bulk edit."
+          headerClassName="text-center"
+        >
+          <div className="space-y-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
+            <div className="overflow-hidden rounded-md border">
+              {selectableTodos.length === 0 ? (
+                <p className="text-sm text-muted-foreground px-2 py-3">No to-dos available from current filters.</p>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2 border-b bg-muted/25 px-3 py-2">
+                    <Checkbox
+                      id="bulk-edit-select-all"
+                      checked={
+                        bulkEditSelectAllState.allSelected
+                          ? true
+                          : bulkEditSelectAllState.someSelected
+                            ? "indeterminate"
+                            : false
+                      }
+                      onCheckedChange={(value) => toggleBulkEditSelectAll(value === true)}
+                      aria-label={bulkEditSelectAllState.allSelected ? "Unselect all" : "Select all"}
+                    />
+                    <Label htmlFor="bulk-edit-select-all" className="text-sm font-medium cursor-pointer">
+                      Select all
+                    </Label>
+                  </div>
+                  <div className="max-h-[50vh] overflow-y-auto space-y-3 p-2">
+                    {selectableAssignedTodos.length > 0 ? (
+                      <div className="space-y-2">
+                        <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          To-Do ({selectableAssignedTodos.length})
+                        </p>
+                        {selectableAssignedTodos.map((todo) => (
+                          <BulkEditTodoListItem
+                            key={todo.id}
+                            todo={todo}
+                            checked={selectedTodoIds.includes(todo.id)}
+                            participantsById={participantsById}
+                            onCheckedChange={(next) => toggleSelectedTodo(todo.id, next)}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
+                    {selectableUnassignedTodos.length > 0 ? (
+                      <div className="space-y-2">
+                        <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          Open ({selectableUnassignedTodos.length})
+                        </p>
+                        {selectableUnassignedTodos.map((todo) => (
+                          <BulkEditTodoListItem
+                            key={todo.id}
+                            todo={todo}
+                            checked={selectedTodoIds.includes(todo.id)}
+                            participantsById={participantsById}
+                            onCheckedChange={(next) => toggleSelectedTodo(todo.id, next)}
+                          />
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setBulkEditPromptOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={confirmBulkEdit}
+                disabled={selectedTodoIds.length === 0}
+              >
+                Load Selected ({selectedTodoIds.length})
+              </Button>
+            </div>
           </div>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => setBulkEditPromptOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              type="button"
-              onClick={confirmBulkEdit}
-              disabled={selectedTodoIds.length === 0}
-            >
-              Load Selected ({selectedTodoIds.length})
-            </Button>
-          </div>
-        </div>
-      </FormModal>
+        </FormModal>
+      )}
 
       <FormModal
         open={bulkDraftMergePromptOpen}

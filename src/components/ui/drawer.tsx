@@ -213,6 +213,9 @@ export const DrawerContent = React.forwardRef<
 });
 DrawerContent.displayName = DrawerPrimitive.Content.displayName;
 
+/** Inline z-index for a second right sheet above {@link DrawerWideRightContent} (z-100) and left companion (z-102). */
+const RIGHT_SHEET_STACK_ABOVE_Z = 150;
+
 /**
  * Narrow right-edge sheet for nested pickers (e.g. call date above a filter drawer on tablet).
  * Use with `<Drawer direction="right" nested shouldScaleBackground={false}>`.
@@ -221,28 +224,34 @@ export const DrawerThinRightContent = React.forwardRef<
   React.ElementRef<typeof DrawerPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content> & {
     overlayClassName?: string;
+    /**
+     * When true, overlay + panel use {@link RIGHT_SHEET_STACK_ABOVE_Z} so this sheet sits above another
+     * z-100 right sheet (e.g. assignee picker opened from bulk to-dos on tablet).
+     */
+    stackAboveDetailsSheet?: boolean;
   }
->(({ className, overlayClassName, children, onPointerDownOutside, ...props }, ref) => (
-  <DrawerPortal>
-    <DrawerOverlay className={cn("z-[100]", overlayClassName)} />
-    <DrawerPrimitive.Content
-      ref={ref}
-      aria-describedby={undefined}
-      className={cn(
-        "fixed inset-y-0 right-0 z-[100] flex h-full max-h-[100dvh] w-[min(100vw,22rem)] flex-col overflow-hidden rounded-l-xl border-l bg-background shadow-lg outline-none",
-        className
-      )}
-      {...props}
-      onPointerDownOutside={mergePointerDownOutsideForFabRoot(onPointerDownOutside)}
-    >
-      {children}
-    </DrawerPrimitive.Content>
-  </DrawerPortal>
-));
+>(({ className, overlayClassName, stackAboveDetailsSheet, children, style, onPointerDownOutside, ...props }, ref) => {
+  const stackStyle = stackAboveDetailsSheet ? ({ zIndex: RIGHT_SHEET_STACK_ABOVE_Z } as React.CSSProperties) : undefined;
+  return (
+    <DrawerPortal>
+      <DrawerOverlay className={cn("z-[100]", overlayClassName)} style={stackStyle} />
+      <DrawerPrimitive.Content
+        ref={ref}
+        aria-describedby={undefined}
+        className={cn(
+          "fixed inset-y-0 right-0 z-[100] flex h-full max-h-[100dvh] w-[min(100vw,22rem)] flex-col overflow-hidden rounded-l-xl border-l bg-background shadow-lg outline-none",
+          className
+        )}
+        style={{ ...stackStyle, ...(style && typeof style === "object" ? style : {}) }}
+        {...props}
+        onPointerDownOutside={mergePointerDownOutsideForFabRoot(onPointerDownOutside)}
+      >
+        {children}
+      </DrawerPrimitive.Content>
+    </DrawerPortal>
+  );
+});
 DrawerThinRightContent.displayName = "DrawerThinRightContent";
-
-/** Inline z-index for a second right sheet above {@link DrawerWideRightContent} (z-100) and left companion (z-102). */
-const RIGHT_SHEET_STACK_ABOVE_Z = 150;
 
 /** Left sheet (e.g. Edit Call) above a contact detail pane using {@link RIGHT_SHEET_STACK_ABOVE_Z}. */
 const LEFT_SHEET_STACK_ABOVE_STACKED_RIGHT_Z = 160;

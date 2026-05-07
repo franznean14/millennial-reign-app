@@ -14,6 +14,7 @@ import {
   DrawerWideRightContent,
 } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
+import { getStudyBibleDarkCardShade, studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 
 interface FormModalBodyProps {
   children: ReactNode;
@@ -234,18 +235,23 @@ export function FormModal({
         <Drawer open={open} onOpenChange={onOpenChange} direction="right" modal shouldScaleBackground={false}>
           <DrawerWideRightContent
             className={cn(
-              "dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff] md:max-h-[100lvh]",
+              "dark:border-[#1c1921] dark:text-[#fffaff] md:max-h-[100lvh]",
+              getStudyBibleDarkCardShade("bwi-bulk-todos-right-sheet:v1"),
               className
             )}
           >
             <DrawerHeader
               className={cn(
-                "border-b border-border px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:border-[#1c1921] dark:bg-[#181714]",
+                "shrink-0 bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:text-[#fffaff]",
                 headerClassName
               )}
             >
               <DrawerTitle className="text-center text-lg font-bold">{title}</DrawerTitle>
-              <DrawerDescription className={description ? undefined : "sr-only"}>{a11yDescription}</DrawerDescription>
+              <DrawerDescription
+                className={description ? cn("text-center text-sm", studyBibleDarkClasses.muted) : "sr-only"}
+              >
+                {a11yDescription}
+              </DrawerDescription>
             </DrawerHeader>
             <div
               className={cn(
@@ -266,14 +272,19 @@ export function FormModal({
       <Drawer open={open} onOpenChange={onOpenChange}>
         <DrawerContent
           className={cn(
-            "dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]",
+            "dark:border-[#1c1921] dark:text-[#fffaff]",
+            getStudyBibleDarkCardShade("bwi-bulk-todos-right-sheet:phone"),
             className,
             drawerContentClassName
           )}
         >
-          <DrawerHeader className={cn("dark:bg-[#181714]", headerClassName)}>
+          <DrawerHeader className={cn("bg-transparent dark:text-[#fffaff]", headerClassName)}>
             <DrawerTitle>{title}</DrawerTitle>
-            <DrawerDescription className={description ? undefined : "sr-only"}>{a11yDescription}</DrawerDescription>
+            <DrawerDescription
+              className={description ? cn("text-sm", studyBibleDarkClasses.muted) : "sr-only"}
+            >
+              {a11yDescription}
+            </DrawerDescription>
           </DrawerHeader>
           <FormModalBody className={bodyClassName}>{children}</FormModalBody>
         </DrawerContent>
