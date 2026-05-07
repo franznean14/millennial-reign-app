@@ -32,6 +32,7 @@ import { getProfile } from "@/lib/db/profiles";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cacheDelete } from "@/lib/offline/store";
 import { HomeTodoCard } from "@/components/home/HomeTodoCard";
+import { getStudyBibleDarkCardShade } from "@/lib/theme/study-bible-dark";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import {
   getBestStatus,
@@ -147,6 +148,14 @@ export function HouseholderDetails({
   const [newVisitOpen, setNewVisitOpen] = useState(false);
   const isMdUp = useMediaQuery("(min-width: 768px)");
   const useLeftDetailPanels = Boolean(preferLeftDetailPanel && isMdUp);
+  const bwiHhEditFormShade = useMemo(
+    () => getStudyBibleDarkCardShade(`bwi-hh-detail-edit:${householder.id}`),
+    [householder.id]
+  );
+  const bwiHhEditTodoShade = useMemo(
+    () => getStudyBibleDarkCardShade(`bwi-hh-detail-edit-todo:${householder.id}`),
+    [householder.id]
+  );
   const [deleting, setDeleting] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [showRemoveConfirm, setShowRemoveConfirm] = useState(false);
@@ -787,12 +796,15 @@ export function HouseholderDetails({
           nested
           shouldScaleBackground={false}
         >
-          <DrawerWideLeftContentTop stackAboveStackedRightSheet className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
-            <DrawerHeader className="px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center sm:text-center dark:bg-[#181714]">
+          <DrawerWideLeftContentTop
+            stackAboveStackedRightSheet
+            className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", bwiHhEditFormShade)}
+          >
+            <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center sm:text-center">
               <DrawerTitle className="text-center text-lg font-bold">Edit Householder</DrawerTitle>
               <DrawerDescription className="sr-only">Update householder details</DrawerDescription>
             </DrawerHeader>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 dark:bg-[#181714]">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
               <HouseholderForm
                 establishments={establishments}
                 selectedEstablishmentId={householder.establishment_id ?? undefined}
@@ -859,8 +871,11 @@ export function HouseholderDetails({
             nested
             shouldScaleBackground={false}
           >
-            <DrawerWideLeftContentTop stackAboveStackedRightSheet className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
-              <DrawerHeader className="px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:bg-[#181714]">
+            <DrawerWideLeftContentTop
+              stackAboveStackedRightSheet
+              className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", bwiHhEditTodoShade)}
+            >
+              <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
                 <DrawerTitle className="text-center text-lg font-bold">Edit To-Do</DrawerTitle>
               </DrawerHeader>
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">

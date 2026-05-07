@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { ChevronRight } from "lucide-react";
 import { FormModal } from "@/components/shared/FormModal";
 import { type VisitWithUser } from "@/lib/db/business";
@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/drawer";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
+import { getStudyBibleDarkCardShade } from "@/lib/theme/study-bible-dark";
 
 interface CallSectionProps {
   visits: VisitWithUser[];
@@ -59,6 +60,15 @@ export function CallSection({
   const isMdUp = useMediaQuery("(min-width: 768px)");
   const useLeftPanel = Boolean(preferLeftDetailPanel && isMdUp);
   const elevatedLeftPanels = Boolean(useLeftPanel && insideStackedContactPane);
+  const callSectionScope = householderId ?? selectedEstablishmentId ?? "anon";
+  const callsListPaneShade = useMemo(
+    () => getStudyBibleDarkCardShade(`bwi-callsection-list:${callSectionScope}`),
+    [callSectionScope]
+  );
+  const callEditPaneShade = useMemo(
+    () => getStudyBibleDarkCardShade(`bwi-callsection-edit:${callSectionScope}`),
+    [callSectionScope]
+  );
 
   // Show only first 3 visits in main view
   const mainVisits = visits.slice(0, 3);
@@ -127,7 +137,7 @@ export function CallSection({
     <div
       className={
         forDrawer
-          ? "min-h-0 flex-1 overflow-y-auto overscroll-contain bg-background px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 dark:bg-[#181714]"
+          ? "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2"
           : "flex-1 overflow-y-auto p-4 pb-20"
       }
     >
@@ -250,16 +260,24 @@ export function CallSection({
           {elevatedLeftPanels ? (
             <DrawerWideLeftContentTop
               stackAboveStackedRightSheet
-              className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff] md:max-h-[100lvh]"
+              className={cn(
+                "dark:border-[#1c1921] dark:text-[#fffaff] md:max-h-[100lvh]",
+                callsListPaneShade
+              )}
             >
-              <DrawerHeader className="px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center sm:text-center dark:bg-[#181714]">
+              <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center sm:text-center">
                 <DrawerTitle className="text-center text-lg font-bold">Calls</DrawerTitle>
               </DrawerHeader>
               {callsListExpandedBody(true)}
             </DrawerWideLeftContentTop>
           ) : (
-            <DrawerWideLeftContent className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff] md:max-h-[100lvh]">
-              <DrawerHeader className="px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center sm:text-center dark:bg-[#181714]">
+            <DrawerWideLeftContent
+              className={cn(
+                "dark:border-[#1c1921] dark:text-[#fffaff] md:max-h-[100lvh]",
+                callsListPaneShade
+              )}
+            >
+              <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center sm:text-center">
                 <DrawerTitle className="text-center text-lg font-bold">Calls</DrawerTitle>
               </DrawerHeader>
               {callsListExpandedBody(true)}
@@ -283,8 +301,11 @@ export function CallSection({
           nested
           shouldScaleBackground={false}
         >
-          <DrawerWideLeftContentTop stackAboveStackedRightSheet className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
-            <DrawerHeader className="px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:bg-[#181714]">
+          <DrawerWideLeftContentTop
+            stackAboveStackedRightSheet
+            className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", callEditPaneShade)}
+          >
+            <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
               <DrawerTitle className="text-center text-lg font-bold">Edit Call</DrawerTitle>
             </DrawerHeader>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">

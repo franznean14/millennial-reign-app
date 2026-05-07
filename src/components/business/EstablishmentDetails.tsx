@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MapPinned, Calendar, BookOpen, UserPlus, Minus, Plus, X } from "lucide-react";
+import { MapPinned, Calendar, UserPlus, Minus, Plus, X } from "lucide-react";
 import { FormModal } from "@/components/shared/FormModal";
 import { toast } from "@/components/ui/sonner";
 import { deleteEstablishment, archiveEstablishment, updateEstablishmentPublisherId } from "@/lib/db/business";
@@ -22,6 +22,7 @@ import {
 } from "@/lib/utils/status-hierarchy";
 import { getInitials, getInitialsFromName } from "@/lib/utils/visit-history-ui";
 import { businessEventBus } from "@/lib/events/business-events";
+import { getStudyBibleDarkCardShade } from "@/lib/theme/study-bible-dark";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   Drawer,
@@ -37,6 +38,7 @@ import { EstablishmentForm } from "@/components/business/EstablishmentForm";
 import { TodoForm } from "@/components/business/TodoForm";
 import { getBwiParticipants } from "@/lib/db/business";
 import { CallSection } from "@/components/business/CallSection";
+import { ContactsSection } from "@/components/business/ContactsSection";
 import { HomeTodoCard } from "@/components/home/HomeTodoCard";
 
 interface EstablishmentDetailsProps {
@@ -50,6 +52,8 @@ interface EstablishmentDetailsProps {
   onRequestSummaryEdit?: () => void;
   /** Tablet+: visit list + edit to-do use left sheets (not centered modals) while nested in a right details drawer. */
   preferLeftDetailPanel?: boolean;
+  /** Tablet+: same left-sheet stacking as Calls when contact sheet is stacked above establishment. */
+  insideStackedContactPane?: boolean;
   publisherId?: string | null;
   isLoading?: boolean;
   canManagePersonalTerritoryOwner?: boolean;
@@ -93,6 +97,7 @@ export function EstablishmentDetails({
   onHouseholderClick,
   onRequestSummaryEdit,
   preferLeftDetailPanel = false,
+  insideStackedContactPane = false,
   publisherId,
   isLoading = false,
   canManagePersonalTerritoryOwner = false,
@@ -234,6 +239,10 @@ export function EstablishmentDetails({
 
   // Primary status by hierarchy for consistent coloring
   const primaryStatus = getBestStatus(establishment.statuses || []);
+  const bwiEstEditTodoShade = useMemo(
+    () => getStudyBibleDarkCardShade(`bwi-est-detail-edit-todo:${establishment.id}`),
+    [establishment.id]
+  );
   const hasCoordinates = establishment.lat != null && establishment.lng != null;
 
   const handleAddAsPersonalTerritory = async () => {
@@ -847,82 +856,23 @@ export function EstablishmentDetails({
           selectedEstablishmentId={establishment.id}
           isLoading={isLoading}
           preferLeftDetailPanel={preferLeftDetailPanel}
+          insideStackedContactPane={insideStackedContactPane}
           onVisitUpdated={() => {
             // Visit updates will be handled by the parent component's data refresh
           }}
         />
       </motion.div>
 
-      {/* Contacts Section (householders styled like congregation Contacts card) */}
+      {/* Contacts: preview max 5; header opens full list (left sheet on tablet, bottom drawer on phone) */}
       <motion.div className="w-full" layout transition={{ duration: 0.2, ease: "easeOut" }}>
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5 flex-shrink-0" />
-              <span>Contacts{householders.length ? ` (${householders.length})` : ""}</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {householders.length > 0 ? (
-              <div className="px-4 py-2 space-y-2">
-                {householders
-                  .filter((householder, index, self) =>
-                    // Remove duplicates based on householder ID
-                    index === self.findIndex((h) => h.id === householder.id)
-                  )
-                  .map((householder) => {
-                    const initials = householder.name
-                      .split(" ")
-                      .filter(Boolean)
-                      .slice(0, 2)
-                      .map((part) => part[0]?.toUpperCase())
-                      .join("");
-
-                    return (
-                      <button
-                        key={householder.id}
-                        type="button"
-                        className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-muted/50 transition-colors flex items-center gap-3"
-                        onClick={() => onHouseholderClick && onHouseholderClick(householder)}
-                      >
-                        <Avatar className="h-9 w-9">
-                          <AvatarImage src={undefined} alt={householder.name} />
-                          <AvatarFallback className="text-[11px] font-semibold">
-                            {initials || "HH"}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center justify-between gap-3">
-                            <p className="text-sm font-medium truncate">{householder.name}</p>
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "text-xs px-2 py-0.5 h-5 leading-none",
-                                getHouseholderStatusColorClass(householder.status)
-                              )}
-                            >
-                              {formatStatusText(householder.status)}
-                            </Badge>
-                          </div>
-                          {householder.note && (
-                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                              {householder.note}
-                            </p>
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground px-4">
-                <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No contacts yet</p>
-                <p className="text-sm">Contacts will appear here when calls are added</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <ContactsSection
+          establishmentId={establishment.id ?? ""}
+          householders={householders}
+          isLoading={isLoading}
+          onHouseholderClick={onHouseholderClick}
+          preferLeftDetailPanel={preferLeftDetailPanel}
+          insideStackedContactPane={insideStackedContactPane}
+        />
       </motion.div>
 
       {onRequestSummaryEdit ? null : (
@@ -957,8 +907,14 @@ export function EstablishmentDetails({
             nested
             shouldScaleBackground={false}
           >
-            <DrawerWideLeftContentTop stackAboveStackedRightSheet className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
-              <DrawerHeader className="px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:bg-[#181714]">
+            <DrawerWideLeftContentTop
+              stackAboveStackedRightSheet
+              className={cn(
+                "dark:border-[#1c1921] dark:text-[#fffaff]",
+                bwiEstEditTodoShade
+              )}
+            >
+              <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
                 <DrawerTitle className="text-center text-lg font-bold">Edit To-Do</DrawerTitle>
               </DrawerHeader>
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">

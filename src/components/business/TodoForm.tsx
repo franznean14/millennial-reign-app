@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/drawer";
 import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
+import { getStudyBibleDarkCardShade } from "@/lib/theme/study-bible-dark";
 import { sidebarFormClasses } from "@/components/business/sidebar-form-styles";
 import {
   getBwiParticipants,
@@ -86,6 +87,11 @@ export function TodoForm({
   );
   const [saving, setSaving] = useState(false);
   const usePublisherSidebar = useMediaQuery("(min-width: 768px)");
+  const bwiTodoFormScope = householderId ?? initialTodo?.id ?? selectedEstablishmentId ?? "new-todo";
+  const publisherPickerShade = useMemo(
+    () => getStudyBibleDarkCardShade(`bwi-todoform-publishers:${bwiTodoFormScope}`),
+    [bwiTodoFormScope]
+  );
   const [participants, setParticipants] = useState<
     Array<{ id: string; first_name: string; last_name: string; avatar_url?: string }>
   >([]);
@@ -339,10 +345,10 @@ export function TodoForm({
 
   const publisherPickerContent = (
     <>
-      <DrawerHeader className="pb-3 pt-4 text-center dark:bg-[#181714] md:pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)]">
+      <DrawerHeader className="bg-transparent pb-3 pt-4 text-center md:pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)]">
         <DrawerTitle className="text-center text-lg font-bold">Select publisher or guest</DrawerTitle>
       </DrawerHeader>
-      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+24px)] pt-4 dark:bg-[#181714]">
+      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+24px)] pt-4">
         <section>
           <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground dark:text-[#ded6e7]/75">
             Publishers
@@ -604,7 +610,9 @@ export function TodoForm({
                 </Button>
               </DrawerTrigger>
               {usePublisherSidebar ? (
-                <DrawerThinRightContent className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
+                <DrawerThinRightContent
+                  className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", publisherPickerShade)}
+                >
                   {publisherPickerContent}
                 </DrawerThinRightContent>
               ) : (

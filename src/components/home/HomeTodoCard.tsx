@@ -9,7 +9,6 @@ import {
   ChevronDown,
   ChevronUp,
   MapPinned,
-  BookOpen,
 } from "lucide-react";
 import {
   getMyOpenCallTodos,
@@ -66,6 +65,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useMobile } from "@/lib/hooks/use-mobile";
 import { getBestStatus, getStatusColor, getStatusTextColor } from "@/lib/utils/status-hierarchy";
 import { CallSection } from "@/components/business/CallSection";
+import { ContactsSection } from "@/components/business/ContactsSection";
 import { TodoForm } from "@/components/business/TodoForm";
 import { EstablishmentForm } from "@/components/business/EstablishmentForm";
 import { HouseholderForm } from "@/components/business/HouseholderForm";
@@ -2440,68 +2440,22 @@ export function HomeTodoCard({
             void refreshTodoDetailEntity().then(() => broadcastTodosAndBusinessRefresh());
           }}
           preferLeftDetailPanel={isTodoDetailsSideLayout}
+          insideStackedContactPane={
+            Boolean(!isHouseholderDetail && contactDetailsSubdrawerOpen && isTodoDetailsSideLayout)
+          }
         />
       ) : null}
 
-      {!isHouseholderDetail && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <BookOpen className="h-5 w-5 flex-shrink-0" />
-              <span>Contacts{selectedDetailHouseholders.length ? ` (${selectedDetailHouseholders.length})` : ""}</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            {selectedDetailHouseholders.length > 0 ? (
-              <div className="px-4 py-2 space-y-2">
-                {selectedDetailHouseholders
-                  .filter((householder, index, self) =>
-                    index === self.findIndex((h) => h.id === householder.id)
-                  )
-                  .map((householder) => (
-                    <button
-                      key={householder.id}
-                      type="button"
-                      onClick={() => openContactDetailsSubdrawer(householder)}
-                      className="w-full text-left px-3 py-2.5 rounded-lg hover:bg-muted/50 transition-colors flex items-center gap-3"
-                    >
-                      <Avatar className="h-9 w-9">
-                        <AvatarFallback className="text-[11px] font-semibold">
-                          {getInitialsFromName(householder.name) || "HH"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-sm font-medium truncate">{householder.name}</p>
-                          <Badge
-                            variant="outline"
-                            className={cn(
-                              "text-xs px-2 py-0.5 h-5 leading-none",
-                              getHouseholderStatusColorClass(householder.status)
-                            )}
-                          >
-                            {formatStatusText(householder.status)}
-                          </Badge>
-                        </div>
-                        {householder.note && (
-                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                            {householder.note}
-                          </p>
-                        )}
-                      </div>
-                    </button>
-                  ))}
-              </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground px-4">
-                <BookOpen className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p>No contacts yet</p>
-                <p className="text-sm">Contacts will appear here when calls are added</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+      {!isHouseholderDetail && selectedEstablishmentDetails?.id ? (
+        <ContactsSection
+          establishmentId={selectedEstablishmentDetails.id}
+          householders={selectedDetailHouseholders}
+          onHouseholderClick={openContactDetailsSubdrawer}
+          preferLeftDetailPanel={isTodoDetailsSideLayout}
+          insideStackedContactPane={Boolean(contactDetailsSubdrawerOpen && isTodoDetailsSideLayout)}
+          isLoading={false}
+        />
+      ) : null}
     </>
   );
 

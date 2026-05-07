@@ -255,6 +255,18 @@ export function CallHistory({
     () => getStudyBibleDarkCardShade(`bwi-calls-filter-drawer:${userId}`),
     [userId]
   );
+  const callsMainDetailsPanelClass = useMemo(
+    () => getStudyBibleDarkCardShade(`bwi-calls-main-details:${userId}`),
+    [userId]
+  );
+  const callsContactSubdrawerPanelClass = useMemo(
+    () => getStudyBibleDarkCardShade(`bwi-calls-contact-subdrawer:${userId}`),
+    [userId]
+  );
+  const callsEntityEditPanelClass = useMemo(
+    () => getStudyBibleDarkCardShade(`bwi-calls-entity-edit:${userId}`),
+    [userId]
+  );
 
   useEffect(() => {
     if (!needsCallsData || !userId) return;
@@ -1130,6 +1142,7 @@ export function CallHistory({
             callsDrawerTabletLayout ? openCallsMainSummaryEditor : undefined
           }
           preferLeftDetailPanel={callsDrawerTabletLayout}
+          insideStackedContactPane={Boolean(callsContactSubdrawerOpen && callsDrawerTabletLayout)}
         />
       );
     }
@@ -1808,8 +1821,27 @@ export function CallHistory({
 
       {/* Drawer: full calls list (matches To-Do drawer on tablet; two columns on md+) */}
       <Drawer
+        nested
         open={showDrawer}
         onOpenChange={(open) => {
+          if (!open) {
+            // Vaul may try to dismiss the parent when a nested details drawer opens. Peel nested
+            // sheets first so the calls list stays open until the stack is cleared.
+            if (callsContactSubdrawerOpen) {
+              closeCallsContactSubdrawer();
+              return;
+            }
+            if (callsDetailsDrawerOpen) {
+              setCallsDetailsDrawerOpen(false);
+              setSelectedCallsEstablishmentDetails(null);
+              setSelectedCallsHouseholderDetails(null);
+              setCallsContactSubdrawerOpen(false);
+              setSelectedCallsContactDetails(null);
+              setCallsDetailsEntityEditOpen(false);
+              setCallsContactSubdrawerEntityEditOpen(false);
+              return;
+            }
+          }
           setShowDrawer(open);
           if (!open) setShowFiltersDrawer(false);
         }}
@@ -2047,11 +2079,16 @@ export function CallHistory({
           nested
           shouldScaleBackground={false}
         >
-          <DrawerWideRightContent className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
-            <DrawerHeader className="px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:bg-[#181714]">
+          <DrawerWideRightContent
+            className={cn(
+              "dark:border-[#1c1921] dark:text-[#fffaff]",
+              callsMainDetailsPanelClass
+            )}
+          >
+            <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
               <DrawerTitle className="text-center text-xl font-extrabold tracking-tight">{callsDetailsSheetTitle}</DrawerTitle>
             </DrawerHeader>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3 dark:bg-[#181714]">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
               {renderCallsMainDetailsBody()}
             </div>
           </DrawerWideRightContent>
@@ -2071,6 +2108,10 @@ export function CallHistory({
             }
           }}
           title={callsDetailsSheetTitle}
+          contentClassName={cn(
+            "dark:border-[#1c1921] dark:text-[#fffaff]",
+            callsMainDetailsPanelClass
+          )}
         >
           {renderCallsMainDetailsBody()}
         </HomeMobileDetailsDrawer>
@@ -2088,13 +2129,17 @@ export function CallHistory({
           }}
           direction="right"
           modal
+          nested
           shouldScaleBackground={false}
         >
           <DrawerWideRightContent
             stackAboveDetailsSheet
-            className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
+            className={cn(
+              "dark:border-[#1c1921] dark:text-[#fffaff]",
+              callsContactSubdrawerPanelClass
+            )}
           >
-            <DrawerHeader className="px-2 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-left sm:px-4 dark:bg-[#181714]">
+            <DrawerHeader className="bg-transparent px-2 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-left sm:px-4">
               <div className="relative flex items-center justify-center gap-1 pr-1">
                 <Button
                   type="button"
@@ -2111,7 +2156,7 @@ export function CallHistory({
                 </DrawerTitle>
               </div>
             </DrawerHeader>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3 dark:bg-[#181714]">
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
               {renderCallsContactSubdrawerBody()}
             </div>
           </DrawerWideRightContent>
@@ -2127,6 +2172,10 @@ export function CallHistory({
             }
           }}
           title={selectedCallsContactDetails?.householder.name?.trim() || "Contact Details"}
+          contentClassName={cn(
+            "dark:border-[#1c1921] dark:text-[#fffaff]",
+            callsContactSubdrawerPanelClass
+          )}
         >
           {renderCallsContactSubdrawerBody()}
         </HomeMobileDetailsDrawer>
@@ -2143,13 +2192,17 @@ export function CallHistory({
           }}
           direction="left"
           modal
+          nested
           shouldScaleBackground={false}
         >
           <DrawerWideLeftContentTop
             stackAboveStackedRightSheet={callsContactSubdrawerOpen && callsDrawerTabletLayout}
-            className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
+            className={cn(
+              "dark:border-[#1c1921] dark:text-[#fffaff]",
+              callsEntityEditPanelClass
+            )}
           >
-            <DrawerHeader className="px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:bg-[#181714]">
+            <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
               <DrawerTitle className="text-center text-lg font-bold">
                 {callsContactSubdrawerEntityEditOpen
                   ? "Edit Contact"
@@ -2158,7 +2211,7 @@ export function CallHistory({
                     : "Edit Establishment"}
               </DrawerTitle>
             </DrawerHeader>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 dark:bg-[#181714]">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
               {callsContactSubdrawerEntityEditOpen && selectedCallsContactDetails?.householder.id ? (
                 <HouseholderForm
                   key={selectedCallsContactDetails.householder.id}

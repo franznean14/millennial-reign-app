@@ -8,6 +8,8 @@ import { StickySearchBar } from "@/components/business/StickySearchBar";
 import { Drawer, DrawerHeader, DrawerTitle, DrawerWideLeftContentTop, DrawerWideRightContent } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { getStudyBibleDarkCardShade } from "@/lib/theme/study-bible-dark";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import type {
   BusinessFiltersState,
@@ -168,6 +170,24 @@ export function BusinessSection({
   const [businessEditSheet, setBusinessEditSheet] = useState<BusinessEditSheet>(null);
   const isTabletUp = useMediaQuery("(min-width: 768px)");
   const useBusinessSideDetails = isTabletUp && businessTab !== "map";
+
+  const bwiBizScope = userId ?? "anon";
+  const businessEstablishmentDetailShade = useMemo(
+    () => getStudyBibleDarkCardShade(`bwi-business-est-detail:${bwiBizScope}`),
+    [bwiBizScope]
+  );
+  const businessHouseholderDetailShade = useMemo(
+    () => getStudyBibleDarkCardShade(`bwi-business-hh-detail:${bwiBizScope}`),
+    [bwiBizScope]
+  );
+  const businessContactStackShade = useMemo(
+    () => getStudyBibleDarkCardShade(`bwi-business-contact-stack:${bwiBizScope}`),
+    [bwiBizScope]
+  );
+  const businessEntityEditShade = useMemo(
+    () => getStudyBibleDarkCardShade(`bwi-business-entity-edit:${bwiBizScope}`),
+    [bwiBizScope]
+  );
 
   const hasActiveFilters =
     filters.search !== "" ||
@@ -378,6 +398,7 @@ export function BusinessSection({
           if (hh.id) loadHouseholderDetails(hh.id);
         }}
         preferLeftDetailPanel={useBusinessSideDetails}
+        insideStackedContactPane={!!selectedHouseholder && !!selectedEstablishment}
         publisherId={userId}
       />
     );
@@ -525,6 +546,9 @@ export function BusinessSection({
                         setSelectedHouseholder(hh);
                         if (hh.id) loadHouseholderDetails(hh.id);
                       }}
+                      preferLeftDetailPanel={useBusinessSideDetails}
+                      insideStackedContactPane={!!selectedHouseholder && !!selectedEstablishment}
+                      publisherId={userId}
                     />
                   </div>
                 )}
@@ -564,13 +588,18 @@ export function BusinessSection({
               nested
               shouldScaleBackground={false}
             >
-              <DrawerWideRightContent className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
-                <DrawerHeader className="px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:bg-[#181714]">
+              <DrawerWideRightContent
+                className={cn(
+                  "dark:border-[#1c1921] dark:text-[#fffaff]",
+                  businessEstablishmentDetailShade
+                )}
+              >
+                <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
                   <DrawerTitle className="text-center text-xl font-extrabold tracking-tight">
                     {selectedEstablishmentDetails?.establishment.name || selectedEstablishment?.name || "Establishment Details"}
                   </DrawerTitle>
                 </DrawerHeader>
-                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3 dark:bg-[#181714]">
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
                   {renderEstablishmentDetails()}
                 </div>
               </DrawerWideRightContent>
@@ -586,13 +615,18 @@ export function BusinessSection({
               nested
               shouldScaleBackground={false}
             >
-              <DrawerWideRightContent className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]">
-                <DrawerHeader className="px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:bg-[#181714]">
+              <DrawerWideRightContent
+                className={cn(
+                  "dark:border-[#1c1921] dark:text-[#fffaff]",
+                  businessHouseholderDetailShade
+                )}
+              >
+                <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
                   <DrawerTitle className="text-center text-xl font-extrabold tracking-tight">
                     {selectedHouseholderDetails?.householder.name || selectedHouseholder?.name || "Contact Details"}
                   </DrawerTitle>
                 </DrawerHeader>
-                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3 dark:bg-[#181714]">
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
                   {renderHouseholderDetails()}
                 </div>
               </DrawerWideRightContent>
@@ -609,9 +643,9 @@ export function BusinessSection({
             >
               <DrawerWideRightContent
                 stackAboveDetailsSheet
-                className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
+                className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", businessContactStackShade)}
               >
-                <DrawerHeader className="px-2 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-left sm:px-4 dark:bg-[#181714]">
+                <DrawerHeader className="bg-transparent px-2 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-left sm:px-4">
                   <div className="relative flex items-center justify-center gap-1 pr-1">
                     <Button
                       type="button"
@@ -628,7 +662,7 @@ export function BusinessSection({
                     </DrawerTitle>
                   </div>
                 </DrawerHeader>
-                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3 dark:bg-[#181714]">
+                <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
                   {renderHouseholderDetails({ stacked: true })}
                 </div>
               </DrawerWideRightContent>
@@ -645,14 +679,14 @@ export function BusinessSection({
             >
               <DrawerWideLeftContentTop
                 stackAboveStackedRightSheet={!!selectedHouseholder && !!selectedEstablishment}
-                className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
+                className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", businessEntityEditShade)}
               >
-                <DrawerHeader className="px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:bg-[#181714]">
+                <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
                   <DrawerTitle className="text-center text-lg font-bold">
                     {businessEditSheet === "householder" ? "Edit Contact" : "Edit Establishment"}
                   </DrawerTitle>
                 </DrawerHeader>
-                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 dark:bg-[#181714]">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
                   {businessEditSheet === "establishment" && selectedEstablishment ? (
                     <EstablishmentForm
                       key={selectedEstablishment.id}

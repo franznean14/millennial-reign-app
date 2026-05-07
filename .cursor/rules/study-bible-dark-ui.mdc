@@ -1,0 +1,75 @@
+---
+description: Study Bible dark palette, hashed card shades, and drawer/card shell design language
+alwaysApply: true
+---
+
+# Study Bible dark palette & UI chrome
+
+Use **`src/lib/theme/study-bible-dark.ts`** as the single source of truth. Do not invent new purple-gray hex values for dark surfaces; extend the palette there if a new token is truly needed.
+
+## Core palette (hex reference)
+
+| Role | Hex | Notes |
+|------|-----|--------|
+| Page / app backdrop | `#24231f` | Default dark page |
+| Surfaces | `#30283c`, `#342a43`, `#3b3348`, `#2a2534`, `#272133`, `#463b55` | Used by cards + **hashed** drawer shades |
+| Border / divider | `#1c1921` | Hairline borders; avoid extra **border-b** under drawer titles unless explicitly specced |
+| Accent / interactive | `#80778e` | Active states, drawer handle, selected calendar day |
+| Foreground | `#fffaff` | Primary text |
+| Muted / secondary text | `#ded6e7`, `#cfc5db` | Labels, descriptions |
+| Purple accent | `#563985` | Sparingly (legacy accent) |
+
+## `studyBibleDarkClasses` (semantic Tailwind bundles)
+
+Import `studyBibleDarkClasses` and pick by **purpose** — keeps cards and list chrome consistent:
+
+- **`page`** — full-page dark shell text/bg.
+- **`bwiCard`**, **`callsCard`**, **`todoCard`** — section cards (BWI vs Calls vs To-Do list cards); borders + surface differ slightly by tier.
+- **`summaryCard`** — summary/metrics strips.
+- **`header`** / **`callsHeader`** — interactive header bars (use sparingly; prefer flat panel + shade).
+- **`muted`** / **`subtle`** / **`callsMuted`** — secondary copy on dark surfaces.
+- **`divider`** — horizontal rules when a divider is intentional.
+
+Prefer these over one-off `dark:bg-[#…]` on cards unless matching an existing sibling component.
+
+## Hashed surfaces: `getStudyBibleDarkCardShade` / `getStudyBibleDarkCardFade`
+
+- **`getStudyBibleDarkCardShade(key: string)`** returns one of six stable **`dark:bg-[#…]`** classes. The index is derived from **`key` via hashing** (not `Math.random()`), so the same key always gets the same tint across sessions.
+- **`getStudyBibleDarkCardFade(key)`** — gradient fade variants for hero/list edges when needed.
+
+**Key naming:** Use stable, descriptive strings, e.g. `bwi-calls-list-drawer:${userId}`, `bwi-todos-filter-drawer:${scopeKey}`, `bwi-visit-filters-call-date`. Include **user or scope** when the panel is user/data-scoped so different panels don’t accidentally share the same hue if you change keys later.
+
+**Usage:** Merge onto shells with `cn()`:
+
+```ts
+cn("dark:border-[#1c1921] dark:text-[#fffaff]", getStudyBibleDarkCardShade(`my-panel:${userId}`))
+```
+
+Avoid stacking another full **`dark:bg-[#181714]`** (or similar flat gray) **on top of** a shade unless you need a nested inset; the shade **is** the panel background.
+
+## Drawers (bottom sheets, left filter sheets, wide right/left panels)
+
+1. **Panel** — `dark:border-[#1c1921]`, **`dark:text-[#fffaff]`**, plus **`getStudyBibleDarkCardShade(key)`** for main `DrawerContent` / `DrawerWideLeftContent` / `DrawerWideRightContent` / `DrawerThinRightContent` surfaces.
+2. **Title row** — Prefer **`DrawerHeader`** with **`bg-transparent`** (and **`shrink-0`** where needed) so the header doesn’t read as a separate “strip.” **Do not** default to **`border-b border-border`** on drawer titles; spacing (`pt` / `pb` / `gap`) carries hierarchy.
+3. **Handle** (bottom sheets) — Optional: `handleClassName` with muted lavender handle + soft shadow (see **CallHistory** / **HomeTodoCard**) for consistency.
+4. **Scroll layout** — Outer: **`flex min-h-0 flex-1 flex-col`**; inner scroll: **`min-h-0 flex-1 overflow-y-auto`** with bottom safe padding **`pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]`** where FAB/nav overlaps.
+5. **Nested date/filter sheets** — Reuse the same **`DateRangeSelectContent`** + thin right drawer / modal pattern as **VisitFiltersForm** (call date / due date); palette key like `bwi-visit-filters-call-date` for the nested drawer.
+
+## Cards & lists inside dark sections
+
+- Use **`studyBibleDarkClasses`** for bordered list/card containers (**`bwiCard`**, **`todoCard`**, etc.) per section.
+- Secondary labels: **`studyBibleDarkClasses.muted`** (not ad-hoc `opacity-*` on white).
+- **Establishment / householder status** colors: always **`STATUS_HIERARCHY`** helpers from **`src/lib/utils/status-hierarchy.ts`** — never duplicate status colors in local components.
+
+## Checklist when adding a new dark drawer or card
+
+- [ ] Shade or semantic class from **`study-bible-dark`**, not a one-off hex unless adding a token.
+- [ ] Stable **`key`** string for **`getStudyBibleDarkCardShade`** if the shell should vary per user/scope.
+- [ ] Header **`bg-transparent`** unless design explicitly needs a contrasting sub-bar.
+- [ ] No redundant **border-b** between title and toolbar/filter row.
+- [ ] Mobile-first layout; tablet-only changes via **`md:`** per **`mobile-first-tablet-layout`**.
+
+## App shell & panel placement (viewport)
+
+- **Mobile-first (default, viewports below `768px`):** Auxiliary panels opened from section cards (e.g. **Calls** full history, **Contacts** full list, filters) use **bottom drawers** only (`FormModal` / `DrawerContent` from the bottom). Do not use left/right edge sheets as the primary pattern on phone.
+- **iPad / tablet (`md:` and up):** When **`preferLeftDetailPanel`** (or equivalent) applies, those full lists open as **left edge sheets** beside the main detail content. The overall app shell on tablet is **sidebar + bottom bar** (main nav); section cards stay consistent with **Calls** / **Contacts** (tappable header + chevron, preview rows, full list in the sheet).

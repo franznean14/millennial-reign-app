@@ -30,7 +30,7 @@ export function HomeMobileDetailsDrawer({
         )}
         handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
       >
-        <DrawerHeader className="px-4 pb-3 pt-4 text-center">
+        <DrawerHeader className="bg-transparent px-4 pb-3 pt-4 text-center">
           <DrawerTitle className="text-center text-lg font-bold">{title}</DrawerTitle>
         </DrawerHeader>
         <div
