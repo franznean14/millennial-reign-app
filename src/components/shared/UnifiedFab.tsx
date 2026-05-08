@@ -91,9 +91,16 @@ export function UnifiedFab({
 
   const isTabletUp = useMediaQuery("(min-width: 768px)");
   const [bulkTodoTabletTier, setBulkTodoTabletTier] = useState<BulkTodoTabletBulkSheetTier>(3);
-  /** Tier ⅓ (~24rem) felt too cramped for cards; align one- and two-lane tiers with half of max width until three lanes fill the sheet. */
+  /** Used for docked FAB layout math only; widths must mirror {@link bulkTabletSheetMaxWidthClass}. */
   const bulkTabletSheetMaxWidthRem =
     bulkTodoTabletTier <= 2 ? (2 / 3) * BULK_TODO_TABLET_SHEET_MAX_REM : BULK_TODO_TABLET_SHEET_MAX_REM;
+  /**
+   * Tailwind must see full class strings here (no template literals inside `w-[…]`) or production JIT
+   * omits the rule; tw-merge then drops {@link DrawerWideRightContent}'s base width → full viewport.
+   * Values mirror (⅔)×{@link BULK_TODO_TABLET_SHEET_MAX_REM} vs full max ({@link BULK_TODO_TABLET_SHEET_MAX_REM}).
+   */
+  const bulkTabletSheetMaxWidthClass =
+    bulkTodoTabletTier <= 2 ? "w-[min(100vw,48rem)]" : "w-[min(100vw,72rem)]";
   /** Tier 3 keeps per-lane scroll; tiers 1–2 use the wider (⅔ max) strip with sheet-level scrolling. */
   const bulkTabletUnifiedLaneScrollInSheet = bulkTodoTabletTier <= 2;
 
@@ -448,7 +455,7 @@ export function UnifiedFab({
         }
         headerClassName={useBusinessLeftSheet ? undefined : "text-center"}
         desktopPresentation={useBusinessLeftSheet ? "right-sheet" : "auto"}
-        className={`w-[min(100vw,${bulkTabletSheetMaxWidthRem}rem)] md:max-h-[100lvh]`}
+        className={cn(bulkTabletSheetMaxWidthClass, "md:max-h-[100lvh]")}
         drawerContentClassName="dark:border-[#1c1921]"
         sheetBodyScrollClassName={
           bulkTabletUnifiedLaneScrollInSheet
