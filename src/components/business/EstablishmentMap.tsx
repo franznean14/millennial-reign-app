@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef, useCallback, type JSX } from "react";
+import { useEffect, useLayoutEffect, useMemo, useState, useRef, useCallback, type JSX } from "react";
 import type { FeatureCollection, Feature, Geometry, Point } from "geojson";
 import type { MapLayerMouseEvent, StyleSpecification, GeoJSONSource } from "maplibre-gl";
 import maplibregl from "maplibre-gl";
@@ -19,11 +19,17 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MapPin } from "lucide-react";
+import {
+  ensureEstablishmentLabelBackgroundImages,
+  establishmentLabelBgImageId,
+} from "@/lib/map/establishment-label-bg";
 
 const PERSONAL_TERRITORY_STATUS = "personal_territory";
 
 const CLUSTER_MAX_ZOOM = 16;
 const CLUSTER_RADIUS = 56;
+/** Show names only once clustering has ended (MapLibre clusters up through `clusterMaxZoom`). */
+const MIN_ZOOM_ESTABLISHMENT_LABELS = CLUSTER_MAX_ZOOM + 1;
 
 type EstGeoFeatureCollection = FeatureCollection<Point>;
 
@@ -34,6 +40,7 @@ type EstablishmentGeoJsonBundle = {
   clusterLayerId: string;
   countLayerId: string;
   unclusteredLayerId: string;
+  unclusteredLabelLayerId: string;
   colorHex: string;
   geojson: EstGeoFeatureCollection;
 };
@@ -389,6 +396,11 @@ export function EstablishmentMap({
           },
           properties: {
             establishmentId: est.id,
+            selected:
+              selectedEstablishmentId != null && est.id != null && est.id === selectedEstablishmentId
+                ? 1
+                : 0,
+            ...((est.name ?? "").trim() ? { name: (est.name ?? "").trim() } : {}),
           },
         })),
       };
@@ -396,6 +408,7 @@ export function EstablishmentMap({
       const countLayerId = `est-cl-count-${seg}`;
       const unclusteredLayerId = `est-pt-${seg}`;
       const colorHex = getStatusColorValue(status);
+      const unclusteredLabelLayerId = `est-pt-name-${seg}`;
       return {
         status,
         segment: seg,
@@ -403,14 +416,23 @@ export function EstablishmentMap({
         clusterLayerId,
         countLayerId,
         unclusteredLayerId,
+        unclusteredLabelLayerId,
         colorHex,
         geojson,
       };
     });
-  }, [groupedEstablishmentsByStatus]);
+  }, [groupedEstablishmentsByStatus, selectedEstablishmentId]);
+
+  const statusBundlesRef = useRef(statusGeoJsonBundles);
+  statusBundlesRef.current = statusGeoJsonBundles;
 
   const interactiveLayerIds = useMemo(
-    (): string[] => statusGeoJsonBundles.flatMap(({ clusterLayerId, unclusteredLayerId }) => [clusterLayerId, unclusteredLayerId]),
+    (): string[] =>
+      statusGeoJsonBundles.flatMap(({ clusterLayerId, unclusteredLayerId, unclusteredLabelLayerId }) => [
+        clusterLayerId,
+        unclusteredLayerId,
+        unclusteredLabelLayerId,
+      ]),
     [statusGeoJsonBundles]
   );
 
@@ -462,6 +484,16 @@ export function EstablishmentMap({
 
   const handleMapLoad = useCallback(() => {
     const m = mapRef.current?.getMap() ?? null;
+    if (m) {
+      ensureEstablishmentLabelBackgroundImages(
+        m,
+        statusBundlesRef.current.map((b) => ({
+          segment: b.segment,
+          fillCss: withAlpha(b.colorHex, 0.88),
+          strokeCss: withAlpha("#1c1921", 0.92),
+        }))
+      );
+    }
     setMapInstanceReady(!!m);
     if (m && !initialView && establishmentsWithCoords.length > 0 && !hasInitiallyFittedRef.current) {
       hasInitiallyFittedRef.current = true;
@@ -495,7 +527,8 @@ export function EstablishmentMap({
 
       const layerId = String(top.layer?.id ?? "");
       const bundle = statusGeoJsonBundles.find(
-        ({ clusterLayerId, unclusteredLayerId }) => layerId === clusterLayerId || layerId === unclusteredLayerId
+        ({ clusterLayerId, unclusteredLayerId, unclusteredLabelLayerId }) =>
+          layerId === clusterLayerId || layerId === unclusteredLayerId || layerId === unclusteredLabelLayerId
       );
 
       const pointCount = top.properties.point_count;
@@ -542,6 +575,24 @@ export function EstablishmentMap({
     };
   }, [handleMoveZoomEnd, onViewChange, mapInstanceReady]);
 
+  useLayoutEffect(() => {
+    if (!isClient || !mapInstanceReady) {
+      return;
+    }
+    const map = mapRef.current?.getMap();
+    if (!map) {
+      return;
+    }
+    ensureEstablishmentLabelBackgroundImages(
+      map,
+      statusGeoJsonBundles.map((b) => ({
+        segment: b.segment,
+        fillCss: withAlpha(b.colorHex, 0.88),
+        strokeCss: withAlpha("#1c1921", 0.92),
+      }))
+    );
+  }, [isClient, mapInstanceReady, statusGeoJsonBundles]);
+
   if (!isClient) {
     return (
       <div className={`w-full h-full bg-muted flex items-center justify-center ${className}`}>
@@ -576,7 +627,17 @@ export function EstablishmentMap({
         <NavigationControl visualizePitch={false} showZoom showCompass={false} position="bottom-right" />
         <GeolocateControl position="bottom-right" trackUserLocation />
 
-        {statusGeoJsonBundles.map(({ sourceId, clusterLayerId, countLayerId, unclusteredLayerId, geojson, colorHex }) => {
+        {statusGeoJsonBundles.map(
+          ({
+            sourceId,
+            clusterLayerId,
+            countLayerId,
+            unclusteredLayerId,
+            unclusteredLabelLayerId,
+            geojson,
+            colorHex,
+            segment,
+          }) => {
           const stroke = withAlpha(colorHex, 0.92);
           const fill = withAlpha(colorHex, 0.82);
           return (
@@ -634,9 +695,75 @@ export function EstablishmentMap({
                     10,
                   ],
                   "circle-color": fill,
-                  "circle-stroke-color": stroke,
-                  "circle-stroke-width": 2,
+                  "circle-stroke-color": [
+                    "case",
+                    ["==", ["coalesce", ["get", "selected"], 0], 1],
+                    "#fffaff",
+                    stroke,
+                  ],
+                  "circle-stroke-width": [
+                    "case",
+                    ["==", ["coalesce", ["get", "selected"], 0], 1],
+                    3.25,
+                    2,
+                  ],
                   "circle-opacity": 1,
+                }}
+              />
+              <Layer
+                id={unclusteredLabelLayerId}
+                type="symbol"
+                source={sourceId}
+                minzoom={MIN_ZOOM_ESTABLISHMENT_LABELS}
+                filter={["all", ["!", ["has", "point_count"]], ["has", "name"]]}
+                layout={{
+                  "icon-image": establishmentLabelBgImageId(segment),
+                  "icon-text-fit": "both",
+                  "icon-text-fit-padding": [2, 5, 2, 5],
+                  "icon-allow-overlap": false,
+                  "icon-ignore-placement": false,
+                  "icon-anchor": "top",
+                  "icon-offset": [0, 0],
+                  "text-field": ["get", "name"],
+                  "text-size": [
+                    "interpolate",
+                    ["linear"],
+                    ["zoom"],
+                    MIN_ZOOM_ESTABLISHMENT_LABELS,
+                    [
+                      "case",
+                      ["==", ["coalesce", ["get", "selected"], 0], 1],
+                      15.5,
+                      13.5,
+                    ],
+                    20,
+                    [
+                      "case",
+                      ["==", ["coalesce", ["get", "selected"], 0], 1],
+                      19.25,
+                      17,
+                    ],
+                  ],
+                  "text-font": ["Open Sans Semibold"],
+                  "text-anchor": "center",
+                  "text-offset": [0, 1.5],
+                  "text-max-width": 16,
+                  "text-line-height": 1.08,
+                  "text-letter-spacing": 0.02,
+                  "text-padding": 1,
+                  "text-allow-overlap": false,
+                  "text-ignore-placement": false,
+                  "text-optional": true,
+                }}
+                paint={{
+                  "text-color": [
+                    "case",
+                    ["==", ["coalesce", ["get", "selected"], 0], 1],
+                    "#fffaff",
+                    isDarkMode ? "#fffaff" : "#0f172a",
+                  ],
+                  "text-halo-width": 0,
+                  "text-halo-blur": 0,
                 }}
               />
             </Source>
