@@ -169,7 +169,8 @@ export function BusinessSection({
   const [mapViewState, setMapViewState] = useState<MapViewState | null>(null);
   const [businessEditSheet, setBusinessEditSheet] = useState<BusinessEditSheet>(null);
   const isTabletUp = useMediaQuery("(min-width: 768px)");
-  const useBusinessSideDetails = isTabletUp && businessTab !== "map";
+  /** Right drawer on tablet+; on phone, only the map tab uses the drawer so the map stays visible (list/householders still full-page). */
+  const useBusinessSideDetails = isTabletUp || businessTab === "map";
 
   const bwiBizScope = userId ?? "anon";
   const businessEstablishmentDetailShade = useMemo(
@@ -410,7 +411,7 @@ export function BusinessSection({
       <SectionShell
         motionKey="business"
         className={
-          businessTab === "map" && !selectedEstablishment && !selectedHouseholder
+          businessTab === "map"
             ? "fixed inset-0 z-10"
             : "relative h-[calc(100vh-80px)] md:h-[100lvh] overflow-y-auto space-y-4 px-0 pb-20 md:pb-0 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+90px)] md:pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+84px)]"
         }

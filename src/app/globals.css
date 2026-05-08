@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "tailwindcss/utilities";
-@import "leaflet/dist/leaflet.css";
+@import "maplibre-gl/dist/maplibre-gl.css";
 
 /* Map marker animations */
 @keyframes markerAppear {
@@ -447,145 +447,6 @@ body.app-scroll-locked {
   }
 }
 
-/* Leaflet Map Styling */
-.leaflet-container {
-  background-color: var(--background) !important;
-  color: var(--foreground) !important;
-  z-index: 1 !important; /* Keep map at lowest z-index */
-}
-
-/* Dark theme for map tiles */
-.dark .leaflet-tile {
-  filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7);
-}
-
-/* Custom marker styling */
-.custom-marker {
-  background: none !important;
-  border: none !important;
-}
-
-.marker-container {
-  transition: all 0.2s ease;
-}
-
-.marker-container:hover {
-  transform: translate(-50%, -50%) scale(1.1);
-}
-
-.marker-container.selected {
-  transform: translate(-50%, -50%) scale(1.2);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-}
-
-/* Leaflet popup styling to match shadcn/ui */
-.leaflet-popup-content-wrapper {
-  background-color: var(--card) !important;
-  color: var(--card-foreground) !important;
-  border: 1px solid var(--border) !important;
-  border-radius: 0.5rem !important;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
-}
-
-.leaflet-popup-tip {
-  background-color: var(--card) !important;
-  border: 1px solid var(--border) !important;
-}
-
-.leaflet-popup-close-button {
-  color: var(--muted-foreground) !important;
-}
-
-.leaflet-popup-close-button:hover {
-  color: var(--foreground) !important;
-}
-
-/* Leaflet control styling */
-.leaflet-control-zoom {
-  position: fixed !important;
-  bottom: 120px !important;
-  left: 16px !important;
-  top: auto !important;
-  z-index: 90 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 8px !important;
-  background: none !important;
-  border: none !important;
-  box-shadow: none !important;
-  padding: 0 !important;
-  margin: 0 !important;
-}
-
-.leaflet-control-zoom a {
-  background-color: white !important;
-  color: black !important;
-  border: none !important;
-  width: 48px !important;
-  height: 48px !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  border-radius: 50% !important;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05) !important;
-  transition: all 0.2s ease-in-out !important;
-  outline: none !important;
-  -webkit-tap-highlight-color: transparent !important;
-  font-size: 18px !important;
-  font-weight: 300 !important;
-  text-decoration: none !important;
-}
-
-.leaflet-control-zoom a:hover {
-  background-color: white !important;
-  color: black !important;
-  transform: translateY(-1px) scale(1.05) !important;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
-}
-
-.leaflet-control-zoom a:active {
-  transform: translateY(0) scale(0.95) !important;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06) !important;
-}
-
-/* Official locate control styling - position it above the FAB */
-.leaflet-control-locate {
-  position: fixed !important;
-  bottom: 180px !important;
-  right: 20px !important;
-  z-index: 90 !important;
-}
-
-/* User location marker animation */
-@keyframes pulse {
-  0% {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 1;
-  }
-  100% {
-    transform: translate(-50%, -50%) scale(1.5);
-    opacity: 0;
-  }
-}
-
-/* Mobile-specific fixes */
-@media (max-width: 768px) {
-  .leaflet-control-zoom a,
-  .leaflet-control-locate a {
-    -webkit-appearance: none !important;
-    -moz-appearance: none !important;
-    appearance: none !important;
-    border: none !important;
-    outline: none !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1) !important;
-  }
-  
-  .leaflet-control-zoom a:focus,
-  .leaflet-control-locate a:focus {
-    outline: none !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1) !important;
-  }
-}
 
 /* Global app-level scroll lock (used when sections manage their own scroll) */
 html.app-scroll-locked,
@@ -632,86 +493,167 @@ body.app-scroll-locked {
   display: none !important;
 }
 
-/* Dark map container background (retain current dark scheme) */
-.dark .leaflet-container {
-  background: #000000 !important;
+/* MapLibre shell (BWI map) — z-index stays below drawers / nav chrome */
+.maplibregl-map {
+  z-index: 1 !important;
 }
 
-/* Darken CartoDB tiles further (dark mode only) */
-.dark .leaflet-tile {
-  filter: brightness(2.1) contrast(0.85) !important;
+.dark .maplibregl-map {
+  background: #24231f !important;
 }
 
-/* Light map container background */
-.leaflet-container {
-  background: #f5f5f5 !important;
+.dark .maplibregl-canvas-container {
+  background: #24231f !important;
 }
 
-/* Light mode tile tuning */
-.leaflet-tile {
-  filter: brightness(1.1) contrast(1.05) saturate(0.95) !important;
+.dark .maplibregl-ctrl-group {
+  background: #342a43 !important;
+  border: 1px solid #1c1921 !important;
+  border-radius: 9999px !important;
+  overflow: hidden;
 }
 
+.dark .maplibregl-ctrl button {
+  color: #fffaff !important;
+}
 
-/* Custom cluster styling - matches pin design */
-.custom-cluster {
+.dark .maplibregl-ctrl button:hover {
+  background: #463b55 !important;
+}
+
+/*
+ * BWI fullscreen map (`body.map-view-active`): larger targets; bottom-right zoom + geolocate as separate pill groups with a gap.
+ */
+body.map-view-active .maplibregl-ctrl-group button {
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  min-height: 44px !important;
+}
+
+body.map-view-active .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  transform: scale(1.22);
+  transform-origin: center center;
+  filter: brightness(0) invert(1);
+  opacity: 0.95;
+}
+
+body.map-view-active .maplibregl-ctrl-group button + button {
+  border-top-color: #1c1921 !important;
+}
+
+body.map-view-active .maplibregl-ctrl.maplibregl-ctrl-geolocate button {
+  width: 44px !important;
+  height: 44px !important;
+  min-width: 44px !important;
+  min-height: 44px !important;
+}
+
+body.map-view-active .maplibregl-ctrl.maplibregl-ctrl-geolocate button .maplibregl-ctrl-icon {
+  transform: scale(1.18);
+  transform-origin: center center;
+  filter: brightness(0) invert(1);
+  opacity: 0.95;
+}
+
+body.map-view-active .maplibregl-ctrl.maplibregl-ctrl-geolocate button:disabled .maplibregl-ctrl-icon {
+  filter: brightness(0) invert(1);
+  opacity: 0.45;
+}
+
+/*
+ * Bottom-right stack: NavigationControl sits nearest the corner; GeolocateControl above it.
+ * Vertical gap between the two pill groups (not one fused column).
+ */
+body.map-view-active .maplibregl-ctrl-bottom-right {
+  bottom: calc(max(env(safe-area-inset-bottom), 0px) + 112px) !important;
+  right: 12px !important;
+}
+
+body.map-view-active .maplibregl-ctrl-bottom-right .maplibregl-ctrl {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+body.map-view-active .maplibregl-ctrl-bottom-right > .maplibregl-ctrl ~ .maplibregl-ctrl {
+  margin-top: 20px !important;
+}
+
+body.map-view-active .maplibregl-ctrl-bottom-right .maplibregl-ctrl.maplibregl-ctrl-geolocate {
   background: transparent !important;
   border: none !important;
-}
-
-/* Custom popup styling for map markers */
-.leaflet-popup-content-wrapper {
-  background: hsl(var(--background)) !important;
-  color: hsl(var(--foreground)) !important;
-  border: 2px solid hsl(var(--border)) !important;
-  border-radius: 8px !important;
-  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.1), 0 10px 25px -15px rgba(0, 0, 0, 0.05), 0 0 0 1px hsl(var(--border)) !important;
+  box-shadow: none !important;
   padding: 0 !important;
-  opacity: 1 !important;
+  overflow: visible !important;
+  border-radius: 0 !important;
 }
 
-/* Dark mode popup styling (retain current dark scheme) */
-.dark .leaflet-popup-content-wrapper {
-  background: #1a1a1a !important;
-  color: #ffffff !important;
-  border: 2px solid hsl(var(--border)) !important;
-  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.8), 0 10px 25px -15px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
+/* Geolocate: its own full pill (separate from zoom stack). */
+html.dark body.map-view-active .maplibregl-map .maplibregl-ctrl.maplibregl-ctrl-geolocate button.maplibregl-ctrl-geolocate,
+html.dark body.map-view-active .maplibregl-map .maplibregl-ctrl.maplibregl-ctrl-geolocate > button,
+body.map-view-active .maplibregl-map .maplibregl-ctrl.maplibregl-ctrl-geolocate button.maplibregl-ctrl-geolocate,
+body.map-view-active .maplibregl-map .maplibregl-ctrl.maplibregl-ctrl-geolocate > button {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  background-color: #342a43 !important;
+  border: 1px solid #1c1921 !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  border-radius: 9999px !important;
+  -webkit-clip-path: none !important;
+  clip-path: none !important;
 }
 
-.leaflet-popup-content {
+html.dark body.map-view-active .maplibregl-ctrl-bottom-right .maplibregl-ctrl.maplibregl-ctrl-geolocate button .maplibregl-ctrl-icon,
+body.map-view-active .maplibregl-ctrl-bottom-right .maplibregl-ctrl.maplibregl-ctrl-geolocate button .maplibregl-ctrl-icon,
+body.map-view-active .maplibregl-map .maplibregl-ctrl.maplibregl-ctrl-geolocate button .maplibregl-ctrl-icon {
+  border-radius: 0 !important;
+}
+
+/* Zoom +/− stack: its own pill, separate from geolocate. */
+html.dark body.map-view-active .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group,
+body.map-view-active .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  border-radius: 9999px !important;
+  overflow: hidden !important;
+}
+
+html.dark body.map-view-active .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group button,
+body.map-view-active .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group button {
+  border-radius: 0 !important;
+}
+
+/* FAB-aware corners (prior Leaflet offsets) */
+.maplibregl-ctrl-bottom-left {
+  bottom: 120px !important;
+  left: 16px !important;
+}
+
+.maplibregl-ctrl-bottom-right {
+  bottom: 180px !important;
+  right: 12px !important;
+}
+
+@media (max-width: 767px) {
+  .maplibregl-ctrl-bottom-left button,
+  .maplibregl-ctrl-bottom-right button {
+    -webkit-tap-highlight-color: transparent !important;
+  }
+}
+
+.maplibregl-popup-content {
   margin: 0 !important;
-  width: auto !important;
-  max-width: none !important;
+  padding: 0 !important;
+  border-radius: 0.75rem !important;
+  overflow: hidden;
 }
 
-.leaflet-popup-tip {
-  background: hsl(var(--background)) !important;
-  border: 2px solid hsl(var(--border)) !important;
-  border-top: none !important;
-  border-left: none !important;
-  opacity: 0.98 !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
-}
-
-/* Dark mode popup tip */
-.dark .leaflet-popup-tip {
-  background: #1a1a1a !important;
-  border: 2px solid hsl(var(--border)) !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
-}
-
-.leaflet-popup-close-button {
-  color: hsl(var(--muted-foreground)) !important;
-  font-size: 18px !important;
-  padding: 8px !important;
-  top: 4px !important;
-  right: 4px !important;
-}
-
-.leaflet-popup-close-button:hover {
-  color: hsl(var(--foreground)) !important;
-  background: hsl(var(--muted)) !important;
-  border-radius: 4px !important;
+.maplibregl-popup-content-wrapper {
+  background: transparent !important;
+  padding: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
 }
 
 /* Marquee animation for long text - will be dynamically calculated */

@@ -1,427 +1,309 @@
-'use client';
+"use client";
 
-import { useEffect, useMemo, useState, useRef, useCallback } from 'react';
-import { createElement } from 'react';
-import { createRoot } from 'react-dom/client';
-import dynamic from 'next/dynamic';
-import { useMap } from 'react-leaflet';
-import { EstablishmentWithDetails } from '@/lib/db/business';
-import { STATUS_HIERARCHY, getStatusColor, getStatusTextColor, getBestStatus } from '@/lib/utils/status-hierarchy';
-import { cn } from '@/lib/utils';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { MapPin, Building2, Users, Crosshair } from 'lucide-react';
+import { useEffect, useMemo, useState, useRef, useCallback, type JSX } from "react";
+import type { FeatureCollection, Feature, Geometry, Point } from "geojson";
+import type { MapLayerMouseEvent, StyleSpecification, GeoJSONSource } from "maplibre-gl";
+import maplibregl from "maplibre-gl";
+import MapGl, {
+  Source,
+  Layer,
+  NavigationControl,
+  GeolocateControl,
+  Marker,
+} from "@vis.gl/react-maplibre";
 
-// Locate control plugin is loaded via CDN in head.tsx
+import type { MapRef } from "@vis.gl/react-maplibre";
+import { EstablishmentWithDetails } from "@/lib/db/business";
+import { STATUS_HIERARCHY, getStatusTextColor, getBestStatus } from "@/lib/utils/status-hierarchy";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { MapPin } from "lucide-react";
 
-// Dynamically import MapContainer to avoid SSR issues
-const MapContainer = dynamic(
-  () => import('react-leaflet').then((mod) => mod.MapContainer),
-  { ssr: false }
-);
+const PERSONAL_TERRITORY_STATUS = "personal_territory";
 
-const TileLayer = dynamic(
-  () => import('react-leaflet').then((mod) => mod.TileLayer),
-  { ssr: false }
-);
+const CLUSTER_MAX_ZOOM = 16;
+const CLUSTER_RADIUS = 56;
 
-const MarkerClusterGroup = dynamic(
-  () => import('react-leaflet-markercluster').then((mod) => mod.default),
-  { ssr: false }
-) as any;
+type EstGeoFeatureCollection = FeatureCollection<Point>;
 
-// User location marker component
-const UserLocationMarker = ({ isTracking, onDisableTracking, userLocation, setUserLocation, setWatchId, watchId }: { 
-  isTracking: boolean; 
-  onDisableTracking: () => void;
-  userLocation: [number, number] | null;
-  setUserLocation: (location: [number, number] | null) => void;
-  setWatchId: (id: number | null) => void;
-  watchId: number | null;
-}) => {
-  const map = useMap();
-  const [icon, setIcon] = useState<any>(null);
-
-  // Create custom user location icon
-  const createUserLocationIcon = () => {
-    if (typeof window === 'undefined') return null;
-    
-    const L = require('leaflet');
-    
-    return L.divIcon({
-      className: 'user-location-marker',
-      html: `
-        <div style="
-          position: relative;
-          transform: translate(-50%, -50%);
-        ">
-          <!-- Outer pulsing ring -->
-          <div style="
-            position: absolute;
-            width: 40px;
-            height: 40px;
-            background: rgba(59, 130, 246, 0.3);
-            border: 2px solid rgba(59, 130, 246, 0.6);
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            animation: pulse 2s infinite;
-          "></div>
-          <!-- Inner dot -->
-          <div style="
-            position: absolute;
-            width: 12px;
-            height: 12px;
-            background: #3b82f6;
-            border: 3px solid white;
-            border-radius: 50%;
-            transform: translate(-50%, -50%);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-          "></div>
-        </div>
-      `,
-      iconSize: [40, 40],
-      iconAnchor: [20, 20],
-    });
-  };
-
-  // Initialize icon
-  useEffect(() => {
-    setIcon(createUserLocationIcon());
-  }, []);
-
-  // Disable tracking when user manually moves the map
-  useEffect(() => {
-    if (!map) return;
-
-    const handleMapMove = () => {
-      // Disable tracking if user manually moved the map
-      if (isTracking) {
-        onDisableTracking();
-      }
-    };
-
-    map.on('moveend', handleMapMove);
-
-    return () => {
-      map.off('moveend', handleMapMove);
-    };
-  }, [map, isTracking]);
-
-
-  // Don't render if no location or icon
-  if (!userLocation || !icon) return null;
-
-  return (
-    <Marker
-      position={userLocation}
-      icon={icon}
-      zIndexOffset={1000} // Ensure it's above other markers
-    />
-  );
+type EstablishmentGeoJsonBundle = {
+  status: string;
+  segment: string;
+  sourceId: string;
+  clusterLayerId: string;
+  countLayerId: string;
+  unclusteredLayerId: string;
+  colorHex: string;
+  geojson: EstGeoFeatureCollection;
 };
 
-// Locate control component that uses useMap hook
-const LocateControl = ({ onToggleTracking, isTracking, setUserLocation, setWatchId, watchId }: { 
-  onToggleTracking: (tracking: boolean) => void; 
-  isTracking: boolean;
-  setUserLocation: (location: [number, number] | null) => void;
-  setWatchId: (id: number | null) => void;
-  watchId: number | null;
-}) => {
-  const map = useMap();
-  
-  const handleLocate = () => {
-    if (!navigator.geolocation) {
-      console.error('Geolocation is not supported');
-      return;
-    }
+/** MapLibre source / layer IDs must avoid reserved characters */
+function sanitizeStatusSegment(status: string): string {
+  return status.replace(/[^a-zA-Z0-9_]/g, "_");
+}
 
-    if (isTracking) {
-      // If currently tracking, just stop tracking
-      onToggleTracking(false);
-      return;
-    }
+function getEstablishmentPrimaryStatus(establishment: EstablishmentWithDetails): string {
+  return establishment.publisher_id ? PERSONAL_TERRITORY_STATUS : getBestStatus(establishment.statuses || []);
+}
 
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
-        
-        if (map && typeof map.setView === 'function') {
-          map.setView([latitude, longitude], 18); // Increased zoom level for better detail
-          
-          // Enable tracking mode after centering
-          onToggleTracking(true);
-        } else {
-          console.error('Map instance not available');
-        }
+function getStatusColorValue(status: string): string {
+  switch (status) {
+    case PERSONAL_TERRITORY_STATUS:
+      return "#f472b6";
+    case "inappropriate":
+      return "#991b1b";
+    case "declined_rack":
+      return "#ef4444";
+    case "for_scouting":
+      return "#06b6d4";
+    case "for_follow_up":
+      return "#f97316";
+    case "accepted_rack":
+      return "#3b82f6";
+    case "for_replenishment":
+      return "#a855f7";
+    case "has_bible_studies":
+      return "#10b981";
+    case "closed":
+      return "#64748b";
+    case "on_hold":
+      return "#57534e";
+    default:
+      return "#6b7280";
+  }
+}
+
+function getStatusDotColorClass(status: string): string {
+  switch (status) {
+    case "declined_rack":
+      return "bg-red-500";
+    case "for_scouting":
+      return "bg-cyan-500";
+    case "for_follow_up":
+      return "bg-orange-500";
+    case "accepted_rack":
+      return "bg-blue-500";
+    case "for_replenishment":
+      return "bg-purple-500";
+    case "has_bible_studies":
+      return "bg-emerald-500";
+    case "rack_pulled_out":
+      return "bg-amber-500";
+    case "closed":
+      return "bg-slate-500";
+    case "on_hold":
+      return "bg-stone-500";
+    default:
+      return "bg-gray-500";
+  }
+}
+
+function hexToRgbTuple(hex: string): [number, number, number] {
+  let h = hex.replace("#", "");
+  if (h.length === 3) {
+    h = h.split("").map((c) => c + c).join("");
+  }
+  const n = parseInt(h, 16);
+  if (!Number.isFinite(n) || h.length !== 6) return [107, 114, 128];
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+/** rgba() for circle-color / stroke */
+function withAlpha(hex: string, alpha: number): string {
+  const [r, g, b] = hexToRgbTuple(hex);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function getSecondaryStatusesForDots(establishment: EstablishmentWithDetails, primaryStatus: string): string[] {
+  const statuses = establishment.statuses || [];
+  if (!statuses.length) return [];
+  if (primaryStatus === PERSONAL_TERRITORY_STATUS) return statuses;
+  return statuses.filter((s) => s !== primaryStatus);
+}
+
+function cartoTiles(isDark: boolean): string[] {
+  const path = isDark ? "dark_all" : "light_all";
+  return ["a", "b", "c", "d"].map((s) => `https://${s}.basemaps.cartocdn.com/${path}/{z}/{x}/{y}{r}.png`);
+}
+
+function createBaseRasterStyle(isDark: boolean): StyleSpecification {
+  return {
+    version: 8,
+    glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+    sources: {
+      carto: {
+        type: "raster",
+        tiles: cartoTiles(isDark),
+        tileSize: 256,
       },
-      (error) => {
-        console.error('Error getting location:', error);
-      },
+    },
+    layers: [
       {
-        enableHighAccuracy: true,
-        timeout: 10000,
-        maximumAge: 60000
-      }
-    );
+        id: "carto-basemap",
+        type: "raster",
+        source: "carto",
+        minzoom: 0,
+        maxzoom: 22,
+        paint: isDark
+          ? {
+              /** Dark + crisp: Carto dark is lifted badly at high brightness-min — keep mids low, cap highs, punch contrast */
+              "raster-brightness-min": 0.2,
+              "raster-brightness-max": 0.82,
+              "raster-contrast": 0.38,
+              "raster-saturation": -0.12,
+              "raster-hue-rotate": 22,
+            }
+          : {
+              "raster-brightness-min": 0,
+              "raster-brightness-max": 1,
+            },
+      },
+    ],
   };
-
-  useEffect(() => {
-    if (!map) return;
-
-    // Create the locate button and add it to the map
-    const locateButton = document.createElement('button');
-    const iconContainer = document.createElement('div');
-    const root = createRoot(iconContainer);
-    
-    const updateButtonAppearance = () => {
-      // Toggle colors based on tracking state
-      if (isTracking) {
-        locateButton.style.backgroundColor = '#3b82f6'; // Blue when tracking
-        locateButton.style.color = 'white';
-        locateButton.title = 'Stop tracking location';
-      } else {
-        locateButton.style.backgroundColor = 'white'; // White when not tracking
-        locateButton.style.color = 'black';
-        locateButton.title = 'Locate me';
-      }
-      
-      // Render Crosshair icon using React
-      root.render(createElement(Crosshair, { 
-        size: 16, 
-        strokeWidth: 2,
-        style: { color: 'currentColor' }
-      }));
-    };
-    
-    updateButtonAppearance();
-    
-    locateButton.className = 'fixed bottom-[180px] right-5 z-[90] w-12 h-12 rounded-full shadow-lg flex items-center justify-center hover:scale-105 transition-transform';
-    locateButton.style.position = 'fixed';
-    locateButton.style.bottom = '180px';
-    locateButton.style.right = '20px';
-    locateButton.style.zIndex = '90';
-    locateButton.style.width = '48px';
-    locateButton.style.height = '48px';
-    locateButton.style.borderRadius = '50%';
-    locateButton.style.boxShadow = '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)';
-    locateButton.style.display = 'flex';
-    locateButton.style.alignItems = 'center';
-    locateButton.style.justifyContent = 'center';
-    locateButton.style.border = 'none';
-    locateButton.style.cursor = 'pointer';
-    locateButton.style.transition = 'all 0.2s ease';
-    
-    // Add icon container to button
-    locateButton.appendChild(iconContainer);
-    
-    locateButton.addEventListener('click', handleLocate);
-    locateButton.addEventListener('mouseenter', () => {
-      locateButton.style.transform = 'scale(1.05)';
-    });
-    locateButton.addEventListener('mouseleave', () => {
-      locateButton.style.transform = 'scale(1)';
-    });
-
-    document.body.appendChild(locateButton);
-
-    // Store reference to update function for later use
-    (locateButton as any).updateAppearance = updateButtonAppearance;
-
-    // Cleanup function
-    return () => {
-      // Use setTimeout to avoid synchronous unmounting during render
-      setTimeout(() => {
-        root.unmount();
-        if (document.body.contains(locateButton)) {
-          document.body.removeChild(locateButton);
-        }
-      }, 0);
-    };
-  }, [map]);
-
-  // Update button appearance when tracking state changes
-  useEffect(() => {
-    const locateButton = document.querySelector('.fixed.bottom-\\[180px\\].right-5') as any;
-    if (locateButton && locateButton.updateAppearance) {
-      locateButton.updateAppearance();
-    }
-  }, [isTracking]);
-
-  // Start/stop location tracking when isTracking changes
-  useEffect(() => {
-    if (!map) return;
-
-    let currentWatchId: number | null = null;
-
-    const startLocationTracking = () => {
-      if (!navigator.geolocation) {
-        console.error('Geolocation is not supported');
-        return;
-      }
-
-      // Get initial position
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          setUserLocation([latitude, longitude]);
-        },
-        (error) => {
-          console.error('Error getting initial location:', error);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 60000
-        }
-      );
-
-      // Watch for position changes
-      currentWatchId = navigator.geolocation.watchPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords;
-          setUserLocation([latitude, longitude]);
-          
-          // Auto-center map on user if tracking is enabled
-          if (isTracking && map && typeof map.setView === 'function') {
-            map.setView([latitude, longitude], map.getZoom());
-          }
-        },
-        (error) => {
-          console.error('Error watching location:', error);
-        },
-        {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 1000 // Update more frequently
-        }
-      );
-
-      setWatchId(currentWatchId);
-    };
-
-    if (isTracking) {
-      startLocationTracking();
-    } else {
-      // Stop tracking
-      if (watchId) {
-        navigator.geolocation.clearWatch(watchId);
-        setWatchId(null);
-      }
-    }
-
-    // Cleanup
-    return () => {
-      if (currentWatchId) {
-        navigator.geolocation.clearWatch(currentWatchId);
-      }
-    };
-  }, [isTracking, map]);
-
-  return null;
-};
-
-
-const Marker = dynamic(
-  () => import('react-leaflet').then((mod) => mod.Marker),
-  { ssr: false }
-);
-
-const Popup = dynamic(
-  () => import('react-leaflet').then((mod) => mod.Popup),
-  { ssr: false }
-);
-
-
-
-// Component to initialize map features
-function MapInitializer() {
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    
-    // Map initialization is now handled by individual components
-  }, []);
-  
-  return null;
 }
 
-// Component to handle map bounds fitting - only on initial load
-function MapBoundsFitter({ 
-  establishments, 
-  isInitialLoad, 
-  onFitted 
-}: { 
-  establishments: EstablishmentWithDetails[], 
-  isInitialLoad: boolean,
-  onFitted: () => void 
-}) {
-  const map = useMap();
-  const establishmentsWithCoords = establishments.filter(est => est.lat && est.lng);
-  
-  useEffect(() => {
-    // Only fit bounds on initial load, not on every filter change.
-    if (establishmentsWithCoords.length === 0 || !isInitialLoad || !map) return;
-
-    const L = require('leaflet');
-
-    // Calculate bounds.
-    const lats = establishmentsWithCoords.map(est => est.lat!);
-    const lngs = establishmentsWithCoords.map(est => est.lng!);
-
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    const minLng = Math.min(...lngs);
-    const maxLng = Math.max(...lngs);
-
-    // Add padding (smaller padding for tighter fit).
-    const latPadding = Math.max((maxLat - minLat) * 0.2, 0.001);
-    const lngPadding = Math.max((maxLng - minLng) * 0.2, 0.001);
-
-    const bounds = L.latLngBounds(
-      [minLat - latPadding, minLng - lngPadding],
-      [maxLat + latPadding, maxLng + lngPadding]
-    );
-
-    map.fitBounds(bounds, { padding: [10, 10], maxZoom: 18 });
-    onFitted();
-  }, [map, establishmentsWithCoords, isInitialLoad, onFitted]);
-  
-  return null;
+/** Map pin preview card. The BWI map no longer mounts it; taps call `onEstablishmentClick` so BusinessSection opens the same drawer/details as the list. Kept exported for reuse (e.g. custom overlays). */
+interface EstablishmentMapPopupContentProps {
+  establishment: EstablishmentWithDetails;
+  primaryStatus: string;
+  secondaryStatuses: string[];
+  isOtherPublisherPersonalTerritory: boolean;
+  onSelect: () => void;
 }
 
-function MapViewStateTracker({
-  onViewChange,
-}: {
-  onViewChange?: (view: { center: [number, number]; zoom: number }) => void;
-}) {
-  const map = useMap();
-
-  useEffect(() => {
-    if (!map || !onViewChange) return;
-
-    const emitView = () => {
-      const center = map.getCenter();
-      onViewChange({
-        center: [center.lat, center.lng],
-        zoom: map.getZoom(),
-      });
-    };
-
-    emitView();
-    map.on("moveend", emitView);
-    map.on("zoomend", emitView);
-
-    return () => {
-      map.off("moveend", emitView);
-      map.off("zoomend", emitView);
-    };
-  }, [map, onViewChange]);
-
-  return null;
+export function EstablishmentMapPopupContent({
+  establishment,
+  primaryStatus,
+  secondaryStatuses,
+  isOtherPublisherPersonalTerritory,
+  onSelect,
+}: EstablishmentMapPopupContentProps): JSX.Element {
+  return (
+    <div
+      className={cn(
+        "dark min-w-[280px] max-w-[320px] cursor-pointer rounded-lg border border-[#1c1921] p-4 text-[#fffaff] shadow-xl transition-shadow",
+        primaryStatus === PERSONAL_TERRITORY_STATUS ? "bg-[#463b55]" : "bg-[#342a43]",
+        primaryStatus === PERSONAL_TERRITORY_STATUS && isOtherPublisherPersonalTerritory && "border-dashed border-[#fbcfe8]/40"
+      )}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect();
+      }}
+    >
+      <div className="pb-3">
+        <div className="flex items-start justify-between w-full gap-2">
+          <div className="flex-1 min-w-0">
+            <div className="text-lg font-bold flex flex-col gap-2 w-full">
+              <span className="truncate text-[#fffaff]" title={establishment.name}>
+                {establishment.name}
+              </span>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "text-xs px-2 py-1 bg-[#272133]/80 border-[#1c1921]",
+                    primaryStatus === PERSONAL_TERRITORY_STATUS
+                      ? cn(
+                          "text-pink-300 border-pink-400/60",
+                          isOtherPublisherPersonalTerritory && "border-dashed"
+                        )
+                      : getStatusTextColor(primaryStatus)
+                  )}
+                >
+                  {primaryStatus === PERSONAL_TERRITORY_STATUS
+                    ? "Personal Territory"
+                    : primaryStatus.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+                </Badge>
+                {secondaryStatuses.slice(0, 3).map((status, index) => (
+                  <span
+                    key={`${establishment.id || establishment.name}-status-dot-${status}-${index}`}
+                    className={cn("w-2 h-2 rounded-full flex-shrink-0", getStatusDotColorClass(status))}
+                    title={status.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
+                  />
+                ))}
+              </div>
+            </div>
+            {establishment.area ? (
+              <div className="mt-2 text-sm font-medium text-[#ded6e7]">{establishment.area}</div>
+            ) : null}
+          </div>
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <div className="text-right">
+              <p className="text-sm font-medium text-[#fffaff]">{establishment.visit_count || 0}</p>
+              <p className="text-xs text-[#cfc5db]">Visits</p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm font-medium text-[#fffaff]">{establishment.householder_count || 0}</p>
+              <p className="text-xs text-[#cfc5db]">BS</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div className="pt-0">
+        <div className="flex items-center justify-between w-full gap-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            {primaryStatus === PERSONAL_TERRITORY_STATUS ? (
+              (() => {
+                const ownerVisitor =
+                  establishment.publisher_id && establishment.top_visitors
+                    ? establishment.top_visitors.find((visitor) => visitor.user_id === establishment.publisher_id)
+                    : null;
+                const ownerAvatar = establishment.assigned_user
+                  ? {
+                      avatar_url: establishment.assigned_user.avatar_url,
+                      initials:
+                        `${establishment.assigned_user.first_name} ${establishment.assigned_user.last_name}`.charAt(0) || "U",
+                    }
+                  : ownerVisitor
+                    ? {
+                        avatar_url: ownerVisitor.avatar_url,
+                        initials: `${ownerVisitor.first_name} ${ownerVisitor.last_name}`.charAt(0) || "U",
+                      }
+                    : null;
+                return ownerAvatar ? (
+                  <div className="flex items-center flex-shrink-0">
+                    <Avatar className="h-6 w-6 ring-2 ring-[#1c1921]">
+                      <AvatarImage src={ownerAvatar.avatar_url} />
+                      <AvatarFallback className="text-xs text-[#fffaff]">{ownerAvatar.initials}</AvatarFallback>
+                    </Avatar>
+                  </div>
+                ) : null;
+              })()
+            ) : establishment.top_visitors && establishment.top_visitors.length > 0 ? (
+              <div className="flex items-center flex-shrink-0">
+                {establishment.top_visitors.slice(0, 3).map((visitor, index) => (
+                  <Avatar
+                    key={visitor.user_id || index}
+                    className={`h-6 w-6 ring-2 ring-[#1c1921] ${index > 0 ? "-ml-2" : ""}`}
+                  >
+                    <AvatarImage src={visitor.avatar_url} />
+                    <AvatarFallback className="text-xs text-[#fffaff]">
+                      {`${visitor.first_name} ${visitor.last_name}`.charAt(0) || "U"}
+                    </AvatarFallback>
+                  </Avatar>
+                ))}
+                {establishment.top_visitors.length > 3 ? (
+                  <span className="text-xs text-[#cfc5db] flex-shrink-0 ml-1">
+                    +{establishment.top_visitors.length - 3}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
+            {establishment.description ? (
+              <span className="text-xs text-[#ded6e7] truncate">{establishment.description}</span>
+            ) : null}
+          </div>
+          {establishment.floor ? (
+            <span className="text-xs text-[#cfc5db] flex-shrink-0">{establishment.floor}</span>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
 }
 
-interface EstablishmentMapProps {
+export interface EstablishmentMapProps {
   establishments: EstablishmentWithDetails[];
   onEstablishmentClick?: (establishment: EstablishmentWithDetails) => void;
   selectedEstablishmentId?: string;
@@ -431,370 +313,49 @@ interface EstablishmentMapProps {
   currentUserId?: string | null;
 }
 
-interface MapMarkerProps {
-  establishment: EstablishmentWithDetails;
-  onClick?: () => void;
-  isSelected?: boolean;
-  currentUserId?: string | null;
-}
-
-const PERSONAL_TERRITORY_STATUS = 'personal_territory';
-
-function getEstablishmentPrimaryStatus(establishment: EstablishmentWithDetails): string {
-  return establishment.publisher_id ? PERSONAL_TERRITORY_STATUS : getBestStatus(establishment.statuses || []);
-}
-
-function getStatusColorValue(status: string) {
-  switch (status) {
-    case PERSONAL_TERRITORY_STATUS:
-      return '#f472b6'; // pink-400
-    case 'inappropriate':
-      return '#991b1b'; // red-800 (dark red)
-    case 'declined_rack':
-      return '#ef4444'; // red-500
-    case 'for_scouting':
-      return '#06b6d4'; // cyan-500
-    case 'for_follow_up':
-      return '#f97316'; // orange-500
-    case 'accepted_rack':
-      return '#3b82f6'; // blue-500
-    case 'for_replenishment':
-      return '#a855f7'; // purple-500
-    case 'has_bible_studies':
-      return '#10b981'; // emerald-500
-    case 'closed':
-      return '#64748b'; // slate-500
-    case 'on_hold':
-      return '#57534e'; // stone-600 (dark brown-gray, neutral)
-    default:
-      return '#6b7280'; // gray-500
-  }
-}
-
-function getStatusDotColorClass(status: string) {
-  switch (status) {
-    case 'declined_rack':
-      return 'bg-red-500';
-    case 'for_scouting':
-      return 'bg-cyan-500';
-    case 'for_follow_up':
-      return 'bg-orange-500';
-    case 'accepted_rack':
-      return 'bg-blue-500';
-    case 'for_replenishment':
-      return 'bg-purple-500';
-    case 'has_bible_studies':
-      return 'bg-emerald-500';
-    case 'rack_pulled_out':
-      return 'bg-amber-500';
-    case 'closed':
-      return 'bg-slate-500';
-    case 'on_hold':
-      return 'bg-stone-500';
-    default:
-      return 'bg-gray-500';
-  }
-}
-
-function getSecondaryStatusesForDots(establishment: EstablishmentWithDetails, primaryStatus: string): string[] {
-  const statuses = establishment.statuses || [];
-  if (!statuses.length) return [];
-  if (primaryStatus === PERSONAL_TERRITORY_STATUS) return statuses;
-  return statuses.filter((status) => status !== primaryStatus);
-}
-
-
-// Custom marker component with status-based styling
-function MapMarker({ establishment, onClick, isSelected, currentUserId }: MapMarkerProps) {
-  // Get the best status from the statuses array using the hierarchy
-  const primaryStatus = getEstablishmentPrimaryStatus(establishment);
-  const secondaryStatuses = getSecondaryStatusesForDots(establishment, primaryStatus);
-  const isOtherPublisherPersonalTerritory =
-    primaryStatus === PERSONAL_TERRITORY_STATUS &&
-    !!establishment.publisher_id &&
-    !!currentUserId &&
-    establishment.publisher_id !== currentUserId;
-
-  const statusColor = getStatusColorValue(primaryStatus);
-  
-  const icon = useMemo(() => {
-    if (typeof window === 'undefined') return null;
-    
-    const L = require('leaflet');
-    
-    // Get darker shade of the status color for fill
-    const getDarkerShade = (color: string) => {
-      switch (color) {
-        case '#ef4444': return '#dc2626'; // red-600
-        case '#6b7280': return '#4b5563'; // gray-600
-        case '#f97316': return '#ea580c'; // orange-600
-        case '#3b82f6': return '#2563eb'; // blue-600
-        case '#a855f7': return '#9333ea'; // purple-600
-        case '#10b981': return '#059669'; // emerald-600
-        case '#57534e': return '#44403c'; // stone-700 (darker brown-gray for on_hold fill)
-        default: return '#4b5563'; // gray-600
-      }
-    };
-    
-    const darkerColor = getDarkerShade(statusColor);
-    const markerBorderStyle = isOtherPublisherPersonalTerritory ? '1px dashed' : '1px solid';
-    
-    return L.divIcon({
-      className: 'custom-marker',
-      html: `
-        <div class="marker-container ${isSelected ? 'selected' : ''}" style="
-          position: relative;
-          transform: translate(-50%, -50%);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          ${isSelected ? 'outline: 2px solid #ffffff; outline-offset: 4px;' : ''}
-        ">
-          <!-- Badge with establishment name - matching popup badge design -->
-          <div style="
-            background-color: ${darkerColor}15;
-            color: ${statusColor};
-            border: ${markerBorderStyle} ${statusColor}50;
-            border-radius: 12px;
-            padding: 4px 8px;
-            font-size: 10px;
-            font-weight: 500;
-            font-family: system-ui, -apple-system, sans-serif;
-            text-align: center;
-            white-space: nowrap;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-            min-width: 60px;
-            width: fit-content;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin-bottom: 4px;
-          " title="${establishment.name}">
-            ${establishment.name.length > 18 ? establishment.name.substring(0, 18) + '...' : establishment.name}
-          </div>
-          
-          <!-- Pin icon indicating exact location -->
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            width="16" 
-            height="16" 
-            viewBox="0 0 24 24" 
-            fill="none" 
-            stroke="${statusColor}" 
-            stroke-width="2" 
-            stroke-linecap="round" 
-            stroke-linejoin="round" 
-            style="
-              filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-            "
-          >
-            <path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/>
-            <circle cx="12" cy="10" r="3"/>
-          </svg>
-        </div>
-      `,
-      iconSize: [Math.max(establishment.name.length * 6 + 16, 60), 40],
-      iconAnchor: [Math.max(establishment.name.length * 3 + 8, 30), 32],
-    });
-  }, [establishment.name, isOtherPublisherPersonalTerritory, isSelected, statusColor]);
-
-  if (!icon) return null;
-
-  return (
-    <Marker
-      position={[establishment.lat!, establishment.lng!]}
-      icon={icon}
-      // Store status color on marker options for cluster styling
-      {...({ statusColor } as any)}
-      eventHandlers={{
-        click: (e) => {
-          // Don't call onClick here, let the popup handle it
-          e.target.openPopup();
-        },
-      }}
-    >
-      <Popup 
-        closeButton={false}
-        offset={[0, -15]}
-        autoPan={false}
-      >
-        <div 
-          className={cn(
-            "min-w-[280px] max-w-[320px] cursor-pointer hover:shadow-xl transition-shadow p-4 bg-background border rounded-lg",
-            primaryStatus === PERSONAL_TERRITORY_STATUS
-              ? cn(
-                  "border-pink-400/60 bg-pink-500/10",
-                  isOtherPublisherPersonalTerritory && "border border-dashed"
-                )
-              : getStatusColor(primaryStatus)
-          )}
-          onClick={(e) => {
-            e.stopPropagation();
-            onClick?.();
-          }}
-        >
-          {/* Header */}
-          <div className="pb-3">
-            <div className="flex items-start justify-between w-full gap-2">
-              <div className="flex-1 min-w-0">
-                <div className="text-lg font-bold flex flex-col gap-2 w-full">
-                  <span className="truncate text-foreground" title={establishment.name}>{establishment.name}</span>
-                  
-                  {/* Status Badge with Hierarchy */}
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <Badge 
-                      variant="outline" 
-                      className={cn(
-                        "text-xs px-2 py-1",
-                        primaryStatus === PERSONAL_TERRITORY_STATUS
-                          ? cn(
-                              "text-pink-400 border-pink-400/60",
-                              isOtherPublisherPersonalTerritory && "border border-dashed"
-                            )
-                          : getStatusTextColor(primaryStatus)
-                      )}
-                    >
-                      {primaryStatus === PERSONAL_TERRITORY_STATUS
-                        ? "Personal Territory"
-                        : primaryStatus.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                    </Badge>
-                    {secondaryStatuses.slice(0, 3).map((status, index) => (
-                      <span
-                        key={`${establishment.id || establishment.name}-status-dot-${status}-${index}`}
-                        className={cn("w-2 h-2 rounded-full flex-shrink-0", getStatusDotColorClass(status))}
-                        title={status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                      />
-                    ))}
-                  </div>
-                </div>
-                
-                {/* Area label below the status badge */}
-                {establishment.area && (
-                  <div className="mt-2 text-sm font-medium text-foreground/80">{establishment.area}</div>
-                )}
-              </div>
-              
-              {/* Stats */}
-              <div className="flex items-center gap-3 flex-shrink-0">
-                <div className="text-right">
-                  <p className="text-sm font-medium text-foreground">{establishment.visit_count || 0}</p>
-                  <p className="text-xs text-foreground/70">Visits</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-sm font-medium text-foreground">{establishment.householder_count || 0}</p>
-                  <p className="text-xs text-foreground/70">BS</p>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          {/* Content */}
-          <div className="pt-0">
-            <div className="flex items-center justify-between w-full gap-2">
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                {primaryStatus === PERSONAL_TERRITORY_STATUS ? (
-                  (() => {
-                    const ownerVisitor =
-                      establishment.publisher_id && establishment.top_visitors
-                        ? establishment.top_visitors.find((visitor) => visitor.user_id === establishment.publisher_id)
-                        : null;
-                    const ownerAvatar = establishment.assigned_user
-                      ? {
-                          avatar_url: establishment.assigned_user.avatar_url,
-                          initials:
-                            `${establishment.assigned_user.first_name} ${establishment.assigned_user.last_name}`.charAt(0) || 'U',
-                        }
-                      : ownerVisitor
-                        ? {
-                            avatar_url: ownerVisitor.avatar_url,
-                            initials: `${ownerVisitor.first_name} ${ownerVisitor.last_name}`.charAt(0) || 'U',
-                          }
-                        : null;
-                    return ownerAvatar ? (
-                      <div className="flex items-center flex-shrink-0">
-                        <Avatar className="h-6 w-6 ring-2 ring-background">
-                          <AvatarImage src={ownerAvatar.avatar_url} />
-                          <AvatarFallback className="text-xs">{ownerAvatar.initials}</AvatarFallback>
-                        </Avatar>
-                      </div>
-                    ) : null;
-                  })()
-                ) : (
-                  establishment.top_visitors && establishment.top_visitors.length > 0 && (
-                    <div className="flex items-center flex-shrink-0">
-                      {establishment.top_visitors.slice(0, 3).map((visitor, index) => (
-                        <Avatar 
-                          key={visitor.user_id || index} 
-                          className={`h-6 w-6 ring-2 ring-background ${index > 0 ? '-ml-2' : ''}`}
-                        >
-                          <AvatarImage src={visitor.avatar_url} />
-                          <AvatarFallback className="text-xs">
-                            {`${visitor.first_name} ${visitor.last_name}`.charAt(0) || 'U'}
-                          </AvatarFallback>
-                        </Avatar>
-                      ))}
-                      {establishment.top_visitors.length > 3 && (
-                        <span className="text-xs text-foreground/70 flex-shrink-0 ml-1">
-                          +{establishment.top_visitors.length - 3}
-                        </span>
-                      )}
-                    </div>
-                  )
-                )}
-                {establishment.description && (
-                  <span className="text-xs text-foreground/70 truncate">{establishment.description}</span>
-                )}
-              </div>
-              {establishment.floor && (
-                <span className="text-xs text-foreground/70 flex-shrink-0">{establishment.floor}</span>
-              )}
-            </div>
-          </div>
-        </div>
-      </Popup>
-    </Marker>
-  );
-}
-
-export function EstablishmentMap({ 
-  establishments, 
-  onEstablishmentClick, 
+export function EstablishmentMap({
+  establishments,
+  onEstablishmentClick,
   selectedEstablishmentId,
   initialView,
   onViewChange,
   className = "",
-  currentUserId
 }: EstablishmentMapProps) {
+  const mapRef = useRef<MapRef | null>(null);
+  const hasInitiallyFittedRef = useRef(false);
   const [isClient, setIsClient] = useState(false);
-  const [isTracking, setIsTracking] = useState(false);
-  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
-  const [watchId, setWatchId] = useState<number | null>(null);
-  const [hasInitiallyFitted, setHasInitiallyFitted] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [mapInstanceReady, setMapInstanceReady] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
 
-    // Track theme changes for map tiles and cluster styling
     const checkTheme = () => {
-      setIsDarkMode(document.documentElement.classList.contains('dark'));
+      setIsDarkMode(document.documentElement.classList.contains("dark"));
     };
     checkTheme();
     const observer = new MutationObserver(checkTheme);
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ['class']
+      attributeFilter: ["class"],
     });
     return () => observer.disconnect();
   }, []);
 
-  // Filter establishments with valid coordinates
   const establishmentsWithCoords = useMemo(
-    () => establishments.filter((est) => est.lat && est.lng),
+    () => establishments.filter((est) => est.lat != null && est.lng != null && !Number.isNaN(est.lat!) && !Number.isNaN(est.lng!)),
     [establishments]
   );
 
-  const groupedEstablishmentsByStatus = useMemo(() => {
+  const establishmentLookup = useMemo(() => {
+    const m = new Map<string | null | undefined, EstablishmentWithDetails>();
+    for (const e of establishmentsWithCoords) {
+      m.set(e.id, e);
+    }
+    return m;
+  }, [establishmentsWithCoords]);
+
+  const groupedEstablishmentsByStatus = useMemo((): { status: string; items: EstablishmentWithDetails[] }[] => {
     const groups = new Map<string, EstablishmentWithDetails[]>();
     for (const establishment of establishmentsWithCoords) {
       const status = getEstablishmentPrimaryStatus(establishment);
@@ -802,218 +363,296 @@ export function EstablishmentMap({
       bucket.push(establishment);
       groups.set(status, bucket);
     }
-    const statusOrder = [PERSONAL_TERRITORY_STATUS, ...STATUS_HIERARCHY, 'unknown'];
+    const statusOrder = [PERSONAL_TERRITORY_STATUS, ...STATUS_HIERARCHY, "unknown"] as const;
+    const statusRank = (s: string) => {
+      const i = statusOrder.indexOf(s as (typeof statusOrder)[number]);
+      return i === -1 ? statusOrder.length : i;
+    };
     return Array.from(groups.entries())
-      .sort((a, b) => statusOrder.indexOf(a[0] as any) - statusOrder.indexOf(b[0] as any))
+      .sort(([sa], [sb]) => statusRank(sa) - statusRank(sb))
       .map(([status, items]) => ({ status, items }));
   }, [establishmentsWithCoords]);
 
-  const createClusterIcon = useCallback((cluster: any) => {
-    const count = cluster.getChildCount();
-    const L = require('leaflet');
-    
-    // Get the most common status color from markers in this cluster
-    let clusterColor = '#3b82f6'; // default blue
-    const markers = cluster.getAllChildMarkers();
-    if (markers.length > 0) {
-      const firstMarker = markers[0] as any;
-      clusterColor = firstMarker?.options?.statusColor || '#3b82f6';
-    }
-    
-    const textColor = isDarkMode ? '#ffffff' : '#0f172a';
-    const borderColor = isDarkMode ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.15)';
-    const shadowColor = isDarkMode ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.2)';
-    const shadowColorLight = isDarkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.1)';
-    const shadowColorBorder = isDarkMode ? 'rgba(0,0,0,0.1)' : 'rgba(0,0,0,0.05)';
-    const backgroundColor = isDarkMode ? 'transparent' : 'rgba(255,255,255,0.9)';
-    
-      return L.divIcon({
-        className: 'custom-cluster',
-        html: `
-          <div style="
-            background: ${backgroundColor};
-            color: ${textColor};
-            border: 3px solid ${borderColor};
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            border-radius: 50%;
-            width: 44px;
-            height: 44px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-            font-weight: 900;
-            box-shadow: 0 6px 24px ${shadowColor}, 0 2px 8px ${shadowColorLight}, 0 0 0 1px ${shadowColorBorder};
-            transform: translate(-50%, -50%);
-            transition: all 0.2s ease;
-          ">
-            ${count}
-          </div>
-        `,
-        iconSize: [44, 44],
-        iconAnchor: [22, 22],
-      });
-  }, [isDarkMode]);
+  /** GeoJSON per status bucket — MapLibre clusters each layer on the GPU */
+  const statusGeoJsonBundles = useMemo((): EstablishmentGeoJsonBundle[] => {
+    return groupedEstablishmentsByStatus.map(({ status, items }) => {
+      const seg = sanitizeStatusSegment(status);
+      const sourceId = `est-src-${seg}`;
+      const geojson = {
+        type: "FeatureCollection" as const,
+        features: items.map((est): Feature<Point> => ({
+          type: "Feature" as const,
+          id: est.id || undefined,
+          geometry: {
+            type: "Point" as const,
+            coordinates: [est.lng!, est.lat!] as [number, number],
+          },
+          properties: {
+            establishmentId: est.id,
+          },
+        })),
+      };
+      const clusterLayerId = `est-cl-${seg}`;
+      const countLayerId = `est-cl-count-${seg}`;
+      const unclusteredLayerId = `est-pt-${seg}`;
+      const colorHex = getStatusColorValue(status);
+      return {
+        status,
+        segment: seg,
+        sourceId,
+        clusterLayerId,
+        countLayerId,
+        unclusteredLayerId,
+        colorHex,
+        geojson,
+      };
+    });
+  }, [groupedEstablishmentsByStatus]);
 
-  const createStatusClusterIcon = useCallback((statusColor: string) => {
-    return (cluster: any) => {
-      const count = cluster.getChildCount();
-      const L = require('leaflet');
-      const borderColor = `${statusColor}99`;
-      const textColor = statusColor;
-      const backgroundColor = isDarkMode ? 'rgba(15, 23, 42, 0.8)' : 'rgba(255,255,255,0.95)';
-      const shadowColor = isDarkMode ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.2)';
-      const shadowColorLight = isDarkMode ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.1)';
-      const shadowColorBorder = isDarkMode ? 'rgba(0,0,0,0.1)' : 'rgba(0,0,0,0.05)';
+  const interactiveLayerIds = useMemo(
+    (): string[] => statusGeoJsonBundles.flatMap(({ clusterLayerId, unclusteredLayerId }) => [clusterLayerId, unclusteredLayerId]),
+    [statusGeoJsonBundles]
+  );
 
-      return L.divIcon({
-        className: 'custom-cluster',
-        html: `
-          <div style="
-            background: ${backgroundColor};
-            color: ${textColor};
-            border: 3px solid ${borderColor};
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            border-radius: 50%;
-            width: 44px;
-            height: 44px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 18px;
-            font-weight: 900;
-            box-shadow: 0 6px 24px ${shadowColor}, 0 2px 8px ${shadowColorLight}, 0 0 0 1px ${shadowColorBorder};
-            transform: translate(-50%, -50%);
-            transition: all 0.2s ease;
-          ">
-            ${count}
-          </div>
-        `,
-        iconSize: [44, 44],
-        iconAnchor: [22, 22],
-      });
-    };
-  }, [isDarkMode]);
+  const selectedEstablishmentCoords = useMemo(() => {
+    if (!selectedEstablishmentId) return null;
+    const est = establishmentsWithCoords.find((e) => e.id === selectedEstablishmentId);
+    if (!est || est.lng == null || est.lat == null) return null;
+    return { lng: est.lng, lat: est.lat };
+  }, [establishmentsWithCoords, selectedEstablishmentId]);
 
-
-
-  // Calculate map center from establishments or use default
-  const mapCenter = useMemo<[number, number]>(() => {
+  const mapCenterLngLat = useMemo(() => {
     if (establishmentsWithCoords.length === 0) {
-      return [14.5995, 120.9842]; // Default to Manila, Philippines
+      return { lat: 14.5995, lng: 120.9842 };
     }
-    const avgLat =
-      establishmentsWithCoords.reduce((sum, est) => sum + est.lat!, 0) / establishmentsWithCoords.length;
-    const avgLng =
-      establishmentsWithCoords.reduce((sum, est) => sum + est.lng!, 0) / establishmentsWithCoords.length;
-    return [avgLat, avgLng];
+    const avgLat = establishmentsWithCoords.reduce((sum, est) => sum + est.lat!, 0) / establishmentsWithCoords.length;
+    const avgLng = establishmentsWithCoords.reduce((sum, est) => sum + est.lng!, 0) / establishmentsWithCoords.length;
+    return { lat: avgLat, lng: avgLng };
   }, [establishmentsWithCoords]);
+
+  const mapStyleSpec = useMemo(() => createBaseRasterStyle(isDarkMode), [isDarkMode]);
+
+  const defaultZoom = establishmentsWithCoords.length > 0 ? 14 : 13;
+  const initialLng = initialView?.center?.[1] ?? mapCenterLngLat.lng;
+  const initialLat = initialView?.center?.[0] ?? mapCenterLngLat.lat;
+  const initialZoom = initialView?.zoom ?? defaultZoom;
+
+  const fitEstablishmentsBounds = useCallback(() => {
+    const mapInstance = mapRef.current?.getMap();
+    if (!mapInstance || establishmentsWithCoords.length === 0) return;
+
+    const lats = establishmentsWithCoords.map((e) => e.lat!);
+    const lngs = establishmentsWithCoords.map((e) => e.lng!);
+    const south = Math.min(...lats);
+    const north = Math.max(...lats);
+    const west = Math.min(...lngs);
+    const east = Math.max(...lngs);
+
+    const latPadding = Math.max((north - south) * 0.15, 0.001);
+    const lngPadding = Math.max((east - west) * 0.15, 0.001);
+
+    mapInstance.fitBounds(
+      [
+        [west - lngPadding, south - latPadding],
+        [east + lngPadding, north + latPadding],
+      ],
+      { padding: { top: 24, bottom: 80, left: 16, right: 16 }, maxZoom: 18, duration: 0 }
+    );
+  }, [establishmentsWithCoords]);
+
+  const handleMapLoad = useCallback(() => {
+    const m = mapRef.current?.getMap() ?? null;
+    setMapInstanceReady(!!m);
+    if (m && !initialView && establishmentsWithCoords.length > 0 && !hasInitiallyFittedRef.current) {
+      hasInitiallyFittedRef.current = true;
+      fitEstablishmentsBounds();
+    }
+  }, [initialView, establishmentsWithCoords.length, fitEstablishmentsBounds]);
+
+  const handleClusterClick = useCallback(
+    async (sourceId: string, geography: Geometry, clusterId: number) => {
+      const rawMap = mapRef.current?.getMap();
+      const src = rawMap?.getSource(sourceId) as GeoJSONSource | undefined;
+      if (!src || geography.type !== "Point") return;
+      try {
+        const zoom = await src.getClusterExpansionZoom(clusterId);
+        const coords = geography.coordinates as [number, number];
+        rawMap?.easeTo({ center: coords, zoom: Math.min(zoom + 0.5, 21) });
+      } catch {
+        /* ignore malformed cluster payloads */
+      }
+    },
+    []
+  );
+
+  const handleMapClick = useCallback(
+    async (evt: MapLayerMouseEvent) => {
+      const features = evt.features;
+      const top = features && features.length > 0 ? features[0] : undefined;
+      if (!top || !top.properties) {
+        return;
+      }
+
+      const layerId = String(top.layer?.id ?? "");
+      const bundle = statusGeoJsonBundles.find(
+        ({ clusterLayerId, unclusteredLayerId }) => layerId === clusterLayerId || layerId === unclusteredLayerId
+      );
+
+      const pointCount = top.properties.point_count;
+      const hasClusterAgg = pointCount != null && bundle && top.geometry?.type === "Point";
+
+      if (hasClusterAgg) {
+        const rawCid = top.properties.cluster_id;
+        const clusterIdNum = typeof rawCid === "number" ? rawCid : Number(rawCid);
+        if (Number.isFinite(clusterIdNum)) {
+          await handleClusterClick(bundle.sourceId, top.geometry, clusterIdNum);
+        }
+        return;
+      }
+
+      const estIdRaw = top.properties.establishmentId;
+      const establishmentId = typeof estIdRaw === "string" ? estIdRaw : estIdRaw != null ? String(estIdRaw) : "";
+      if (!establishmentId) return;
+
+      const establishment = establishmentLookup.get(establishmentId);
+      if (!establishment) return;
+
+      onEstablishmentClick?.(establishment);
+    },
+    [establishmentLookup, handleClusterClick, onEstablishmentClick, statusGeoJsonBundles]
+  );
+
+  const handleMoveZoomEnd = useCallback(() => {
+    if (!onViewChange) return;
+    const raw = mapRef.current?.getMap();
+    if (!raw) return;
+    const c = raw.getCenter();
+    onViewChange({ center: [c.lat, c.lng], zoom: raw.getZoom() });
+  }, [onViewChange]);
+
+  useEffect(() => {
+    const rawMap = mapRef.current?.getMap();
+    if (!rawMap || !onViewChange || !mapInstanceReady) return;
+    handleMoveZoomEnd();
+    rawMap.on("moveend", handleMoveZoomEnd);
+    rawMap.on("zoomend", handleMoveZoomEnd);
+    return () => {
+      rawMap.off("moveend", handleMoveZoomEnd);
+      rawMap.off("zoomend", handleMoveZoomEnd);
+    };
+  }, [handleMoveZoomEnd, onViewChange, mapInstanceReady]);
 
   if (!isClient) {
     return (
       <div className={`w-full h-full bg-muted flex items-center justify-center ${className}`}>
         <div className="text-center">
           <MapPin className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">Loading map...</p>
+          <p className="text-sm text-muted-foreground">Loading map…</p>
         </div>
       </div>
     );
   }
 
-  // Always show the map, even if no establishments with coordinates
-  // This allows users to see the map area and add new establishments
-
   return (
-    <div className={`w-full h-full ${className || 'h-96'}`} style={{ height: '100%', width: '100%' }}>
-      <MapContainer
-        center={initialView?.center ?? mapCenter}
-        zoom={initialView?.zoom ?? (establishmentsWithCoords.length > 0 ? 14 : 13)}
-        style={{ height: '100%', width: '100%' }}
-        zoomControl={true}
-        attributionControl={false}
+    <div className={cn(`w-full h-full ${className || "min-h-[24rem]"}`)} style={{ height: "100%", width: "100%" }}>
+      <MapGl
+        ref={mapRef}
+        mapLib={maplibregl}
+        reuseMaps={false}
+        mapStyle={mapStyleSpec}
+        initialViewState={{
+          longitude: initialLng,
+          latitude: initialLat,
+          zoom: initialZoom,
+        }}
         maxZoom={22}
+        attributionControl={false}
+        interactiveLayerIds={interactiveLayerIds}
+        onClick={handleMapClick}
+        onLoad={handleMapLoad}
+        style={{ height: "100%", width: "100%" }}
+        cursor="grab"
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url={isDarkMode
-            ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-            : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-          }
-          subdomains={['a', 'b', 'c', 'd']}
-          maxZoom={22}
-        />
-        
-        
-        {/* Component to disable geolocation and unwanted features */}
-        <MapInitializer />
-        
-        {/* Locate control */}
-        <LocateControl 
-          onToggleTracking={setIsTracking} 
-          isTracking={isTracking}
-          setUserLocation={setUserLocation}
-          setWatchId={setWatchId}
-          watchId={watchId}
-        />
-        
-        {/* User location marker */}
-        <UserLocationMarker 
-          isTracking={isTracking} 
-          onDisableTracking={() => setIsTracking(false)}
-          userLocation={userLocation}
-          setUserLocation={setUserLocation}
-          setWatchId={setWatchId}
-          watchId={watchId}
-        />
-        
-        {/* Component to fit map bounds to establishments */}
-        <MapBoundsFitter 
-          establishments={establishmentsWithCoords} 
-          isInitialLoad={!hasInitiallyFitted && !initialView}
-          onFitted={() => setHasInitiallyFitted(true)}
-        />
-        <MapViewStateTracker onViewChange={onViewChange} />
-        
-        {groupedEstablishmentsByStatus.length > 0 ? (
-          groupedEstablishmentsByStatus.map(({ status, items }) => {
-            const statusColor = getStatusColorValue(status);
-            return (
-              <MarkerClusterGroup
-                key={`cluster-${status}`}
-                chunkedLoading
-                maxClusterRadius={25}
-                disableClusteringAtZoom={18}
-                spiderfyOnMaxZoom={true}
-                showCoverageOnHover={false}
-                zoomToBoundsOnClick={true}
-                iconCreateFunction={createStatusClusterIcon(statusColor)}
-              >
-                {items.map((establishment) => (
-                  <MapMarker
-                    key={`${status}-${establishment.id}-${establishment.statuses?.join(',') || 'no-status'}`}
-                    establishment={establishment}
-                    onClick={() => onEstablishmentClick?.(establishment)}
-                    isSelected={establishment.id === selectedEstablishmentId}
-                    currentUserId={currentUserId}
-                  />
-                ))}
-              </MarkerClusterGroup>
-            );
-          })
-        ) : (
-          <MarkerClusterGroup
-            chunkedLoading
-            maxClusterRadius={25}
-            disableClusteringAtZoom={18}
-            spiderfyOnMaxZoom={true}
-            showCoverageOnHover={false}
-            zoomToBoundsOnClick={true}
-            iconCreateFunction={createClusterIcon}
-          />
-        )}
-      </MapContainer>
+        <NavigationControl visualizePitch={false} showZoom showCompass={false} position="bottom-right" />
+        <GeolocateControl position="bottom-right" trackUserLocation />
+
+        {statusGeoJsonBundles.map(({ sourceId, clusterLayerId, countLayerId, unclusteredLayerId, geojson, colorHex }) => {
+          const stroke = withAlpha(colorHex, 0.92);
+          const fill = withAlpha(colorHex, 0.82);
+          return (
+            <Source key={sourceId} id={sourceId} type="geojson" data={geojson} cluster clusterMaxZoom={CLUSTER_MAX_ZOOM} clusterRadius={CLUSTER_RADIUS}>
+              <Layer
+                id={clusterLayerId}
+                type="circle"
+                source={sourceId}
+                filter={["has", "point_count"]}
+                paint={{
+                  "circle-color": fill,
+                  "circle-stroke-color": stroke,
+                  "circle-stroke-width": 2,
+                  "circle-radius": [
+                    "step",
+                    ["get", "point_count"],
+                    22,
+                    10,
+                    26,
+                    50,
+                    32,
+                    200,
+                    38,
+                  ],
+                }}
+              />
+              <Layer
+                id={countLayerId}
+                type="symbol"
+                source={sourceId}
+                filter={["has", "point_count"]}
+                layout={{
+                  "text-field": "{point_count_abbreviated}",
+                  "text-size": 15,
+                  /** Must match glyphs on `demotiles.maplibre.org` (e.g. `Open Sans Semibold`, not `SemiBold`) */
+                  "text-font": ["Open Sans Semibold"],
+                }}
+                paint={{
+                  "text-color": isDarkMode ? "#fffaff" : "#0f172a",
+                }}
+              />
+              <Layer
+                id={unclusteredLayerId}
+                type="circle"
+                source={sourceId}
+                filter={["!", ["has", "point_count"]]}
+                paint={{
+                  "circle-radius": [
+                    "interpolate",
+                    ["linear"],
+                    ["zoom"],
+                    10,
+                    6,
+                    16,
+                    10,
+                  ],
+                  "circle-color": fill,
+                  "circle-stroke-color": stroke,
+                  "circle-stroke-width": 2,
+                  "circle-opacity": 1,
+                }}
+              />
+            </Source>
+          );
+        })}
+
+        {selectedEstablishmentCoords ? (
+          <Marker longitude={selectedEstablishmentCoords.lng} latitude={selectedEstablishmentCoords.lat} anchor="center">
+            <div
+              className="relative h-6 w-6 rounded-full border-[3px] border-background shadow-lg ring-[3px] ring-white/95"
+              style={{ borderColor: "var(--foreground, #fafafa)", boxSizing: "content-box", pointerEvents: "none" }}
+              aria-hidden
+            />
+          </Marker>
+        ) : null}
+      </MapGl>
     </div>
   );
 }
