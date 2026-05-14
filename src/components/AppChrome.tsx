@@ -85,15 +85,15 @@ export function AppChrome({ children }: AppChromeProps) {
           </HomeTodoDetailsFabProvider>
         </SidebarInset>
         
-        {/* Bottom nav: opaque chrome + env() inset only — layout viewport fill uses globals 100lvh on phones */}
+        {/* Bottom nav: flush to viewport bottom on phones — scroll regions keep pb-[...+80px] for clearance */}
         <nav
           className={cn(
-            "fixed inset-x-0 bottom-0 z-50 border-t border-border md:hidden",
-            "bg-background pb-[env(safe-area-inset-bottom,0px)] dark:border-[#1c1921] dark:bg-[#2a2534]"
+            "fixed inset-x-0 bottom-0 z-50 border-t border-border pb-0 md:hidden",
+            "bg-background dark:border-[#1c1921] dark:bg-[#2a2534]"
           )}
           aria-label="Primary navigation"
         >
-          <div className="mx-auto flex max-w-screen-sm items-stretch justify-around">
+          <div className="mx-auto flex min-h-[68px] max-w-screen-sm items-stretch justify-around">
             {navItems.map(({ id, label, icon: Icon }) => {
               const isActive = currentSection === id;
               return (
@@ -102,12 +102,12 @@ export function AppChrome({ children }: AppChromeProps) {
                   onClick={() => onSectionChange(id)}
                   aria-label={label}
                   className={cn(
-                    "flex flex-col items-center justify-center gap-1 py-3 w-full text-[13px] transition-colors",
+                    "flex h-full min-h-0 flex-1 flex-col items-center justify-start gap-0.5 pt-2 pb-1 text-[11px] leading-tight transition-colors",
                     isActive ? "text-foreground dark:text-[#fffaff]" : "text-foreground/60 dark:text-[#ded6e7]/70"
                   )}
                 >
-                  <Icon className={`h-6 w-6 ${isActive ? "" : "opacity-70"}`} fill={isActive ? "currentColor" : "none"} />
-                  {label}
+                  <Icon className={`h-5 w-5 shrink-0 ${isActive ? "" : "opacity-70"}`} fill={isActive ? "currentColor" : "none"} />
+                  <span className="max-w-full truncate px-0.5 text-center">{label}</span>
                 </button>
               );
             })}

@@ -415,7 +415,14 @@ export function BusinessSection({
         className={
           businessTab === "map"
             ? "fixed inset-0 z-10"
-            : "relative h-[calc(100vh-80px)] md:h-[100lvh] overflow-y-auto space-y-4 px-0 pb-20 md:pb-0 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+90px)] md:pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+84px)]"
+            : cn(
+                // Same shell model as HomeSection: fill flex parent to the viewport bottom (no 100vh-80px gap),
+                // edge-to-edge scroll; bottom padding only reserves space above fixed nav when scrolled to end.
+                "relative flex-1 min-h-0 w-full overflow-y-auto overscroll-none scrollbar-hide space-y-4 px-0 overflow-x-hidden",
+                "pb-[calc(max(env(safe-area-inset-bottom),0px)+96px)] md:pb-0",
+                "pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+90px)] md:pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+84px)]",
+                "md:h-[100lvh]"
+              )
         }
       >
         <StickySearchBar
