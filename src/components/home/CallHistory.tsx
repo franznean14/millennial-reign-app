@@ -1667,8 +1667,14 @@ export function CallHistory({
     </div>
   );
 
+  // Preview must not hide behind `loading` while parallel fetches already filled `allVisitsRaw`:
+  // mount effect awaits one loadAllVisits, but opening the drawer fires extra loadAllVisits when empty —
+  // those populate the drawer without flipping `loading`, leaving the card stuck on "Loading…".
+  const callsPreviewShowsLoading =
+    loading && buildCallsStreamItems.drawer.length === 0;
+
   const renderCallsPreviewContent = () => (
-    loading ? (
+    callsPreviewShowsLoading ? (
       <div className="text-sm text-muted-foreground">Loading…</div>
     ) : (
       <div className="relative">

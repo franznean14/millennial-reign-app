@@ -80,6 +80,10 @@ export function AppClient() {
 
   // Business state
   const [establishments, setEstablishments] = useState<EstablishmentWithDetails[]>([]);
+  const establishmentsRef = useRef<EstablishmentWithDetails[]>([]);
+  useEffect(() => {
+    establishmentsRef.current = establishments;
+  }, [establishments]);
   const [householders, setHouseholders] = useState<HouseholderWithDetails[]>([]);
   const [businessTab, setBusinessTab] = useState<'establishments' | 'householders' | 'map'>('establishments');
   
@@ -147,6 +151,8 @@ export function AppClient() {
     visits: VisitWithUser[];
     householders: HouseholderWithDetails[];
   } | null>(null);
+  /** Explicit fetch lifecycle — do not infer loading from `!selectedEstablishmentDetails` or failed loads stick on skeleton forever */
+  const [establishmentDetailsLoading, setEstablishmentDetailsLoading] = useState(false);
   const [selectedHouseholder, setSelectedHouseholder] = useState<HouseholderWithDetails | null>(null);
   const [selectedHouseholderDetails, setSelectedHouseholderDetails] = useState<{
     householder: HouseholderWithDetails;
@@ -631,10 +637,14 @@ export function AppClient() {
           prev?.id === estDetails.establishment.id ? { ...prev, ...estDetails.establishment } : prev
         );
       } else if (estId) {
-        // Establishment was deleted by another user — clear detail view and show list
-        setSelectedEstablishmentDetails(null);
-        setSelectedEstablishment(null);
-        toast.info("Establishment was deleted.");
+        const stillInFreshList = establishmentsData.some((e) => e.id === estId);
+        if (!stillInFreshList) {
+          // Gone from shared list fetch — soft-deleted/archived or removed from congregation view
+          setSelectedEstablishmentDetails(null);
+          setSelectedEstablishment(null);
+          toast.info("Establishment was deleted.");
+        }
+        // Still listed but details missing: transient/network/query issue — keep selection and avoid false “deleted” toast
       }
       if (hhDetails) {
         setSelectedHouseholderDetails(hhDetails);
@@ -742,7 +752,12 @@ export function AppClient() {
 
   const loadEstablishmentDetails = useCallback(async (establishmentId: string) => {
     const cacheKey = `establishment:details:${establishmentId}`;
+    setEstablishmentDetailsLoading(true);
     try {
+      // Drop stale snapshot when navigating to a different establishment (avoid showing wrong visits/contacts)
+      setSelectedEstablishmentDetails((prev) =>
+        prev?.establishment?.id === establishmentId ? prev : null
+      );
       // Show cached details immediately when available (e.g. from a previous open)
       const cached = await cacheGet<{
         establishment: EstablishmentWithDetails;
@@ -758,16 +773,30 @@ export function AppClient() {
         setSelectedEstablishmentDetails(details);
         setSelectedEstablishment(details.establishment);
       } else {
-        setSelectedEstablishmentDetails(null);
-        setSelectedEstablishment(null);
-        toast.info("Establishment was deleted.");
+        const listed = establishmentsRef.current;
+        const stillListed =
+          listed.length > 0 && listed.some((e) => e.id === establishmentId);
+        if (!stillListed && listed.length > 0) {
+          setSelectedEstablishmentDetails(null);
+          setSelectedEstablishment(null);
+          toast.info("Establishment was deleted.");
+        } else {
+          const row = listed.find((e) => e.id === establishmentId);
+          if (row) {
+            // Server returned no row/error but shared list still has it — show shell so Calls/Contacts don’t skeleton forever
+            setSelectedEstablishmentDetails({
+              establishment: row,
+              visits: [],
+              householders: [],
+            });
+          }
+        }
       }
     } catch (error) {
       console.error('Failed to load establishment details:', error);
-      // Drop stale IndexedDB snapshot so the next open retries a full fetch (e.g. after transient 500s).
-      if (typeof navigator !== 'undefined' && navigator.onLine) {
-        await cacheDelete(cacheKey);
-      }
+      // Keep IndexedDB snapshot for offline/transient failures; wiping cache caused false “deleted” flows after realtime refetch invalidated keys.
+    } finally {
+      setEstablishmentDetailsLoading(false);
     }
   }, []);
 
@@ -780,6 +809,12 @@ export function AppClient() {
         document.documentElement.scrollTop = 0;
         document.body.scrollTop = 0;
       });
+    }
+  }, [selectedEstablishment]);
+
+  useEffect(() => {
+    if (!selectedEstablishment) {
+      setEstablishmentDetailsLoading(false);
     }
   }, [selectedEstablishment]);
 
@@ -1317,6 +1352,7 @@ export function AppClient() {
           selectedEstablishment={selectedEstablishment}
           setSelectedEstablishment={setSelectedEstablishment}
           selectedEstablishmentDetails={selectedEstablishmentDetails}
+          establishmentDetailsLoading={establishmentDetailsLoading}
           setSelectedEstablishmentDetails={setSelectedEstablishmentDetails}
           selectedHouseholder={selectedHouseholder}
           setSelectedHouseholder={setSelectedHouseholder}

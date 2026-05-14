@@ -1903,18 +1903,44 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
     }
 
   // Get establishment details — exclude soft-deleted/archived (same filter as list so details detect delete)
-  const { data: establishment } = await supabase
+  // Use maybeSingle so 0 rows → { data: null, error: null }; .single() uses PGRST116 and some clients log opaque error objects.
+  const { data: establishment, error: establishmentError } = await supabase
     .from('business_establishments')
     .select(
-      'id, congregation_id, name, description, area, lat, lng, floor, statuses, note, created_at, updated_at, created_by, updated_by, publisher_id, is_deleted, is_archived'
+      'id, congregation_id, name, description, area, lat, lng, floor, statuses, note, created_at, updated_at, created_by, publisher_id, is_deleted, is_archived'
     )
     .eq('id', establishmentId)
     .eq('is_deleted', false)
     .eq('is_archived', false)
-    .single();
-  
+    .maybeSingle();
+
+  if (establishmentError) {
+    const cachedAfterErr = await cacheGet<{
+      establishment: EstablishmentWithDetails;
+      visits: VisitWithUser[];
+      householders: HouseholderWithDetails[];
+    }>(cacheKey);
+    if (cachedAfterErr) return cachedAfterErr;
+    const pg = establishmentError as {
+      code?: string;
+      message?: string;
+      details?: string;
+      hint?: string;
+    };
+    // warn: graceful fallback (null); structured fields avoid Turbopack/console showing `{}` for the raw object
+    console.warn('getEstablishmentDetails: establishment query failed', {
+      establishmentId,
+      code: pg.code,
+      message: pg.message,
+      details: pg.details,
+      hint: pg.hint,
+    });
+    // Return null (do not throw): callers batch detail fetches with Promise.all; throwing would skip refreshing householders/lists.
+    return null;
+  }
+
   if (!establishment) {
-    // Row not found (e.g. soft-deleted by another user) — clear cache and return null so UI can show list + toast
+    // No row matched filters — soft-deleted, archived, or not visible under RLS
     if (typeof navigator !== 'undefined' && navigator.onLine) {
       await cacheDelete(cacheKey);
     }

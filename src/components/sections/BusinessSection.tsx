@@ -80,6 +80,7 @@ export interface BusinessSectionProps {
     visits: VisitWithUser[];
     householders: HouseholderWithDetails[];
   } | null;
+  establishmentDetailsLoading: boolean;
   setSelectedEstablishmentDetails: Dispatch<
     SetStateAction<{
       establishment: EstablishmentWithDetails;
@@ -139,6 +140,7 @@ export function BusinessSection({
   selectedEstablishment,
   setSelectedEstablishment,
   selectedEstablishmentDetails,
+  establishmentDetailsLoading,
   setSelectedEstablishmentDetails,
   selectedHouseholder,
   setSelectedHouseholder,
@@ -389,7 +391,7 @@ export function BusinessSection({
         establishment={selectedEstablishmentDetails?.establishment ?? selectedEstablishment}
         visits={selectedEstablishmentDetails?.visits || []}
         householders={selectedEstablishmentDetails?.householders || []}
-        isLoading={!selectedEstablishmentDetails}
+        isLoading={establishmentDetailsLoading}
         canManagePersonalTerritoryOwner={canManagePersonalTerritoryOwner}
         onBackClick={closeEstablishmentSideDetails}
         onRequestSummaryEdit={() => setBusinessEditSheet("establishment")}
@@ -535,7 +537,7 @@ export function BusinessSection({
                       establishment={selectedEstablishmentDetails?.establishment ?? selectedEstablishment}
                       visits={selectedEstablishmentDetails?.visits || []}
                       householders={selectedEstablishmentDetails?.householders || []}
-                      isLoading={!selectedEstablishmentDetails}
+                      isLoading={establishmentDetailsLoading}
                       canManagePersonalTerritoryOwner={canManagePersonalTerritoryOwner}
                       onBackClick={() => {
                         setSelectedEstablishment(null);
