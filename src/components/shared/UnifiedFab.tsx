@@ -471,6 +471,7 @@ export function UnifiedFab({
         <BulkTodoForm
           establishments={establishments}
           householders={householders}
+          publisherUserId={userId}
           onTabletBulkSheetTierChange={handleBulkTodoTabletTierChange}
           onDraftKindChange={setBulkTodoKind}
           onSaved={() => {

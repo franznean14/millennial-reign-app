@@ -332,6 +332,14 @@ interface HomeTodoCardProps {
   fabBridgeLayout?: "belowXl" | "xlAndUp";
   className?: string;
   headerVariant?: "default" | "bar";
+  /**
+   * Headless mount (e.g. bulk target picker): render only establishment/contact details drawers and
+   * nested editors — same surfaces as tapping a home to-do row.
+   */
+  detailsBridgeOnly?: boolean;
+  detailsBridgeSyntheticTodo?: MyOpenCallTodoItem | null;
+  detailsBridgeOpen?: boolean;
+  onDetailsBridgeOpenChange?: (open: boolean) => void;
 }
 
 export function HomeTodoCard({
@@ -347,6 +355,10 @@ export function HomeTodoCard({
   fabBridgeLayout,
   className,
   headerVariant = "default",
+  detailsBridgeOnly = false,
+  detailsBridgeSyntheticTodo = null,
+  detailsBridgeOpen = false,
+  onDetailsBridgeOpenChange,
 }: HomeTodoCardProps) {
   const [openTodos, setOpenTodos] = useState<MyOpenCallTodoItem[]>(() => prefillOpenTodos ?? []);
   const [completedTodos, setCompletedTodos] = useState<MyOpenCallTodoItem[]>(() => prefillCompletedTodos ?? []);
@@ -752,11 +764,12 @@ export function HomeTodoCard({
   }, [drawerOpen, loadTodos]);
 
   useEffect(() => {
+    if (detailsBridgeOnly) return;
     if (!drawerOpen) {
       setTodoDetailsDrawerOpen(false);
       setContactDetailsSubdrawerOpen(false);
     }
-  }, [drawerOpen]);
+  }, [drawerOpen, detailsBridgeOnly]);
 
   useEffect(() => {
     if (!todoDetailsDrawerOpen) return;
@@ -1892,9 +1905,37 @@ export function HomeTodoCard({
     });
   }, [todoDetailsDrawerOpen, isHouseholderDetail, selectedDetailHouseholders]);
 
-  const handleTodoDetailsDrawerChange = useCallback((open: boolean) => {
-    setTodoDetailsDrawerOpen(open);
-    if (!open) {
+  const handleTodoDetailsDrawerChange = useCallback(
+    (open: boolean) => {
+      setTodoDetailsDrawerOpen(open);
+      if (!open) {
+        setSelectedTodoForDetails(null);
+        setSelectedTodoDetails(null);
+        setSelectedHouseholderDetails(null);
+        setSelectedContactFromEstablishment(null);
+        setContactDetailsSubdrawerOpen(false);
+        setDetailsEntityEditOpen(false);
+        setContactSubdrawerEntityEditOpen(false);
+        if (detailsBridgeOnly) {
+          onDetailsBridgeOpenChange?.(false);
+        }
+      }
+    },
+    [detailsBridgeOnly, onDetailsBridgeOpenChange]
+  );
+
+  useEffect(() => {
+    if (!detailsBridgeOnly) return;
+    if (detailsBridgeOpen && detailsBridgeSyntheticTodo) {
+      setSelectedTodoForDetails(detailsBridgeSyntheticTodo);
+      setTodoDetailsDrawerOpen(true);
+    }
+  }, [detailsBridgeOnly, detailsBridgeOpen, detailsBridgeSyntheticTodo]);
+
+  useEffect(() => {
+    if (!detailsBridgeOnly) return;
+    if (!detailsBridgeOpen) {
+      setTodoDetailsDrawerOpen(false);
       setSelectedTodoForDetails(null);
       setSelectedTodoDetails(null);
       setSelectedHouseholderDetails(null);
@@ -1902,8 +1943,10 @@ export function HomeTodoCard({
       setContactDetailsSubdrawerOpen(false);
       setDetailsEntityEditOpen(false);
       setContactSubdrawerEntityEditOpen(false);
+      setTodoEditorContext(null);
+      setTodoEditorUseLeftPanel(false);
     }
-  }, []);
+  }, [detailsBridgeOnly, detailsBridgeOpen]);
 
   const refreshTodoDetailEntity = useCallback(async () => {
     const hhTarget = selectedTodoForDetails?.householder_id;
@@ -2090,6 +2133,7 @@ export function HomeTodoCard({
     ((fabBridgeLayout === "belowXl" && !isXlViewport) || (fabBridgeLayout === "xlAndUp" && isXlViewport));
 
   const shouldPublishHomeTodoDetailsFab =
+    !detailsBridgeOnly &&
     homeTodoDetailsFabFormConfig != null &&
     !detailsEntityEditOpen &&
     !contactSubdrawerEntityEditOpen &&
@@ -2131,7 +2175,7 @@ export function HomeTodoCard({
   ]);
 
   useEffect(() => {
-    if (!setHideHomeFab || !isMainHomeTodoWidget) return;
+    if (!setHideHomeFab || !isMainHomeTodoWidget || detailsBridgeOnly) return;
     const shouldHide = detailsEntityEditOpen || contactSubdrawerEntityEditOpen;
     setHideHomeFab(shouldHide);
     return () => {
@@ -2139,6 +2183,7 @@ export function HomeTodoCard({
     };
   }, [
     contactSubdrawerEntityEditOpen,
+    detailsBridgeOnly,
     detailsEntityEditOpen,
     isMainHomeTodoWidget,
     setHideHomeFab,
@@ -3040,6 +3085,219 @@ export function HomeTodoCard({
     </>
   );
 
+  const detailsAndEditorLayers = (
+    <>
+      {isTodoDetailsSideLayout ? (
+      <Drawer
+        open={todoDetailsDrawerOpen}
+        onOpenChange={handleTodoDetailsDrawerChange}
+        direction="right"
+        modal
+        nested
+        shouldScaleBackground={false}
+      >
+        <DrawerWideRightContent
+          className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", todoDetailsSheetPanelClass)}
+        >
+          <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
+            <DrawerTitle className="text-center text-xl font-extrabold tracking-tight">{isHouseholderDetail
+                ? (selectedHouseholder?.name || selectedTodoForDetails?.context_name || "Contact Details")
+                : (selectedEstablishmentDetails?.name || selectedTodoForDetails?.context_name || "Establishment Details")}</DrawerTitle>
+          </DrawerHeader>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3">
+            {renderTodoDetailsBody()}
+          </div>
+        </DrawerWideRightContent>
+      </Drawer>
+      ) : (
+      <HomeMobileDetailsDrawer
+        open={todoDetailsDrawerOpen}
+        onOpenChange={handleTodoDetailsDrawerChange}
+        contentClassName={todoDetailsSheetPanelClass}
+        title={
+          isHouseholderDetail
+            ? (selectedHouseholder?.name || selectedTodoForDetails?.context_name || "Contact Details")
+            : (selectedEstablishmentDetails?.name || selectedTodoForDetails?.context_name || "Establishment Details")
+        }
+        bodyClassName="space-y-3"
+      >
+        {renderTodoDetailsBody()}
+      </HomeMobileDetailsDrawer>
+      )}
+
+      {/* Second right sheet (portaled). Must sit above estab drawer (z-100) and left companion (z-102) so
+          Framer `layoutId` layers from estab todos cannot paint on top of contact UI. */}
+      {isTodoDetailsSideLayout ? (
+        <Drawer
+          open={contactDetailsSubdrawerOpen && todoDetailsDrawerOpen}
+          onOpenChange={(open) => {
+            setContactDetailsSubdrawerOpen(open);
+            if (!open) {
+              setSelectedContactFromEstablishment(null);
+            }
+          }}
+          direction="right"
+          modal
+          shouldScaleBackground={false}
+        >
+          <DrawerWideRightContent
+            stackAboveDetailsSheet
+            className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", todoContactSheetPanelClass)}
+          >
+            <DrawerHeader className="bg-transparent px-2 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-left sm:px-4">
+              <div className="relative flex items-center justify-center gap-1 pr-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="absolute left-0 h-9 w-9 shrink-0"
+                  onClick={closeContactDetailsSubdrawer}
+                  aria-label="Back to establishment"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+                <DrawerTitle className="px-10 text-center text-xl font-extrabold tracking-tight">
+                  {contactSubdrawerHouseholder?.name || "Contact Details"}
+                </DrawerTitle>
+              </div>
+            </DrawerHeader>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3">
+              {renderContactSubdrawerBody()}
+            </div>
+          </DrawerWideRightContent>
+        </Drawer>
+      ) : (
+        <HomeMobileDetailsDrawer
+          open={contactDetailsSubdrawerOpen}
+          onOpenChange={(open) => {
+            setContactDetailsSubdrawerOpen(open);
+            if (!open) {
+              setSelectedContactFromEstablishment(null);
+            }
+          }}
+          contentClassName={todoContactSheetPanelClass}
+          title={contactSubdrawerHouseholder?.name || "Contact Details"}
+          bodyClassName="space-y-3"
+        >
+          {renderContactSubdrawerBody()}
+        </HomeMobileDetailsDrawer>
+      )}
+
+      {isTodoDetailsSideLayout ? (
+        <Drawer
+          open={detailsEntityEditOpen || contactSubdrawerEntityEditOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDetailsEntityEditOpen(false);
+              setContactSubdrawerEntityEditOpen(false);
+            }
+          }}
+          direction="left"
+          modal
+          nested
+          shouldScaleBackground={false}
+        >
+          <DrawerWideLeftContentTop
+            stackAboveStackedRightSheet={contactDetailsSubdrawerOpen && isTodoDetailsSideLayout}
+            className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", todoEntityEditSheetPanelClass)}
+          >
+            <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
+              <DrawerTitle className="text-center text-lg font-bold">{entityEditDrawerTitle}</DrawerTitle>
+            </DrawerHeader>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
+              {entityEditForms}
+            </div>
+          </DrawerWideLeftContentTop>
+        </Drawer>
+      ) : (
+        <HomeMobileDetailsDrawer
+          open={detailsEntityEditOpen || contactSubdrawerEntityEditOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              setDetailsEntityEditOpen(false);
+              setContactSubdrawerEntityEditOpen(false);
+            }
+          }}
+          title={entityEditDrawerTitle}
+          contentClassName={cn(todoEntityEditSheetPanelClass, "md:max-h-[80dvh]")}
+        >
+          {entityEditForms}
+        </HomeMobileDetailsDrawer>
+      )}
+
+      {todoEditorUseLeftPanel && todoEditorContext ? (
+        <Drawer
+          open={!!todoEditorContext}
+          onOpenChange={(open) => {
+            if (!open) {
+              setTodoEditorContext(null);
+              setTodoEditorUseLeftPanel(false);
+            }
+          }}
+          direction="left"
+          modal
+          shouldScaleBackground={false}
+        >
+          <DrawerWideLeftContentTop
+            stackAboveStackedRightSheet={contactDetailsSubdrawerOpen && isTodoDetailsSideLayout}
+            className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", todoEditorSheetPanelClass)}
+          >
+            <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
+              <DrawerTitle className="text-center text-lg font-bold">Edit To-Do</DrawerTitle>
+            </DrawerHeader>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
+              <TodoForm
+                establishments={todoEditorContext.establishments}
+                selectedEstablishmentId={todoEditorContext.selectedEstablishmentId}
+                initialTodo={todoEditorContext.initialTodo}
+                householderId={todoEditorContext.householderId}
+                householderName={todoEditorContext.householderName}
+                disableEstablishmentSelect={todoEditorContext.disableEstablishmentSelect}
+                onSaved={() => {
+                  setTodoEditorContext(null);
+                  setTodoEditorUseLeftPanel(false);
+                  void refreshTodoDetailEntity().then(() => broadcastTodosAndBusinessRefresh());
+                }}
+              />
+            </div>
+          </DrawerWideLeftContentTop>
+        </Drawer>
+      ) : (
+      <FormModal
+        open={!!todoEditorContext}
+        onOpenChange={(open) => {
+          if (!open) {
+            setTodoEditorContext(null);
+            setTodoEditorUseLeftPanel(false);
+          }
+        }}
+        title="Edit To-Do"
+        headerClassName="text-center"
+      >
+        {todoEditorContext ? (
+          <TodoForm
+            establishments={todoEditorContext.establishments}
+            selectedEstablishmentId={todoEditorContext.selectedEstablishmentId}
+            initialTodo={todoEditorContext.initialTodo}
+            householderId={todoEditorContext.householderId}
+            householderName={todoEditorContext.householderName}
+            disableEstablishmentSelect={todoEditorContext.disableEstablishmentSelect}
+            onSaved={() => {
+              setTodoEditorContext(null);
+              setTodoEditorUseLeftPanel(false);
+              void refreshTodoDetailEntity().then(() => broadcastTodosAndBusinessRefresh());
+            }}
+          />
+        ) : null}
+      </FormModal>
+      )}
+    </>
+  );
+
+  if (detailsBridgeOnly) {
+    return detailsAndEditorLayers;
+  }
+
   return (
     <>
       <div className={cn("rounded-lg border overflow-hidden bg-background", studyBibleDarkClasses.todoCard, className)}>
@@ -3322,210 +3580,9 @@ export function HomeTodoCard({
         </Drawer>
       )}
 
-      {isTodoDetailsSideLayout ? (
-      <Drawer
-        open={todoDetailsDrawerOpen}
-        onOpenChange={handleTodoDetailsDrawerChange}
-        direction="right"
-        modal
-        nested
-        shouldScaleBackground={false}
-      >
-        <DrawerWideRightContent
-          className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", todoDetailsSheetPanelClass)}
-        >
-          <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
-            <DrawerTitle className="text-center text-xl font-extrabold tracking-tight">{isHouseholderDetail
-                ? (selectedHouseholder?.name || selectedTodoForDetails?.context_name || "Contact Details")
-                : (selectedEstablishmentDetails?.name || selectedTodoForDetails?.context_name || "Establishment Details")}</DrawerTitle>
-          </DrawerHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3">
-            {renderTodoDetailsBody()}
-          </div>
-        </DrawerWideRightContent>
-      </Drawer>
-      ) : (
-      <HomeMobileDetailsDrawer
-        open={todoDetailsDrawerOpen}
-        onOpenChange={handleTodoDetailsDrawerChange}
-        contentClassName={todoDetailsSheetPanelClass}
-        title={
-          isHouseholderDetail
-            ? (selectedHouseholder?.name || selectedTodoForDetails?.context_name || "Contact Details")
-            : (selectedEstablishmentDetails?.name || selectedTodoForDetails?.context_name || "Establishment Details")
-        }
-        bodyClassName="space-y-3"
-      >
-        {renderTodoDetailsBody()}
-      </HomeMobileDetailsDrawer>
-      )}
+      {detailsAndEditorLayers}
 
-      {/* Second right sheet (portaled). Must sit above estab drawer (z-100) and left companion (z-102) so
-          Framer `layoutId` layers from estab todos cannot paint on top of contact UI. */}
-      {isTodoDetailsSideLayout ? (
-        <Drawer
-          open={contactDetailsSubdrawerOpen && todoDetailsDrawerOpen}
-          onOpenChange={(open) => {
-            setContactDetailsSubdrawerOpen(open);
-            if (!open) {
-              setSelectedContactFromEstablishment(null);
-            }
-          }}
-          direction="right"
-          modal
-          shouldScaleBackground={false}
-        >
-          <DrawerWideRightContent
-            stackAboveDetailsSheet
-            className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", todoContactSheetPanelClass)}
-          >
-            <DrawerHeader className="bg-transparent px-2 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-left sm:px-4">
-              <div className="relative flex items-center justify-center gap-1 pr-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute left-0 h-9 w-9 shrink-0"
-                  onClick={closeContactDetailsSubdrawer}
-                  aria-label="Back to establishment"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </Button>
-                <DrawerTitle className="px-10 text-center text-xl font-extrabold tracking-tight">
-                  {contactSubdrawerHouseholder?.name || "Contact Details"}
-                </DrawerTitle>
-              </div>
-            </DrawerHeader>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3">
-              {renderContactSubdrawerBody()}
-            </div>
-          </DrawerWideRightContent>
-        </Drawer>
-      ) : (
-        <HomeMobileDetailsDrawer
-          open={contactDetailsSubdrawerOpen}
-          onOpenChange={(open) => {
-            setContactDetailsSubdrawerOpen(open);
-            if (!open) {
-              setSelectedContactFromEstablishment(null);
-            }
-          }}
-          contentClassName={todoContactSheetPanelClass}
-          title={contactSubdrawerHouseholder?.name || "Contact Details"}
-          bodyClassName="space-y-3"
-        >
-          {renderContactSubdrawerBody()}
-        </HomeMobileDetailsDrawer>
-      )}
 
-      {isTodoDetailsSideLayout ? (
-        <Drawer
-          open={detailsEntityEditOpen || contactSubdrawerEntityEditOpen}
-          onOpenChange={(open) => {
-            if (!open) {
-              setDetailsEntityEditOpen(false);
-              setContactSubdrawerEntityEditOpen(false);
-            }
-          }}
-          direction="left"
-          modal
-          nested
-          shouldScaleBackground={false}
-        >
-          <DrawerWideLeftContentTop
-            stackAboveStackedRightSheet={contactDetailsSubdrawerOpen && isTodoDetailsSideLayout}
-            className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", todoEntityEditSheetPanelClass)}
-          >
-            <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
-              <DrawerTitle className="text-center text-lg font-bold">{entityEditDrawerTitle}</DrawerTitle>
-            </DrawerHeader>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
-              {entityEditForms}
-            </div>
-          </DrawerWideLeftContentTop>
-        </Drawer>
-      ) : (
-        <HomeMobileDetailsDrawer
-          open={detailsEntityEditOpen || contactSubdrawerEntityEditOpen}
-          onOpenChange={(open) => {
-            if (!open) {
-              setDetailsEntityEditOpen(false);
-              setContactSubdrawerEntityEditOpen(false);
-            }
-          }}
-          title={entityEditDrawerTitle}
-          contentClassName={cn(todoEntityEditSheetPanelClass, "md:max-h-[80dvh]")}
-        >
-          {entityEditForms}
-        </HomeMobileDetailsDrawer>
-      )}
-
-      {todoEditorUseLeftPanel && todoEditorContext ? (
-        <Drawer
-          open={!!todoEditorContext}
-          onOpenChange={(open) => {
-            if (!open) {
-              setTodoEditorContext(null);
-              setTodoEditorUseLeftPanel(false);
-            }
-          }}
-          direction="left"
-          modal
-          shouldScaleBackground={false}
-        >
-          <DrawerWideLeftContentTop
-            stackAboveStackedRightSheet={contactDetailsSubdrawerOpen && isTodoDetailsSideLayout}
-            className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", todoEditorSheetPanelClass)}
-          >
-            <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
-              <DrawerTitle className="text-center text-lg font-bold">Edit To-Do</DrawerTitle>
-            </DrawerHeader>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
-              <TodoForm
-                establishments={todoEditorContext.establishments}
-                selectedEstablishmentId={todoEditorContext.selectedEstablishmentId}
-                initialTodo={todoEditorContext.initialTodo}
-                householderId={todoEditorContext.householderId}
-                householderName={todoEditorContext.householderName}
-                disableEstablishmentSelect={todoEditorContext.disableEstablishmentSelect}
-                onSaved={() => {
-                  setTodoEditorContext(null);
-                  setTodoEditorUseLeftPanel(false);
-                  void refreshTodoDetailEntity().then(() => broadcastTodosAndBusinessRefresh());
-                }}
-              />
-            </div>
-          </DrawerWideLeftContentTop>
-        </Drawer>
-      ) : (
-      <FormModal
-        open={!!todoEditorContext}
-        onOpenChange={(open) => {
-          if (!open) {
-            setTodoEditorContext(null);
-            setTodoEditorUseLeftPanel(false);
-          }
-        }}
-        title="Edit To-Do"
-        headerClassName="text-center"
-      >
-        {todoEditorContext ? (
-          <TodoForm
-            establishments={todoEditorContext.establishments}
-            selectedEstablishmentId={todoEditorContext.selectedEstablishmentId}
-            initialTodo={todoEditorContext.initialTodo}
-            householderId={todoEditorContext.householderId}
-            householderName={todoEditorContext.householderName}
-            disableEstablishmentSelect={todoEditorContext.disableEstablishmentSelect}
-            onSaved={() => {
-              setTodoEditorContext(null);
-              setTodoEditorUseLeftPanel(false);
-              void refreshTodoDetailEntity().then(() => broadcastTodosAndBusinessRefresh());
-            }}
-          />
-        ) : null}
-      </FormModal>
-      )}
 
       {isTodoDetailsSideLayout ? (
         <Drawer

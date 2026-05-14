@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { DatePicker } from "@/components/ui/date-picker";
 import { toast } from "@/components/ui/sonner";
-import { Check, ChevronDown, ChevronUp, Plus, Search, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, ExternalLink, Plus, Search, Trash2, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -32,6 +32,7 @@ import {
   updateTodoForBulkEdit,
   type EstablishmentWithDetails,
   type HouseholderWithDetails,
+  type MyOpenCallTodoItem,
 } from "@/lib/db/business";
 import { getInitialsFromName } from "@/lib/utils/visit-history-ui";
 import { getBestStatus, getStatusTitleColor } from "@/lib/utils/status-hierarchy";
@@ -47,6 +48,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { sidebarFormClasses } from "@/components/business/sidebar-form-styles";
 import { getStudyBibleDarkCardShade, studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
+import { HomeTodoCard } from "@/components/home/HomeTodoCard";
 
 type BulkTodoDraftRow = {
   id: string;
@@ -76,6 +78,8 @@ interface BulkTodoFormProps {
    * {@link BULK_TODO_TABLET_SHEET_MAX_REM}).
    */
   onTabletBulkSheetTierChange?: (tier: BulkTodoTabletBulkSheetTier) => void;
+  /** Required for opening home-style establishment/contact details from the target picker. */
+  publisherUserId?: string;
 }
 
 type PersonAvatar = {
@@ -355,6 +359,7 @@ export function BulkTodoForm({
   onSaved,
   onDraftKindChange,
   onTabletBulkSheetTierChange,
+  publisherUserId,
 }: BulkTodoFormProps) {
   const isMobile = useMobile();
   const isTabletUp = useMediaQuery("(min-width: 768px)");
@@ -382,6 +387,9 @@ export function BulkTodoForm({
   const [deletingAllSourceTodos, setDeletingAllSourceTodos] = useState(false);
   const [deleteSourceTodoConfirmRow, setDeleteSourceTodoConfirmRow] = useState<BulkTodoDraftRow | null>(null);
   const [duplicateAddPrompt, setDuplicateAddPrompt] = useState<DuplicateAddPromptState | null>(null);
+  const [bulkTargetDetailsOpen, setBulkTargetDetailsOpen] = useState(false);
+  const [bulkTargetDetailsSyntheticTodo, setBulkTargetDetailsSyntheticTodo] =
+    useState<MyOpenCallTodoItem | null>(null);
   const [insightRefreshKey, setInsightRefreshKey] = useState(0);
   const [deletingSourceTodoRowId, setDeletingSourceTodoRowId] = useState<string | null>(null);
   const [submittingRowId, setSubmittingRowId] = useState<string | null>(null);
@@ -669,6 +677,61 @@ export function BulkTodoForm({
     });
     return map;
   }, [establishments]);
+
+  const householderById = useMemo(() => {
+    const map = new Map<string, HouseholderWithDetails>();
+    householders.forEach((householder) => {
+      if (householder.id) map.set(householder.id, householder);
+    });
+    return map;
+  }, [householders]);
+
+  const buildSyntheticTodoForTargetDetails = useCallback(
+    (option: TargetOption): MyOpenCallTodoItem => {
+      const syntheticId = `bulk-picker-details:${option.key}`;
+      if (option.key.startsWith("establishment:")) {
+        const id = option.key.slice("establishment:".length);
+        const est = establishmentById.get(id);
+        const primary = est ? getBestStatus(est.statuses || []) : option.status || "for_scouting";
+        return {
+          id: syntheticId,
+          body: "",
+          is_done: false,
+          establishment_id: id,
+          householder_id: null,
+          context_name: option.label,
+          context_status: primary,
+          context_establishment_status: primary,
+          context_area: (est?.area ?? option.subtitle)?.trim() || null,
+        };
+      }
+      const hhId = option.key.slice("householder:".length);
+      const hh = householderById.get(hhId);
+      const estId = hh?.establishment_id ?? null;
+      const est = estId ? establishmentById.get(estId) : undefined;
+      return {
+        id: syntheticId,
+        body: "",
+        is_done: false,
+        establishment_id: estId,
+        householder_id: hhId,
+        context_name: option.label,
+        context_status: hh?.status ?? option.status ?? null,
+        context_establishment_name: hh?.establishment_name?.trim() || option.subtitle || null,
+        context_establishment_status: est ? getBestStatus(est.statuses || []) : undefined,
+        context_area: est?.area?.trim() ?? null,
+      };
+    },
+    [establishmentById, householderById]
+  );
+
+  const openBulkTargetDetails = useCallback(
+    (option: TargetOption) => {
+      setBulkTargetDetailsSyntheticTodo(buildSyntheticTodoForTargetDetails(option));
+      setBulkTargetDetailsOpen(true);
+    },
+    [buildSyntheticTodoForTargetDetails]
+  );
 
   const participantsById = useMemo(() => {
     const map = new Map<string, PersonAvatar>();
@@ -1805,26 +1868,43 @@ export function BulkTodoForm({
                     />
                   ) : null}
                 </div>
-                <AnimatePresence initial={false}>
-                  {bulkAddActive ? (
-                    <motion.div
-                      key={`checkbox-${option.key}`}
-                      initial={{ opacity: 0, scale: 0.9, x: 4 }}
-                      animate={{ opacity: 1, scale: 1, x: 0 }}
-                      exit={{ opacity: 0, scale: 0.9, x: 4 }}
-                      transition={{ duration: 0.14, ease: "easeOut" }}
-                      className="flex items-center justify-center shrink-0"
+                <div className="flex items-center gap-0.5 shrink-0">
+                  {publisherUserId ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+                      aria-label={`Open details for ${option.label}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openBulkTargetDetails(option);
+                      }}
                     >
-                      <Checkbox
-                        checked={bulkSelected}
-                        onCheckedChange={() => toggleBulkTargetSelection(row.id, option.key)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="shrink-0"
-                        aria-label={`Select ${option.label}`}
-                      />
-                    </motion.div>
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
                   ) : null}
-                </AnimatePresence>
+                  <AnimatePresence initial={false}>
+                    {bulkAddActive ? (
+                      <motion.div
+                        key={`checkbox-${option.key}`}
+                        initial={{ opacity: 0, scale: 0.9, x: 4 }}
+                        animate={{ opacity: 1, scale: 1, x: 0 }}
+                        exit={{ opacity: 0, scale: 0.9, x: 4 }}
+                        transition={{ duration: 0.14, ease: "easeOut" }}
+                        className="flex items-center justify-center shrink-0"
+                      >
+                        <Checkbox
+                          checked={bulkSelected}
+                          onCheckedChange={() => toggleBulkTargetSelection(row.id, option.key)}
+                          onClick={(e) => e.stopPropagation()}
+                          className="shrink-0"
+                          aria-label={`Select ${option.label}`}
+                        />
+                      </motion.div>
+                    ) : null}
+                  </AnimatePresence>
+                </div>
               </div>
               <div className="text-xs text-muted-foreground truncate min-w-0 mt-0.5">
                 {option.typeLabel}
@@ -3772,6 +3852,21 @@ export function BulkTodoForm({
           </div>
         </DrawerContent>
       </Drawer>
+
+      {publisherUserId ? (
+        <div className="sr-only" aria-hidden>
+          <HomeTodoCard
+            detailsBridgeOnly
+            userId={publisherUserId}
+            detailsBridgeSyntheticTodo={bulkTargetDetailsSyntheticTodo}
+            detailsBridgeOpen={bulkTargetDetailsOpen}
+            onDetailsBridgeOpenChange={(open) => {
+              setBulkTargetDetailsOpen(open);
+              if (!open) setBulkTargetDetailsSyntheticTodo(null);
+            }}
+          />
+        </div>
+      ) : null}
 
     </form>
   );
