@@ -3248,41 +3248,79 @@ export function HomeTodoCard({
         </DrawerContent>
       </Drawer>
 
-      <Drawer open={filterDrawerOpen} onOpenChange={setFilterDrawerOpen} direction="left" modal shouldScaleBackground={false}>
-        <DrawerWideLeftContent
-          className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", todoFilterDrawerPanelClass)}
-        >
-          <DrawerHeader className="shrink-0 bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
-            <DrawerTitle className="flex w-full items-center justify-center gap-2 text-center text-lg font-bold">
-              <ListTodo className="h-4 w-4 shrink-0" />
-              Filter To-Dos
-            </DrawerTitle>
-          </DrawerHeader>
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
-              <VisitFiltersForm
-                filters={filters}
-                statusOptions={statusOptions}
-                areaOptions={areaOptions}
-                assigneeOptions={assigneeFilterOptions}
-                dueDateYmd={dueDateFilter ? toLocalDateString(dueDateFilter) : null}
-                onDueDateYmdChange={(ymd) => setDueDateFilter(ymd ? parseLocalDateString(ymd) : null)}
-                onFiltersChange={setFilters}
-                onClearFilters={clearFilters}
-              />
-              <div className="flex justify-end pt-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setFilterDrawerOpen(false)}
-                >
-                  Done
-                </Button>
+      {isTodoDetailsSideLayout ? (
+        <Drawer open={filterDrawerOpen} onOpenChange={setFilterDrawerOpen} direction="left" modal shouldScaleBackground={false}>
+          <DrawerWideLeftContent
+            className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", todoFilterDrawerPanelClass)}
+          >
+            <DrawerHeader className="shrink-0 bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
+              <DrawerTitle className="flex w-full items-center justify-center gap-2 text-center text-lg font-bold">
+                <ListTodo className="h-4 w-4 shrink-0" />
+                Filter To-Dos
+              </DrawerTitle>
+            </DrawerHeader>
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
+                <VisitFiltersForm
+                  filters={filters}
+                  statusOptions={statusOptions}
+                  areaOptions={areaOptions}
+                  assigneeOptions={assigneeFilterOptions}
+                  dueDateYmd={dueDateFilter ? toLocalDateString(dueDateFilter) : null}
+                  onDueDateYmdChange={(ymd) => setDueDateFilter(ymd ? parseLocalDateString(ymd) : null)}
+                  onFiltersChange={setFilters}
+                  onClearFilters={clearFilters}
+                />
+                <div className="flex justify-end pt-4">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setFilterDrawerOpen(false)}
+                  >
+                    Done
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
-        </DrawerWideLeftContent>
-      </Drawer>
+          </DrawerWideLeftContent>
+        </Drawer>
+      ) : (
+        <Drawer open={filterDrawerOpen} onOpenChange={setFilterDrawerOpen} modal shouldScaleBackground={false}>
+          <DrawerContent
+            className={cn(
+              "max-h-[85svh] dark:border-[#1c1921] dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
+              todoFilterDrawerPanelClass
+            )}
+            handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
+          >
+            <DrawerHeader className="shrink-0 bg-transparent px-4 pb-2 pt-4 text-center">
+              <DrawerTitle className="flex w-full items-center justify-center gap-2 text-center text-lg font-bold">
+                <ListTodo className="h-4 w-4 shrink-0" />
+                Filter To-Dos
+              </DrawerTitle>
+            </DrawerHeader>
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
+                <VisitFiltersForm
+                  filters={filters}
+                  statusOptions={statusOptions}
+                  areaOptions={areaOptions}
+                  assigneeOptions={assigneeFilterOptions}
+                  dueDateYmd={dueDateFilter ? toLocalDateString(dueDateFilter) : null}
+                  onDueDateYmdChange={(ymd) => setDueDateFilter(ymd ? parseLocalDateString(ymd) : null)}
+                  onFiltersChange={setFilters}
+                  onClearFilters={clearFilters}
+                />
+                <div className="flex justify-end pt-4">
+                  <Button type="button" variant="outline" onClick={() => setFilterDrawerOpen(false)}>
+                    Done
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </DrawerContent>
+        </Drawer>
+      )}
 
       {isTodoDetailsSideLayout ? (
       <Drawer

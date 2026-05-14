@@ -2283,38 +2283,67 @@ export function CallHistory({
         </Drawer>
       ) : null}
 
-      {/* Calls filter: left sheet (opens over Calls list drawer) */}
-      <Drawer
-        open={showFiltersDrawer}
-        onOpenChange={setShowFiltersDrawer}
-        direction="left"
-        modal
-        shouldScaleBackground={false}
-      >
-        <DrawerWideLeftContent
-          className={cn(
-            "dark:border-[#1c1921] dark:text-[#fffaff]",
-            callsFilterDrawerPanelClass
-          )}
+      {/* Calls filter: bottom sheet on phone; left sheet on tablet (opens over Calls list drawer) */}
+      {callsDrawerTabletLayout ? (
+        <Drawer
+          open={showFiltersDrawer}
+          onOpenChange={setShowFiltersDrawer}
+          direction="left"
+          modal
+          shouldScaleBackground={false}
         >
-          <DrawerHeader className="shrink-0 bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
-            <DrawerTitle className="flex w-full items-center justify-center gap-2 text-center text-lg font-bold">
-              <KnockingDoorIcon />
-              Filter Calls
-            </DrawerTitle>
-          </DrawerHeader>
-          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
-              {filterForm}
-              <div className="flex justify-end pt-4">
-                <Button type="button" variant="outline" onClick={() => setShowFiltersDrawer(false)}>
-                  Done
-                </Button>
+          <DrawerWideLeftContent
+            className={cn(
+              "dark:border-[#1c1921] dark:text-[#fffaff]",
+              callsFilterDrawerPanelClass
+            )}
+          >
+            <DrawerHeader className="shrink-0 bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
+              <DrawerTitle className="flex w-full items-center justify-center gap-2 text-center text-lg font-bold">
+                <KnockingDoorIcon />
+                Filter Calls
+              </DrawerTitle>
+            </DrawerHeader>
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
+                {filterForm}
+                <div className="flex justify-end pt-4">
+                  <Button type="button" variant="outline" onClick={() => setShowFiltersDrawer(false)}>
+                    Done
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
-        </DrawerWideLeftContent>
-      </Drawer>
+          </DrawerWideLeftContent>
+        </Drawer>
+      ) : (
+        <Drawer open={showFiltersDrawer} onOpenChange={setShowFiltersDrawer} modal shouldScaleBackground={false}>
+          <DrawerContent
+            className={cn(
+              "max-h-[85svh] dark:border-[#1c1921] dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
+              callsFilterDrawerPanelClass
+            )}
+            handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
+          >
+            <DrawerHeader className="shrink-0 bg-transparent px-4 pb-2 pt-4 text-center">
+              <DrawerTitle className="flex w-full items-center justify-center gap-2 text-center text-lg font-bold">
+                <KnockingDoorIcon />
+                Filter Calls
+              </DrawerTitle>
+            </DrawerHeader>
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
+                {filterForm}
+                <div className="flex justify-end pt-4">
+                  <Button type="button" variant="outline" onClick={() => setShowFiltersDrawer(false)}>
+                    Done
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </DrawerContent>
+        </Drawer>
+      )}
 
       {/* Area picker drawer for BWI tab header */}
       <Drawer open={showAreaDrawer} onOpenChange={setShowAreaDrawer}>
