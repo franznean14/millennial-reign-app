@@ -35,7 +35,7 @@ import { archiveEstablishment, deleteEstablishment } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { getSharedEstablishmentsAndHouseholders } from "@/lib/business/bwi-lists-coordinator";
 import { formatStatusText } from "@/lib/utils/formatters";
-import { applyDeviceSafeAreaTop } from "@/lib/utils/device-safe-area";
+import { applyDeviceSafeAreaInsets } from "@/lib/utils/device-safe-area";
 
 // Lazy-load heavy UI components to reduce initial bundle
 import { HomeSection } from "@/components/sections/HomeSection";
@@ -308,7 +308,7 @@ export function AppClient() {
   }, [setContentLoading]);
 
   useEffect(() => {
-    const handleSafeArea = () => applyDeviceSafeAreaTop();
+    const handleSafeArea = () => applyDeviceSafeAreaInsets();
     handleSafeArea();
     window.addEventListener("resize", handleSafeArea);
     window.addEventListener("orientationchange", handleSafeArea);

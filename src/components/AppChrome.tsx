@@ -71,7 +71,12 @@ export function AppChrome({ children }: AppChromeProps) {
       <OnlineBanner />
       <BiometricGate />
       
-      <SidebarProvider className="max-md:!fixed max-md:!inset-x-0 max-md:!top-0 max-md:!bottom-auto max-md:!h-[100lvh] max-md:!max-h-[100lvh] max-md:!overflow-hidden">
+      {/*
+        Mobile: pin shell with inset-0 (fill viewport edge-to-edge). top-0 + bottom-auto + h-[100lvh]
+        leaves an unpainted strip above the home indicator on some iOS standalone builds (same class of
+        bug as the top black strip — layout box shorter than visible viewport).
+      */}
+      <SidebarProvider className="max-md:!fixed max-md:!inset-0 max-md:!min-h-0 max-md:!h-auto max-md:!max-h-none max-md:!overflow-hidden max-md:bg-background max-md:dark:bg-[#24231f]">
         <SidebarInset className="min-h-0">
           <HomeTodoDetailsFabProvider>
             <div className={cn("flex min-h-0 flex-1 flex-col px-4 w-full overflow-x-hidden", studyBibleDarkClasses.page)}>
@@ -80,8 +85,14 @@ export function AppChrome({ children }: AppChromeProps) {
           </HomeTodoDetailsFabProvider>
         </SidebarInset>
         
-        {/* Bottom Navigation (Mobile) */}
-        <nav className="absolute inset-x-0 bottom-0 z-20 border-t border-border/70 bg-background/45 backdrop-blur-[44px] backdrop-saturate-150 backdrop-brightness-110 supports-[backdrop-filter]:bg-background/35 md:hidden pb-[env(safe-area-inset-bottom)] dark:border-[#1c1921] dark:bg-[#2a2534]/50 dark:backdrop-brightness-125">
+        {/* Bottom nav: opaque chrome + env() inset only — layout viewport fill uses globals 100lvh on phones */}
+        <nav
+          className={cn(
+            "fixed inset-x-0 bottom-0 z-50 border-t border-border md:hidden",
+            "bg-background pb-[env(safe-area-inset-bottom,0px)] dark:border-[#1c1921] dark:bg-[#2a2534]"
+          )}
+          aria-label="Primary navigation"
+        >
           <div className="mx-auto flex max-w-screen-sm items-stretch justify-around">
             {navItems.map(({ id, label, icon: Icon }) => {
               const isActive = currentSection === id;

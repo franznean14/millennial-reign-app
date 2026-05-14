@@ -669,7 +669,7 @@ export function CallForm({ establishments, selectedEstablishmentId, onSaved, ini
   );
 
   return (
-    <form className={cn("grid gap-3 pb-10", sidebarFormClasses.form)} onSubmit={handleSubmit}>
+    <form className={cn("grid gap-3 pb-4", sidebarFormClasses.form)} onSubmit={handleSubmit}>
       {householderId ? (
         <div className="grid gap-1">
           <Label className={sidebarFormClasses.label}>Householder</Label>

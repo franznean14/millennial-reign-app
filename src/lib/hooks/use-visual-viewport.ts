@@ -43,14 +43,12 @@ export function useVisualViewport() {
           // document.documentElement.style.setProperty('--visual-viewport-offset-top', `${newOffsetTop}px`);
           // document.documentElement.style.setProperty('--visual-viewport-offset-left', `${newOffsetLeft}px`);
         } else {
-          // Reset CSS custom properties to default values when keyboard closes
-          // Use a small delay to allow smooth transition
-          setTimeout(() => {
-            document.documentElement.style.removeProperty('--visual-viewport-height');
-            // document.documentElement.style.removeProperty('--visual-viewport-width');
-            // document.documentElement.style.removeProperty('--visual-viewport-offset-top');
-            // document.documentElement.style.removeProperty('--visual-viewport-offset-left');
-          }, 50);
+          // Reset immediately — delayed removal races iOS PWA keyboard dismiss and leaves
+          // `[data-vaul-drawer]` / overlays clamped to a stale height (gray band over bottom nav).
+          document.documentElement.style.removeProperty("--visual-viewport-height");
+          requestAnimationFrame(() => {
+            document.documentElement.style.removeProperty("--visual-viewport-height");
+          });
         }
         
         // Only update state if height actually changed to prevent unnecessary re-renders

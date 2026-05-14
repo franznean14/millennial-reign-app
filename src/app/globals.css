@@ -340,6 +340,18 @@ body.has-device-safe-top {
   }
 }
 
+/* iPhone standalone PWA: layout sized with 100dvh can stop above the physical bottom (unpainted gray band
+   under fixed chrome). Largest viewport height fills the painted screen without changing tablet (768+). */
+@media (max-width: 767px) {
+  html {
+    min-height: 100lvh;
+  }
+
+  body {
+    min-height: 100lvh;
+  }
+}
+
 /* App-wide scroll lock must override mobile body overflow rules */
 html.app-scroll-locked,
 body.app-scroll-locked {

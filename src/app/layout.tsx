@@ -50,9 +50,6 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="CONG" />
         <meta name="mobile-web-app-capable" content="yes" />
-        
-        {/* Prevent zoom on iOS */}
-        <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
       </head>
       <body suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {/* FAB portal: fixed layer above sheets/dialogs; children use pointer-events-auto */}
@@ -69,7 +66,6 @@ export default function RootLayout({
   );
 }
 
-// Enable iOS safe-area env vars (for bottom nav padding)
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,

@@ -200,9 +200,9 @@ export const DrawerContent = React.forwardRef<
                     window.innerHeight,
                     visualViewport.height
                   )
-                  ? "env(safe-area-inset-bottom, 0px)"
-                  : "0px"
-                : "0px"
+                  ? "max(env(safe-area-inset-bottom, 0px), 12px)"
+                  : "max(env(safe-area-inset-bottom, 0px), 16px)"
+                : "max(env(safe-area-inset-bottom, 0px), 16px)",
           }}
         >
           {children}

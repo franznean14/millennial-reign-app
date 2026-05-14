@@ -438,7 +438,7 @@ export function TodoForm({
 
   return (
     <form
-      className={cn("grid gap-3 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]", sidebarFormClasses.form)}
+      className={cn("grid gap-3 pb-4", sidebarFormClasses.form)}
       onSubmit={handleSubmit}
     >
       {initialTodo?.call_id ? (

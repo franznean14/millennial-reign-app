@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect } from "react";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -22,33 +22,17 @@ interface FormModalBodyProps {
 }
 
 function FormModalBody({ children, className }: FormModalBodyProps) {
-  const bodyRef = useRef<HTMLDivElement>(null);
-  const [isScrollable, setIsScrollable] = useState(false);
-
-  useEffect(() => {
-    const el = bodyRef.current;
-    if (!el) return;
-    const update = () => {
-      const scrollable = el.scrollHeight - el.clientHeight > 4;
-      setIsScrollable(scrollable);
-    };
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(el);
-    window.addEventListener("resize", update);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", update);
-    };
-  }, []);
-
+  /**
+   * Bottom drawers must always reserve nav + home-indicator space. Previously we only padded when the
+   * body was scrollable; short forms (edit establishment / call / to-do) got no pb, leaving an empty
+   * strip above the sheet edge on iOS (especially after keyboard focus).
+   */
   return (
     <div
-      ref={bodyRef}
       className={cn(
         "px-4 min-w-0 overflow-x-hidden",
         "dark:text-[#fffaff]",
-        isScrollable ? "pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]" : "",
+        "max-xl:pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] xl:pb-6",
         className
       )}
     >
@@ -207,7 +191,7 @@ export function FormModal({
                 sheetBodyScrollClassName
               )}
             >
-              <FormModalBody className={cn("pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]", bodyClassName)}>
+              <FormModalBody className={bodyClassName}>
                 {children}
               </FormModalBody>
             </div>
@@ -270,7 +254,7 @@ export function FormModal({
                 sheetBodyScrollClassName
               )}
             >
-              <FormModalBody className={cn("pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]", bodyClassName)}>
+              <FormModalBody className={bodyClassName}>
                 {children}
               </FormModalBody>
             </div>

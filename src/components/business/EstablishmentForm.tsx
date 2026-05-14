@@ -443,7 +443,7 @@ export function EstablishmentForm({ onSaved, onDelete, onArchive, selectedArea, 
   };
 
   return (
-    <form className={cn("grid gap-3 pb-10", sidebarFormClasses.form)} onSubmit={handleSubmit}>
+    <form className={cn("grid gap-3 pb-4", sidebarFormClasses.form)} onSubmit={handleSubmit}>
       <div className="grid gap-1">
         <Label className={sidebarFormClasses.label}>Name</Label>
         <Input className={sidebarFormClasses.input} value={name} onChange={e=>setName(e.target.value)} required />

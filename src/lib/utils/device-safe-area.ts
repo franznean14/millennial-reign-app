@@ -22,16 +22,17 @@ function measureSafeAreaInsets(): SafeAreaInsets {
   probe.style.top = "0";
   probe.style.left = "0";
   probe.style.height = "0";
-  probe.style.paddingTop = "env(safe-area-inset-top)";
-  probe.style.paddingTop = "constant(safe-area-inset-top)";
   probe.style.visibility = "hidden";
+  probe.style.paddingTop = "constant(safe-area-inset-top)";
+  probe.style.paddingTop = "env(safe-area-inset-top)";
   document.body.appendChild(probe);
   const top = probe.offsetHeight || 0;
   document.body.removeChild(probe);
   return { top };
 }
 
-export function applyDeviceSafeAreaTop(): void {
+/** Sets --device-safe-top + body class so chrome owns top inset (no body padding strip on iOS PWA). */
+export function applyDeviceSafeAreaInsets(): void {
   if (typeof document === "undefined") return;
   const { top } = measureSafeAreaInsets();
   const isIOS = isIOSDevice();
@@ -42,3 +43,4 @@ export function applyDeviceSafeAreaTop(): void {
   document.body.classList.toggle("has-device-safe-top", safeTop > 0);
   document.documentElement.setAttribute("data-has-iphone-notch", hasNotchOrIsland ? "true" : "false");
 }
+
