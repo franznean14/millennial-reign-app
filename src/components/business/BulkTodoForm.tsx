@@ -733,6 +733,51 @@ export function BulkTodoForm({
     [buildSyntheticTodoForTargetDetails]
   );
 
+  const targetOptionFromBulkTargetKey = useCallback(
+    (targetKey: string): TargetOption | null => {
+      if (targetKey === "none") return null;
+      if (targetKey.startsWith("establishment:")) {
+        const id = targetKey.slice("establishment:".length);
+        const est = establishmentById.get(id);
+        if (!est?.id) return null;
+        const statusToken = est.publisher_id ? "personal_territory" : getBestStatus(est.statuses || []);
+        return {
+          key: targetKey,
+          label: est.name,
+          typeLabel: "Establishment",
+          subtitle: est.area || "",
+          status: statusToken,
+          avatars: [],
+          searchText: `${est.name}`.toLowerCase(),
+        };
+      }
+      if (targetKey.startsWith("householder:")) {
+        const id = targetKey.slice("householder:".length);
+        const hh = householdersById.get(id);
+        if (!hh?.id) return null;
+        return {
+          key: targetKey,
+          label: hh.name,
+          typeLabel: "Contact",
+          subtitle: hh.establishment_name || "",
+          status: hh.status || undefined,
+          avatars: [],
+          searchText: `${hh.name}`.toLowerCase(),
+        };
+      }
+      return null;
+    },
+    [establishmentById, householdersById]
+  );
+
+  const openBulkDetailsForDraftRow = useCallback(
+    (row: BulkTodoDraftRow) => {
+      const option = targetOptionFromBulkTargetKey(row.targetKey);
+      if (option) openBulkTargetDetails(option);
+    },
+    [openBulkTargetDetails, targetOptionFromBulkTargetKey]
+  );
+
   const participantsById = useMemo(() => {
     const map = new Map<string, PersonAvatar>();
     participants.forEach((participant) => {
@@ -2742,6 +2787,21 @@ export function BulkTodoForm({
         </p>
       </div>
       <div className="flex items-center gap-1">
+        {publisherUserId && row.targetKey !== "none" ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+            aria-label={`Open details for ${getRowTargetLabel(row, "this target")}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              openBulkDetailsForDraftRow(row);
+            }}
+          >
+            <ExternalLink className="h-4 w-4" />
+          </Button>
+        ) : null}
         <Button
           type="button"
           variant="ghost"
