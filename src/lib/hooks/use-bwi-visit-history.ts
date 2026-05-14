@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { VisitRecord } from "@/lib/utils/visit-history";
 import { dedupeAndSortVisits } from "@/lib/utils/visit-history";
 import { getBwiVisitsPage, getRecentBwiVisits } from "@/lib/db/visit-history";
@@ -50,6 +50,10 @@ export function useBwiVisitHistory({
   const [allVisitsRaw, setAllVisitsRaw] = useState<VisitRecord[]>([]);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const allVisitsRawRef = useRef<VisitRecord[]>([]);
+  allVisitsRawRef.current = allVisitsRaw;
+  const revalidateBurstTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const revalidateBurstPendingRef = useRef(false);
   const [filters, setFilters] = useState<VisitFilters>({
     search: "",
     statuses: [],
@@ -127,6 +131,32 @@ export function useBwiVisitHistory({
     [enabled, userId, pageSize, recentLimit]
   );
 
+  const clearBwiVisitPageCaches = useCallback(async () => {
+    await cacheDelete("bwi-visits-all-v2");
+    for (let i = 0; i < 10; i++) {
+      await cacheDelete(`bwi-all-visits-v2-${userId ?? "all"}-${i * 20}`);
+    }
+  }, [userId]);
+
+  const flushRevalidateBurst = useCallback(() => {
+    revalidateBurstTimerRef.current = null;
+    if (!revalidateBurstPendingRef.current) return;
+    revalidateBurstPendingRef.current = false;
+    void (async () => {
+      await clearBwiVisitPageCaches();
+      loadInitialVisits(true, { suppressLoading: true });
+      if (allVisitsRawRef.current.length > 0) {
+        loadAllVisits(0, true);
+      }
+    })();
+  }, [clearBwiVisitPageCaches, loadInitialVisits, loadAllVisits]);
+
+  const scheduleRevalidateBurst = useCallback(() => {
+    revalidateBurstPendingRef.current = true;
+    if (revalidateBurstTimerRef.current) clearTimeout(revalidateBurstTimerRef.current);
+    revalidateBurstTimerRef.current = setTimeout(flushRevalidateBurst, 450);
+  }, [flushRevalidateBurst]);
+
   // Online: same first-page fetch + merge as the Calls drawer (forced), so the Home card matches.
   // Offline: cache-backed recent list only (getBwiVisitsPage falls back to IndexedDB).
   useEffect(() => {
@@ -153,18 +183,10 @@ export function useBwiVisitHistory({
     };
   }, [enabled, userId, loadAllVisits, loadInitialVisits]);
 
-  // Listen for visit updates to refresh the list
+  // Listen for visit updates to refresh the list — debounce cache clears + refetch bursts to reduce Disk IO
   useEffect(() => {
     if (!enabled) return;
-    const handleVisitAdded = async (raw: unknown) => {
-      // Clear cache first to ensure fresh data
-      await cacheDelete("bwi-visits-all-v2");
-      // Clear all paginated cache entries
-      for (let i = 0; i < 10; i++) {
-        await cacheDelete(`bwi-all-visits-v2-${userId ?? "all"}-${i * 20}`);
-      }
-      
-      // Optimistically add the new visit if we have the data
+    const handleVisitAdded = (raw: unknown) => {
       if (raw && typeof raw === "object" && "visit_date" in raw) {
         const visitData = raw as VisitAddedBusPayload;
         if (visitData.visit_date) {
@@ -182,113 +204,76 @@ export function useBwiVisitHistory({
             notes: visitData.note,
             created_at: new Date().toISOString(),
             publisher_id: visitData.publisher_id,
-            publisher: visitData.publisher ? {
-              first_name: visitData.publisher.first_name ?? "",
-              last_name: visitData.publisher.last_name ?? "",
-              avatar_url: visitData.publisher.avatar_url ?? undefined
-            } : undefined,
-            partner: visitData.partner ? {
-              first_name: visitData.partner.first_name ?? "",
-              last_name: visitData.partner.last_name ?? "",
-              avatar_url: visitData.partner.avatar_url ?? undefined
-            } : undefined
+            publisher: visitData.publisher
+              ? {
+                  first_name: visitData.publisher.first_name ?? "",
+                  last_name: visitData.publisher.last_name ?? "",
+                  avatar_url: visitData.publisher.avatar_url ?? undefined,
+                }
+              : undefined,
+            partner: visitData.partner
+              ? {
+                  first_name: visitData.partner.first_name ?? "",
+                  last_name: visitData.partner.last_name ?? "",
+                  avatar_url: visitData.partner.avatar_url ?? undefined,
+                }
+              : undefined,
           };
-        
-        // Optimistically update the lists
-        setVisits((prev) => {
-          const combined = dedupeAndSortVisits([newVisitRecord, ...prev]);
-          return combined.slice(0, recentLimit);
-        });
-        
-        setAllVisitsRaw((prev) => {
-          const combined = dedupeAndSortVisits([newVisitRecord, ...prev]);
-          return combined;
-        });
+
+          setVisits((prev) => {
+            const combined = dedupeAndSortVisits([newVisitRecord, ...prev]);
+            return combined.slice(0, recentLimit);
+          });
+
+          setAllVisitsRaw((prev) => dedupeAndSortVisits([newVisitRecord, ...prev]));
         }
       }
 
-      loadInitialVisits(true, { suppressLoading: true });
-      // If full list is already loaded, refresh it too
-      if (allVisitsRaw.length > 0) {
-        loadAllVisits(0, true);
-      }
+      scheduleRevalidateBurst();
     };
 
-    const handleVisitUpdated = async () => {
-      // Clear cache to force fresh fetch
-      await cacheDelete("bwi-visits-all-v2");
-      // Clear all paginated cache entries
-      for (let i = 0; i < 10; i++) {
-        await cacheDelete(`bwi-all-visits-v2-${userId ?? "all"}-${i * 20}`);
-      }
-      // Refresh recent visits preview
-      loadInitialVisits(true, { suppressLoading: true });
-      // If full list is already loaded, refresh it too
-      if (allVisitsRaw.length > 0) {
-        loadAllVisits(0, true);
-      }
+    const handleVisitUpdated = () => {
+      scheduleRevalidateBurst();
     };
 
-    /** Establishment/householder status (and names) on list rows are denormalized at fetch time; refetch visits when those entities change. */
-    const handleEstablishmentOrHouseholderUpdated = async () => {
-      await cacheDelete("bwi-visits-all-v2");
-      for (let i = 0; i < 10; i++) {
-        await cacheDelete(`bwi-all-visits-v2-${userId ?? "all"}-${i * 20}`);
-      }
-      loadInitialVisits(true, { suppressLoading: true });
-      if (allVisitsRaw.length > 0) {
-        loadAllVisits(0, true);
-      }
+    const handleEstablishmentOrHouseholderUpdated = () => {
+      scheduleRevalidateBurst();
     };
 
-    const handleVisitDeleted = async (deletedVisit: { id: string }) => {
+    const handleVisitDeleted = (deletedVisit: { id: string }) => {
       const visitId = deletedVisit?.id;
       if (!visitId) return;
 
-      // Clear cache first to ensure fresh data
-      await cacheDelete("bwi-visits-all-v2");
-      // Clear all paginated cache entries
-      for (let i = 0; i < 10; i++) {
-        await cacheDelete(`bwi-all-visits-v2-${userId ?? "all"}-${i * 20}`);
-      }
+      setVisits((prev) =>
+        prev.filter((v) => v.id !== `hh-${visitId}` && v.id !== `est-${visitId}`)
+      );
 
-      // Optimistically remove the visit from the lists
-      setVisits((prev) => {
-        return prev.filter(v => {
-          // Visit IDs in the list can be either "hh-{visitId}" or "est-{visitId}"
-          return v.id !== `hh-${visitId}` && v.id !== `est-${visitId}`;
-        });
-      });
+      setAllVisitsRaw((prev) =>
+        prev.filter((v) => v.id !== `hh-${visitId}` && v.id !== `est-${visitId}`)
+      );
 
-      setAllVisitsRaw((prev) => {
-        return prev.filter(v => {
-          // Visit IDs in the list can be either "hh-{visitId}" or "est-{visitId}"
-          return v.id !== `hh-${visitId}` && v.id !== `est-${visitId}`;
-        });
-      });
-
-      // Then refresh from server to ensure consistency
-      loadInitialVisits(true, { suppressLoading: true });
-      // If full list is already loaded, refresh it too
-      if (allVisitsRaw.length > 0) {
-        loadAllVisits(0, true);
-      }
+      scheduleRevalidateBurst();
     };
 
-    businessEventBus.subscribe('visit-added', handleVisitAdded);
-    businessEventBus.subscribe('visit-updated', handleVisitUpdated);
-    businessEventBus.subscribe('visit-deleted', handleVisitDeleted);
-    businessEventBus.subscribe('establishment-updated', handleEstablishmentOrHouseholderUpdated);
-    businessEventBus.subscribe('householder-updated', handleEstablishmentOrHouseholderUpdated);
+    businessEventBus.subscribe("visit-added", handleVisitAdded);
+    businessEventBus.subscribe("visit-updated", handleVisitUpdated);
+    businessEventBus.subscribe("visit-deleted", handleVisitDeleted);
+    businessEventBus.subscribe("establishment-updated", handleEstablishmentOrHouseholderUpdated);
+    businessEventBus.subscribe("householder-updated", handleEstablishmentOrHouseholderUpdated);
 
     return () => {
-      businessEventBus.unsubscribe('visit-added', handleVisitAdded);
-      businessEventBus.unsubscribe('visit-updated', handleVisitUpdated);
-      businessEventBus.unsubscribe('visit-deleted', handleVisitDeleted);
-      businessEventBus.unsubscribe('establishment-updated', handleEstablishmentOrHouseholderUpdated);
-      businessEventBus.unsubscribe('householder-updated', handleEstablishmentOrHouseholderUpdated);
+      if (revalidateBurstTimerRef.current) {
+        clearTimeout(revalidateBurstTimerRef.current);
+        revalidateBurstTimerRef.current = null;
+      }
+      revalidateBurstPendingRef.current = false;
+      businessEventBus.unsubscribe("visit-added", handleVisitAdded);
+      businessEventBus.unsubscribe("visit-updated", handleVisitUpdated);
+      businessEventBus.unsubscribe("visit-deleted", handleVisitDeleted);
+      businessEventBus.unsubscribe("establishment-updated", handleEstablishmentOrHouseholderUpdated);
+      businessEventBus.unsubscribe("householder-updated", handleEstablishmentOrHouseholderUpdated);
     };
-  }, [enabled, loadInitialVisits, loadAllVisits, allVisitsRaw.length, userId, recentLimit]);
+  }, [enabled, scheduleRevalidateBurst, recentLimit]);
 
   const filterOptions = useMemo(() => {
     const statusSet = new Set<string>();

@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import {
   formatEventTypeLabel,
   listEventSchedules,
+  readCachedEventSchedules,
   type EventSchedule,
   type EventType,
 } from "@/lib/db/eventSchedules";
@@ -115,6 +116,10 @@ export function CongregationAdminEventsCard({ congregationId, canEdit }: Congreg
     }
     setLoading(true);
     try {
+      const fromIdb = await readCachedEventSchedules(congregationId);
+      if (fromIdb && fromIdb.length > 0) {
+        setEvents(fromIdb);
+      }
       const list = await listEventSchedules(congregationId);
       setEvents(list);
     } catch (e) {

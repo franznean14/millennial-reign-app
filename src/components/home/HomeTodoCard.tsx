@@ -30,6 +30,7 @@ import {
   type HouseholderWithDetails,
   type HouseholderStatus,
 } from "@/lib/db/business";
+import { getProfile } from "@/lib/db/profiles";
 import { cacheGet, cacheSet, cacheDelete } from "@/lib/offline/store";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { FilterControls, type FilterBadge } from "@/components/shared/FilterControls";
@@ -414,6 +415,8 @@ export function HomeTodoCard({
   const [takeTodoConfirmOpen, setTakeTodoConfirmOpen] = useState(false);
   const [todoPendingTake, setTodoPendingTake] = useState<MyOpenCallTodoItem | null>(null);
   const [takingTodoId, setTakingTodoId] = useState<string | null>(null);
+  /** Home-scope todo realtime filters call_todos/calls by congregation_id (from profile). */
+  const [todoRealtimeCongregationId, setTodoRealtimeCongregationId] = useState<string | null>(null);
   const layoutScopeId = useId();
   /** Unique per mount — two HomeTodoCards can mount (hidden breakpoint sibling); Supabase reuses channel topics by name. */
   const realtimeChannelSlotRef = useRef(
@@ -423,6 +426,7 @@ export function HomeTodoCard({
   );
   const establishmentDetailsCacheRef = useRef(new Map<string, EstablishmentDetailsSnapshot>());
   const householderDetailsCacheRef = useRef(new Map<string, HouseholderDetailsSnapshot>());
+  const realtimeTodoReloadDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const isMobile = useMobile();
   const isTodoDetailsSideLayout = useMediaQuery("(min-width: 768px)");
@@ -595,6 +599,32 @@ export function HomeTodoCard({
         }
       });
   }, [scopeKey, establishmentId, householderId, userId, filters.myUpdatesOnly]);
+
+  const scheduleRealtimeTodoReload = useCallback(() => {
+    if (realtimeTodoReloadDebounceRef.current) clearTimeout(realtimeTodoReloadDebounceRef.current);
+    realtimeTodoReloadDebounceRef.current = setTimeout(() => {
+      realtimeTodoReloadDebounceRef.current = null;
+      loadTodos({ useCache: false, forceNetwork: true });
+    }, 350);
+  }, [loadTodos]);
+
+  useEffect(() => {
+    if (!userId || detailsBridgeOnly) {
+      setTodoRealtimeCongregationId(null);
+      return;
+    }
+    if (establishmentId || householderId) {
+      setTodoRealtimeCongregationId(null);
+      return;
+    }
+    let cancelled = false;
+    void getProfile(userId).then((p) => {
+      if (!cancelled) setTodoRealtimeCongregationId(p?.congregation_id ?? null);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, detailsBridgeOnly, establishmentId, householderId]);
 
   useEffect(() => {
     if (!scopeKey) return;
@@ -1108,29 +1138,65 @@ export function HomeTodoCard({
     setDueDateFilter(null);
   }, []);
 
-  // Live update for both card and drawer
+  // Live update for both card and drawer (congregation- or entity-scoped — avoids global table fan-out)
   useEffect(() => {
-    if (!scopeKey) return;
+    if (!scopeKey || detailsBridgeOnly) return;
+
+    let todoFilter: string;
+    let callsFilterStr: string;
+    if (establishmentId) {
+      todoFilter = `establishment_id=eq.${establishmentId}`;
+      callsFilterStr = `establishment_id=eq.${establishmentId}`;
+    } else if (householderId) {
+      todoFilter = `householder_id=eq.${householderId}`;
+      callsFilterStr = `householder_id=eq.${householderId}`;
+    } else if (todoRealtimeCongregationId) {
+      todoFilter = `congregation_id=eq.${todoRealtimeCongregationId}`;
+      callsFilterStr = `congregation_id=eq.${todoRealtimeCongregationId}`;
+    } else {
+      return;
+    }
+
     const supabase = createSupabaseBrowserClient();
     const channel = supabase
       .channel(`todos-live-${scopeKey}-${realtimeChannelSlotRef.current}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "call_todos" }, () => {
-        loadTodos({ useCache: false, forceNetwork: true });
-      })
-      .on("postgres_changes", { event: "*", schema: "public", table: "calls" }, () => {
-        loadTodos({ useCache: false, forceNetwork: true });
-      })
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "call_todos", filter: todoFilter },
+        () => {
+          scheduleRealtimeTodoReload();
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "calls", filter: callsFilterStr },
+        () => {
+          scheduleRealtimeTodoReload();
+        }
+      )
       .subscribe();
 
     return () => {
+      if (realtimeTodoReloadDebounceRef.current) {
+        clearTimeout(realtimeTodoReloadDebounceRef.current);
+        realtimeTodoReloadDebounceRef.current = null;
+      }
       try {
         supabase.removeChannel(channel);
       } catch {}
     };
-  }, [scopeKey, loadTodos]);
+  }, [
+    scopeKey,
+    detailsBridgeOnly,
+    establishmentId,
+    householderId,
+    todoRealtimeCongregationId,
+    scheduleRealtimeTodoReload,
+  ]);
 
   // Fallback live-update channel for local mutations (e.g., bulk submit)
   useEffect(() => {
+    if (detailsBridgeOnly) return;
     const handleTodosMutated = (event: Event) => {
       const detail = (event as CustomEvent<TodoMutationEventDetail | undefined>).detail;
       const matchesScope = (todo: Partial<MyOpenCallTodoItem> & { id: string }) => {
@@ -1169,7 +1235,7 @@ export function HomeTodoCard({
     return () => {
       window.removeEventListener("business-todos-mutated", handleTodosMutated);
     };
-  }, [loadTodos, establishmentId, householderId, userId, filters.myUpdatesOnly]);
+  }, [loadTodos, establishmentId, householderId, userId, filters.myUpdatesOnly, detailsBridgeOnly]);
 
   const handleMarkDone = (todo: MyOpenCallTodoItem, checked: boolean) => {
     // Optimistic update: move todo immediately, then revert on failure

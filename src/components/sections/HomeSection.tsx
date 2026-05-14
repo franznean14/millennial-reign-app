@@ -85,7 +85,9 @@ export function HomeSection({
           const supabase = createSupabaseBrowserClient();
           const { data: establishment, error } = await supabase
             .from("business_establishments")
-            .select("*")
+            .select(
+              "id, name, area, statuses, lat, lng, floor, description, note, publisher_id, congregation_id"
+            )
             .eq("id", visit.establishment_id)
             .maybeSingle();
 
@@ -111,7 +113,9 @@ export function HomeSection({
           const supabase = createSupabaseBrowserClient();
           const { data: householder, error } = await supabase
             .from("householders")
-            .select("*")
+            .select(
+              "id, name, status, note, establishment_id, publisher_id, lat, lng, created_at"
+            )
             .eq("id", visit.householder_id)
             .maybeSingle();
 

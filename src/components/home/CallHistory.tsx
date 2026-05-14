@@ -21,10 +21,8 @@ import { getVisitSearchText } from "@/lib/utils/visit-history-ui";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   getEstablishmentDetails,
-  getEstablishmentsWithDetails,
   getHouseholderDetails,
   getMyCompletedCallTodos,
-  listHouseholders,
   type EstablishmentWithDetails,
   type HouseholderWithDetails,
   type HouseholderStatus,
@@ -35,6 +33,7 @@ import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
 import { getSelectedStatusColor } from "@/lib/utils/status-filter-styles";
 import NumberFlow from "@number-flow/react";
 import { cacheGet, cacheSet, cacheDelete } from "@/lib/offline/store";
+import { getSharedEstablishmentsAndHouseholders } from "@/lib/business/bwi-lists-coordinator";
 import { businessEventBus, type BusinessEventType } from "@/lib/events/business-events";
 import {
   Drawer,
@@ -435,10 +434,7 @@ export function CallHistory({
       }
 
       try {
-        const [establishments, householders] = await Promise.all([
-          getEstablishmentsWithDetails(),
-          listHouseholders(),
-        ]);
+        const [establishments, householders] = await getSharedEstablishmentsAndHouseholders();
         if (cancelled) return;
         setBwiEstablishments(establishments);
         setBwiHouseholders(householders.filter((hh) => !!hh.establishment_id));

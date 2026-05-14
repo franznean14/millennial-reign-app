@@ -7,6 +7,9 @@ import { toast } from "@/components/ui/sonner";
 
 const TABLE = "profiles";
 
+const PROFILE_SELECT_COLUMNS =
+  "id, first_name, last_name, middle_name, date_of_birth, date_of_baptism, privileges, avatar_url, role, time_zone, username, gender, congregation_id, group_name, is_congregation_guest, phone_number, address, address_latitude, address_longitude";
+
 export async function getProfile(userId: string): Promise<Profile | null> {
   const supabase = createSupabaseBrowserClient();
   const cacheKey = `profile:${userId}`;
@@ -27,7 +30,7 @@ export async function getProfile(userId: string): Promise<Profile | null> {
   try {
     const { data, error } = await supabase
       .from(TABLE)
-      .select("*")
+      .select(PROFILE_SELECT_COLUMNS)
       .eq("id", userId)
       .single();
 
@@ -210,7 +213,7 @@ export async function upsertProfile(input: Omit<Profile, "id" | "role"> & { id: 
       try {
         const { data } = await supabase
           .from(TABLE)
-          .select("*")
+          .select(PROFILE_SELECT_COLUMNS)
           .eq("id", input.id)
           .single();
         if (data) {

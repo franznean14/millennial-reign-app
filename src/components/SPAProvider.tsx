@@ -113,7 +113,7 @@ export function SPAProvider({ children }: { children: ReactNode }) {
         // Check user permissions
         const { data: profile } = await supabase
           .from('profiles')
-          .select('*')
+          .select('id, role, privileges, congregation_id')
           .eq('id', session.user.id)
           .single();
 

@@ -24,7 +24,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 // Import all the data and business logic functions
 import { getDailyRecord, listDailyByMonth, upsertDailyRecord, isDailyEmpty, deleteDailyRecord } from "@/lib/db/dailyRecords";
-import { getEstablishmentsWithDetails, getEstablishmentDetails, getHouseholderDetails, listHouseholders, deleteHouseholder, archiveHouseholder, calculateDistance, type EstablishmentWithDetails, type VisitWithUser, type HouseholderWithDetails, type BusinessFiltersState } from "@/lib/db/business";
+import { getEstablishmentDetails, getHouseholderDetails, deleteHouseholder, archiveHouseholder, calculateDistance, type EstablishmentWithDetails, type VisitWithUser, type HouseholderWithDetails, type BusinessFiltersState } from "@/lib/db/business";
 import { useBusinessFilteredLists } from "@/lib/hooks/use-business-filtered-lists";
 import { useBusinessFilterOptions } from "@/lib/hooks/use-business-filter-options";
 import { useAccountState } from "@/lib/hooks/use-account-state";
@@ -33,6 +33,7 @@ import { getProfile } from "@/lib/db/profiles";
 import { cacheDelete, cacheGet } from "@/lib/offline/store";
 import { archiveEstablishment, deleteEstablishment } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
+import { getSharedEstablishmentsAndHouseholders } from "@/lib/business/bwi-lists-coordinator";
 import { formatStatusText } from "@/lib/utils/formatters";
 import { applyDeviceSafeAreaTop } from "@/lib/utils/device-safe-area";
 
@@ -494,10 +495,7 @@ export function AppClient() {
         setHouseholders(cachedHouseholders.filter((householder) => !!householder.establishment_id));
       }
 
-      const [establishmentsData, householdersData] = await Promise.all([
-        getEstablishmentsWithDetails(),
-        listHouseholders()
-      ]);
+      const [establishmentsData, householdersData] = await getSharedEstablishmentsAndHouseholders();
       setEstablishments(establishmentsData);
       setHouseholders(householdersData.filter((householder) => !!householder.establishment_id));
 
@@ -618,10 +616,7 @@ export function AppClient() {
         hhId ? cacheDelete(`householder:details:v3:${hhId}`) : Promise.resolve(),
         congHhId ? cacheDelete(`householder:details:v3:${congHhId}`) : Promise.resolve(),
       ]);
-      const [establishmentsData, householdersData] = await Promise.all([
-        getEstablishmentsWithDetails(),
-        listHouseholders(),
-      ]);
+      const [establishmentsData, householdersData] = await getSharedEstablishmentsAndHouseholders();
       setEstablishments(establishmentsData);
       setHouseholders(householdersData.filter((householder) => !!householder.establishment_id));
       const [estDetails, hhDetails, congHhDetails] = await Promise.all([
@@ -707,12 +702,12 @@ export function AppClient() {
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "householders" },
+        { event: "*", schema: "public", table: "householders", filter: `congregation_id=eq.${congregationId}` },
         () => { scheduleBusinessRefetch(); }
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "calls" },
+        { event: "*", schema: "public", table: "calls", filter: `congregation_id=eq.${congregationId}` },
         () => { scheduleBusinessRefetch(); }
       )
       .subscribe();

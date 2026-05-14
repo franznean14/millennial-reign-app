@@ -1,6 +1,7 @@
 "use client";
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { cacheGet, cacheSet } from "@/lib/offline/store";
 
 export type EventType =
   | 'ministry'
@@ -70,6 +71,17 @@ export interface EventSchedule {
   deleted_at?: string | null;
 }
 
+/** List view projection — avoids select('*') Disk IO on schedule queries */
+const EVENT_SCHEDULE_LIST_COLUMNS = `id, congregation_id, event_type, ministry_type, title, description, start_date, end_date, start_time, end_time, is_all_day, recurrence_pattern, recurrence_end_date, day_of_week, day_of_month, month_of_year, recurrence_interval, location, venue_name, venue_address, location_lat, location_lng, status, created_by, updated_by, created_at, updated_at, deleted_at`;
+
+export function eventSchedulesCacheKey(congregationId: string): string {
+  return `event-schedules:v1:${congregationId}`;
+}
+
+export async function readCachedEventSchedules(congregationId: string): Promise<EventSchedule[] | null> {
+  return cacheGet<EventSchedule[]>(eventSchedulesCacheKey(congregationId));
+}
+
 export async function upsertEventSchedule(event: EventSchedule): Promise<EventSchedule | null> {
   const supabase = createSupabaseBrowserClient();
   await supabase.auth.getSession().catch(() => {});
@@ -137,20 +149,33 @@ export async function upsertEventSchedule(event: EventSchedule): Promise<EventSc
 }
 
 export async function listEventSchedules(congregationId: string): Promise<EventSchedule[]> {
+  const cacheKey = eventSchedulesCacheKey(congregationId);
   const supabase = createSupabaseBrowserClient();
   await supabase.auth.getSession().catch(() => {});
-  
-  const { data, error } = await supabase
-    .from('event_schedules')
-    .select('*')
-    .eq('congregation_id', congregationId)
-    .is('deleted_at', null)
-    .order('start_date', { ascending: true });
-  
-  if (error) {
-    console.error('Error listing event schedules:', error);
-    return [];
+
+  if (typeof navigator !== "undefined" && !navigator.onLine) {
+    const cached = await cacheGet<EventSchedule[]>(cacheKey);
+    return cached ?? [];
   }
-  
-  return (data as EventSchedule[]) ?? [];
+
+  const { data, error } = await supabase
+    .from("event_schedules")
+    .select(EVENT_SCHEDULE_LIST_COLUMNS)
+    .eq("congregation_id", congregationId)
+    .is("deleted_at", null)
+    .order("start_date", { ascending: true });
+
+  if (error) {
+    console.error("Error listing event schedules:", error);
+    const stale = await cacheGet<EventSchedule[]>(cacheKey);
+    return stale ?? [];
+  }
+
+  const list = (data as EventSchedule[]) ?? [];
+  try {
+    await cacheSet(cacheKey, list);
+  } catch {
+    /* ignore */
+  }
+  return list;
 }

@@ -243,7 +243,9 @@ export async function listEstablishments(): Promise<Establishment[]> {
     }
     const { data } = await supabase
       .from('business_establishments')
-      .select('*')
+      .select(
+        'id, congregation_id, name, description, area, lat, lng, floor, statuses, note, created_at, updated_at, publisher_id, is_deleted, is_archived'
+      )
       .eq('is_deleted', false)
       .eq('is_archived', false)
       .order('updated_at', { ascending: false });
@@ -1903,7 +1905,9 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
   // Get establishment details — exclude soft-deleted/archived (same filter as list so details detect delete)
   const { data: establishment } = await supabase
     .from('business_establishments')
-    .select('*')
+    .select(
+      'id, congregation_id, name, description, area, lat, lng, floor, statuses, note, created_at, updated_at, created_by, updated_by, publisher_id, is_deleted, is_archived'
+    )
     .eq('id', establishmentId)
     .eq('is_deleted', false)
     .eq('is_archived', false)

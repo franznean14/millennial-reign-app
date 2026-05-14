@@ -422,6 +422,10 @@ EXCEPTION
   WHEN duplicate_column THEN null;
 END $$;
 CREATE INDEX IF NOT EXISTS business_establishments_publisher_id_idx ON public.business_establishments(publisher_id) WHERE publisher_id IS NOT NULL;
+-- List query: getEstablishmentsWithDetails filters congregation_id + not deleted/archived (reduces seq scans / Disk IO)
+CREATE INDEX IF NOT EXISTS business_establishments_congregation_active_idx
+  ON public.business_establishments(congregation_id)
+  WHERE is_deleted = false AND is_archived = false;
 
 -- Householders (renamed from business_householders, supports both business and personal)
 CREATE TABLE IF NOT EXISTS public.householders (
@@ -446,10 +450,56 @@ CREATE TABLE IF NOT EXISTS public.householders (
     CHECK (establishment_id IS NOT NULL OR publisher_id IS NOT NULL)
 );
 
+-- Denormalized congregation_id for scoped realtime filters + indexes (additive; populated via UPDATE backfill + trigger)
+DO $$ BEGIN
+  ALTER TABLE public.householders ADD COLUMN IF NOT EXISTS congregation_id uuid REFERENCES public.congregations(id) ON DELETE SET NULL;
+EXCEPTION WHEN duplicate_column THEN null;
+END $$;
+
 -- Indexes for householders
 CREATE INDEX IF NOT EXISTS householders_establishment_id_idx ON public.householders(establishment_id) WHERE establishment_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS householders_publisher_id_idx ON public.householders(publisher_id) WHERE publisher_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS householders_coordinates_idx ON public.householders(lat, lng) WHERE lat IS NOT NULL AND lng IS NOT NULL;
+CREATE INDEX IF NOT EXISTS householders_congregation_id_idx ON public.householders(congregation_id) WHERE congregation_id IS NOT NULL;
+
+-- Backfill congregation_id from parent establishment or publisher profile (UPDATE only — no deletes)
+UPDATE public.householders h
+SET congregation_id = e.congregation_id
+FROM public.business_establishments e
+WHERE h.establishment_id = e.id
+  AND (h.congregation_id IS NULL OR h.congregation_id IS DISTINCT FROM e.congregation_id);
+
+UPDATE public.householders h
+SET congregation_id = p.congregation_id
+FROM public.profiles p
+WHERE h.publisher_id = p.id
+  AND h.establishment_id IS NULL
+  AND p.congregation_id IS NOT NULL
+  AND (h.congregation_id IS NULL OR h.congregation_id IS DISTINCT FROM p.congregation_id);
+
+CREATE OR REPLACE FUNCTION public.householders_set_congregation_id()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+BEGIN
+  IF NEW.establishment_id IS NOT NULL THEN
+    SELECT e.congregation_id INTO NEW.congregation_id
+    FROM public.business_establishments e
+    WHERE e.id = NEW.establishment_id;
+  ELSIF NEW.publisher_id IS NOT NULL THEN
+    SELECT p.congregation_id INTO NEW.congregation_id
+    FROM public.profiles p
+    WHERE p.id = NEW.publisher_id;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_householders_set_congregation ON public.householders;
+CREATE TRIGGER trg_householders_set_congregation
+  BEFORE INSERT OR UPDATE OF establishment_id, publisher_id ON public.householders
+  FOR EACH ROW
+  EXECUTE FUNCTION public.householders_set_congregation_id();
 
 -- Calls (formerly business_visits)
 CREATE TABLE IF NOT EXISTS public.calls (
@@ -465,6 +515,13 @@ CREATE TABLE IF NOT EXISTS public.calls (
   visit_date date NOT NULL DEFAULT CURRENT_DATE,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+-- Indexes for calls: congregation/realtime filters, IN(establishment_id) visit aggregates, getMyOpenCallTodos on publisher/partner
+CREATE INDEX IF NOT EXISTS calls_congregation_id_idx ON public.calls(congregation_id);
+CREATE INDEX IF NOT EXISTS calls_establishment_id_idx ON public.calls(establishment_id) WHERE establishment_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS calls_householder_id_idx ON public.calls(householder_id) WHERE householder_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS calls_publisher_id_idx ON public.calls(publisher_id) WHERE publisher_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS calls_partner_id_idx ON public.calls(partner_id) WHERE partner_id IS NOT NULL;
 
 -- Call to-dos (one call can have many to-dos; applies to establishment and householder calls)
 CREATE TABLE IF NOT EXISTS public.call_todos (

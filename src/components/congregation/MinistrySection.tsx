@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { Congregation } from "@/lib/db/congregations";
-import { listEventSchedules, type EventSchedule } from "@/lib/db/eventSchedules";
+import { listEventSchedules, readCachedEventSchedules, type EventSchedule } from "@/lib/db/eventSchedules";
 import { formatEventLocationSummaryForDisplay } from "@/lib/utils/event-location-display";
 import { listHouseholders, type HouseholderWithDetails } from "@/lib/db/business";
 import { formatTimeLabel, isEventOccurringToday } from "@/lib/utils/recurrence";
@@ -66,6 +66,13 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
     
     try {
       setLoading(true);
+      const fromIdb = await readCachedEventSchedules(congregationData.id);
+      if (fromIdb && fromIdb.length > 0) {
+        const ministryPrefill = fromIdb.filter((e) => e.event_type === "ministry" && e.status === "active");
+        setAllMinistryEvents(ministryPrefill);
+        const today = new Date();
+        setTodayEvents(ministryPrefill.filter((event) => isEventOccurringToday(event, today)));
+      }
       const allEvents = await listEventSchedules(congregationData.id);
       // Filter for ministry events only
       const ministryEvents = allEvents.filter(e => e.event_type === 'ministry' && e.status === 'active');
