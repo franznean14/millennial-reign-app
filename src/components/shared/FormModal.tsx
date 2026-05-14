@@ -90,6 +90,10 @@ interface FormModalProps {
    * Use e.g. `md:overflow-hidden md:flex md:flex-col` when the child form manages its own scroll regions.
    */
   sheetBodyScrollClassName?: string;
+  /** Bottom-sheet drag handle (passed to {@link DrawerContent} on phone). */
+  drawerHandleClassName?: string;
+  /** Visible subtitle under the title on bottom drawers when {@link description} is set. */
+  drawerDescriptionClassName?: string;
 }
 
 export function FormModal({
@@ -108,6 +112,8 @@ export function FormModal({
   leftSheetStackAboveNestedRight = false,
   skipFabRootInert = false,
   sheetBodyScrollClassName,
+  drawerHandleClassName,
+  drawerDescriptionClassName,
 }: FormModalProps) {
   const isDesktop = useMediaQuery(desktopQuery);
   const isTabletUp = useMediaQuery(tabletQuery);
@@ -218,10 +224,15 @@ export function FormModal({
             className,
             drawerContentClassName
           )}
+          handleClassName={drawerHandleClassName}
         >
           <DrawerHeader className={cn("dark:bg-[#181714]", headerClassName)}>
             <DrawerTitle>{title}</DrawerTitle>
-            <DrawerDescription className={description ? undefined : "sr-only"}>{a11yDescription}</DrawerDescription>
+            <DrawerDescription
+              className={description ? cn("text-sm", studyBibleDarkClasses.muted, drawerDescriptionClassName) : "sr-only"}
+            >
+              {a11yDescription}
+            </DrawerDescription>
           </DrawerHeader>
           <FormModalBody className={bodyClassName}>{children}</FormModalBody>
         </DrawerContent>
@@ -277,11 +288,14 @@ export function FormModal({
             className,
             drawerContentClassName
           )}
+          handleClassName={drawerHandleClassName}
         >
           <DrawerHeader className={cn("bg-transparent dark:text-[#fffaff]", headerClassName)}>
             <DrawerTitle>{title}</DrawerTitle>
             <DrawerDescription
-              className={description ? cn("text-sm", studyBibleDarkClasses.muted) : "sr-only"}
+              className={
+                description ? cn("text-sm", studyBibleDarkClasses.muted, drawerDescriptionClassName) : "sr-only"
+              }
             >
               {a11yDescription}
             </DrawerDescription>
@@ -314,10 +328,17 @@ export function FormModal({
           className,
           drawerContentClassName
         )}
+        handleClassName={drawerHandleClassName}
       >
         <DrawerHeader className={cn("dark:bg-[#181714]", headerClassName)}>
           <DrawerTitle>{title}</DrawerTitle>
-          <DrawerDescription className={description ? undefined : "sr-only"}>{a11yDescription}</DrawerDescription>
+          <DrawerDescription
+            className={
+              description ? cn("text-sm", studyBibleDarkClasses.muted, drawerDescriptionClassName) : "sr-only"
+            }
+          >
+            {a11yDescription}
+          </DrawerDescription>
         </DrawerHeader>
         <FormModalBody className={bodyClassName}>{children}</FormModalBody>
       </DrawerContent>

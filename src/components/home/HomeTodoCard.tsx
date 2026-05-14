@@ -3601,20 +3601,25 @@ export function HomeTodoCard({
           >
             <DrawerHeader className="bg-transparent shrink-0 px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
               <DrawerTitle className="text-center text-xl font-bold">Edit To-Dos</DrawerTitle>
-              <DrawerDescription className="sr-only">
+              <DrawerDescription className={cn("text-center text-sm", studyBibleDarkClasses.muted)}>
                 Select which filtered to-dos to load into bulk edit.
               </DrawerDescription>
             </DrawerHeader>
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
               <div className="flex min-h-0 flex-1 flex-col space-y-4 overflow-hidden">
-                <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border">
+                <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border", studyBibleDarkClasses.todoCard)}>
                   {selectableTodos.length === 0 ? (
-                    <p className="text-sm text-muted-foreground px-2 py-3">
+                    <p className={cn("text-sm px-2 py-3", studyBibleDarkClasses.muted)}>
                       No to-dos available from current filters.
                     </p>
                   ) : (
                     <>
-                      <div className="flex shrink-0 items-center gap-2 border-b bg-muted/25 px-3 py-2">
+                      <div
+                        className={cn(
+                          "flex shrink-0 items-center gap-2 border-b px-3 py-2 dark:border-[#1c1921]",
+                          studyBibleDarkClasses.laneTitleBar
+                        )}
+                      >
                         <Checkbox
                           id="bulk-edit-select-all-tablet"
                           checked={
@@ -3631,7 +3636,7 @@ export function HomeTodoCard({
                         />
                         <Label
                           htmlFor="bulk-edit-select-all-tablet"
-                          className="cursor-pointer text-sm font-medium"
+                          className="cursor-pointer text-sm font-medium dark:text-[#fffaff]"
                         >
                           Select all
                         </Label>
@@ -3639,7 +3644,7 @@ export function HomeTodoCard({
                       <div className="min-h-0 flex-1 overflow-y-auto space-y-3 p-2">
                         {selectableAssignedTodos.length > 0 ? (
                           <div className="space-y-2">
-                            <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            <p className={cn("px-1 text-xs font-semibold uppercase tracking-wide", studyBibleDarkClasses.muted)}>
                               To-Do ({selectableAssignedTodos.length})
                             </p>
                             {selectableAssignedTodos.map((todo) => (
@@ -3655,7 +3660,7 @@ export function HomeTodoCard({
                         ) : null}
                         {selectableUnassignedTodos.length > 0 ? (
                           <div className="space-y-2">
-                            <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                            <p className={cn("px-1 text-xs font-semibold uppercase tracking-wide", studyBibleDarkClasses.muted)}>
                               Open ({selectableUnassignedTodos.length})
                             </p>
                             {selectableUnassignedTodos.map((todo) => (
@@ -3674,11 +3679,17 @@ export function HomeTodoCard({
                   )}
                 </div>
                 <div className="flex shrink-0 justify-end gap-2">
-                  <Button type="button" variant="outline" onClick={() => setBulkEditPromptOpen(false)}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="dark:border-[#80778e]/55 dark:text-[#fffaff] dark:hover:bg-[#3b3348]/70"
+                    onClick={() => setBulkEditPromptOpen(false)}
+                  >
                     Cancel
                   </Button>
                   <Button
                     type="button"
+                    className="dark:bg-[#80778e] dark:text-white dark:hover:bg-[#9a92a8]"
                     onClick={confirmBulkEdit}
                     disabled={selectedTodoIds.length === 0}
                   >
@@ -3695,15 +3706,29 @@ export function HomeTodoCard({
           onOpenChange={setBulkEditPromptOpen}
           title="Edit To-Dos"
           description="Select which filtered to-dos to load into bulk edit."
-          headerClassName="text-center"
+          headerClassName="text-center shrink-0 bg-transparent dark:bg-transparent px-4 pb-2 pt-2"
+          className={cn(
+            todoBulkEditPickerPanelClass,
+            "dark:border-[#1c1921] dark:text-[#fffaff] max-h-[85svh] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:min-h-0 [&_.drawer-content-inner]:overflow-hidden"
+          )}
+          drawerHandleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
+          drawerDescriptionClassName="text-center px-2"
+          bodyClassName="flex min-h-0 flex-1 flex-col px-4 pb-2 pt-0"
         >
-          <div className="space-y-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
-            <div className="overflow-hidden rounded-md border">
+          <div className="flex min-h-0 flex-1 flex-col gap-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
+            <div className={cn("flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border", studyBibleDarkClasses.todoCard)}>
               {selectableTodos.length === 0 ? (
-                <p className="text-sm text-muted-foreground px-2 py-3">No to-dos available from current filters.</p>
+                <p className={cn("text-sm px-2 py-3", studyBibleDarkClasses.muted)}>
+                  No to-dos available from current filters.
+                </p>
               ) : (
                 <>
-                  <div className="flex items-center gap-2 border-b bg-muted/25 px-3 py-2">
+                  <div
+                    className={cn(
+                      "flex items-center gap-2 border-b px-3 py-2 shrink-0 dark:border-[#1c1921]",
+                      studyBibleDarkClasses.laneTitleBar
+                    )}
+                  >
                     <Checkbox
                       id="bulk-edit-select-all"
                       checked={
@@ -3716,14 +3741,14 @@ export function HomeTodoCard({
                       onCheckedChange={(value) => toggleBulkEditSelectAll(value === true)}
                       aria-label={bulkEditSelectAllState.allSelected ? "Unselect all" : "Select all"}
                     />
-                    <Label htmlFor="bulk-edit-select-all" className="text-sm font-medium cursor-pointer">
+                    <Label htmlFor="bulk-edit-select-all" className="text-sm font-medium cursor-pointer dark:text-[#fffaff]">
                       Select all
                     </Label>
                   </div>
-                  <div className="max-h-[50vh] overflow-y-auto space-y-3 p-2">
+                  <div className="min-h-0 flex-1 max-h-[50vh] overflow-y-auto space-y-3 p-2">
                     {selectableAssignedTodos.length > 0 ? (
                       <div className="space-y-2">
-                        <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        <p className={cn("px-1 text-xs font-semibold uppercase tracking-wide", studyBibleDarkClasses.muted)}>
                           To-Do ({selectableAssignedTodos.length})
                         </p>
                         {selectableAssignedTodos.map((todo) => (
@@ -3739,7 +3764,7 @@ export function HomeTodoCard({
                     ) : null}
                     {selectableUnassignedTodos.length > 0 ? (
                       <div className="space-y-2">
-                        <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        <p className={cn("px-1 text-xs font-semibold uppercase tracking-wide", studyBibleDarkClasses.muted)}>
                           Open ({selectableUnassignedTodos.length})
                         </p>
                         {selectableUnassignedTodos.map((todo) => (
@@ -3757,12 +3782,18 @@ export function HomeTodoCard({
                 </>
               )}
             </div>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setBulkEditPromptOpen(false)}>
+            <div className="flex shrink-0 justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="dark:border-[#80778e]/55 dark:text-[#fffaff] dark:hover:bg-[#3b3348]/70"
+                onClick={() => setBulkEditPromptOpen(false)}
+              >
                 Cancel
               </Button>
               <Button
                 type="button"
+                className="dark:bg-[#80778e] dark:text-white dark:hover:bg-[#9a92a8]"
                 onClick={confirmBulkEdit}
                 disabled={selectedTodoIds.length === 0}
               >
@@ -3835,7 +3866,12 @@ function BulkEditTodoListItem({
   const displayDate = todo.deadline_date;
 
   return (
-    <label className="flex items-start gap-2 rounded-md px-2 py-2 hover:bg-muted/40 cursor-pointer">
+    <label
+      className={cn(
+        "flex items-start gap-2 rounded-md px-2 py-2 cursor-pointer",
+        "hover:bg-muted/40 dark:hover:bg-[#3b3348]/45"
+      )}
+    >
       <Checkbox
         checked={checked}
         onCheckedChange={(value) => onCheckedChange(value === true)}
@@ -3888,7 +3924,7 @@ function BulkEditTodoListItem({
                       : "Assigned"
                     : slot.name;
                   return (
-                    <Avatar key={`${todo.id}-${isPublisher ? slot.id : `guest-${slot.name}-${idx}`}`} className="h-5 w-5 border border-border/70">
+                    <Avatar key={`${todo.id}-${isPublisher ? slot.id : `guest-${slot.name}-${idx}`}`} className="h-5 w-5 border border-border/70 dark:border-[#1c1921]">
                       {profile?.avatar_url ? <AvatarImage src={profile.avatar_url} alt={fullName} /> : null}
                       <AvatarFallback className="text-[10px]">{getInitialsFromName(fullName || "A")}</AvatarFallback>
                     </Avatar>
@@ -3899,16 +3935,16 @@ function BulkEditTodoListItem({
           </div>
         ) : null}
         <div className="flex items-start gap-2 w-full min-w-0">
-          <p className="text-left text-base leading-snug line-clamp-2 flex-1 min-w-0">{todo.body}</p>
+          <p className="text-left text-base leading-snug line-clamp-2 flex-1 min-w-0 dark:text-[#fffaff]">{todo.body}</p>
           {displayDate || areaLabel ? (
             <div className="flex flex-col items-end gap-0.5 shrink-0 max-w-[45%] text-right">
               {displayDate ? (
-                <span className="text-xs text-muted-foreground tabular-nums leading-snug pt-0.5">
+                <span className={cn("text-xs tabular-nums leading-snug pt-0.5", studyBibleDarkClasses.muted)}>
                   {formatTodoDate(displayDate)}
                 </span>
               ) : null}
               {areaLabel ? (
-                <span className="text-xs text-muted-foreground leading-snug" title={areaLabel}>
+                <span className={cn("text-xs leading-snug", studyBibleDarkClasses.subtle)} title={areaLabel}>
                   {truncateLabel(areaLabel, 36)}
                 </span>
               ) : null}
