@@ -18,7 +18,7 @@ import { FormModal } from "@/components/shared/FormModal";
 import { EventScheduleFormSheet } from "@/components/congregation/EventScheduleFormSheet";
 import { businessEventBus } from "@/lib/events/business-events";
 import { useMediaQuery } from "@/hooks/use-media-query";
-import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
+import { studyBibleDarkClasses, studyBibleSectionToggle } from "@/lib/theme/study-bible-dark";
 import {
   Drawer,
   DrawerDescription,
@@ -274,18 +274,20 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
     }
   }, [schedulesDrawerOpen, daysWithSchedules]);
 
-  const scheduleDayToggleClass =
-    "flex h-11 min-w-0 items-center justify-center px-3 text-[11px] font-medium transition-colors data-[state=on]:!bg-[#80778e] data-[state=on]:!text-white data-[state=on]:shadow-sm dark:text-[#ded6e7] md:h-12";
+  const scheduleDayToggleClass = cn(
+    studyBibleSectionToggle.item,
+    studyBibleSectionToggle.itemCompact
+  );
 
   const schedulesBody = (
     <div
       className={cn(
-        "flex flex-col gap-4 dark:text-[#fffaff]",
+        "flex flex-col gap-4 text-foreground dark:text-[#fffaff]",
         isMdUp ? "min-h-0 flex-1" : ""
       )}
     >
       <div className="flex shrink-0 justify-center px-1">
-        <div className="relative w-full max-w-screen-sm overflow-hidden rounded-lg border border-border bg-background/95 p-0.5 shadow-lg backdrop-blur-sm dark:border-[#1c1921] dark:bg-[#2a2534]/95">
+        <div className={cn("relative w-full max-w-screen-sm", studyBibleSectionToggle.shell)}>
           <div className="no-scrollbar w-full overflow-x-auto">
             <ToggleGroup
               type="single"
@@ -293,7 +295,7 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
               onValueChange={(v) => {
                 if (v) setActiveDay(v);
               }}
-              className="h-full min-w-full justify-center"
+              className={studyBibleSectionToggle.group}
             >
               <ToggleGroupItem value="All" className={scheduleDayToggleClass} title="All">
                 <span className="w-full truncate text-center font-medium">All</span>
@@ -317,14 +319,14 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
         className={cn(
           "flex w-full flex-col overflow-hidden overscroll-none",
           isMdUp
-            ? "min-h-0 flex-1 rounded-lg border dark:border-[#1c1921] dark:bg-[#181714]"
+            ? "min-h-0 flex-1 rounded-lg border border-border dark:border-[#1c1921] bg-card dark:bg-[#181714]"
             : "h-[calc(70vh)] max-md:max-h-[70dvh]"
         )}
       >
-        <div className="shrink-0 border-b bg-background dark:border-[#1c1921] dark:bg-[#181714]">
-          <table className="w-full table-fixed text-sm dark:text-[#fffaff]">
+        <div className="shrink-0 border-b bg-background border-border dark:border-[#1c1921] bg-card dark:bg-[#181714]">
+          <table className="w-full table-fixed text-sm text-foreground dark:text-[#fffaff]">
             <thead>
-              <tr className="border-b dark:border-[#1c1921]">
+              <tr className="border-b border-border dark:border-[#1c1921]">
                 <th className="w-[60%] px-3 py-3 text-left font-medium">Title</th>
                 <th className="w-[40%] px-3 py-3 text-center font-medium">Time</th>
               </tr>
@@ -336,7 +338,7 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
           className="no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-none"
           style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
         >
-          <table className="w-full table-fixed text-sm dark:text-[#fffaff]">
+          <table className="w-full table-fixed text-sm text-foreground dark:text-[#fffaff]">
             <tbody>
               {filteredSchedules.length === 0 ? (
                 <tr>
@@ -349,7 +351,7 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
                   <tr
                     key={event.id}
                     className={cn(
-                      "border-b dark:border-[#1c1921]",
+                      "border-b border-border dark:border-[#1c1921]",
                       canEdit ? "cursor-pointer hover:bg-muted/30 dark:hover:bg-[#2a2534]/85" : ""
                     )}
                     onClick={() => {
@@ -361,12 +363,12 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
                   >
                     <td className="min-w-0 w-[60%] p-3">
                       <div className="flex min-w-0 flex-col gap-1">
-                        <span className="truncate font-medium dark:text-[#fffaff]">{event.title}</span>
+                        <span className="truncate font-medium text-foreground dark:text-[#fffaff]">{event.title}</span>
                         <div className="flex flex-wrap items-center gap-1.5">
                           {event.ministry_type && (
                             <Badge
                               variant="outline"
-                              className="h-4 w-fit border px-1.5 py-0 text-[10px] leading-none dark:border-[#1c1921]"
+                              className="h-4 w-fit border px-1.5 py-0 text-[10px] leading-none border-border dark:border-[#1c1921]"
                             >
                               {formatMinistryType(event.ministry_type)}
                             </Badge>
@@ -376,7 +378,7 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
                             event.day_of_week != null && (
                               <Badge
                                 variant="secondary"
-                                className="h-4 w-fit border px-1.5 py-0 text-[10px] leading-none dark:border-[#1c1921] dark:bg-[#30283c]"
+                                className="h-4 w-fit border px-1.5 py-0 text-[10px] leading-none border-border dark:border-[#1c1921] dark:bg-[#30283c]"
                               >
                                 {dayNames[event.day_of_week]}
                               </Badge>
@@ -395,7 +397,7 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
                           <span className="text-xs text-muted-foreground dark:text-[#ded6e7]/80">All day</span>
                         </div>
                       ) : event.start_time ? (
-                        <div className="flex flex-col items-center text-xs dark:text-[#ded6e7]/85">
+                        <div className="flex flex-col items-center text-xs text-muted-foreground dark:text-[#ded6e7]/85">
                           <div>{formatTimeLabel(event.start_time)}</div>
                           {event.end_time && (
                             <>
@@ -427,17 +429,17 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
               studyBibleDarkClasses.bwiCard
             )}
           >
-            <CardHeader className="rounded-t-xl border-b px-4 pt-3 !pb-3 dark:border-[#1c1921] dark:bg-[#2a2534]">
+            <CardHeader className="rounded-t-xl border-b px-4 pt-3 !pb-3 border-border dark:border-[#1c1921] dark:bg-[#2a2534]">
               <button
                 type="button"
                 className="flex w-full items-center justify-between gap-3 rounded-md text-left transition-colors hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#80778e] focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-offset-[#181714]"
                 onClick={() => setSchedulesDrawerOpen(true)}
               >
-                <CardTitle className="flex items-center gap-2 text-base font-bold leading-tight dark:text-[#fffaff]">
+                <CardTitle className="flex items-center gap-2 text-base font-bold leading-tight text-foreground dark:text-[#fffaff]">
                   <Calendar className="h-5 w-5 shrink-0 opacity-90" />
                   Today
                 </CardTitle>
-                <ChevronRight className="h-4 w-4 shrink-0 opacity-70 dark:text-[#ded6e7]" />
+                <ChevronRight className="h-4 w-4 shrink-0 opacity-70 text-muted-foreground dark:text-[#ded6e7]" />
               </button>
             </CardHeader>
             <CardContent className="p-0 pb-6 pt-2">
@@ -477,14 +479,14 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="mb-1 flex items-center gap-2">
-                        <h4 className="text-sm font-medium dark:text-[#fffaff]">{event.title}</h4>
+                        <h4 className="text-sm font-medium text-foreground dark:text-[#fffaff]">{event.title}</h4>
                         {event.ministry_type && (
-                          <Badge variant="outline" className="h-4 border dark:border-[#1c1921] px-1.5 py-0 text-[10px] leading-none">
+                          <Badge variant="outline" className="h-4 border border-border dark:border-[#1c1921] px-1.5 py-0 text-[10px] leading-none">
                             {formatMinistryType(event.ministry_type)}
                           </Badge>
                         )}
                         {event.recurrence_pattern !== 'none' && (
-                          <Badge variant="secondary" className="h-4 px-1.5 py-0 text-[10px] leading-none dark:border-[#1c1921] dark:bg-[#30283c]">
+                          <Badge variant="secondary" className="h-4 px-1.5 py-0 text-[10px] leading-none border-border dark:border-[#1c1921] dark:bg-[#30283c]">
                             Recurring
                           </Badge>
                         )}
@@ -529,17 +531,17 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
               studyBibleDarkClasses.bwiCard
             )}
           >
-            <CardHeader className="rounded-t-xl border-b px-4 pt-3 !pb-3 dark:border-[#1c1921] dark:bg-[#2a2534]">
+            <CardHeader className="rounded-t-xl border-b px-4 pt-3 !pb-3 border-border dark:border-[#1c1921] dark:bg-[#2a2534]">
               <button
                 type="button"
                 className="flex w-full items-center justify-between gap-3 rounded-md text-left transition-colors hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#80778e] focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-offset-[#181714]"
                 onClick={() => setContactsDrawerOpen(true)}
               >
-                <CardTitle className="flex items-center gap-2 text-base font-bold leading-tight dark:text-[#fffaff]">
+                <CardTitle className="flex items-center gap-2 text-base font-bold leading-tight text-foreground dark:text-[#fffaff]">
                   <BookOpen className="h-5 w-5 shrink-0 opacity-90" />
                   Contacts
                 </CardTitle>
-                <ChevronRight className="h-4 w-4 shrink-0 opacity-70 dark:text-[#ded6e7]" />
+                <ChevronRight className="h-4 w-4 shrink-0 opacity-70 text-muted-foreground dark:text-[#ded6e7]" />
               </button>
             </CardHeader>
             <CardContent className="p-0 pb-6 pt-2">
@@ -563,7 +565,7 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
           ) : bibleStudents.length === 0 ? (
             <div className="px-4 py-8 text-center text-muted-foreground dark:text-[#ded6e7]/75">
               <BookOpen className="mx-auto mb-4 h-12 w-12 opacity-50" />
-              <p className="dark:text-[#fffaff]">No Bible students yet</p>
+              <p className="text-foreground dark:text-[#fffaff]">No Bible students yet</p>
               <p className="text-sm">Bible students will appear here when assigned</p>
             </div>
           ) : (
@@ -592,13 +594,13 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
                   >
                     <div className="flex items-center gap-3">
                       <Avatar className="h-9 w-9 border border-border dark:border-[#5a5068]/50">
-                        <AvatarFallback className="text-[11px] font-semibold dark:bg-[#30283c] dark:text-[#fffaff]">
+                        <AvatarFallback className="text-[11px] font-semibold dark:bg-[#30283c] text-foreground dark:text-[#fffaff]">
                           {initials || "BS"}
                         </AvatarFallback>
                       </Avatar>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-3">
-                          <p className="truncate text-sm font-medium dark:text-[#fffaff]">{householder.name}</p>
+                          <p className="truncate text-sm font-medium text-foreground dark:text-[#fffaff]">{householder.name}</p>
                           {householder.status && (
                             <Badge
                               variant="outline"
@@ -655,13 +657,13 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
               studyBibleDarkClasses.bwiCard
             )}
           >
-            <CardHeader className="rounded-t-xl border-b px-4 pt-3 !pb-3 dark:border-[#1c1921] dark:bg-[#2a2534]">
-              <CardTitle className="text-base font-bold leading-tight dark:text-[#fffaff]">Ministry Assignments</CardTitle>
+            <CardHeader className="rounded-t-xl border-b px-4 pt-3 !pb-3 border-border dark:border-[#1c1921] dark:bg-[#2a2534]">
+              <CardTitle className="text-base font-bold leading-tight text-foreground dark:text-[#fffaff]">Ministry Assignments</CardTitle>
             </CardHeader>
             <CardContent className="px-4 pb-6 pt-4 sm:px-6">
               <div className="py-8 text-center text-muted-foreground dark:text-[#ded6e7]/75">
                 <Users className="mx-auto mb-4 h-12 w-12 opacity-50" />
-                <p className="dark:text-[#fffaff]">No assignments available</p>
+                <p className="text-foreground dark:text-[#fffaff]">No assignments available</p>
                 <p className="text-sm">Ministry assignments will appear here</p>
               </div>
             </CardContent>
@@ -678,19 +680,19 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
           nested
           shouldScaleBackground={false}
         >
-          <DrawerWideRightContent className="flex flex-col overflow-hidden dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff] md:max-h-[100lvh]">
-            <DrawerHeader className="shrink-0 px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:bg-[#181714]">
+          <DrawerWideRightContent className="flex flex-col overflow-hidden border-border dark:border-[#1c1921] bg-card dark:bg-[#181714] text-foreground dark:text-[#fffaff] md:max-h-[100lvh]">
+            <DrawerHeader className="shrink-0 px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center bg-card dark:bg-[#181714]">
               <DrawerTitle className="text-center text-lg font-bold">Contacts</DrawerTitle>
               <DrawerDescription className="sr-only">
                 Bible students and others you are assigned to as publisher.
               </DrawerDescription>
             </DrawerHeader>
             <div className="flex min-h-0 flex-1 flex-col gap-4 px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+28px)] pt-4">
-              <div className="flex min-h-0 flex-1 flex-col overflow-hidden overscroll-none rounded-lg border dark:border-[#1c1921] dark:bg-[#181714]">
-                <div className="shrink-0 border-b bg-background dark:border-[#1c1921] dark:bg-[#181714]">
-                  <table className="w-full table-fixed text-sm dark:text-[#fffaff]">
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden overscroll-none rounded-lg border border-border dark:border-[#1c1921] bg-card dark:bg-[#181714]">
+                <div className="shrink-0 border-b bg-background border-border dark:border-[#1c1921] bg-card dark:bg-[#181714]">
+                  <table className="w-full table-fixed text-sm text-foreground dark:text-[#fffaff]">
                     <thead>
-                      <tr className="border-b dark:border-[#1c1921]">
+                      <tr className="border-b border-border dark:border-[#1c1921]">
                         <th className="w-[65%] px-3 py-3 text-left font-medium">Name</th>
                         <th className="w-[35%] px-3 py-3 text-left font-medium">Status</th>
                       </tr>
@@ -701,12 +703,12 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
                   className="no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-none"
                   style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
                 >
-                  <table className="w-full table-fixed text-sm dark:text-[#fffaff]">
+                  <table className="w-full table-fixed text-sm text-foreground dark:text-[#fffaff]">
                     <tbody>
                       {bibleStudentsLoading ? (
                         <>
                           {[1, 2, 3, 4, 5].map((i) => (
-                            <tr key={i} className="border-b dark:border-[#1c1921]">
+                            <tr key={i} className="border-b border-border dark:border-[#1c1921]">
                               <td className="min-w-0 w-[65%] p-3">
                                 <div className="flex min-w-0 items-center gap-3">
                                   <div className="h-7 w-7 animate-pulse rounded-full bg-muted/60 blur-[2px]" />
@@ -731,7 +733,7 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
                           return (
                             <tr
                               key={householder.id}
-                              className="cursor-pointer border-b hover:bg-muted/30 dark:border-[#1c1921] dark:hover:bg-[#2a2534]/85"
+                              className="cursor-pointer border-b hover:bg-muted/30 border-border dark:border-[#1c1921] dark:hover:bg-[#2a2534]/85"
                               onClick={() => openContactDetails(householder)}
                             >
                               <td className="min-w-0 w-[65%] p-3">
@@ -771,14 +773,14 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
           open={contactsDrawerOpen}
           onOpenChange={setContactsDrawerOpen}
           title="Contacts"
-          className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
+          className="border-border dark:border-[#1c1921] bg-card dark:bg-[#181714] text-foreground dark:text-[#fffaff]"
           headerClassName="text-center"
         >
-        <div className="flex h-[calc(70vh)] w-full flex-col overflow-hidden overscroll-none dark:text-[#fffaff]">
-          <div className="shrink-0 border-b bg-background dark:border-[#1c1921] dark:bg-[#181714]">
+        <div className="flex h-[calc(70vh)] w-full flex-col overflow-hidden overscroll-none text-foreground dark:text-[#fffaff]">
+          <div className="shrink-0 border-b bg-background border-border dark:border-[#1c1921] bg-card dark:bg-[#181714]">
             <table className="w-full table-fixed text-sm">
               <thead>
-                <tr className="border-b dark:border-[#1c1921]">
+                <tr className="border-b border-border dark:border-[#1c1921]">
                   <th className="w-[65%] px-3 py-3 text-left">Name</th>
                   <th className="w-[35%] px-3 py-3 text-left">Status</th>
                 </tr>
@@ -795,7 +797,7 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
                 {bibleStudentsLoading ? (
                   <>
                     {[1, 2, 3, 4, 5].map((i) => (
-                      <tr key={i} className="border-b dark:border-[#1c1921]">
+                      <tr key={i} className="border-b border-border dark:border-[#1c1921]">
                         <td className="min-w-0 w-[65%] p-3">
                           <div className="flex min-w-0 items-center gap-3">
                             <div className="h-7 w-7 animate-pulse rounded-full bg-muted/60 blur-[2px]" />
@@ -820,7 +822,7 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
                   return (
                     <tr
                       key={householder.id}
-                      className="cursor-pointer border-b hover:bg-muted/30 dark:border-[#1c1921] dark:hover:bg-[#2a2534]/85"
+                      className="cursor-pointer border-b hover:bg-muted/30 border-border dark:border-[#1c1921] dark:hover:bg-[#2a2534]/85"
                       onClick={() => openContactDetails(householder)}
                     >
                       <td className="min-w-0 w-[65%] p-3">
@@ -863,8 +865,8 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
           nested
           shouldScaleBackground={false}
         >
-          <DrawerWideRightContent className="flex flex-col overflow-hidden dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff] md:max-h-[100lvh]">
-            <DrawerHeader className="shrink-0 px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:bg-[#181714]">
+          <DrawerWideRightContent className="flex flex-col overflow-hidden border-border dark:border-[#1c1921] bg-card dark:bg-[#181714] text-foreground dark:text-[#fffaff] md:max-h-[100lvh]">
+            <DrawerHeader className="shrink-0 px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center bg-card dark:bg-[#181714]">
               <DrawerTitle className="text-center text-lg font-bold">Ministry Schedules</DrawerTitle>
               <DrawerDescription className="sr-only">
                 Filter and view ministry events by day of week.
@@ -881,7 +883,7 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
           onOpenChange={setSchedulesDrawerOpen}
           title="Ministry Schedules"
           description="Filter and view ministry events by day of week."
-          className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
+          className="border-border dark:border-[#1c1921] bg-card dark:bg-[#181714] text-foreground dark:text-[#fffaff]"
           headerClassName="text-center"
         >
           {schedulesBody}

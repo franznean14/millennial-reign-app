@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
+import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 
 interface HomeMobileDetailsDrawerProps {
   open: boolean;
@@ -24,11 +25,8 @@ export function HomeMobileDetailsDrawer({
   return (
     <Drawer open={open} onOpenChange={onOpenChange}>
       <DrawerContent
-        className={cn(
-          "max-h-[90vh] dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]",
-          contentClassName
-        )}
-        handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
+        className={cn(studyBibleDarkClasses.drawerPanel, "max-h-[90vh]", contentClassName)}
+        handleClassName={studyBibleDarkClasses.drawerHandle}
       >
         <DrawerHeader className="bg-transparent px-4 pb-3 pt-4 text-center">
           <DrawerTitle className="text-center text-lg font-bold">{title}</DrawerTitle>

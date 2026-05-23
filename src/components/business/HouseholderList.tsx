@@ -552,10 +552,10 @@ export function HouseholderList({
   const renderTableView = () => (
     <div className={cn("w-full h-full flex flex-col overscroll-none overflow-hidden rounded-xl border border-border/70 dark:border-[#3a3342]", studyBibleDarkClasses.card)} style={{ overscrollBehavior: 'none' }}>
       {/* Fixed Table Header */}
-      <div className="flex-shrink-0 border-b bg-background dark:border-[#1c1921] dark:bg-[#30283c]">
+      <div className="flex-shrink-0 border-b bg-card border-border dark:border-[#1c1921] dark:bg-[#30283c]">
         <table className="w-full text-sm table-fixed">
           <thead>
-            <tr className={cn("border-b dark:border-[#1c1921]", studyBibleDarkClasses.muted)}>
+            <tr className={cn("border-b border-border dark:border-[#1c1921]", studyBibleDarkClasses.muted)}>
               <HouseholderTableSortTh
                 label="Name"
                 sortKey="name"
@@ -599,7 +599,7 @@ export function HouseholderList({
       {/* Scrollable Table Body */}
       <div
         ref={tableBodyScrollRef}
-        className="flex-1 overflow-y-auto no-scrollbar overscroll-none pb-[calc(max(env(safe-area-inset-bottom),0px)+255px)] md:pb-[max(env(safe-area-inset-bottom),0px)+16px)] dark:bg-[#24231f]"
+        className="flex-1 overflow-y-auto no-scrollbar overscroll-none pb-[calc(max(env(safe-area-inset-bottom),0px)+255px)] md:pb-[max(env(safe-area-inset-bottom),0px)+16px)] bg-background dark:bg-[#24231f]"
         style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
       >
         <table className="w-full text-sm table-fixed">
@@ -709,7 +709,7 @@ export function HouseholderList({
                         className="flex min-h-0 min-w-0 flex-col rounded-lg border border-transparent bg-transparent"
                         aria-label={`${formatStatusText(status)} contacts`}
                       >
-                        <div className={cn("mb-3 rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-wide dark:border-[#1c1921] dark:bg-[#30283c]", getStatusTitleColor(status))}>
+                        <div className={cn("mb-3 rounded-lg border px-3 py-2 text-xs font-bold uppercase tracking-wide border-border dark:border-[#1c1921] dark:bg-[#30283c]", getStatusTitleColor(status))}>
                           {formatStatusText(status)}
                         </div>
                         <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain pb-[calc(max(env(safe-area-inset-bottom),0px)+132px)] md:pb-[max(env(safe-area-inset-bottom),0px)+12px)] pr-1">

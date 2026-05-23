@@ -120,6 +120,20 @@ export interface MyOpenCallTodoItem extends CallTodo {
   call_created_at?: string | null;
    /** Establishment area for area filters */
   context_area?: string | null;
+  /** True when the linked establishment has no lat/lng yet (enriched server-side). */
+  context_establishment_missing_location?: boolean;
+}
+
+export function establishmentHasMapLocation(
+  lat?: number | null,
+  lng?: number | null
+): boolean {
+  return typeof lat === "number" && typeof lng === "number" && Number.isFinite(lat) && Number.isFinite(lng);
+}
+
+/** Establishment to-do (not contact) whose parent establishment has no map coordinates. */
+export function isEstablishmentTodoMissingLocation(todo: MyOpenCallTodoItem): boolean {
+  return !todo.householder_id && !!todo.establishment_id && todo.context_establishment_missing_location === true;
 }
 
 export interface EstablishmentWithDetails {
@@ -1331,7 +1345,7 @@ async function enrichTodoItems(
     establishmentIds.size
       ? supabase
           .from("business_establishments")
-          .select("id, name, statuses, area")
+          .select("id, name, statuses, area, lat, lng")
           .in("id", Array.from(establishmentIds))
       : Promise.resolve({ data: [], error: null } as any),
     householderIds.size
@@ -1342,7 +1356,10 @@ async function enrichTodoItems(
       : Promise.resolve({ data: [], error: null } as any),
   ]);
 
-  const establishmentById = new Map<string, { id: string; name: string; statuses?: string[] | null; area?: string | null }>();
+  const establishmentById = new Map<
+    string,
+    { id: string; name: string; statuses?: string[] | null; area?: string | null; lat?: number | null; lng?: number | null }
+  >();
   for (const e of establishmentRows.data ?? []) {
     establishmentById.set(e.id, e);
   }
@@ -1362,7 +1379,7 @@ async function enrichTodoItems(
   if (parentEstablishmentIds.length > 0) {
     const { data: parentRows } = await supabase
       .from("business_establishments")
-      .select("id, name, statuses, area")
+      .select("id, name, statuses, area, lat, lng")
       .in("id", parentEstablishmentIds);
     for (const e of parentRows ?? []) {
       establishmentById.set(e.id, e);
@@ -1392,6 +1409,10 @@ async function enrichTodoItems(
       : establishmentStatus ?? callMeta?.context_establishment_status ?? null;
     const context_area =
       householderEstablishment?.area ?? establishment?.area ?? callMeta?.context_area ?? null;
+    const establishmentForLocation = householder ? householderEstablishment ?? establishment : establishment;
+    const context_establishment_missing_location = establishmentForLocation
+      ? !establishmentHasMapLocation(establishmentForLocation.lat, establishmentForLocation.lng)
+      : undefined;
 
     return {
       ...(t as CallTodo),
@@ -1404,6 +1425,7 @@ async function enrichTodoItems(
       context_establishment_status,
       call_created_at: callMeta?.call_created_at ?? t.created_at ?? null,
       context_area,
+      context_establishment_missing_location,
     } as MyOpenCallTodoItem;
   });
 

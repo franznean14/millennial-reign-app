@@ -390,12 +390,12 @@ export function UserManagementForm({
       >
         <Avatar className="h-16 w-16 border border-border dark:border-[#5a5068]/50">
           <AvatarImage src={user.avatar_url || undefined} />
-          <AvatarFallback className="bg-muted text-lg dark:bg-[#30283c] dark:text-[#fffaff]">
+          <AvatarFallback className="bg-muted text-lg dark:bg-[#30283c] text-foreground dark:text-[#fffaff]">
             {`${user.first_name?.[0] || ""}${user.last_name?.[0] || ""}`.toUpperCase()}
           </AvatarFallback>
         </Avatar>
         <div className="min-w-0">
-          <h2 className="text-xl font-semibold dark:text-[#fffaff]">
+          <h2 className="text-xl font-semibold text-foreground dark:text-[#fffaff]">
             {user.first_name} {user.last_name}
           </h2>
           <p className="text-sm text-muted-foreground dark:text-[#ded6e7]/75">
@@ -438,11 +438,11 @@ export function UserManagementForm({
               className={cn(
                 "flex items-center justify-between rounded-lg border p-3",
                 sidebarFormClasses.panel,
-                "dark:border-[#1c1921]"
+                "border-border dark:border-[#1c1921]"
               )}
             >
               <div className="min-w-0 flex-1 pr-2">
-                <div className="text-sm font-medium dark:text-[#fffaff]">Guest publisher</div>
+                <div className="text-sm font-medium text-foreground dark:text-[#fffaff]">Guest publisher</div>
               </div>
               <Switch
                 id="cong-guest-switch"
@@ -571,11 +571,11 @@ export function UserManagementForm({
               className={cn(
                 "flex items-center justify-between rounded-lg border p-3",
                 sidebarFormClasses.panel,
-                "dark:border-[#1c1921]"
+                "border-border dark:border-[#1c1921]"
               )}
             >
               <div>
-                <div className="text-sm font-medium dark:text-[#fffaff]">BWI Participant</div>
+                <div className="text-sm font-medium text-foreground dark:text-[#fffaff]">BWI Participant</div>
               </div>
               <Switch
                 disabled={!allowManage}
@@ -588,7 +588,7 @@ export function UserManagementForm({
 
         <div
           className={cn(
-            "flex flex-wrap items-center gap-2 border-t border-border pt-4 dark:border-[#1c1921]",
+            "flex flex-wrap items-center gap-2 border-t border-border pt-4 border-border dark:border-[#1c1921]",
             allowManage && user.congregation_id ? "justify-between" : "justify-start"
           )}
         >
@@ -621,7 +621,7 @@ export function UserManagementForm({
       <DrawerContent
         className={cn(
           // Above DrawerWideLeftContentTop (130) and its stacked nested-right variant (160)
-          "flex flex-col !z-[171] dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]",
+          "flex flex-col !z-[171] border-border dark:border-[#1c1921] bg-card dark:bg-[#181714] text-foreground dark:text-[#fffaff]",
           "nested-drawer"
         )}
         overlayClassName="!z-[170]"
@@ -629,11 +629,11 @@ export function UserManagementForm({
       >
         <div className="flex min-h-0 flex-1 flex-col justify-center px-4">
           <DrawerHeader className="px-4 pb-2 pt-6 text-center sm:text-center">
-            <DrawerTitle className="text-center text-lg font-semibold dark:text-[#fffaff]">
+            <DrawerTitle className="text-center text-lg font-semibold text-foreground dark:text-[#fffaff]">
               Remove from congregation?
             </DrawerTitle>
           </DrawerHeader>
-          <DrawerDescription className="px-2 pb-2 text-center dark:text-[#ded6e7]/85">
+          <DrawerDescription className="px-2 pb-2 text-center text-muted-foreground dark:text-[#ded6e7]/85">
             {user.first_name} {user.last_name} will no longer be assigned to this congregation. Their account
             stays active; they can be added again later. Business witnessing (BWI) participation and guest-name
             links for this congregation are cleared.

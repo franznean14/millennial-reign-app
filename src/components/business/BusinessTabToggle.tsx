@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { getStatusTitleColor } from "@/lib/utils/status-hierarchy";
 import { Button } from "@/components/ui/button";
 import { AnimatePresence, motion } from "motion/react";
-import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
+import { studyBibleSectionToggle } from "@/lib/theme/study-bible-dark";
 
 interface BusinessTabToggleProps {
   value: 'establishments' | 'householders' | 'map';
@@ -34,7 +34,7 @@ export function BusinessTabToggle({
 }: BusinessTabToggleProps) {
   const titleColorClass = detailsStatus ? getStatusTitleColor(detailsStatus) : "text-foreground";
   return (
-    <div className={cn("bg-background/95 backdrop-blur-sm border p-0.1 rounded-lg shadow-lg w-full relative overflow-hidden", studyBibleDarkClasses.card, className)}>
+    <div className={cn(studyBibleSectionToggle.shell, "h-full min-h-0", className)}>
       <AnimatePresence mode="wait">
         {isDetailsView ? (
           <motion.div
@@ -43,20 +43,20 @@ export function BusinessTabToggle({
             animate={{ opacity: 1, filter: "blur(0px)" }}
             exit={{ opacity: 0, filter: "blur(6px)" }}
             transition={{ duration: 0.2 }}
-            className="flex items-center gap-1 w-full h-full"
+            className="flex h-full min-h-0 w-full items-center gap-1"
           >
             {/* Back Button - Left */}
             <Button
               variant="ghost"
               size="sm"
               onClick={onBackClick}
-              className="flex-shrink-0 px-3 py-6 h-full flex items-center justify-center transition-colors hover:bg-muted dark:hover:bg-[#3b3348]"
+              className={studyBibleSectionToggle.ghostSideButton}
             >
               <ChevronLeft className="h-4 w-4 flex-shrink-0" />
             </Button>
             
             {/* Name - Middle (wider, plain text, no button feel) */}
-            <div className="flex-[2] min-w-0 px-3 py-6 flex items-center justify-center bg-transparent border-none">
+            <div className="flex h-full min-h-0 flex-[2] min-w-0 items-center justify-center bg-transparent px-3">
               <span className={cn("text-lg font-bold truncate w-full text-center pointer-events-none", titleColorClass)}>
                 {detailsName}
               </span>
@@ -67,7 +67,7 @@ export function BusinessTabToggle({
               variant="ghost"
               size="sm"
               onClick={onEditClick}
-              className="flex-shrink-0 px-3 py-6 h-full flex items-center justify-center transition-colors hover:bg-muted dark:hover:bg-[#3b3348]"
+              className={studyBibleSectionToggle.ghostSideButton}
             >
               <Edit className="h-4 w-4 flex-shrink-0" />
             </Button>
@@ -79,7 +79,7 @@ export function BusinessTabToggle({
             animate={{ opacity: 1, filter: "blur(0px)" }}
             exit={{ opacity: 0, filter: "blur(6px)" }}
             transition={{ duration: 0.2 }}
-            className="w-full h-full"
+            className="h-full min-h-0 w-full"
           >
             <ToggleGroup
               type="single"
@@ -89,25 +89,25 @@ export function BusinessTabToggle({
                   onValueChange(newValue as 'establishments' | 'householders' | 'map');
                 }
               }}
-              className="w-full h-full"
+              className={studyBibleSectionToggle.group}
             >
-              <ToggleGroupItem 
-                value="establishments" 
-                className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 w-full flex flex-col items-center justify-center gap-1 transition-colors dark:text-[#ded6e7] dark:hover:bg-[#3b3348] dark:data-[state=on]:!bg-[#80778e] dark:data-[state=on]:!text-white"
+              <ToggleGroupItem
+                value="establishments"
+                className={cn(studyBibleSectionToggle.item, studyBibleSectionToggle.itemIcon)}
               >
                 <Building2 className="h-4 w-4 flex-shrink-0" />
                 <span className="text-[10px] font-medium text-center">Establishments</span>
               </ToggleGroupItem>
-              <ToggleGroupItem 
-                value="householders" 
-                className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 w-full flex flex-col items-center justify-center gap-1 transition-colors dark:text-[#ded6e7] dark:hover:bg-[#3b3348] dark:data-[state=on]:!bg-[#80778e] dark:data-[state=on]:!text-white"
+              <ToggleGroupItem
+                value="householders"
+                className={cn(studyBibleSectionToggle.item, studyBibleSectionToggle.itemIcon)}
               >
                 <Users className="h-4 w-4 flex-shrink-0" />
                 <span className="text-[10px] font-medium text-center">Contacts</span>
               </ToggleGroupItem>
-              <ToggleGroupItem 
-                value="map" 
-                className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 w-full flex flex-col items-center justify-center gap-1 transition-colors dark:text-[#ded6e7] dark:hover:bg-[#3b3348] dark:data-[state=on]:!bg-[#80778e] dark:data-[state=on]:!text-white"
+              <ToggleGroupItem
+                value="map"
+                className={cn(studyBibleSectionToggle.item, studyBibleSectionToggle.itemIcon)}
               >
                 <MapPin className="h-4 w-4 flex-shrink-0" />
                 <span className="text-[10px] font-medium text-center">Map</span>

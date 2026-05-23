@@ -172,7 +172,7 @@ export function ContactsSection({
   );
 
   return (
-    <div className="rounded-lg border bg-card p-4 shadow-md dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff]">
+    <div className="rounded-lg border bg-card p-4 shadow-md border-border dark:border-[#1c1921] dark:bg-[#30283c] text-foreground dark:text-[#fffaff]">
       <button
         type="button"
         onClick={() => setDrawerOpen(true)}
@@ -229,7 +229,7 @@ export function ContactsSection({
           <DrawerWideLeftContentTop
             stackAboveStackedRightSheet={insideStackedContactPane}
             className={cn(
-              "dark:border-[#1c1921] dark:text-[#fffaff] md:max-h-[100lvh]",
+              "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff] md:max-h-[100lvh]",
               contactsListPaneShade
             )}
           >
@@ -243,7 +243,7 @@ export function ContactsSection({
         <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
           <DrawerContent
             className={cn(
-              "h-[85svh] max-h-[85svh] dark:border-[#1c1921] dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
+              "h-[85svh] max-h-[85svh] border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
               contactsListPaneShade
             )}
             handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"

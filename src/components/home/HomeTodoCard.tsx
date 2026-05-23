@@ -29,6 +29,7 @@ import {
   type VisitWithUser,
   type HouseholderWithDetails,
   type HouseholderStatus,
+  isEstablishmentTodoMissingLocation,
 } from "@/lib/db/business";
 import { getProfile } from "@/lib/db/profiles";
 import { cacheGet, cacheSet, cacheDelete } from "@/lib/offline/store";
@@ -66,6 +67,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { VisitStatusBadge } from "@/components/visit/VisitStatusBadge";
+import { MissingEstablishmentLocationIcon } from "@/components/business/MissingEstablishmentLocationIcon";
 import { cn } from "@/lib/utils";
 import { formatStatusText } from "@/lib/utils/formatters";
 import { Badge } from "@/components/ui/badge";
@@ -2672,7 +2674,7 @@ export function HomeTodoCard({
         <>
           {/* Phone: stacked collapsible sections (also used for scoped left companion drawer on tablet) */}
           <div className={cn(useSingleColumnTodoDrawerBody ? "block" : "md:hidden")}>
-          <div className="mt-2 overflow-hidden rounded-t-lg border border-border bg-muted/15 dark:border-[#1c1921] dark:bg-[#30283c]">
+          <div className="mt-2 overflow-hidden rounded-t-lg border border-border bg-muted/15 border-border dark:border-[#1c1921] dark:bg-[#30283c]">
             <button
               type="button"
               onClick={() => setDrawerTodoExpanded((prev) => !prev)}
@@ -2684,7 +2686,7 @@ export function HomeTodoCard({
           </div>
           {drawerTodoExpanded && (
             filteredAssignedOpenTodos.length > 0 ? (
-              <ul className="space-y-3 rounded-b-lg border-x border-b border-border p-2 dark:border-[#1c1921] dark:bg-[#2a2534]">
+              <ul className="space-y-3 rounded-b-lg border-x border-b border-border p-2 border-border dark:border-[#1c1921] dark:bg-[#2a2534]">
                 {filteredAssignedOpenTodos.map((todo, index) => (
                   <TodoRow
                     key={todo.id}
@@ -2707,11 +2709,11 @@ export function HomeTodoCard({
                 ))}
               </ul>
             ) : (
-              <p className={cn("rounded-b-lg border-x border-b border-border px-3 py-2 text-xs text-muted-foreground dark:border-[#1c1921] dark:bg-[#2a2534]", studyBibleDarkClasses.muted)}>No assigned to-dos.</p>
+              <p className={cn("rounded-b-lg border-x border-b border-border px-3 py-2 text-xs text-muted-foreground border-border dark:border-[#1c1921] dark:bg-[#2a2534]", studyBibleDarkClasses.muted)}>No assigned to-dos.</p>
             )
           )}
 
-          <div className="mt-3 overflow-hidden rounded-t-lg border border-border bg-muted/15 dark:border-[#1c1921] dark:bg-[#30283c]">
+          <div className="mt-3 overflow-hidden rounded-t-lg border border-border bg-muted/15 border-border dark:border-[#1c1921] dark:bg-[#30283c]">
             <button
               type="button"
               onClick={() => setDrawerOpenSectionExpanded((prev) => !prev)}
@@ -2723,7 +2725,7 @@ export function HomeTodoCard({
           </div>
           {drawerOpenSectionExpanded && (
             filteredUnassignedOpenTodos.length > 0 ? (
-              <ul className="space-y-3 rounded-b-lg border-x border-b border-border p-2 dark:border-[#1c1921] dark:bg-[#2a2534]">
+              <ul className="space-y-3 rounded-b-lg border-x border-b border-border p-2 border-border dark:border-[#1c1921] dark:bg-[#2a2534]">
                 {filteredUnassignedOpenTodos.map((todo, index) => (
                   <TodoRow
                     key={todo.id}
@@ -2764,11 +2766,11 @@ export function HomeTodoCard({
                 ))}
               </ul>
             ) : (
-              <p className={cn("rounded-b-lg border-x border-b border-border px-3 py-2 text-xs text-muted-foreground dark:border-[#1c1921] dark:bg-[#2a2534]", studyBibleDarkClasses.muted)}>No unassigned to-dos.</p>
+              <p className={cn("rounded-b-lg border-x border-b border-border px-3 py-2 text-xs text-muted-foreground border-border dark:border-[#1c1921] dark:bg-[#2a2534]", studyBibleDarkClasses.muted)}>No unassigned to-dos.</p>
             )
           )}
 
-          <div className="mt-3 overflow-hidden rounded-t-lg border border-border bg-muted/15 dark:border-[#1c1921] dark:bg-[#30283c]">
+          <div className="mt-3 overflow-hidden rounded-t-lg border border-border bg-muted/15 border-border dark:border-[#1c1921] dark:bg-[#30283c]">
             <button
               type="button"
               onClick={() => setDrawerDoneExpanded((prev) => !prev)}
@@ -2780,7 +2782,7 @@ export function HomeTodoCard({
           </div>
           {drawerDoneExpanded && (
             filteredCompletedTodos.length > 0 ? (
-              <ul className="space-y-3 rounded-b-lg border-x border-b border-border p-2 dark:border-[#1c1921] dark:bg-[#2a2534]">
+              <ul className="space-y-3 rounded-b-lg border-x border-b border-border p-2 border-border dark:border-[#1c1921] dark:bg-[#2a2534]">
                 {filteredCompletedTodos.map((todo, index) => (
                   <TodoRow
                     key={todo.id}
@@ -2803,7 +2805,7 @@ export function HomeTodoCard({
                 ))}
               </ul>
             ) : (
-              <p className={cn("rounded-b-lg border-x border-b border-border px-3 py-2 text-xs text-muted-foreground dark:border-[#1c1921] dark:bg-[#2a2534]", studyBibleDarkClasses.muted)}>No done to-dos.</p>
+              <p className={cn("rounded-b-lg border-x border-b border-border px-3 py-2 text-xs text-muted-foreground border-border dark:border-[#1c1921] dark:bg-[#2a2534]", studyBibleDarkClasses.muted)}>No done to-dos.</p>
             )
           )}
           </div>
@@ -2816,8 +2818,8 @@ export function HomeTodoCard({
                 : "hidden md:grid md:h-[calc(80dvh-10rem)] md:min-h-[320px] md:grid-cols-3 md:gap-3 md:items-stretch"
             )}
           >
-            <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-muted/15 dark:border-[#1c1921] dark:bg-[#2a2534]">
-              <div className={cn("shrink-0 border-b border-border px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground dark:border-[#1c1921] dark:bg-[#30283c]", studyBibleDarkClasses.muted)}>
+            <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-muted/15 border-border dark:border-[#1c1921] dark:bg-[#2a2534]">
+              <div className={cn("shrink-0 border-b border-border px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground border-border dark:border-[#1c1921] dark:bg-[#30283c]", studyBibleDarkClasses.muted)}>
                 To-Do ({filteredAssignedOpenTodos.length})
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3">
@@ -2849,8 +2851,8 @@ export function HomeTodoCard({
                 )}
               </div>
             </div>
-            <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-muted/15 dark:border-[#1c1921] dark:bg-[#2a2534]">
-              <div className={cn("shrink-0 border-b border-border px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground dark:border-[#1c1921] dark:bg-[#30283c]", studyBibleDarkClasses.muted)}>
+            <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-muted/15 border-border dark:border-[#1c1921] dark:bg-[#2a2534]">
+              <div className={cn("shrink-0 border-b border-border px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground border-border dark:border-[#1c1921] dark:bg-[#30283c]", studyBibleDarkClasses.muted)}>
                 Open ({filteredUnassignedOpenTodos.length})
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3">
@@ -2900,8 +2902,8 @@ export function HomeTodoCard({
                 )}
               </div>
             </div>
-            <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-muted/15 dark:border-[#1c1921] dark:bg-[#2a2534]">
-              <div className={cn("shrink-0 border-b border-border px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground dark:border-[#1c1921] dark:bg-[#30283c]", studyBibleDarkClasses.muted)}>
+            <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-muted/15 border-border dark:border-[#1c1921] dark:bg-[#2a2534]">
+              <div className={cn("shrink-0 border-b border-border px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground border-border dark:border-[#1c1921] dark:bg-[#30283c]", studyBibleDarkClasses.muted)}>
                 Done ({filteredCompletedTodos.length})
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3">
@@ -3149,7 +3151,7 @@ export function HomeTodoCard({
         shouldScaleBackground={false}
       >
         <DrawerWideRightContent
-          className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", todoDetailsSheetPanelClass)}
+          className={cn("border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]", todoDetailsSheetPanelClass)}
         >
           <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
             <DrawerTitle className="text-center text-xl font-extrabold tracking-tight">{isHouseholderDetail
@@ -3194,7 +3196,7 @@ export function HomeTodoCard({
         >
           <DrawerWideRightContent
             stackAboveDetailsSheet
-            className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", todoContactSheetPanelClass)}
+            className={cn("border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]", todoContactSheetPanelClass)}
           >
             <DrawerHeader className="bg-transparent px-2 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-left sm:px-4">
               <div className="relative flex items-center justify-center gap-1 pr-1">
@@ -3251,7 +3253,7 @@ export function HomeTodoCard({
         >
           <DrawerWideLeftContentTop
             stackAboveStackedRightSheet={contactDetailsSubdrawerOpen && isTodoDetailsSideLayout}
-            className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", todoEntityEditSheetPanelClass)}
+            className={cn("border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]", todoEntityEditSheetPanelClass)}
           >
             <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
               <DrawerTitle className="text-center text-lg font-bold">{entityEditDrawerTitle}</DrawerTitle>
@@ -3292,7 +3294,7 @@ export function HomeTodoCard({
         >
           <DrawerWideLeftContentTop
             stackAboveStackedRightSheet={contactDetailsSubdrawerOpen && isTodoDetailsSideLayout}
-            className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", todoEditorSheetPanelClass)}
+            className={cn("border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]", todoEditorSheetPanelClass)}
           >
             <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
               <DrawerTitle className="text-center text-lg font-bold">Edit To-Do</DrawerTitle>
@@ -3359,9 +3361,9 @@ export function HomeTodoCard({
             onClick={openTodoDrawer}
             className={cn(
               headerVariant === "bar"
-                ? "flex h-10 shrink-0 items-center gap-2 border-b px-4 text-sm font-medium hover:bg-muted/50 transition-colors"
+                ? "flex h-10 shrink-0 items-center gap-2 border-b px-4 text-sm font-medium hover:bg-[#ece8f2] dark:hover:bg-[#3b3348] transition-colors"
                 : "text-xs text-muted-foreground mb-4 flex items-center gap-1.5 w-full text-left hover:text-foreground transition-colors",
-              headerVariant === "bar" ? studyBibleDarkClasses.callsHeader : studyBibleDarkClasses.muted
+              headerVariant === "bar" ? studyBibleDarkClasses.cardBarHeader : studyBibleDarkClasses.muted
             )}
           >
             <ListTodo className="h-4 w-4 shrink-0" />
@@ -3459,7 +3461,7 @@ export function HomeTodoCard({
       >
         {prefersCompanionLeftTodoDrawer ? (
           <DrawerWideLeftContent
-            className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", todoMainDrawerPanelClass)}
+            className={cn("border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]", todoMainDrawerPanelClass)}
           >
             <DrawerHeader className="shrink-0 bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
               <DrawerTitle className="flex w-full flex-wrap items-center justify-center gap-2 text-center text-lg font-bold">
@@ -3488,7 +3490,7 @@ export function HomeTodoCard({
         ) : (
           <DrawerContent
             className={cn(
-              "h-[85svh] max-h-[85svh] md:h-[92dvh] md:max-h-[92dvh] dark:border-[#1c1921] dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
+              "h-[85svh] max-h-[85svh] md:h-[92dvh] md:max-h-[92dvh] border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
               todoMainDrawerPanelClass
             )}
             handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
@@ -3563,7 +3565,7 @@ export function HomeTodoCard({
       {isTodoDetailsSideLayout ? (
         <Drawer open={filterDrawerOpen} onOpenChange={setFilterDrawerOpen} direction="left" modal shouldScaleBackground={false}>
           <DrawerWideLeftContent
-            className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", todoFilterDrawerPanelClass)}
+            className={cn("border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]", todoFilterDrawerPanelClass)}
           >
             <DrawerHeader className="shrink-0 bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
               <DrawerTitle className="flex w-full items-center justify-center gap-2 text-center text-lg font-bold">
@@ -3600,7 +3602,7 @@ export function HomeTodoCard({
         <Drawer open={filterDrawerOpen} onOpenChange={setFilterDrawerOpen} modal shouldScaleBackground={false}>
           <DrawerContent
             className={cn(
-              "max-h-[85svh] dark:border-[#1c1921] dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
+              "max-h-[85svh] border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
               todoFilterDrawerPanelClass
             )}
             handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
@@ -3649,7 +3651,7 @@ export function HomeTodoCard({
         >
           <DrawerWideRightContent
             className={cn(
-              "dark:border-[#1c1921] dark:text-[#fffaff] md:max-h-[100lvh]",
+              "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff] md:max-h-[100lvh]",
               todoBulkEditPickerPanelClass
             )}
           >
@@ -3670,7 +3672,7 @@ export function HomeTodoCard({
                     <>
                       <div
                         className={cn(
-                          "flex shrink-0 items-center gap-2 border-b px-3 py-2 dark:border-[#1c1921]",
+                          "flex shrink-0 items-center gap-2 border-b px-3 py-2 border-border dark:border-[#1c1921]",
                           studyBibleDarkClasses.laneTitleBar
                         )}
                       >
@@ -3690,7 +3692,7 @@ export function HomeTodoCard({
                         />
                         <Label
                           htmlFor="bulk-edit-select-all-tablet"
-                          className="cursor-pointer text-sm font-medium dark:text-[#fffaff]"
+                          className="cursor-pointer text-sm font-medium text-foreground dark:text-[#fffaff]"
                         >
                           Select all
                         </Label>
@@ -3738,7 +3740,7 @@ export function HomeTodoCard({
                   <Button
                     type="button"
                     variant="outline"
-                    className="dark:border-[#80778e]/55 dark:text-[#fffaff] dark:hover:bg-[#3b3348]/70"
+                    className="dark:border-[#80778e]/55 text-foreground dark:text-[#fffaff] dark:hover:bg-[#3b3348]/70"
                     onClick={() => setBulkEditPromptOpen(false)}
                   >
                     Cancel
@@ -3765,7 +3767,7 @@ export function HomeTodoCard({
           headerClassName="text-center shrink-0 bg-transparent dark:bg-transparent px-4 pb-2 pt-2"
           className={cn(
             todoBulkEditPickerPanelClass,
-            "dark:border-[#1c1921] dark:text-[#fffaff] max-h-[85svh] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:min-h-0 [&_.drawer-content-inner]:overflow-hidden"
+            "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff] max-h-[85svh] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:min-h-0 [&_.drawer-content-inner]:overflow-hidden"
           )}
           drawerHandleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
           drawerDescriptionClassName="text-center px-2"
@@ -3781,7 +3783,7 @@ export function HomeTodoCard({
                 <>
                   <div
                     className={cn(
-                      "flex items-center gap-2 border-b px-3 py-2 shrink-0 dark:border-[#1c1921]",
+                      "flex items-center gap-2 border-b px-3 py-2 shrink-0 border-border dark:border-[#1c1921]",
                       studyBibleDarkClasses.laneTitleBar
                     )}
                   >
@@ -3797,7 +3799,7 @@ export function HomeTodoCard({
                       onCheckedChange={(value) => toggleBulkEditSelectAll(value === true)}
                       aria-label={bulkEditSelectAllState.allSelected ? "Unselect all" : "Select all"}
                     />
-                    <Label htmlFor="bulk-edit-select-all" className="text-sm font-medium cursor-pointer dark:text-[#fffaff]">
+                    <Label htmlFor="bulk-edit-select-all" className="text-sm font-medium cursor-pointer text-foreground dark:text-[#fffaff]">
                       Select all
                     </Label>
                   </div>
@@ -3844,7 +3846,7 @@ export function HomeTodoCard({
               <Button
                 type="button"
                 variant="outline"
-                className="dark:border-[#80778e]/55 dark:text-[#fffaff] dark:hover:bg-[#3b3348]/70"
+                className="dark:border-[#80778e]/55 text-foreground dark:text-[#fffaff] dark:hover:bg-[#3b3348]/70"
                 onClick={() => setBulkEditPromptOpen(false)}
               >
                 Cancel
@@ -3909,7 +3911,7 @@ function TodoAssigneeAvatar({
   slot,
   profile,
   participantsReady,
-  className = "h-5 w-5 border border-border/70 dark:border-[#1c1921]",
+  className = "h-5 w-5 border border-border/70 border-border dark:border-[#1c1921]",
 }: {
   slot: TodoAssigneeSlot;
   profile?: ParticipantProfile;
@@ -3990,6 +3992,9 @@ function BulkEditTodoListItem({
                         label={truncateLabel(todo.context_name, 28)}
                         className="truncate max-w-full whitespace-nowrap"
                       />
+                      {isEstablishmentTodoMissingLocation(todo) ? (
+                        <MissingEstablishmentLocationIcon />
+                      ) : null}
                     </span>
                   )}
                   {isHouseholder && todo.context_establishment_name ? (
@@ -4020,7 +4025,7 @@ function BulkEditTodoListItem({
           </div>
         ) : null}
         <div className="flex items-start gap-2 w-full min-w-0">
-          <p className="text-left text-base leading-snug line-clamp-2 flex-1 min-w-0 dark:text-[#fffaff]">{todo.body}</p>
+          <p className="text-left text-base leading-snug line-clamp-2 flex-1 min-w-0 text-foreground dark:text-[#fffaff]">{todo.body}</p>
           {displayDate || areaLabel ? (
             <div className="flex flex-col items-end gap-0.5 shrink-0 max-w-[45%] text-right">
               {displayDate ? (
@@ -4145,6 +4150,9 @@ function TodoRow({
                         label={truncateLabel(todo.context_name, 28)}
                         className={cn("truncate max-w-full whitespace-nowrap", isDone && "opacity-70")}
                       />
+                      {isEstablishmentTodoMissingLocation(todo) ? (
+                        <MissingEstablishmentLocationIcon className={isDone ? "opacity-70" : undefined} />
+                      ) : null}
                     </span>
                   )}
                   {isHouseholder && todo.context_establishment_name && !hideHouseholderEstablishmentBadge ? (
@@ -4203,7 +4211,7 @@ function TodoRow({
     </>
   );
   const finalClassName = cn(
-    "flex items-center gap-2 text-sm group rounded-md py-2.5 pl-2 dark:text-[#fffaff]",
+    "flex items-center gap-2 text-sm group rounded-md py-2.5 pl-2 text-foreground dark:text-[#fffaff]",
     isEvenRow && "bg-muted/30",
     hasOtherPublisherHighlight &&
       "border border-dashed border-muted-foreground/40 dark:border-[#5a5068] px-1.5 py-2.5",

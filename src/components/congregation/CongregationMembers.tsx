@@ -25,7 +25,7 @@ import {
   CONG_ROLE_BADGE_CLASSES,
   getPrimaryRoleDisplay,
 } from "@/lib/utils/congregation-member-roles";
-import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
+import { studyBibleDarkClasses, studyBibleSectionToggle } from "@/lib/theme/study-bible-dark";
 
 const GUEST_MEMBERS_TAB = "__cong_guest_members__";
 
@@ -256,7 +256,7 @@ export function CongregationMembers({
           <div className="min-w-0 flex-1">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0 flex items-center gap-2 flex-wrap">
-                <p className="truncate text-sm font-medium dark:text-[#fffaff]">
+                <p className="truncate text-sm font-medium text-foreground dark:text-[#fffaff]">
                   {member.first_name} {member.last_name}
                 </p>
                 {member.is_congregation_guest ? (
@@ -305,12 +305,7 @@ export function CongregationMembers({
   const membersDirectoryBody = (
     <>
       <div className="flex justify-center">
-        <div
-          className={cn(
-            "relative w-full max-w-screen-sm overflow-hidden rounded-lg border p-0.5 shadow-lg backdrop-blur-sm",
-            studyBibleDarkClasses.card
-          )}
-        >
+        <div className={cn("relative w-full max-w-screen-sm", studyBibleSectionToggle.shell)}>
           <div className="no-scrollbar w-full overflow-x-auto">
             <ToggleGroup
               type="single"
@@ -318,13 +313,17 @@ export function CongregationMembers({
               onValueChange={(v) => {
                 if (v) setActiveGroup(v);
               }}
-              className="h-full min-w-full w-max justify-center"
+              className={cn(studyBibleSectionToggle.group, "w-max justify-center")}
             >
               {groupTabValues.map((g) => (
                 <ToggleGroupItem
                   key={g}
                   value={g}
-                  className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex min-h-12 min-w-0 max-w-[100px] items-center justify-center px-3 py-2 transition-colors dark:text-[#ded6e7] dark:hover:bg-[#3b3348] dark:data-[state=on]:!bg-[#80778e] dark:data-[state=on]:!text-white"
+                  className={cn(
+                    studyBibleSectionToggle.item,
+                    studyBibleSectionToggle.itemCompact,
+                    "min-h-12 max-w-[100px] py-2"
+                  )}
                   title={g === GUEST_MEMBERS_TAB ? "Guest" : g}
                 >
                   <span className="w-full whitespace-normal break-words text-center text-[11px] font-medium">
@@ -339,14 +338,14 @@ export function CongregationMembers({
 
       <div
         className={cn(
-          "flex w-full flex-col overflow-hidden overscroll-none rounded-xl border dark:border-[#1c1921] dark:bg-[#181714]",
+          "flex w-full flex-col overflow-hidden overscroll-none rounded-xl border border-border dark:border-[#1c1921] bg-card dark:bg-[#181714]",
           isMdUp ? "min-h-0 flex-1" : "h-[calc(70vh)]"
         )}
       >
-        <div className="flex-shrink-0 border-b bg-background dark:border-[#1c1921] dark:bg-[#30283c]">
+        <div className="flex-shrink-0 border-b bg-card border-border dark:border-[#1c1921] dark:bg-[#30283c]">
           <table className="w-full table-fixed text-sm">
             <thead>
-              <tr className="border-b dark:border-[#1c1921]">
+              <tr className="border-b border-border dark:border-[#1c1921]">
                 <th className="w-[70%] px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-[#ded6e7]">
                   Name
                 </th>
@@ -359,7 +358,7 @@ export function CongregationMembers({
         </div>
 
         <div
-          className="no-scrollbar flex-1 overflow-y-auto overscroll-none dark:bg-[#181714]"
+          className="no-scrollbar flex-1 overflow-y-auto overscroll-none bg-card dark:bg-[#181714]"
           style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
         >
           <table className="w-full table-fixed text-sm">
@@ -386,7 +385,7 @@ export function CongregationMembers({
                         </Avatar>
                         <div className="min-w-0">
                           <div className="flex min-w-0 flex-wrap items-center gap-2">
-                            <span className="truncate dark:text-[#fffaff]">
+                            <span className="truncate text-foreground dark:text-[#fffaff]">
                               {member.first_name} {member.last_name}
                             </span>
                             {member.is_congregation_guest ? (
@@ -447,17 +446,17 @@ export function CongregationMembers({
           studyBibleDarkClasses.bwiCard
         )}
       >
-        <CardHeader className="rounded-t-xl border-b px-4 pt-3 !pb-3 dark:border-[#1c1921] dark:bg-[#2a2534]">
+        <CardHeader className="rounded-t-xl border-b px-4 pt-3 !pb-3 border-border dark:border-[#1c1921] dark:bg-[#2a2534]">
           <button
             type="button"
             className="flex w-full items-center justify-between gap-3 rounded-md text-left transition-colors hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#80778e] focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-offset-[#181714]"
             onClick={() => setMembersDrawerOpen(true)}
           >
-            <CardTitle className="flex items-center gap-2 text-base font-bold leading-tight dark:text-[#fffaff]">
+            <CardTitle className="flex items-center gap-2 text-base font-bold leading-tight text-foreground dark:text-[#fffaff]">
               <Users className="h-5 w-5 shrink-0 opacity-90" />
               Congregation Members
             </CardTitle>
-            <ChevronRight className="h-4 w-4 shrink-0 opacity-70 dark:text-[#ded6e7]" />
+            <ChevronRight className="h-4 w-4 shrink-0 opacity-70 text-muted-foreground dark:text-[#ded6e7]" />
           </button>
         </CardHeader>
         <CardContent className="space-y-2 p-0 pb-6 pt-2">
@@ -497,8 +496,8 @@ export function CongregationMembers({
           modal
           shouldScaleBackground={false}
         >
-          <DrawerWideRightContent className="flex flex-col overflow-hidden dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff] md:max-h-[100lvh]">
-            <DrawerHeader className="shrink-0 px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:bg-[#181714]">
+          <DrawerWideRightContent className="flex flex-col overflow-hidden border-border dark:border-[#1c1921] bg-card dark:bg-[#181714] text-foreground dark:text-[#fffaff] md:max-h-[100lvh]">
+            <DrawerHeader className="shrink-0 px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center bg-card dark:bg-[#181714]">
               <DrawerTitle className="text-center text-lg font-bold">Congregation Members</DrawerTitle>
               <DrawerDescription className="sr-only">
                 Browse and filter congregation members by group or role.
@@ -521,7 +520,7 @@ export function CongregationMembers({
         onOpenChange={setUserManagementModalOpen}
         title="Manage User"
         desktopPresentation="left-sheet"
-        className="dark:border-[#1c1921] dark:bg-[#181714] md:max-h-[100lvh]"
+        className="border-border dark:border-[#1c1921] bg-card dark:bg-[#181714] md:max-h-[100lvh]"
         headerClassName="text-center"
       >
         {selectedUser && (

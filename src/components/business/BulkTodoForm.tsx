@@ -33,6 +33,7 @@ import {
   type EstablishmentWithDetails,
   type HouseholderWithDetails,
   type MyOpenCallTodoItem,
+  establishmentHasMapLocation,
 } from "@/lib/db/business";
 import { getAssigneeAvatarInitials, getInitialsFromName } from "@/lib/utils/visit-history-ui";
 import { getBestStatus, getStatusTitleColor } from "@/lib/utils/status-hierarchy";
@@ -703,6 +704,9 @@ export function BulkTodoForm({
           context_status: primary,
           context_establishment_status: primary,
           context_area: (est?.area ?? option.subtitle)?.trim() || null,
+          context_establishment_missing_location: est
+            ? !establishmentHasMapLocation(est.lat, est.lng)
+            : undefined,
         };
       }
       const hhId = option.key.slice("householder:".length);
@@ -1861,10 +1865,10 @@ export function BulkTodoForm({
               "w-full text-left rounded-md py-2 px-2 transition-colors cursor-pointer " +
               (bulkAddActive
                 ? bulkSelected
-                  ? "bg-secondary text-secondary-foreground dark:bg-[#3b3348] dark:text-[#fffaff]"
+                  ? "bg-secondary text-secondary-foreground dark:bg-[#3b3348] text-foreground dark:text-[#fffaff]"
                   : "hover:bg-accent hover:text-accent-foreground dark:hover:bg-[#2a2534]/80"
                 : row.targetKey === option.key
-                  ? "bg-secondary text-secondary-foreground dark:bg-[#3b3348] dark:text-[#fffaff]"
+                  ? "bg-secondary text-secondary-foreground dark:bg-[#3b3348] text-foreground dark:text-[#fffaff]"
                   : "hover:bg-accent hover:text-accent-foreground dark:hover:bg-[#2a2534]/80")
             }
             onClick={() => {
@@ -2988,12 +2992,12 @@ export function BulkTodoForm({
                       stackAboveDetailsSheet
                       className={cn(
                         "md:max-h-[100lvh]",
-                        "dark:border-[#1c1921] dark:text-[#fffaff]",
+                        "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
                         studyBibleDarkClasses.popoverPanel,
                         getStudyBibleDarkCardShade("bwi-bulk-todo-assignee-picker")
                       )}
                     >
-                      <DrawerHeader className="shrink-0 border-b border-border/50 bg-transparent px-4 py-3 text-center dark:border-[#1c1921]/80">
+                      <DrawerHeader className="shrink-0 border-b border-border/50 bg-transparent px-4 py-3 text-center border-border dark:border-[#1c1921]/80">
                         <DrawerTitle className="text-base font-semibold">Select publisher or guest</DrawerTitle>
                       </DrawerHeader>
                       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+24px)] pt-2 space-y-6">
@@ -3300,7 +3304,7 @@ export function BulkTodoForm({
                   <li
                     key={`${row.id}-pending-${pendingTodo.id}`}
                     className={cn(
-                      "rounded-md border border-transparent px-1 py-1 text-xs dark:border-[#1c1921]/50 dark:bg-[#342a43]/55"
+                      "rounded-md border border-transparent px-1 py-1 text-xs border-border dark:border-[#1c1921]/50 dark:bg-[#342a43]/55"
                     )}
                   >
                     <div className="flex items-center gap-2 overflow-hidden">
@@ -3361,7 +3365,7 @@ export function BulkTodoForm({
         })()}
 
         {(row.sourceTodoId || !isRowBlank(row)) ? (
-          <div className="mt-3 flex justify-end border-t border-border/60 pt-2 dark:border-[#1c1921]/80">
+          <div className="mt-3 flex justify-end border-t border-border/60 pt-2 border-border dark:border-[#1c1921]/80">
             {row.sourceTodoId ? (
               <Button
                 type="button"
@@ -3524,7 +3528,7 @@ export function BulkTodoForm({
               </Button>
             </DrawerTrigger>
             <DrawerContent className={cn("max-h-[70vh]", studyBibleDarkClasses.popoverPanel)}>
-              <DrawerHeader className="bg-transparent text-center sm:text-center dark:text-[#fffaff]">
+              <DrawerHeader className="bg-transparent text-center sm:text-center text-foreground dark:text-[#fffaff]">
                 <DrawerTitle className="text-center">Select Establishment or Contact</DrawerTitle>
                 <DrawerDescription className="sr-only">Choose establishments or contacts to attach to bulk to-dos.</DrawerDescription>
               </DrawerHeader>
@@ -3669,11 +3673,11 @@ export function BulkTodoForm({
         >
           <DrawerWideLeftContent
             className={cn(
-              "dark:border-[#1c1921] dark:text-[#fffaff] md:max-h-[100lvh]",
+              "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff] md:max-h-[100lvh]",
               getStudyBibleDarkCardShade("bwi-bulk-todos-target-picker:left")
             )}
           >
-            <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+0.75rem)] text-center sm:text-center dark:text-[#fffaff]">
+            <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+0.75rem)] text-center sm:text-center text-foreground dark:text-[#fffaff]">
               <DrawerTitle className="text-center text-base font-semibold">
                 Select Establishment or Contact
               </DrawerTitle>
@@ -3707,14 +3711,14 @@ export function BulkTodoForm({
       <Drawer open={clearConfirmOpen} onOpenChange={setClearConfirmOpen}>
         <DrawerContent
           className={cn(
-            "flex flex-col dark:border-[#1c1921] dark:text-[#fffaff]",
+            "flex flex-col border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
             getStudyBibleDarkCardShade("bwi-bulk-todos-confirm-clear")
           )}
           style={{ maxHeight: "50vh", height: "50vh" }}
         >
           <div className="flex flex-1 flex-col justify-center px-4 pt-2 min-h-0">
             <DrawerHeader className="bg-transparent pt-6 px-4 pb-2 text-center">
-              <DrawerTitle className="text-center text-[#fffaff] dark:text-[#fffaff]">
+              <DrawerTitle className="text-center text-[#fffaff] text-foreground dark:text-[#fffaff]">
                 Clear all to-dos?
               </DrawerTitle>
               <DrawerDescription className={cn("text-center", studyBibleDarkClasses.muted)}>
@@ -3755,14 +3759,14 @@ export function BulkTodoForm({
       >
         <DrawerContent
           className={cn(
-            "flex flex-col dark:border-[#1c1921] dark:text-[#fffaff]",
+            "flex flex-col border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
             getStudyBibleDarkCardShade("bwi-bulk-todos-confirm-delete-saved")
           )}
           style={{ maxHeight: "50vh", height: "50vh" }}
         >
           <div className="flex flex-1 flex-col justify-center px-4 pt-2 min-h-0">
             <DrawerHeader className="bg-transparent pt-6 px-4 pb-2 text-center">
-              <DrawerTitle className="text-center text-[#fffaff] dark:text-[#fffaff]">
+              <DrawerTitle className="text-center text-[#fffaff] text-foreground dark:text-[#fffaff]">
                 Delete all saved to-dos?
               </DrawerTitle>
               <DrawerDescription className={cn("text-center", studyBibleDarkClasses.muted)}>
@@ -3805,14 +3809,14 @@ export function BulkTodoForm({
       >
         <DrawerContent
           className={cn(
-            "flex flex-col dark:border-[#1c1921] dark:text-[#fffaff]",
+            "flex flex-col border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
             getStudyBibleDarkCardShade("bwi-bulk-todos-confirm-delete-row")
           )}
           style={{ maxHeight: "50vh", height: "50vh" }}
         >
           <div className="flex flex-1 flex-col justify-center px-4 pt-2 min-h-0">
             <DrawerHeader className="bg-transparent pt-6 px-4 pb-2 text-center">
-              <DrawerTitle className="text-center text-[#fffaff] dark:text-[#fffaff]">
+              <DrawerTitle className="text-center text-[#fffaff] text-foreground dark:text-[#fffaff]">
                 Delete this to-do?
               </DrawerTitle>
               <DrawerDescription className={cn("text-center", studyBibleDarkClasses.muted)}>
@@ -3869,7 +3873,7 @@ export function BulkTodoForm({
             getStudyBibleDarkCardShade("bwi-bulk-todos-duplicate-prompt")
           )}
         >
-          <DrawerHeader className="bg-transparent text-center dark:text-[#fffaff]">
+          <DrawerHeader className="bg-transparent text-center text-foreground dark:text-[#fffaff]">
             <DrawerTitle>Duplicate target detected</DrawerTitle>
             <DrawerDescription className={cn("sr-only")}>Resolve duplicate establishments or contacts.</DrawerDescription>
           </DrawerHeader>
@@ -3880,7 +3884,7 @@ export function BulkTodoForm({
             {duplicateAddPrompt?.duplicateTargetKeys?.length ? (
               <div
                 className={cn(
-                  "rounded-md border p-3 dark:border-[#1c1921]",
+                  "rounded-md border p-3 border-border dark:border-[#1c1921]",
                   studyBibleDarkClasses.laneTitleBar
                 )}
               >

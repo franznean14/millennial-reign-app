@@ -131,71 +131,71 @@ body.has-device-safe-top {
 
 :root {
   --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --background: #f5f4f7;
+  --foreground: #1a1820;
+  --card: #ffffff;
+  --card-foreground: #1a1820;
+  --popover: #ffffff;
+  --popover-foreground: #1a1820;
+  --primary: #6b5196;
+  --primary-foreground: #ffffff;
+  --secondary: #ece8f2;
+  --secondary-foreground: #1a1820;
+  --muted: #ede9f3;
+  --muted-foreground: #6d6880;
+  --accent: #ece8f2;
+  --accent-foreground: #6b5196;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --border: #e2dde8;
+  --input: #e2dde8;
+  --ring: #6b5196;
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1a1820;
+  --sidebar-primary: #6b5196;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ece8f2;
+  --sidebar-accent-foreground: #1a1820;
+  --sidebar-border: #e2dde8;
+  --sidebar-ring: #6b5196;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  --background: #24231f;
+  --foreground: #fffaff;
+  --card: #30283c;
+  --card-foreground: #fffaff;
+  --popover: #30283c;
+  --popover-foreground: #fffaff;
+  --primary: #80778e;
+  --primary-foreground: #ffffff;
+  --secondary: #3b3348;
+  --secondary-foreground: #fffaff;
+  --muted: #3b3348;
+  --muted-foreground: #ded6e7;
+  --accent: #3b3348;
+  --accent-foreground: #fffaff;
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --border: #1c1921;
+  --input: #1c1921;
+  --ring: #80778e;
   --chart-1: oklch(0.488 0.243 264.376);
   --chart-2: oklch(0.696 0.17 162.48);
   --chart-3: oklch(0.769 0.188 70.08);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --sidebar: #2a2534;
+  --sidebar-foreground: #fffaff;
+  --sidebar-primary: #80778e;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #3b3348;
+  --sidebar-accent-foreground: #fffaff;
+  --sidebar-border: #1c1921;
+  --sidebar-ring: #80778e;
 }
 
 @layer base {
@@ -533,6 +533,19 @@ body.app-scroll-locked {
   background: #463b55 !important;
 }
 
+/* Light mode map controls — white pills with dark icons */
+html:not(.dark) .maplibregl-ctrl-group {
+  background: #ffffff !important;
+  border: 1px solid #e2dde8 !important;
+  border-radius: 9999px !important;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(26, 24, 32, 0.12) !important;
+}
+
+html:not(.dark) .maplibregl-ctrl button:hover {
+  background: #f0ecf4 !important;
+}
+
 /*
  * BWI fullscreen map (`body.map-view-active`): larger targets; bottom-right zoom + geolocate as separate pill groups with a gap.
  */
@@ -543,15 +556,26 @@ body.map-view-active .maplibregl-ctrl-group button {
   min-height: 44px !important;
 }
 
-body.map-view-active .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+html.dark body.map-view-active .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
   transform: scale(1.22);
   transform-origin: center center;
   filter: brightness(0) invert(1);
   opacity: 0.95;
 }
 
+html:not(.dark) body.map-view-active .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  transform: scale(1.22);
+  transform-origin: center center;
+  filter: brightness(0) opacity(0.72);
+  opacity: 1;
+}
+
 body.map-view-active .maplibregl-ctrl-group button + button {
   border-top-color: #1c1921 !important;
+}
+
+html:not(.dark) body.map-view-active .maplibregl-ctrl-group button + button {
+  border-top-color: #e2dde8 !important;
 }
 
 body.map-view-active .maplibregl-ctrl.maplibregl-ctrl-geolocate button {
@@ -561,16 +585,28 @@ body.map-view-active .maplibregl-ctrl.maplibregl-ctrl-geolocate button {
   min-height: 44px !important;
 }
 
-body.map-view-active .maplibregl-ctrl.maplibregl-ctrl-geolocate button .maplibregl-ctrl-icon {
+html.dark body.map-view-active .maplibregl-ctrl.maplibregl-ctrl-geolocate button .maplibregl-ctrl-icon {
   transform: scale(1.18);
   transform-origin: center center;
   filter: brightness(0) invert(1);
   opacity: 0.95;
 }
 
-body.map-view-active .maplibregl-ctrl.maplibregl-ctrl-geolocate button:disabled .maplibregl-ctrl-icon {
+html:not(.dark) body.map-view-active .maplibregl-ctrl.maplibregl-ctrl-geolocate button .maplibregl-ctrl-icon {
+  transform: scale(1.18);
+  transform-origin: center center;
+  filter: brightness(0) opacity(0.72);
+  opacity: 1;
+}
+
+html.dark body.map-view-active .maplibregl-ctrl.maplibregl-ctrl-geolocate button:disabled .maplibregl-ctrl-icon {
   filter: brightness(0) invert(1);
   opacity: 0.45;
+}
+
+html:not(.dark) body.map-view-active .maplibregl-ctrl.maplibregl-ctrl-geolocate button:disabled .maplibregl-ctrl-icon {
+  filter: brightness(0) opacity(0.35);
+  opacity: 1;
 }
 
 /*
@@ -602,9 +638,7 @@ body.map-view-active .maplibregl-ctrl-bottom-right .maplibregl-ctrl.maplibregl-c
 
 /* Geolocate: its own full pill (separate from zoom stack). */
 html.dark body.map-view-active .maplibregl-map .maplibregl-ctrl.maplibregl-ctrl-geolocate button.maplibregl-ctrl-geolocate,
-html.dark body.map-view-active .maplibregl-map .maplibregl-ctrl.maplibregl-ctrl-geolocate > button,
-body.map-view-active .maplibregl-map .maplibregl-ctrl.maplibregl-ctrl-geolocate button.maplibregl-ctrl-geolocate,
-body.map-view-active .maplibregl-map .maplibregl-ctrl.maplibregl-ctrl-geolocate > button {
+html.dark body.map-view-active .maplibregl-map .maplibregl-ctrl.maplibregl-ctrl-geolocate > button {
   -webkit-appearance: none !important;
   appearance: none !important;
   background-color: #342a43 !important;
@@ -614,6 +648,20 @@ body.map-view-active .maplibregl-map .maplibregl-ctrl.maplibregl-ctrl-geolocate 
   border-radius: 9999px !important;
   -webkit-clip-path: none !important;
   clip-path: none !important;
+}
+
+html:not(.dark) body.map-view-active .maplibregl-map .maplibregl-ctrl.maplibregl-ctrl-geolocate button.maplibregl-ctrl-geolocate,
+html:not(.dark) body.map-view-active .maplibregl-map .maplibregl-ctrl.maplibregl-ctrl-geolocate > button {
+  -webkit-appearance: none !important;
+  appearance: none !important;
+  background-color: #ffffff !important;
+  border: 1px solid #e2dde8 !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+  border-radius: 9999px !important;
+  -webkit-clip-path: none !important;
+  clip-path: none !important;
+  box-shadow: 0 1px 4px rgba(26, 24, 32, 0.12) !important;
 }
 
 html.dark body.map-view-active .maplibregl-ctrl-bottom-right .maplibregl-ctrl.maplibregl-ctrl-geolocate button .maplibregl-ctrl-icon,

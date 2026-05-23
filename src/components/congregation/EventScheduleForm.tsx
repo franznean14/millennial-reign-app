@@ -838,7 +838,7 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
         </div>
       ) : null}
 
-      <div className="mt-1 flex justify-end border-t border-border pt-5 dark:border-[#1c1921]">
+      <div className="mt-1 flex justify-end border-t border-border pt-5 border-border dark:border-[#1c1921]">
         <Button type="submit" size="lg" disabled={saving} className={sidebarFormClasses.primaryButton}>
           {saving ? (isEditing ? "Updating..." : "Creating...") : (isEditing ? "Update" : "Create")}
         </Button>

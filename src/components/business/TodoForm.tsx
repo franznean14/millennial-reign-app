@@ -360,7 +360,7 @@ export function TodoForm({
                   <Button
                     type="button"
                     variant="ghost"
-                    className="h-12 w-full justify-start gap-2 px-3 dark:text-[#fffaff] dark:hover:bg-[#3b3348]"
+                    className="h-12 w-full justify-start gap-2 px-3 text-foreground dark:text-[#fffaff] dark:hover:bg-[#3b3348]"
                     onClick={() => addSlot({ type: "publisher", id: participant.id })}
                   >
                     <Avatar className="h-8 w-8">
@@ -392,7 +392,7 @@ export function TodoForm({
                 key={name}
                 type="button"
                 variant="ghost"
-                className="h-12 w-full justify-start gap-2 px-3 dark:text-[#fffaff] dark:hover:bg-[#3b3348]"
+                className="h-12 w-full justify-start gap-2 px-3 text-foreground dark:text-[#fffaff] dark:hover:bg-[#3b3348]"
                 onClick={() => addSlot({ type: "guest", name })}
               >
                 <Avatar className="h-8 w-8 shrink-0">
@@ -579,7 +579,7 @@ export function TodoForm({
                 type="button"
                 variant="ghost"
                 size="sm"
-                className="h-6 w-6 shrink-0 p-0 dark:text-[#ded6e7] dark:hover:bg-[#3b3348]"
+                className="h-6 w-6 shrink-0 p-0 text-muted-foreground dark:text-[#ded6e7] dark:hover:bg-[#3b3348]"
                 onClick={() => removeSlot(index)}
                 aria-label="Remove"
               >
@@ -611,7 +611,7 @@ export function TodoForm({
               </DrawerTrigger>
               {usePublisherSidebar ? (
                 <DrawerThinRightContent
-                  className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", publisherPickerShade)}
+                  className={cn("border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]", publisherPickerShade)}
                 >
                   {publisherPickerContent}
                 </DrawerThinRightContent>

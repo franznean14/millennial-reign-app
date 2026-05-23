@@ -28,7 +28,9 @@ import {
   type HouseholderStatus,
   type MyOpenCallTodoItem,
   type VisitWithUser,
+  isEstablishmentTodoMissingLocation,
 } from "@/lib/db/business";
+import { MissingEstablishmentLocationIcon } from "@/components/business/MissingEstablishmentLocationIcon";
 import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
 import { getSelectedStatusColor } from "@/lib/utils/status-filter-styles";
 import NumberFlow from "@number-flow/react";
@@ -56,7 +58,7 @@ import { EstablishmentDetails } from "@/components/business/EstablishmentDetails
 import { HouseholderDetails } from "@/components/business/HouseholderDetails";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useHomeTodoDetailsFabOptional } from "@/components/home/home-todo-details-fab-context";
-import { getStudyBibleDarkCardShade, studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
+import { getStudyBibleDarkCardShade, studyBibleDarkClasses, studyBibleSectionToggle } from "@/lib/theme/study-bible-dark";
 import { HomeMobileDetailsDrawer } from "@/components/home/HomeMobileDetailsDrawer";
 
 interface CallHistoryProps {
@@ -1278,7 +1280,7 @@ export function CallHistory({
             title={
               <span
                 className={cn(
-                  "inline-flex min-w-0 items-center",
+                  "inline-flex min-w-0 items-center gap-1",
                   hasEstablishmentBadge ? "max-w-[50%] min-w-0 shrink" : "min-w-0 flex-1"
                 )}
               >
@@ -1287,6 +1289,7 @@ export function CallHistory({
                   label={primaryLabel}
                   className="truncate max-w-full min-w-0 whitespace-nowrap"
                 />
+                {isEstablishmentTodoMissingLocation(todo) ? <MissingEstablishmentLocationIcon /> : null}
               </span>
             }
             titleBadge={
@@ -1729,8 +1732,8 @@ export function CallHistory({
               type="button"
               onClick={() => setShowAreaDrawer(true)}
               className={cn(
-                "flex h-10 shrink-0 items-center justify-center gap-2 border-b px-4 text-sm font-medium hover:bg-muted/50",
-                studyBibleDarkClasses.header
+                "flex h-10 shrink-0 items-center justify-center gap-2 border-b px-4 text-sm font-medium hover:bg-[#ece8f2] dark:hover:bg-[#3b3348]",
+                studyBibleDarkClasses.cardBarHeader
               )}
             >
               <Building2 className="h-4 w-4 shrink-0" />
@@ -1747,8 +1750,8 @@ export function CallHistory({
               type="button"
               onClick={() => setShowDrawer(true)}
               className={cn(
-                "flex h-10 shrink-0 items-center gap-2 border-b px-4 text-sm font-medium hover:bg-muted/50",
-                studyBibleDarkClasses.callsHeader
+                "flex h-10 shrink-0 items-center gap-2 border-b px-4 text-sm font-medium hover:bg-[#ece8f2] dark:hover:bg-[#3b3348]",
+                studyBibleDarkClasses.cardBarHeader
               )}
             >
               <KnockingDoorIcon />
@@ -1761,25 +1764,14 @@ export function CallHistory({
           </div>
         ) : (
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="w-full grid grid-cols-2 mb-0 -mb-px p-0 h-auto bg-transparent gap-0 border-0 [&>*]:border-0 relative z-10">
+          <TabsList className={cn("grid-cols-2", studyBibleSectionToggle.cardTabList)}>
             <TabsTrigger 
               value="bwi"
               onPointerDown={handleBwiPointerDown}
               onClick={handleBwiTabClick}
               className={cn(
-                "rounded-tl-lg rounded-tr-none rounded-bl-none rounded-br-none",
-                "bg-primary text-primary-foreground dark:text-primary-foreground font-medium",
-                "data-[state=active]:!bg-background data-[state=active]:!text-foreground",
-                "dark:bg-[#2a2534] dark:text-[#ded6e7] dark:data-[state=active]:!bg-[#30283c] dark:data-[state=active]:!text-white",
-                "shadow-none",
-                "relative h-10 px-4",
-                "transition-all duration-200",
-                "hover:bg-primary/90 data-[state=active]:hover:!bg-background",
-                "dark:hover:bg-[#342a43] dark:data-[state=active]:hover:!bg-[#30283c]",
-                "!border-0 focus-visible:ring-0 focus-visible:outline-none",
-                "[&>svg]:text-primary-foreground data-[state=active]:[&>svg]:text-foreground",
-                "dark:[&>svg]:text-[#ded6e7] dark:data-[state=active]:[&>svg]:text-white",
-                "after:hidden"
+                studyBibleSectionToggle.cardTabTrigger,
+                studyBibleSectionToggle.cardTabTriggerLeft
               )}
             >
               <motion.div
@@ -1798,25 +1790,14 @@ export function CallHistory({
               onPointerDown={handleCallHistoryPointerDown}
               onClick={handleCallHistoryTabClick}
               className={cn(
-                "rounded-tr-lg rounded-tl-none rounded-bl-none rounded-br-none",
-                "bg-primary text-primary-foreground dark:text-primary-foreground font-medium",
-                "data-[state=active]:!bg-background data-[state=active]:!text-foreground",
-                "dark:bg-[#2a2534] dark:text-[#ded6e7] dark:data-[state=active]:!bg-[#30283c] dark:data-[state=active]:!text-white",
-                "shadow-none",
-                "relative h-10 px-4",
-                "transition-all duration-200",
-                "hover:bg-primary/90 data-[state=active]:hover:!bg-background",
-                "dark:hover:bg-[#342a43] dark:data-[state=active]:hover:!bg-[#30283c]",
-                "!border-0 focus-visible:ring-0 focus-visible:outline-none",
-                "[&>svg]:text-primary-foreground data-[state=active]:[&>svg]:text-foreground",
-                "dark:[&>svg]:text-[#ded6e7] dark:data-[state=active]:[&>svg]:text-white",
-                "after:hidden"
+                studyBibleSectionToggle.cardTabTrigger,
+                studyBibleSectionToggle.cardTabTriggerRight
               )}
             >
               <KnockingDoorIcon />
               <span>Calls</span>
               {activeTab === "visit-history" ? (
-                <ChevronRight className="h-4 w-4 opacity-70" />
+                <ChevronRight className="h-4 w-4 opacity-80" />
               ) : null}
             </TabsTrigger>
           </TabsList>
@@ -1824,7 +1805,8 @@ export function CallHistory({
           <TabsContent
             value="bwi"
             className={cn(
-              "mt-0 rounded-b-lg bg-background p-4 overflow-y-auto scrollbar-hide",
+              studyBibleSectionToggle.cardTabContent,
+              "overflow-y-auto scrollbar-hide",
               studyBibleDarkClasses.bwiCard
             )}
           >
@@ -1833,10 +1815,7 @@ export function CallHistory({
           
           <TabsContent
             value="visit-history"
-            className={cn(
-              "mt-0 rounded-b-lg bg-background p-4",
-              studyBibleDarkClasses.bwiCard
-            )}
+            className={cn(studyBibleSectionToggle.cardTabContent, studyBibleDarkClasses.bwiCard)}
           >
             {renderCallsPreviewContent()}
           </TabsContent>
@@ -1873,7 +1852,7 @@ export function CallHistory({
       >
         <DrawerContent
           className={cn(
-            "h-[85svh] max-h-[85svh] md:h-[92dvh] md:max-h-[92dvh] dark:border-[#1c1921] dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
+            "h-[85svh] max-h-[85svh] md:h-[92dvh] md:max-h-[92dvh] border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
             callsDrawerPanelClass
           )}
           handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
@@ -2004,8 +1983,8 @@ export function CallHistory({
             >
               {callsDrawerTabletLayout ? (
                 <div className="grid h-full min-h-0 gap-3 pb-2 md:grid-cols-2 md:items-stretch md:gap-3">
-                  <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-muted/15 dark:border-[#1c1921] dark:bg-[#2a2534]">
-                    <div className={cn("shrink-0 border-b border-border px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground dark:border-[#1c1921] dark:bg-[#30283c]", studyBibleDarkClasses.muted)}>
+                  <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-muted/15 border-border dark:border-[#1c1921] dark:bg-[#2a2534]">
+                    <div className={cn("shrink-0 border-b border-border px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground border-border dark:border-[#1c1921] dark:bg-[#30283c]", studyBibleDarkClasses.muted)}>
                       Establishments ({callsDrawerEstablishmentItems.length})
                     </div>
                     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pt-3 pb-[calc(max(env(safe-area-inset-bottom),0px)+88px)] dark:bg-[#2a2534]">
@@ -2018,8 +1997,8 @@ export function CallHistory({
                       )}
                     </div>
                   </div>
-                  <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-muted/15 dark:border-[#1c1921] dark:bg-[#2a2534]">
-                    <div className={cn("shrink-0 border-b border-border px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground dark:border-[#1c1921] dark:bg-[#30283c]", studyBibleDarkClasses.muted)}>
+                  <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-muted/15 border-border dark:border-[#1c1921] dark:bg-[#2a2534]">
+                    <div className={cn("shrink-0 border-b border-border px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground border-border dark:border-[#1c1921] dark:bg-[#30283c]", studyBibleDarkClasses.muted)}>
                       Contacts ({callsDrawerContactItems.length})
                     </div>
                     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pt-3 pb-[calc(max(env(safe-area-inset-bottom),0px)+88px)] dark:bg-[#2a2534]">
@@ -2106,7 +2085,7 @@ export function CallHistory({
         >
           <DrawerWideRightContent
             className={cn(
-              "dark:border-[#1c1921] dark:text-[#fffaff]",
+              "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
               callsMainDetailsPanelClass
             )}
           >
@@ -2134,7 +2113,7 @@ export function CallHistory({
           }}
           title={callsDetailsSheetTitle}
           contentClassName={cn(
-            "dark:border-[#1c1921] dark:text-[#fffaff]",
+            "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
             callsMainDetailsPanelClass
           )}
         >
@@ -2160,7 +2139,7 @@ export function CallHistory({
           <DrawerWideRightContent
             stackAboveDetailsSheet
             className={cn(
-              "dark:border-[#1c1921] dark:text-[#fffaff]",
+              "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
               callsContactSubdrawerPanelClass
             )}
           >
@@ -2198,7 +2177,7 @@ export function CallHistory({
           }}
           title={selectedCallsContactDetails?.householder.name?.trim() || "Contact Details"}
           contentClassName={cn(
-            "dark:border-[#1c1921] dark:text-[#fffaff]",
+            "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
             callsContactSubdrawerPanelClass
           )}
         >
@@ -2223,7 +2202,7 @@ export function CallHistory({
           <DrawerWideLeftContentTop
             stackAboveStackedRightSheet={callsContactSubdrawerOpen && callsDrawerTabletLayout}
             className={cn(
-              "dark:border-[#1c1921] dark:text-[#fffaff]",
+              "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
               callsEntityEditPanelClass
             )}
           >
@@ -2319,7 +2298,7 @@ export function CallHistory({
         >
           <DrawerWideLeftContent
             className={cn(
-              "dark:border-[#1c1921] dark:text-[#fffaff]",
+              "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
               callsFilterDrawerPanelClass
             )}
           >
@@ -2345,7 +2324,7 @@ export function CallHistory({
         <Drawer open={showFiltersDrawer} onOpenChange={setShowFiltersDrawer} modal shouldScaleBackground={false}>
           <DrawerContent
             className={cn(
-              "max-h-[85svh] dark:border-[#1c1921] dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
+              "max-h-[85svh] border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
               callsFilterDrawerPanelClass
             )}
             handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"

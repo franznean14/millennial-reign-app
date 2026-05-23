@@ -20,10 +20,10 @@ const EventScheduleForm = dynamic(
 
 /** Match Ministry schedules / congregation drawer surfaces (#181714, #1c1921 borders). */
 const sheetChrome =
-  "flex flex-col overflow-hidden dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff] md:max-h-[100lvh]";
+  "flex flex-col overflow-hidden border-border dark:border-[#1c1921] bg-card dark:bg-[#181714] text-foreground dark:text-[#fffaff] md:max-h-[100lvh]";
 
 const sheetHeaderChrome =
-  "shrink-0 border-b border-border px-5 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] dark:border-[#1c1921] dark:bg-[#181714]";
+  "shrink-0 border-b border-border px-5 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] border-border dark:border-[#1c1921] bg-card dark:bg-[#181714]";
 
 export interface EventScheduleFormSheetProps {
   open: boolean;
@@ -79,7 +79,7 @@ export function EventScheduleFormSheet({
               {description}
             </DrawerDescription>
           </DrawerHeader>
-          <div className="schedule-form-sheet-body min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-4 dark:bg-[#181714]">
+          <div className="schedule-form-sheet-body min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-4 bg-card dark:bg-[#181714]">
             {form}
           </div>
         </DrawerWideLeftContentTop>
@@ -93,9 +93,9 @@ export function EventScheduleFormSheet({
       onOpenChange={onOpenChange}
       title={title}
       description={description}
-      className="dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]"
+      className="border-border dark:border-[#1c1921] bg-card dark:bg-[#181714] text-foreground dark:text-[#fffaff]"
       headerClassName={cn(sheetHeaderChrome, "text-center sm:text-center")}
-      drawerContentClassName="dark:border-[#1c1921] dark:bg-[#181714]"
+      drawerContentClassName="border-border dark:border-[#1c1921] bg-card dark:bg-[#181714]"
     >
       <div className="px-0.5 pt-1">{form}</div>
     </FormModal>

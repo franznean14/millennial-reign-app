@@ -76,7 +76,7 @@ export function AppChrome({ children }: AppChromeProps) {
         leaves an unpainted strip above the home indicator on some iOS standalone builds (same class of
         bug as the top black strip — layout box shorter than visible viewport).
       */}
-      <SidebarProvider className="max-md:!fixed max-md:!inset-0 max-md:!min-h-0 max-md:!h-auto max-md:!max-h-none max-md:!overflow-hidden max-md:bg-background max-md:dark:bg-[#24231f]">
+      <SidebarProvider className="max-md:!fixed max-md:!inset-0 max-md:!min-h-0 max-md:!h-auto max-md:!max-h-none max-md:!overflow-hidden max-md:bg-background">
         <SidebarInset className="min-h-0">
           <HomeTodoDetailsFabProvider>
             <div className={cn("flex min-h-0 flex-1 flex-col px-4 w-full overflow-x-hidden", studyBibleDarkClasses.page)}>
@@ -88,8 +88,8 @@ export function AppChrome({ children }: AppChromeProps) {
         {/* Bottom nav: flush to viewport bottom on phones — scroll regions keep pb-[...+80px] for clearance */}
         <nav
           className={cn(
-            "fixed inset-x-0 bottom-0 z-50 border-t border-border pb-0 md:hidden",
-            "bg-background dark:border-[#1c1921] dark:bg-[#2a2534]"
+            "fixed inset-x-0 bottom-0 z-50 border-t pb-0 md:hidden",
+            studyBibleDarkClasses.navBar
           )}
           aria-label="Primary navigation"
         >
@@ -103,7 +103,9 @@ export function AppChrome({ children }: AppChromeProps) {
                   aria-label={label}
                   className={cn(
                     "flex h-full min-h-0 flex-1 flex-col items-center justify-start gap-0.5 pt-2 pb-1 text-[11px] leading-tight transition-colors",
-                    isActive ? "text-foreground dark:text-[#fffaff]" : "text-foreground/60 dark:text-[#ded6e7]/70"
+                    isActive
+                      ? "text-primary dark:text-[#fffaff]"
+                      : "text-muted-foreground dark:text-[#ded6e7]/70"
                   )}
                 >
                   <Icon className={`h-5 w-5 shrink-0 ${isActive ? "" : "opacity-70"}`} fill={isActive ? "currentColor" : "none"} />
@@ -117,7 +119,7 @@ export function AppChrome({ children }: AppChromeProps) {
         {/* Bottom Navigation (Tablet / iPad Pro) */}
         <nav className="pointer-events-none fixed inset-x-0 z-20 hidden md:block bottom-[calc(max(env(safe-area-inset-bottom),0px)+14px)]">
           <div className="mx-auto flex w-[min(92vw,760px)] items-center justify-center px-3">
-            <div className="pointer-events-auto flex w-full items-center justify-between rounded-lg border border-border/60 bg-background/45 px-4 py-2 shadow-2xl backdrop-blur-[44px] backdrop-saturate-150 backdrop-brightness-110 supports-[backdrop-filter]:bg-background/35 dark:border-[#1c1921] dark:bg-[#2a2534]/50 dark:backdrop-brightness-125 dark:shadow-[0_16px_46px_rgba(0,0,0,0.45)]">
+            <div className="pointer-events-auto flex w-full items-center justify-between rounded-lg border border-border/60 bg-background/80 px-4 py-2 shadow-2xl backdrop-blur-[44px] backdrop-saturate-150 supports-[backdrop-filter]:bg-background/70 dark:border-[#1c1921] dark:bg-[#2a2534]/50 dark:backdrop-brightness-125 dark:shadow-[0_16px_46px_rgba(0,0,0,0.45)]">
               <div className="flex min-w-0 flex-1 items-center justify-evenly gap-2">
                 {leftNavItems.map(({ id, label, icon: Icon }) => {
                   const isActive = currentSection === id;
@@ -127,8 +129,10 @@ export function AppChrome({ children }: AppChromeProps) {
                       onClick={() => onSectionChange(id)}
                       aria-label={label}
                       className={cn(
-                        "relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-full px-3 py-1.5 text-[13px] transition-colors dark:hover:bg-[#3b3348]/60",
-                        isActive ? "text-foreground dark:text-white" : "text-foreground/60 hover:text-foreground/90 dark:text-[#ded6e7]/75 dark:hover:text-[#fffaff]"
+                        "relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-full px-3 py-1.5 text-[13px] transition-colors hover:bg-muted/40 dark:hover:bg-[#3b3348]/60",
+                        isActive
+                          ? "text-primary dark:text-white"
+                          : "text-muted-foreground hover:text-foreground dark:text-[#ded6e7]/75 dark:hover:text-[#fffaff]"
                       )}
                     >
                       <Icon className={`h-6 w-6 ${isActive ? "" : "opacity-80"}`} fill={isActive ? "currentColor" : "none"} />
@@ -150,8 +154,10 @@ export function AppChrome({ children }: AppChromeProps) {
                       onClick={() => onSectionChange(id)}
                       aria-label={label}
                       className={cn(
-                        "relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-full px-3 py-1.5 text-[13px] transition-colors dark:hover:bg-[#3b3348]/60",
-                        isActive ? "text-foreground dark:text-white" : "text-foreground/60 hover:text-foreground/90 dark:text-[#ded6e7]/75 dark:hover:text-[#fffaff]"
+                        "relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-full px-3 py-1.5 text-[13px] transition-colors hover:bg-muted/40 dark:hover:bg-[#3b3348]/60",
+                        isActive
+                          ? "text-primary dark:text-white"
+                          : "text-muted-foreground hover:text-foreground dark:text-[#ded6e7]/75 dark:hover:text-[#fffaff]"
                       )}
                     >
                       <Icon className={`h-6 w-6 ${isActive ? "" : "opacity-80"}`} fill={isActive ? "currentColor" : "none"} />

@@ -61,7 +61,7 @@ export function BusinessFiltersForm({
     });
   };
   const filterButtonClass =
-    "dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff] dark:hover:bg-[#3b3348] dark:data-[state=open]:bg-[#3b3348]";
+    "border-border dark:border-[#1c1921] dark:bg-[#30283c] text-foreground dark:text-[#fffaff] dark:hover:bg-[#3b3348] dark:data-[state=open]:bg-[#3b3348]";
   const activeFilterButtonClass =
     "dark:!bg-[#80778e] dark:!text-white dark:hover:!bg-[#8c839a]";
 
@@ -127,10 +127,10 @@ export function BusinessFiltersForm({
 
   // Search field removed from filters form
   return (
-    <div className="space-y-6 pb-[calc(max(env(safe-area-inset-bottom),0px)+40px)] dark:text-[#fffaff]">
+    <div className="space-y-6 pb-[calc(max(env(safe-area-inset-bottom),0px)+40px)] text-foreground dark:text-[#fffaff]">
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label className="dark:text-[#ded6e7]">Status</Label>
+          <Label className="text-muted-foreground dark:text-[#ded6e7]">Status</Label>
           <div className="flex flex-wrap gap-2">
             <StatusFilterButtons
               options={statusOptions}
@@ -142,7 +142,7 @@ export function BusinessFiltersForm({
         </div>
 
         <div className="space-y-2">
-          <Label className="dark:text-[#ded6e7]">Areas</Label>
+          <Label className="text-muted-foreground dark:text-[#ded6e7]">Areas</Label>
           <div className="flex flex-wrap gap-2">
             {areaOptions.map((option) => (
               <Button
@@ -160,7 +160,7 @@ export function BusinessFiltersForm({
 
         {scope !== "householders" && (
           <div className="space-y-2">
-            <Label className="dark:text-[#ded6e7]">Floors</Label>
+            <Label className="text-muted-foreground dark:text-[#ded6e7]">Floors</Label>
             <div className="flex flex-wrap gap-2">
               {floorOptions.map((option) => (
                 <Button
@@ -179,7 +179,7 @@ export function BusinessFiltersForm({
 
         {!isMapView && (
           <div className="space-y-2">
-            <Label className="dark:text-[#ded6e7]">Sort by</Label>
+            <Label className="text-muted-foreground dark:text-[#ded6e7]">Sort by</Label>
             {(() => {
               const current = (localFilters.sort as string) || 'last_visit_desc';
               const underscoreIndex = current.lastIndexOf('_');
@@ -208,10 +208,10 @@ export function BusinessFiltersForm({
                       applyFiltersImmediately(next);
                     }}
                   >
-                    <SelectTrigger className="min-w-[180px] dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff]">
+                    <SelectTrigger className="min-w-[180px] border-border dark:border-[#1c1921] dark:bg-[#30283c] text-foreground dark:text-[#fffaff]">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="dark:border-[#1c1921] dark:bg-[#2a2534] dark:text-[#fffaff]">
+                    <SelectContent className="border-border dark:border-[#1c1921] dark:bg-[#2a2534] text-foreground dark:text-[#fffaff]">
                       <SelectItem value="last_visit">Last Call</SelectItem>
                       <SelectItem value="name">Name</SelectItem>
                       <SelectItem value="area">Area</SelectItem>

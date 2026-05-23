@@ -1258,7 +1258,7 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
           <div className="grid gap-1 text-sm">
             <span className={cn("opacity-80 dark:opacity-100", studyBibleDarkClasses.muted)}>Note</span>
             <Textarea 
-              className="min-h-[112px] dark:border-[#5a5068] dark:bg-[#2a2534] dark:text-[#fffaff] dark:placeholder:text-[#ded6e7]/70" 
+              className="min-h-[112px] dark:border-[#5a5068] dark:bg-[#2a2534] text-foreground dark:text-[#fffaff] dark:placeholder:text-[#ded6e7]/70" 
               value={note} 
               onChange={(e) => { 
                 setNote(e.target.value); 

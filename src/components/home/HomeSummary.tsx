@@ -13,7 +13,7 @@ import InstallPrompt from "@/components/InstallPrompt";
 import { toast } from "@/components/ui/sonner";
 import type { DailyRecord } from "@/lib/db/types";
 import { cn } from "@/lib/utils";
-import { studyBibleDarkClasses, getStudyBibleDarkCardShade } from "@/lib/theme/study-bible-dark";
+import { studyBibleDarkClasses, getStudyBibleDarkCardShade, studyBibleSectionToggle } from "@/lib/theme/study-bible-dark";
 
 type StudyCount = [string, number];
 
@@ -495,23 +495,17 @@ export function HomeSummary({
   }, [monthlyAggregates, activeServiceYear]);
 
   const monthlyRecordActionButtonClass = cn(
-    "flex-shrink-0 flex items-center justify-center rounded-md border border-border p-0 touch-manipulation",
-    "hover:bg-muted/25 active:bg-muted/40",
-    "dark:border-[#1c1921] dark:bg-[#272133] dark:text-[#fffaff]",
-    "dark:hover:bg-[#3b3348] dark:active:bg-[#463b55]"
+    "flex-shrink-0 flex items-center justify-center rounded-md border p-0 touch-manipulation",
+    studyBibleDarkClasses.rowActionButton
   );
 
   const monthlyRecordYearToggleItemClass = cn(
     "min-w-0 px-3 h-12 flex items-center justify-center transition-colors shadow-none",
     "!rounded-none first:!rounded-none last:!rounded-none",
-    "dark:text-[#ded6e7] dark:hover:bg-[#3b3348]",
-    "dark:data-[state=on]:!bg-[#80778e] dark:data-[state=on]:!text-white"
+    studyBibleDarkClasses.toggleItem
   );
 
-  const monthlyRecordYearToggleShellClass = cn(
-    "relative w-full max-w-screen-sm overflow-hidden rounded-xl border shadow-lg",
-    "dark:border-[#1c1921] dark:bg-[#2a2534]"
-  );
+  const monthlyRecordYearToggleShellClass = studyBibleSectionToggle.trackShell;
 
   // SwipeableTableRow component
   const SwipeableTableRow = ({
@@ -607,13 +601,13 @@ export function HomeSummary({
         onTouchEnd={handleTouchEnd}
       >
         {/* Table content cells - swipeable */}
-        <td className="p-3 w-[30%] relative dark:text-[#fffaff]" style={{ transform: `translateX(${swipeOffset}px)`, transition: isSwiping ? 'none' : 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+        <td className="p-3 w-[30%] relative text-foreground dark:text-[#fffaff]" style={{ transform: `translateX(${swipeOffset}px)`, transition: isSwiping ? 'none' : 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
           <span className="font-medium">{formatMonth(month)}</span>
         </td>
-        <td className="p-3 w-[20%] text-center relative dark:text-[#fffaff]" style={{ transform: `translateX(${swipeOffset}px)`, transition: isSwiping ? 'none' : 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+        <td className="p-3 w-[20%] text-center relative text-foreground dark:text-[#fffaff]" style={{ transform: `translateX(${swipeOffset}px)`, transition: isSwiping ? 'none' : 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
           <span>{fmtHours(hours)}</span>
         </td>
-        <td className="p-3 w-[20%] text-center relative dark:text-[#fffaff]" style={{ transform: `translateX(${swipeOffset}px)`, transition: isSwiping ? 'none' : 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+        <td className="p-3 w-[20%] text-center relative text-foreground dark:text-[#fffaff]" style={{ transform: `translateX(${swipeOffset}px)`, transition: isSwiping ? 'none' : 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
           <span>{bsCount}</span>
         </td>
         <td className="p-3 w-[30%] min-w-0 text-center relative" style={{ transform: `translateX(${swipeOffset}px)`, transition: isSwiping ? 'none' : 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
@@ -967,13 +961,13 @@ export function HomeSummary({
                           size="sm"
                           disabled={!canGoPrevMonth}
                           onClick={goPrevMonth}
-                          className="flex-shrink-0 h-12 w-10 px-0 flex items-center justify-center transition-colors hover:bg-muted disabled:opacity-30 dark:text-[#ded6e7] dark:hover:bg-[#3b3348] disabled:dark:opacity-30"
+                          className="flex-shrink-0 h-12 w-10 px-0 flex items-center justify-center transition-colors hover:bg-muted disabled:opacity-30 text-muted-foreground dark:text-[#ded6e7] dark:hover:bg-[#3b3348] disabled:dark:opacity-30"
                           aria-label="Previous month"
                         >
                           <ChevronLeft className="h-4 w-4 flex-shrink-0" />
                         </Button>
                         <div className="flex-1 min-w-0 px-1 h-12 flex items-center justify-center">
-                          <span className="text-sm font-semibold text-foreground truncate w-full text-center pointer-events-none dark:text-[#fffaff]">
+                          <span className="text-sm font-semibold text-foreground truncate w-full text-center pointer-events-none text-foreground dark:text-[#fffaff]">
                             {formatFullMonth(selectedMonth)}
                           </span>
                         </div>
@@ -983,7 +977,7 @@ export function HomeSummary({
                             variant="ghost"
                             size="sm"
                             onClick={goNextMonth}
-                            className="flex-shrink-0 h-12 w-10 px-0 flex items-center justify-center transition-colors hover:bg-muted dark:text-[#ded6e7] dark:hover:bg-[#3b3348]"
+                            className="flex-shrink-0 h-12 w-10 px-0 flex items-center justify-center transition-colors hover:bg-muted text-muted-foreground dark:text-[#ded6e7] dark:hover:bg-[#3b3348]"
                             aria-label="Next month"
                           >
                             <ChevronRight className="h-4 w-4 flex-shrink-0" />
@@ -1034,10 +1028,10 @@ export function HomeSummary({
                   {/* Bible Studies Table */}
                   {monthDetailData.bibleStudies && monthDetailData.bibleStudies.length > 0 ? (
                     <div className={cn("rounded-xl border border-border/70 overflow-hidden dark:border-[#3a3342]", studyBibleDarkClasses.card)}>
-                      <div className={cn("px-4 py-3 border-b dark:border-[#1c1921] dark:bg-[#30283c]", studyBibleDarkClasses.divider)}>
-                        <h3 className="text-sm font-semibold dark:text-[#fffaff]">Bible Studies</h3>
+                      <div className={cn("px-4 py-3 border-b border-border dark:border-[#1c1921] dark:bg-[#30283c]", studyBibleDarkClasses.divider)}>
+                        <h3 className="text-sm font-semibold text-foreground dark:text-[#fffaff]">Bible Studies</h3>
                       </div>
-                      <div className="max-h-[200px] overflow-y-auto dark:bg-[#24231f]">
+                      <div className="max-h-[200px] overflow-y-auto bg-background dark:bg-[#24231f]">
                         <table className="w-full text-sm">
                           <tbody>
                             {monthDetailData.bibleStudies.map((bs, idx) => (
@@ -1049,7 +1043,7 @@ export function HomeSummary({
                                   studyBibleDarkClasses.cardHover
                                 )}
                               >
-                                <td className="p-3 dark:text-[#fffaff]">{bs.name}</td>
+                                <td className="p-3 text-foreground dark:text-[#fffaff]">{bs.name}</td>
                                 <td className={cn("p-3 text-right", studyBibleDarkClasses.muted)}>{bs.sessions} session{bs.sessions !== 1 ? 's' : ''}</td>
                               </tr>
                             ))}
@@ -1066,10 +1060,10 @@ export function HomeSummary({
                   {/* Notes Table */}
                   {monthDetailData.notes.length > 0 ? (
                     <div className={cn("rounded-xl border border-border/70 overflow-hidden dark:border-[#3a3342]", studyBibleDarkClasses.card)}>
-                      <div className={cn("px-4 py-3 border-b dark:border-[#1c1921] dark:bg-[#30283c]", studyBibleDarkClasses.divider)}>
-                        <h3 className="text-sm font-semibold dark:text-[#fffaff]">Notes</h3>
+                      <div className={cn("px-4 py-3 border-b border-border dark:border-[#1c1921] dark:bg-[#30283c]", studyBibleDarkClasses.divider)}>
+                        <h3 className="text-sm font-semibold text-foreground dark:text-[#fffaff]">Notes</h3>
                       </div>
-                      <div className="max-h-[200px] overflow-y-auto dark:bg-[#24231f]">
+                      <div className="max-h-[200px] overflow-y-auto bg-background dark:bg-[#24231f]">
                         <table className="w-full text-sm">
                           <tbody>
                             {monthDetailData.notes.map((note, idx) => {
@@ -1085,7 +1079,7 @@ export function HomeSummary({
                                   )}
                                 >
                                   <td className={cn("p-3", studyBibleDarkClasses.muted)}>{dateStr}</td>
-                                  <td className="p-3 dark:text-[#fffaff]">{note.note}</td>
+                                  <td className="p-3 text-foreground dark:text-[#fffaff]">{note.note}</td>
                                 </tr>
                               );
                             })}
@@ -1133,10 +1127,10 @@ export function HomeSummary({
           {!selectedMonth && (
             <div className={cn("w-full h-[calc(70vh)] overflow-hidden flex flex-col overscroll-none rounded-xl border border-border/70 dark:border-[#3a3342]", studyBibleDarkClasses.card)}>
             {/* Fixed Table Header */}
-            <div className="flex-shrink-0 border-b bg-background dark:border-[#1c1921] dark:bg-[#30283c]">
+            <div className="flex-shrink-0 border-b bg-card border-border dark:border-[#1c1921] dark:bg-[#30283c]">
               <table className="w-full text-sm table-fixed" style={{ touchAction: 'none' }}>
                   <thead>
-                    <tr className={cn("border-b dark:border-[#1c1921]", studyBibleDarkClasses.muted)}>
+                    <tr className={cn("border-b border-border dark:border-[#1c1921]", studyBibleDarkClasses.muted)}>
                       <th className={cn("text-left py-3 px-3 w-[30%] font-medium", studyBibleDarkClasses.muted)}>Month</th>
                       <th className={cn("text-center py-3 px-3 w-[20%] font-medium", studyBibleDarkClasses.muted)}>Hours</th>
                       <th className={cn("text-center py-3 px-3 w-[20%] font-medium", studyBibleDarkClasses.muted)}>BS</th>
@@ -1149,7 +1143,7 @@ export function HomeSummary({
 
               {/* Scrollable Table Body */}
               <div
-                className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar overscroll-none dark:bg-[#24231f]"
+                className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar overscroll-none bg-background dark:bg-[#24231f]"
                 style={{ 
                   overscrollBehavior: "contain",
                   touchAction: 'pan-y', // Only allow vertical panning

@@ -235,9 +235,9 @@ export function CongregationView({ data, onEdit, canEdit, canManageCongregationU
             >
               <DrawerWideRightContent
                 stackAboveDetailsSheet
-                className="flex flex-col overflow-hidden dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff] md:max-h-[100lvh]"
+                className="flex flex-col overflow-hidden border-border dark:border-[#1c1921] bg-card dark:bg-[#181714] text-foreground dark:text-[#fffaff] md:max-h-[100lvh]"
               >
-                <DrawerHeader className="shrink-0 px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:bg-[#181714]">
+                <DrawerHeader className="shrink-0 px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center bg-card dark:bg-[#181714]">
                   <DrawerTitle className="text-center text-xl font-extrabold tracking-tight">
                     {ministryContactDetailsTitle}
                   </DrawerTitle>
@@ -245,7 +245,7 @@ export function CongregationView({ data, onEdit, canEdit, canManageCongregationU
                     Return visits, notes, and congregation contact actions.
                   </DrawerDescription>
                 </DrawerHeader>
-                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3 dark:bg-[#181714]">
+                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3 bg-card dark:bg-[#181714]">
                   {ministryContactDetailsBody}
                 </div>
               </DrawerWideRightContent>

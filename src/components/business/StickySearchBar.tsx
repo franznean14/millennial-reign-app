@@ -101,7 +101,7 @@ export function StickySearchBar({
                   }
                 }}
                 className={cn(
-                  "bg-background/95 backdrop-blur-sm border shadow-lg transition-all duration-300 h-10 rounded-full w-full text-center dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff] dark:placeholder:text-[#ded6e7]/70",
+                  "bg-background/95 backdrop-blur-sm border shadow-lg transition-all duration-300 h-10 rounded-full w-full text-center border-border dark:border-[#1c1921] dark:bg-[#30283c] text-foreground dark:text-[#fffaff] dark:placeholder:text-[#ded6e7]/70",
                   shouldExpand ? "px-4 pr-10" : "px-4"
                 )}
               />
@@ -110,7 +110,7 @@ export function StickySearchBar({
                   type="button"
                   variant="ghost"
                   size="icon"
-                  className="absolute right-2 top-1/2 h-7 w-7 -translate-y-1/2 hover:bg-muted/50 rounded-full dark:text-[#fffaff] dark:hover:bg-[#3b3348]"
+                  className="absolute right-2 top-1/2 h-7 w-7 -translate-y-1/2 hover:bg-muted/50 rounded-full text-foreground dark:text-[#fffaff] dark:hover:bg-[#3b3348]"
                   onClick={onClearSearch}
                   aria-label="Clear search"
                 >

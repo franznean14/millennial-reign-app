@@ -82,11 +82,11 @@ export function FilterControls({
 }: FilterControlsProps) {
   const hasActiveFilters = filterBadges.length > 0;
   const controlButtonClass =
-    "dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff] dark:hover:bg-[#3b3348] dark:[&>svg]:text-[#fffaff]";
+    "border-border dark:border-[#1c1921] dark:bg-[#30283c] text-foreground dark:text-[#fffaff] dark:hover:bg-[#3b3348] dark:[&>svg]:text-[#fffaff]";
   const activeControlClass =
     "dark:!bg-[#80778e] dark:!text-white dark:hover:!bg-[#8c839a] dark:[&>svg]:!text-white";
   const searchInputClass =
-    "dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff] dark:placeholder:text-[#ded6e7]/70";
+    "border-border dark:border-[#1c1921] dark:bg-[#30283c] text-foreground dark:text-[#fffaff] dark:placeholder:text-[#ded6e7]/70";
 
   return (
     <>

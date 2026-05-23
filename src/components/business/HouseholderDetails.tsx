@@ -757,7 +757,7 @@ export function HouseholderDetails({
         >
           <DrawerWideLeftContentTop
             stackAboveStackedRightSheet
-            className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", bwiHhEditFormShade)}
+            className={cn("border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]", bwiHhEditFormShade)}
           >
             <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center sm:text-center">
               <DrawerTitle className="text-center text-lg font-bold">Edit Householder</DrawerTitle>
@@ -832,7 +832,7 @@ export function HouseholderDetails({
           >
             <DrawerWideLeftContentTop
               stackAboveStackedRightSheet
-              className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", bwiHhEditTodoShade)}
+              className={cn("border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]", bwiHhEditTodoShade)}
             >
               <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
                 <DrawerTitle className="text-center text-lg font-bold">Edit To-Do</DrawerTitle>

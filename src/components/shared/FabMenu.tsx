@@ -214,7 +214,7 @@ export function FabMenu({
             }}
             variant={action.variant ?? "default"}
             className={cn(
-              "pointer-events-auto fixed right-4 z-40 rounded-full shadow-lg md:right-6 md:z-10 text-xl font-semibold px-6 py-6 dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff] dark:hover:bg-[#3b3348] dark:data-[state=open]:bg-[#3b3348] md:[--fab-action-effective-row-x:var(--fab-action-row-x)] md:[--fab-action-effective-arc-y:var(--fab-action-arc-y)]",
+              "pointer-events-auto fixed right-4 z-40 rounded-full shadow-lg md:right-6 md:z-10 text-xl font-semibold px-6 py-6 border-border dark:border-[#1c1921] dark:bg-[#30283c] text-foreground dark:text-[#fffaff] dark:hover:bg-[#3b3348] dark:data-[state=open]:bg-[#3b3348] md:[--fab-action-effective-row-x:var(--fab-action-row-x)] md:[--fab-action-effective-arc-y:var(--fab-action-arc-y)]",
               action.variant !== "outline" && "dark:!bg-[#80778e] dark:!text-white dark:hover:!bg-[#8c839a]",
               actionClassName
             )}
@@ -267,14 +267,14 @@ export function FabMenu({
                       "touch-manipulation border md:rounded-[0.875rem]",
                       action.className
                         ? cn(
-                            "dark:border-[#1c1921]",
+                            "border-border dark:border-[#1c1921]",
                             action.className
                           )
                         : variantResolved === "destructive"
                           ? "dark:border-red-900/70"
                           : cn(
                               "border-[#3a3631] bg-[#2a2823] text-[#fdf8f4] hover:bg-[#39352f]",
-                              "dark:border-[#2e2933] dark:bg-[#332d39] dark:text-[#fffaff] dark:hover:bg-[#403948]"
+                              "dark:border-[#2e2933] dark:bg-[#332d39] text-foreground dark:text-[#fffaff] dark:hover:bg-[#403948]"
                             )
                     )}
                     style={{
@@ -302,7 +302,7 @@ export function FabMenu({
                     ) : null}
                   </Button>
                 </TooltipTrigger>
-                <TooltipContent side="right" sideOffset={10} align="center" className="text-xs dark:border-[#1c1921] dark:bg-[#fdf8f4] dark:text-[#231f29]">
+                <TooltipContent side="right" sideOffset={10} align="center" className="text-xs border-border dark:border-[#1c1921] dark:bg-[#fdf8f4] dark:text-[#231f29]">
                   {action.label}
                 </TooltipContent>
               </Tooltip>

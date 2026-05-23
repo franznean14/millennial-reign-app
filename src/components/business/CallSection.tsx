@@ -127,7 +127,7 @@ export function CallSection({
           notes={visit.note}
           notesClassName={cn(
             !isDrawer ? "leading-relaxed line-clamp-1" : "leading-relaxed",
-            isDrawer && "dark:text-[#ded6e7]/90"
+            isDrawer && "text-muted-foreground dark:text-[#ded6e7]/90"
           )}
         />
       </VisitTimelineRow>
@@ -203,7 +203,7 @@ export function CallSection({
     ) : null;
 
   return (
-    <div className="bg-card p-4 rounded-lg shadow-md border dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff]">
+    <div className="bg-card p-4 rounded-lg shadow-md border border-border dark:border-[#1c1921] dark:bg-[#30283c] text-foreground dark:text-[#fffaff]">
       <button
         type="button"
         onClick={() => setDrawerOpen(true)}
@@ -262,7 +262,7 @@ export function CallSection({
             <DrawerWideLeftContentTop
               stackAboveStackedRightSheet
               className={cn(
-                "dark:border-[#1c1921] dark:text-[#fffaff] md:max-h-[100lvh]",
+                "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff] md:max-h-[100lvh]",
                 callsListPaneShade
               )}
             >
@@ -274,7 +274,7 @@ export function CallSection({
           ) : (
             <DrawerWideLeftContent
               className={cn(
-                "dark:border-[#1c1921] dark:text-[#fffaff] md:max-h-[100lvh]",
+                "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff] md:max-h-[100lvh]",
                 callsListPaneShade
               )}
             >
@@ -289,7 +289,7 @@ export function CallSection({
         <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
           <DrawerContent
             className={cn(
-              "h-[85svh] max-h-[85svh] dark:border-[#1c1921] dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
+              "h-[85svh] max-h-[85svh] border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
               callsListPaneShade
             )}
             handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
@@ -315,7 +315,7 @@ export function CallSection({
         >
           <DrawerWideLeftContentTop
             stackAboveStackedRightSheet
-            className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", callEditPaneShade)}
+            className={cn("border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]", callEditPaneShade)}
           >
             <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
               <DrawerTitle className="text-center text-lg font-bold">Edit Call</DrawerTitle>

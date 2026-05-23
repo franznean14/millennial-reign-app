@@ -5,11 +5,12 @@ import { motion, AnimatePresence } from "motion/react";
 import { SectionShell } from "@/components/shared/SectionShell";
 import dynamic from "next/dynamic";
 import { StickySearchBar } from "@/components/business/StickySearchBar";
-import { Drawer, DrawerHeader, DrawerTitle, DrawerWideLeftContentTop, DrawerWideRightContent } from "@/components/ui/drawer";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerWideLeftContentTop, DrawerWideRightContent } from "@/components/ui/drawer";
+import { HomeMobileDetailsDrawer } from "@/components/home/HomeMobileDetailsDrawer";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { getStudyBibleDarkCardShade } from "@/lib/theme/study-bible-dark";
+import { getStudyBibleDarkCardShade, studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import type {
   BusinessFiltersState,
@@ -173,8 +174,9 @@ export function BusinessSection({
   const [mapViewState, setMapViewState] = useState<MapViewState | null>(null);
   const [businessEditSheet, setBusinessEditSheet] = useState<BusinessEditSheet>(null);
   const isTabletUp = useMediaQuery("(min-width: 768px)");
-  /** Right drawer on tablet+; on phone, only the map tab uses the drawer so the map stays visible (list/householders still full-page). */
-  const useBusinessSideDetails = isTabletUp || businessTab === "map";
+  /** Tablet+ uses right edge sheets; phone map keeps the map visible and uses a bottom drawer. */
+  const useMobileMapBottomDetails = !isTabletUp && businessTab === "map";
+  const overlayMapDetails = isTabletUp || businessTab === "map";
 
   const bwiBizScope = userId ?? "anon";
   const businessEstablishmentDetailShade = useMemo(
@@ -252,27 +254,27 @@ export function BusinessSection({
         setLastMapSelectedEstablishmentId(establishment.id);
       }
       setSelectedEstablishment(establishment);
-      if (!useBusinessSideDetails) {
+      if (!overlayMapDetails) {
         pushNavigation(currentSection);
       }
       if (establishment.id) {
         loadEstablishmentDetails(establishment.id);
       }
     },
-    [currentSection, loadEstablishmentDetails, pushNavigation, setSelectedEstablishment, useBusinessSideDetails]
+    [currentSection, loadEstablishmentDetails, pushNavigation, setSelectedEstablishment, overlayMapDetails]
   );
 
   const handleSelectHouseholder = useCallback(
     (householder: HouseholderWithDetails) => {
       setSelectedHouseholder(householder);
-      if (!useBusinessSideDetails) {
+      if (!overlayMapDetails) {
         pushNavigation(currentSection);
       }
       if (householder.id) {
         loadHouseholderDetails(householder.id);
       }
     },
-    [currentSection, loadHouseholderDetails, pushNavigation, setSelectedHouseholder, useBusinessSideDetails]
+    [currentSection, loadHouseholderDetails, pushNavigation, setSelectedHouseholder, overlayMapDetails]
   );
 
   const navigateBack = useCallback(
@@ -380,7 +382,7 @@ export function BusinessSection({
         onBackClick={closeHouseholderSideDetails}
         publisherId={userId}
         onRequestSummaryEdit={() => setBusinessEditSheet("householder")}
-        preferLeftDetailPanel={useBusinessSideDetails}
+        preferLeftDetailPanel={isTabletUp}
         insideStackedContactPane={options?.stacked}
       />
     );
@@ -402,7 +404,7 @@ export function BusinessSection({
           setSelectedHouseholder(hh);
           if (hh.id) loadHouseholderDetails(hh.id);
         }}
-        preferLeftDetailPanel={useBusinessSideDetails}
+        preferLeftDetailPanel={isTabletUp}
         insideStackedContactPane={!!selectedHouseholder && !!selectedEstablishment}
         publisherId={userId}
       />
@@ -440,7 +442,7 @@ export function BusinessSection({
           transition={{ duration: 0.3, ease: "easeOut" }}
         >
           <AnimatePresence initial={false}>
-            {useBusinessSideDetails || (!selectedEstablishment && !selectedHouseholder) ? (
+            {overlayMapDetails || (!selectedEstablishment && !selectedHouseholder) ? (
               businessTab === "establishments" ? (
                 <motion.div key="establishment-list" {...listMotion} className="w-full">
                   <EstablishmentList
@@ -558,7 +560,7 @@ export function BusinessSection({
                         setSelectedHouseholder(hh);
                         if (hh.id) loadHouseholderDetails(hh.id);
                       }}
-                      preferLeftDetailPanel={useBusinessSideDetails}
+                      preferLeftDetailPanel={isTabletUp}
                       insideStackedContactPane={!!selectedHouseholder && !!selectedEstablishment}
                       publisherId={userId}
                     />
@@ -588,7 +590,7 @@ export function BusinessSection({
           />
         </FormModal>
 
-        {useBusinessSideDetails ? (
+        {isTabletUp ? (
           <>
             <Drawer
               open={!!selectedEstablishment}
@@ -602,7 +604,7 @@ export function BusinessSection({
             >
               <DrawerWideRightContent
                 className={cn(
-                  "dark:border-[#1c1921] dark:text-[#fffaff]",
+                  "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
                   businessEstablishmentDetailShade
                 )}
               >
@@ -629,7 +631,7 @@ export function BusinessSection({
             >
               <DrawerWideRightContent
                 className={cn(
-                  "dark:border-[#1c1921] dark:text-[#fffaff]",
+                  "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
                   businessHouseholderDetailShade
                 )}
               >
@@ -655,7 +657,7 @@ export function BusinessSection({
             >
               <DrawerWideRightContent
                 stackAboveDetailsSheet
-                className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", businessContactStackShade)}
+                className={cn("border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]", businessContactStackShade)}
               >
                 <DrawerHeader className="bg-transparent px-2 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-left sm:px-4">
                   <div className="relative flex items-center justify-center gap-1 pr-1">
@@ -691,7 +693,7 @@ export function BusinessSection({
             >
               <DrawerWideLeftContentTop
                 stackAboveStackedRightSheet={!!selectedHouseholder && !!selectedEstablishment}
-                className={cn("dark:border-[#1c1921] dark:text-[#fffaff]", businessEntityEditShade)}
+                className={cn("border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]", businessEntityEditShade)}
               >
                 <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
                   <DrawerTitle className="text-center text-lg font-bold">
@@ -747,6 +749,136 @@ export function BusinessSection({
                 </div>
               </DrawerWideLeftContentTop>
             </Drawer>
+          </>
+        ) : null}
+
+        {useMobileMapBottomDetails ? (
+          <>
+            <HomeMobileDetailsDrawer
+              open={!!selectedEstablishment}
+              onOpenChange={(open) => {
+                if (!open) closeEstablishmentSideDetails();
+              }}
+              title={
+                selectedEstablishmentDetails?.establishment.name ||
+                selectedEstablishment?.name ||
+                "Establishment Details"
+              }
+              bodyClassName="space-y-3"
+              contentClassName={businessEstablishmentDetailShade}
+            >
+              {renderEstablishmentDetails()}
+            </HomeMobileDetailsDrawer>
+
+            <HomeMobileDetailsDrawer
+              open={!!selectedHouseholder && !selectedEstablishment}
+              onOpenChange={(open) => {
+                if (!open) closeHouseholderSideDetails();
+              }}
+              title={
+                selectedHouseholderDetails?.householder.name ||
+                selectedHouseholder?.name ||
+                "Contact Details"
+              }
+              bodyClassName="space-y-3"
+              contentClassName={businessHouseholderDetailShade}
+            >
+              {renderHouseholderDetails()}
+            </HomeMobileDetailsDrawer>
+
+            <Drawer
+              nested
+              open={!!selectedHouseholder && !!selectedEstablishment}
+              onOpenChange={(open) => {
+                if (!open) closeHouseholderSideDetails();
+              }}
+            >
+              <DrawerContent
+                className={cn(
+                  studyBibleDarkClasses.drawerPanel,
+                  businessContactStackShade,
+                  "max-h-[90vh]"
+                )}
+                handleClassName={studyBibleDarkClasses.drawerHandle}
+              >
+                <DrawerHeader className="bg-transparent px-2 pb-3 pt-4 text-left">
+                  <div className="relative flex items-center justify-center gap-1 pr-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute left-0 h-9 w-9 shrink-0"
+                      onClick={closeHouseholderSideDetails}
+                      aria-label="Back to establishment"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </Button>
+                    <DrawerTitle className="px-10 text-center text-lg font-bold">
+                      {selectedHouseholderDetails?.householder.name ||
+                        selectedHouseholder?.name ||
+                        "Contact Details"}
+                    </DrawerTitle>
+                  </div>
+                </DrawerHeader>
+                <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3">
+                  {renderHouseholderDetails({ stacked: true })}
+                </div>
+              </DrawerContent>
+            </Drawer>
+
+            <FormModal
+              open={!!businessEditSheet}
+              onOpenChange={(open) => {
+                if (!open) setBusinessEditSheet(null);
+              }}
+              title={businessEditSheet === "householder" ? "Edit Contact" : "Edit Establishment"}
+            >
+              {businessEditSheet === "establishment" && selectedEstablishment ? (
+                <EstablishmentForm
+                  key={selectedEstablishment.id}
+                  onSaved={handleEstablishmentEditSaved}
+                  onDelete={async () => {
+                    await handleDeleteEstablishment(selectedEstablishment);
+                    closeEstablishmentSideDetails();
+                  }}
+                  onArchive={async () => {
+                    await handleArchiveEstablishment(selectedEstablishment);
+                    closeEstablishmentSideDetails();
+                  }}
+                  selectedArea={selectedEstablishment.area || undefined}
+                  initialData={selectedEstablishmentDetails?.establishment ?? selectedEstablishment}
+                  isEditing
+                />
+              ) : businessEditSheet === "householder" && selectedHouseholder ? (
+                <HouseholderForm
+                  key={selectedHouseholder.id}
+                  establishments={selectedEstablishment ? [selectedEstablishment] : establishments}
+                  selectedEstablishmentId={selectedHouseholder.establishment_id ?? undefined}
+                  isEditing
+                  initialData={{
+                    id: selectedHouseholder.id,
+                    establishment_id: selectedHouseholder.establishment_id || "",
+                    name: selectedHouseholder.name,
+                    status: selectedHouseholder.status as any,
+                    note: selectedHouseholder.note || null,
+                    lat: selectedHouseholder.lat ?? null,
+                    lng: selectedHouseholder.lng ?? null,
+                    publisher_id: selectedHouseholder.publisher_id ?? null,
+                  }}
+                  onSaved={handleHouseholderEditSaved}
+                  onDelete={async () => {
+                    await handleDeleteHouseholder(selectedHouseholder);
+                    closeHouseholderSideDetails();
+                  }}
+                  onArchive={async () => {
+                    await handleArchiveHouseholder(selectedHouseholder);
+                    closeHouseholderSideDetails();
+                  }}
+                  disableEstablishmentSelect={!!selectedEstablishment}
+                  publisherId={userId ?? undefined}
+                />
+              ) : null}
+            </FormModal>
           </>
         ) : null}
 

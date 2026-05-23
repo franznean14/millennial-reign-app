@@ -18,7 +18,7 @@ interface BusinessControlsBarProps {
 export function BusinessControlsBar({ filters, viewMode }: BusinessControlsBarProps) {
   const [myOnly, setMyOnly] = useState<boolean>(!!filters.myEstablishments);
   const [mode, setMode] = useState<'detailed' | 'compact' | 'table'>(viewMode);
-  const controlButtonClass = "dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff] dark:hover:bg-[#3b3348]";
+  const controlButtonClass = "border-border dark:border-[#1c1921] dark:bg-[#30283c] text-foreground dark:text-[#fffaff] dark:hover:bg-[#3b3348]";
   const activeControlClass = "dark:!bg-[#80778e] dark:!text-white dark:hover:!bg-[#8c839a]";
 
   // Keep in sync with AppClient state
@@ -34,7 +34,7 @@ export function BusinessControlsBar({ filters, viewMode }: BusinessControlsBarPr
   }, []);
 
   return (
-    <div className="sticky z-10 w-full bg-background/70 backdrop-blur supports-[backdrop-filter]:bg-background/50 pt-2 pb-0 dark:bg-[#24231f]/80">
+    <div className="sticky z-10 w-full bg-background/70 backdrop-blur supports-[backdrop-filter]:bg-background/50 pt-2 pb-0 bg-background dark:bg-[#24231f]/80">
       <div className="mx-auto max-w-screen-lg h-12 px-4 flex items-center justify-end gap-2">
         <Button
           type="button"

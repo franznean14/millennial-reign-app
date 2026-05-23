@@ -135,13 +135,13 @@ export function DateRangeSelectContent({
   };
 
   return (
-      <div className="dark:text-[#fffaff]">
-        <div className="flex items-center border-b pb-2 dark:border-[#1c1921]">
+      <div className="text-foreground dark:text-[#fffaff]">
+        <div className="flex items-center border-b pb-2 border-border dark:border-[#1c1921]">
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="shrink-0 dark:text-[#ded6e7] dark:hover:bg-[#3b3348]"
+            className="shrink-0 text-muted-foreground dark:text-[#ded6e7] dark:hover:bg-[#3b3348]"
             onClick={() => setView((v) => {
               const n = new Date(v);
               if (mode === "days") n.setMonth(n.getMonth() - 1);
@@ -153,14 +153,14 @@ export function DateRangeSelectContent({
             <ChevronLeft className="h-5 w-5" />
           </Button>
           <div className="flex flex-1 items-center justify-center gap-2 text-sm font-medium">
-            <Button type="button" variant="ghost" size="sm" className="dark:text-[#fffaff] dark:hover:bg-[#3b3348]" onClick={() => setMode("months")}>{monthLabel}</Button>
-            <Button type="button" variant="ghost" size="sm" className="dark:text-[#fffaff] dark:hover:bg-[#3b3348]" onClick={() => setMode("years")}>{yearLabel}</Button>
+            <Button type="button" variant="ghost" size="sm" className="text-foreground dark:text-[#fffaff] dark:hover:bg-[#3b3348]" onClick={() => setMode("months")}>{monthLabel}</Button>
+            <Button type="button" variant="ghost" size="sm" className="text-foreground dark:text-[#fffaff] dark:hover:bg-[#3b3348]" onClick={() => setMode("years")}>{yearLabel}</Button>
           </div>
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            className="shrink-0 dark:text-[#ded6e7] dark:hover:bg-[#3b3348]"
+            className="shrink-0 text-muted-foreground dark:text-[#ded6e7] dark:hover:bg-[#3b3348]"
             onClick={() => setView((v) => {
               const n = new Date(v);
               if (mode === "days") n.setMonth(n.getMonth() + 1);
@@ -174,7 +174,7 @@ export function DateRangeSelectContent({
         </div>
 
         {allowRange && (selectionStart || selectionEnd) && (
-          <div className="mt-2 flex items-center justify-between border-b pb-2 dark:border-[#1c1921]">
+          <div className="mt-2 flex items-center justify-between border-b pb-2 border-border dark:border-[#1c1921]">
             <div className="text-sm">
               {selectionStart && selectionEnd ? (
                 <span>
@@ -187,7 +187,7 @@ export function DateRangeSelectContent({
                 </span>
               ) : null}
             </div>
-            <Button type="button" variant="ghost" size="sm" className="dark:text-[#ded6e7] dark:hover:bg-[#3b3348]" onClick={handleClear}>
+            <Button type="button" variant="ghost" size="sm" className="text-muted-foreground dark:text-[#ded6e7] dark:hover:bg-[#3b3348]" onClick={handleClear}>
               Clear
             </Button>
           </div>
@@ -195,7 +195,7 @@ export function DateRangeSelectContent({
 
         {mode === "days" && (
           <>
-            <div className="grid grid-cols-7 gap-1 px-1 pt-3 text-xs opacity-70 dark:text-[#ded6e7]">
+            <div className="grid grid-cols-7 gap-1 px-1 pt-3 text-xs opacity-70 text-muted-foreground dark:text-[#ded6e7]">
               {["S", "M", "T", "W", "T", "F", "S"].map((d, i) => (
                 <div key={`${d}-${i}`} className="text-center">
                   {d}
@@ -214,10 +214,10 @@ export function DateRangeSelectContent({
                     variant={sel ? "default" : inRange ? "secondary" : "ghost"}
                     size="sm"
                     className={cn(
-                      "relative h-10 dark:text-[#fffaff] dark:hover:bg-[#3b3348]",
+                      "relative h-10 text-foreground dark:text-[#fffaff] dark:hover:bg-[#3b3348]",
                       muted && "opacity-50",
                       sel && "dark:bg-[#80778e] dark:text-white dark:hover:bg-[#8c839a]",
-                      inRange && !sel && "dark:bg-[#3b3348] dark:text-[#fffaff]"
+                      inRange && !sel && "dark:bg-[#3b3348] text-foreground dark:text-[#fffaff]"
                     )}
                     onClick={() => handleDateClick(d)}
                   >
@@ -237,7 +237,7 @@ export function DateRangeSelectContent({
                 type="button"
                 variant={m.idx === view.getMonth() ? "default" : "ghost"}
                 className={cn(
-                  "dark:text-[#fffaff] dark:hover:bg-[#3b3348]",
+                  "text-foreground dark:text-[#fffaff] dark:hover:bg-[#3b3348]",
                   m.idx === view.getMonth() && "dark:bg-[#80778e] dark:text-white dark:hover:bg-[#8c839a]"
                 )}
                 onClick={() => {
@@ -261,7 +261,7 @@ export function DateRangeSelectContent({
                 type="button"
                 variant={y === view.getFullYear() ? "default" : "ghost"}
                 className={cn(
-                  "dark:text-[#fffaff] dark:hover:bg-[#3b3348]",
+                  "text-foreground dark:text-[#fffaff] dark:hover:bg-[#3b3348]",
                   y === view.getFullYear() && "dark:bg-[#80778e] dark:text-white dark:hover:bg-[#8c839a]"
                 )}
                 onClick={() => {
@@ -278,16 +278,16 @@ export function DateRangeSelectContent({
         )}
 
         {showActions && (
-          <div className="flex items-center justify-between gap-2 border-t pb-[calc(max(env(safe-area-inset-bottom),0px)+12px)] pt-4 dark:border-[#1c1921]">
+          <div className="flex items-center justify-between gap-2 border-t pb-[calc(max(env(safe-area-inset-bottom),0px)+12px)] pt-4 border-border dark:border-[#1c1921]">
             <div>
               {showClearAction ? (
-                <Button type="button" variant="outline" className="dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff] dark:hover:bg-[#3b3348]" onClick={handleClear}>
+                <Button type="button" variant="outline" className="border-border dark:border-[#1c1921] dark:bg-[#30283c] text-foreground dark:text-[#fffaff] dark:hover:bg-[#3b3348]" onClick={handleClear}>
                   Clear
                 </Button>
               ) : null}
             </div>
             <div className="flex items-center gap-2">
-              <Button type="button" variant="outline" className="dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff] dark:hover:bg-[#3b3348]" onClick={() => onCancel?.()}>
+              <Button type="button" variant="outline" className="border-border dark:border-[#1c1921] dark:bg-[#30283c] text-foreground dark:text-[#fffaff] dark:hover:bg-[#3b3348]" onClick={() => onCancel?.()}>
                 {cancelLabel}
               </Button>
               <Button type="button" className="dark:bg-[#80778e] dark:text-white dark:hover:bg-[#8c839a]" disabled={!selectionStart} onClick={handleConfirm}>

@@ -456,7 +456,7 @@ export function UnifiedFab({
         headerClassName={useBusinessLeftSheet ? undefined : "text-center"}
         desktopPresentation={useBusinessLeftSheet ? "right-sheet" : "auto"}
         className={cn(bulkTabletSheetMaxWidthClass, "md:max-h-[100lvh]")}
-        drawerContentClassName="dark:border-[#1c1921]"
+        drawerContentClassName="border-border dark:border-[#1c1921]"
         sheetBodyScrollClassName={
           bulkTabletUnifiedLaneScrollInSheet
             ? "md:flex md:flex-col md:min-h-0"

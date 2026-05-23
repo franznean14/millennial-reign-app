@@ -16,9 +16,8 @@ import {
 import { cn } from "@/lib/utils";
 import { getStudyBibleDarkCardShade, studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 
-const FORM_MODAL_SHELL_BASE = "dark:border-[#1c1921] dark:text-[#fffaff]";
-const FORM_MODAL_DRAWER_HANDLE =
-  "dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]";
+const FORM_MODAL_SHELL_BASE = cn(studyBibleDarkClasses.drawerPanel);
+const FORM_MODAL_DRAWER_HANDLE = studyBibleDarkClasses.drawerHandle;
 const FORM_MODAL_PHONE_SHADE = getStudyBibleDarkCardShade("form-modal:phone:v1");
 const FORM_MODAL_LEFT_SHEET_TABLET_SHADE = getStudyBibleDarkCardShade("form-modal:left-sheet-tablet:v1");
 const FORM_MODAL_DIALOG_SHADE = getStudyBibleDarkCardShade("form-modal:dialog-desktop:v1");
@@ -37,8 +36,7 @@ function FormModalBody({ children, className }: FormModalBodyProps) {
   return (
     <div
       className={cn(
-        "px-4 min-w-0 overflow-x-hidden",
-        "dark:text-[#fffaff]",
+        "px-4 min-w-0 overflow-x-hidden text-[#1a1820] text-foreground dark:text-[#fffaff]",
         "max-xl:pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] xl:pb-6",
         className
       )}
@@ -183,7 +181,7 @@ export function FormModal({
           >
             <DrawerHeader
               className={cn(
-                "shrink-0 bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center sm:text-center dark:text-[#fffaff]",
+                "shrink-0 bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center sm:text-center text-foreground dark:text-[#fffaff]",
                 headerClassName
               )}
             >
@@ -211,7 +209,7 @@ export function FormModal({
           className={cn(FORM_MODAL_SHELL_BASE, FORM_MODAL_PHONE_SHADE, className, drawerContentClassName)}
           handleClassName={resolvedDrawerHandle}
         >
-          <DrawerHeader className={cn("bg-transparent dark:text-[#fffaff]", headerClassName)}>
+          <DrawerHeader className={cn("bg-transparent text-foreground dark:text-[#fffaff]", headerClassName)}>
             <DrawerTitle>{title}</DrawerTitle>
             <DrawerDescription
               className={description ? cn("text-sm", studyBibleDarkClasses.muted, drawerDescriptionClassName) : "sr-only"}
@@ -231,14 +229,14 @@ export function FormModal({
         <Drawer open={open} onOpenChange={onOpenChange} direction="right" modal shouldScaleBackground={false}>
           <DrawerWideRightContent
             className={cn(
-              "dark:border-[#1c1921] dark:text-[#fffaff] md:max-h-[100lvh]",
+              "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff] md:max-h-[100lvh]",
               getStudyBibleDarkCardShade("bwi-bulk-todos-right-sheet:v1"),
               className
             )}
           >
             <DrawerHeader
               className={cn(
-                "shrink-0 bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center dark:text-[#fffaff]",
+                "shrink-0 bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center text-foreground dark:text-[#fffaff]",
                 headerClassName
               )}
             >
@@ -268,14 +266,14 @@ export function FormModal({
       <Drawer open={open} onOpenChange={onOpenChange}>
         <DrawerContent
           className={cn(
-            "dark:border-[#1c1921] dark:text-[#fffaff]",
+            "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
             getStudyBibleDarkCardShade("bwi-bulk-todos-right-sheet:phone"),
             className,
             drawerContentClassName
           )}
           handleClassName={resolvedDrawerHandle}
         >
-          <DrawerHeader className={cn("bg-transparent dark:text-[#fffaff]", headerClassName)}>
+          <DrawerHeader className={cn("bg-transparent text-foreground dark:text-[#fffaff]", headerClassName)}>
             <DrawerTitle>{title}</DrawerTitle>
             <DrawerDescription
               className={
@@ -295,7 +293,7 @@ export function FormModal({
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className={cn(FORM_MODAL_SHELL_BASE, FORM_MODAL_DIALOG_SHADE, className)}>
-          <DialogHeader className={cn("bg-transparent dark:text-[#fffaff]", headerClassName)}>
+          <DialogHeader className={cn("bg-transparent text-foreground dark:text-[#fffaff]", headerClassName)}>
             <DialogTitle>{title}</DialogTitle>
             <DialogDescription>{a11yDescription}</DialogDescription>
           </DialogHeader>
@@ -311,7 +309,7 @@ export function FormModal({
         className={cn(FORM_MODAL_SHELL_BASE, FORM_MODAL_PHONE_SHADE, className, drawerContentClassName)}
         handleClassName={resolvedDrawerHandle}
       >
-        <DrawerHeader className={cn("bg-transparent dark:text-[#fffaff]", headerClassName)}>
+        <DrawerHeader className={cn("bg-transparent text-foreground dark:text-[#fffaff]", headerClassName)}>
           <DrawerTitle>{title}</DrawerTitle>
           <DrawerDescription
             className={

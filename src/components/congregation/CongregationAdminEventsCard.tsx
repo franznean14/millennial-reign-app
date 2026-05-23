@@ -10,6 +10,7 @@ import { VisitTimelineRow } from "@/components/visit/VisitTimelineRow";
 import { VisitList } from "@/components/visit/VisitList";
 import { getTimelineLineStyle } from "@/lib/utils/visit-timeline";
 import { cn } from "@/lib/utils";
+import { studyBibleSectionToggle } from "@/lib/theme/study-bible-dark";
 import {
   formatEventTypeLabel,
   listEventSchedules,
@@ -303,17 +304,13 @@ export function CongregationAdminEventsCard({ congregationId, canEdit }: Congreg
 
       <div className="rounded-lg border overflow-hidden bg-background">
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className="w-full grid grid-cols-2 mb-0 -mb-px p-0 h-auto bg-transparent gap-0 border-0 [&>*]:border-0 relative z-10">
+          <TabsList className={cn("grid-cols-2", studyBibleSectionToggle.cardTabList)}>
             <TabsTrigger
               value="soon"
               className={cn(
-                "rounded-tl-lg rounded-tr-none rounded-bl-none rounded-br-none",
-                "bg-primary text-primary-foreground font-medium",
-                "data-[state=active]:!bg-background data-[state=active]:!text-foreground",
-                "shadow-none relative h-10 px-3 transition-colors duration-200",
-                "hover:bg-primary/90 data-[state=active]:hover:!bg-background",
-                "!border-0 focus-visible:ring-0 focus-visible:outline-none",
-                "after:hidden"
+                studyBibleSectionToggle.cardTabTrigger,
+                studyBibleSectionToggle.cardTabTriggerLeft,
+                "px-3 transition-colors duration-200"
               )}
             >
               <span className="inline-flex items-center gap-1.5">
@@ -326,13 +323,9 @@ export function CongregationAdminEventsCard({ congregationId, canEdit }: Congreg
               onPointerDown={handleAllTabPointerDown}
               onClick={handleAllTabClick}
               className={cn(
-                "rounded-tr-lg rounded-tl-none rounded-bl-none rounded-br-none",
-                "bg-primary text-primary-foreground font-medium",
-                "data-[state=active]:!bg-background data-[state=active]:!text-foreground",
-                "shadow-none relative h-10 px-3 transition-colors duration-200",
-                "hover:bg-primary/90 data-[state=active]:hover:!bg-background",
-                "!border-0 focus-visible:ring-0 focus-visible:outline-none",
-                "after:hidden"
+                studyBibleSectionToggle.cardTabTrigger,
+                studyBibleSectionToggle.cardTabTriggerRight,
+                "px-3 transition-colors duration-200"
               )}
             >
               <span className="inline-flex items-center gap-1.5">
@@ -343,7 +336,7 @@ export function CongregationAdminEventsCard({ congregationId, canEdit }: Congreg
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="soon" className="mt-0 rounded-b-lg bg-background p-4">
+          <TabsContent value="soon" className={studyBibleSectionToggle.cardTabContent}>
             {loading ? (
               <p className="text-sm text-muted-foreground">Loading…</p>
             ) : previewRows.length === 0 ? (
@@ -364,7 +357,7 @@ export function CongregationAdminEventsCard({ congregationId, canEdit }: Congreg
 
           <TabsContent
             value="all"
-            className="mt-0 rounded-b-lg bg-background p-4 max-h-[min(70vh,520px)] overflow-y-auto scrollbar-hide"
+            className={cn(studyBibleSectionToggle.cardTabContent, "max-h-[min(70vh,520px)] overflow-y-auto scrollbar-hide")}
           >
             {loading ? (
               <p className="text-sm text-muted-foreground">Loading…</p>

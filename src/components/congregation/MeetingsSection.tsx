@@ -33,8 +33,8 @@ export function MeetingsSection({ congregationData }: MeetingsSectionProps) {
           studyBibleDarkClasses.bwiCard
         )}
       >
-        <CardHeader className="rounded-t-xl border-b px-4 pt-3 !pb-3 dark:border-[#1c1921] dark:bg-[#2a2534]">
-          <CardTitle className="flex items-center gap-2 text-base font-bold leading-tight dark:text-[#fffaff]">
+        <CardHeader className="rounded-t-xl border-b px-4 pt-3 !pb-3 border-border dark:border-[#1c1921] dark:bg-[#2a2534]">
+          <CardTitle className="flex items-center gap-2 text-base font-bold leading-tight text-foreground dark:text-[#fffaff]">
             <Calendar className="h-5 w-5 shrink-0 opacity-90" />
             Meeting Schedule
           </CardTitle>
@@ -44,7 +44,7 @@ export function MeetingsSection({ congregationData }: MeetingsSectionProps) {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 shrink-0 text-muted-foreground dark:text-[#ded6e7]/85" />
-                <span className="font-semibold dark:text-[#fffaff]">Midweek Meeting</span>
+                <span className="font-semibold text-foreground dark:text-[#fffaff]">Midweek Meeting</span>
               </div>
               <div className="pl-6">
                 <div className="text-sm text-muted-foreground dark:text-[#ded6e7]/80">
@@ -56,7 +56,7 @@ export function MeetingsSection({ congregationData }: MeetingsSectionProps) {
             <div className="space-y-2">
               <div className="flex items-center gap-2">
                 <Clock className="h-4 w-4 shrink-0 text-muted-foreground dark:text-[#ded6e7]/85" />
-                <span className="font-semibold dark:text-[#fffaff]">Weekend Meeting</span>
+                <span className="font-semibold text-foreground dark:text-[#fffaff]">Weekend Meeting</span>
               </div>
               <div className="pl-6">
                 <div className="text-sm text-muted-foreground dark:text-[#ded6e7]/80">
@@ -67,7 +67,7 @@ export function MeetingsSection({ congregationData }: MeetingsSectionProps) {
           </div>
 
           {congregationData.address && (
-            <div className="flex items-start gap-2 border-t pt-4 dark:border-[#1c1921]">
+            <div className="flex items-start gap-2 border-t pt-4 border-border dark:border-[#1c1921]">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground dark:text-[#80778e]" />
               <span className="text-sm leading-relaxed text-muted-foreground dark:text-[#ded6e7]/85">
                 {congregationData.address}

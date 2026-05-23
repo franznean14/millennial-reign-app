@@ -224,7 +224,7 @@ export function VisitFiltersForm({
           >
             <DrawerThinRightContent
               className={cn(
-                "dark:border-[#1c1921] dark:text-[#fffaff]",
+                "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
                 callDateDrawerPanelClass
               )}
             >
@@ -287,7 +287,7 @@ export function VisitFiltersForm({
             >
               <DrawerThinRightContent
                 className={cn(
-                  "dark:border-[#1c1921] dark:text-[#fffaff]",
+                  "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
                   dueDateDrawerPanelClass
                 )}
               >

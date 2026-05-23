@@ -3,7 +3,7 @@
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { BarChart3, Calendar } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
+import { studyBibleSectionToggle } from "@/lib/theme/study-bible-dark";
 
 interface HomeTabToggleProps {
   value: 'summary' | 'events';
@@ -17,13 +17,7 @@ export function HomeTabToggle({
   className
 }: HomeTabToggleProps) {
   return (
-    <div
-      className={cn(
-        "bg-background/95 backdrop-blur-sm border p-0.1 rounded-lg shadow-lg w-full relative overflow-hidden",
-        studyBibleDarkClasses.card,
-        className
-      )}
-    >
+    <div className={cn(studyBibleSectionToggle.shell, "h-full min-h-0", className)}>
       <ToggleGroup
         type="single"
         value={value}
@@ -32,24 +26,18 @@ export function HomeTabToggle({
             onValueChange(newValue as 'summary' | 'events');
           }
         }}
-        className="w-full h-full"
+        className={studyBibleSectionToggle.group}
       >
-        <ToggleGroupItem 
-          value="summary" 
-          className={cn(
-            "data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 w-full flex flex-col items-center justify-center gap-1 transition-colors",
-            "dark:data-[state=on]:!bg-[#80778e] dark:data-[state=on]:!text-white"
-          )}
+        <ToggleGroupItem
+          value="summary"
+          className={cn(studyBibleSectionToggle.item, studyBibleSectionToggle.itemIcon)}
         >
           <BarChart3 className="h-4 w-4 flex-shrink-0" />
           <span className="text-[10px] font-medium text-center">Summary</span>
         </ToggleGroupItem>
-        <ToggleGroupItem 
-          value="events" 
-          className={cn(
-            "data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm flex-1 px-3 py-6 min-w-0 w-full flex flex-col items-center justify-center gap-1 transition-colors",
-            "dark:data-[state=on]:!bg-[#80778e] dark:data-[state=on]:!text-white"
-          )}
+        <ToggleGroupItem
+          value="events"
+          className={cn(studyBibleSectionToggle.item, studyBibleSectionToggle.itemIcon)}
         >
           <Calendar className="h-4 w-4 flex-shrink-0" />
           <span className="text-[10px] font-medium text-center">Events</span>
