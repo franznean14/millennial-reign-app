@@ -22,7 +22,7 @@ import {
 } from "@/lib/utils/status-hierarchy";
 import { getInitials, getInitialsFromName } from "@/lib/utils/visit-history-ui";
 import { businessEventBus } from "@/lib/events/business-events";
-import { getStudyBibleDarkCardShade } from "@/lib/theme/study-bible-dark";
+import { getStudyBibleDarkCardShade, studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   Drawer,
@@ -654,11 +654,12 @@ export function EstablishmentDetails({
         }}
       >
         <DrawerContent
-          className="flex flex-col"
+          className={cn("flex flex-col", studyBibleDarkClasses.popoverPanel)}
+          handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
           style={{ maxHeight: "50vh", height: "50vh" }}
         >
           <div className="flex flex-1 flex-col justify-center px-4 min-h-0">
-            <DrawerHeader className="pt-6 px-4 pb-2 text-center">
+            <DrawerHeader className="bg-transparent pt-6 px-4 pb-2 text-center">
               <DrawerTitle className="text-center">Remove as Personal Territory?</DrawerTitle>
             </DrawerHeader>
             <DrawerFooter className="flex flex-col gap-3 p-0 pt-4 pb-2">
@@ -697,14 +698,17 @@ export function EstablishmentDetails({
           if (!open) setTerritoryPublisherPickerOpen(false);
         }}
       >
-        <DrawerContent className="flex h-[50vh] max-h-[50vh] flex-col p-0">
+        <DrawerContent
+          className={cn("flex h-[50vh] max-h-[50vh] flex-col p-0", studyBibleDarkClasses.popoverPanel)}
+          handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
+        >
           <div
             className={cn(
               "flex min-h-0 flex-1 flex-col px-4",
               canManagePersonalTerritoryOwner ? "" : "justify-center"
             )}
           >
-            <DrawerHeader className="shrink-0 px-0 pt-6 pb-2 text-center">
+            <DrawerHeader className="shrink-0 bg-transparent px-0 pt-6 pb-2 text-center">
               <DrawerTitle className="text-center">Assign as Personal Territory</DrawerTitle>
             </DrawerHeader>
             {canManagePersonalTerritoryOwner ? (
@@ -762,8 +766,11 @@ export function EstablishmentDetails({
                           <Plus className="h-4 w-4" />
                         </Button>
                       </DrawerTrigger>
-                      <DrawerContent className="max-h-[70vh]">
-                        <DrawerHeader className="text-center">
+                      <DrawerContent
+                        className={cn("max-h-[70vh]", studyBibleDarkClasses.popoverPanel)}
+                        handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
+                      >
+                        <DrawerHeader className="bg-transparent text-center">
                           <DrawerTitle>Select publisher</DrawerTitle>
                         </DrawerHeader>
                         <div className="space-y-4 overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+24px)]">

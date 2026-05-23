@@ -32,7 +32,7 @@ import { getProfile } from "@/lib/db/profiles";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cacheDelete } from "@/lib/offline/store";
 import { HomeTodoCard } from "@/components/home/HomeTodoCard";
-import { getStudyBibleDarkCardShade } from "@/lib/theme/study-bible-dark";
+import { getStudyBibleDarkCardShade, studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import {
   getBestStatus,
@@ -676,11 +676,12 @@ export function HouseholderDetails({
         }}
       >
         <DrawerContent
-          className="flex flex-col"
+          className={cn("flex flex-col", studyBibleDarkClasses.popoverPanel)}
+          handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
           style={{ maxHeight: "50vh", height: "50vh" }}
         >
           <div className="flex flex-1 flex-col justify-center px-4 min-h-0">
-            <DrawerHeader className="pt-6 px-4 pb-2 text-center">
+            <DrawerHeader className="bg-transparent pt-6 px-4 pb-2 text-center">
               <DrawerTitle className="text-center">Remove as Personal Contact?</DrawerTitle>
             </DrawerHeader>
             <DrawerFooter className="flex flex-col gap-3 p-0 pt-4 pb-2">
@@ -714,11 +715,12 @@ export function HouseholderDetails({
       {/* Take as Personal Contact - bottom drawer, 50% height */}
       <Drawer open={showAddConfirm} onOpenChange={setShowAddConfirm}>
         <DrawerContent
-          className="flex flex-col"
+          className={cn("flex flex-col", studyBibleDarkClasses.popoverPanel)}
+          handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
           style={{ maxHeight: "50vh", height: "50vh" }}
         >
           <div className="flex flex-1 flex-col justify-center px-4 min-h-0">
-            <DrawerHeader className="pt-6 px-4 pb-2 text-center">
+            <DrawerHeader className="bg-transparent pt-6 px-4 pb-2 text-center">
               <DrawerTitle className="text-center">Take as Personal Contact?</DrawerTitle>
             </DrawerHeader>
             <DrawerFooter className="flex flex-col gap-3 p-0 pt-4 pb-2">

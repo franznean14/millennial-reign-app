@@ -422,7 +422,7 @@ export function UnifiedFab({
         headerClassName={useBusinessLeftSheet ? undefined : "text-center"}
         desktopPresentation={useBusinessLeftSheet ? "left-sheet" : "auto"}
         leftSheetStackAboveNestedRight={stackBusinessLeftSheetAboveNestedDetails}
-        className="w-[min(100vw,48rem)] dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff] md:max-h-[100lvh]"
+        className="w-[min(100vw,48rem)] md:max-h-[100lvh]"
       >
         <TodoForm
           establishments={fabEstablishmentsForForms as Array<{ id?: string; name: string }>}
@@ -487,7 +487,7 @@ export function UnifiedFab({
         title="New Householder"
         description="Add a personal householder with location"
         desktopPresentation="left-sheet"
-        className="dark:border-[#1c1921] dark:bg-[#181714] md:max-h-[100lvh]"
+        className="md:max-h-[100lvh]"
         headerClassName="text-center"
         drawerContentClassName="!mt-10 min-h-[72dvh] max-h-[calc(100dvh-4px)]"
         bodyClassName="max-md:pb-[calc(max(env(safe-area-inset-bottom),0px)+112px)]"
@@ -506,7 +506,7 @@ export function UnifiedFab({
         title="Add Publisher"
         description="Add a user to this congregation."
         desktopPresentation="left-sheet"
-        className="dark:border-[#1c1921] dark:bg-[#181714] md:max-h-[100lvh]"
+        className="md:max-h-[100lvh]"
         headerClassName="text-center"
         drawerContentClassName="!mt-10 min-h-[72dvh] max-h-[calc(100dvh-4px)]"
         bodyClassName="max-md:pb-[calc(max(env(safe-area-inset-bottom),0px)+112px)]"

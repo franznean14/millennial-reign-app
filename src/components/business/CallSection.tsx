@@ -18,6 +18,7 @@ import {
   DrawerTitle,
   DrawerWideLeftContent,
   DrawerWideLeftContentTop,
+  DrawerContent,
 } from "@/components/ui/drawer";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
@@ -285,9 +286,20 @@ export function CallSection({
           )}
         </Drawer>
       ) : (
-        <FormModal open={drawerOpen} onOpenChange={setDrawerOpen} title="Calls">
-          {callsListExpandedBody(false)}
-        </FormModal>
+        <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+          <DrawerContent
+            className={cn(
+              "h-[85svh] max-h-[85svh] dark:border-[#1c1921] dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
+              callsListPaneShade
+            )}
+            handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
+          >
+            <DrawerHeader className="shrink-0 bg-transparent px-4 pb-2 pt-4 items-center">
+              <DrawerTitle className="text-center text-lg font-bold">Calls</DrawerTitle>
+            </DrawerHeader>
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{callsListExpandedBody(true)}</div>
+          </DrawerContent>
+        </Drawer>
       )}
 
       {useLeftPanel ? (
@@ -322,7 +334,10 @@ export function CallSection({
             }
           }}
           title="Edit Call"
-          headerClassName="text-center"
+          headerClassName="text-center bg-transparent dark:bg-transparent"
+          className={callEditPaneShade}
+          drawerContentClassName="h-[85svh] max-h-[85svh] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden"
+          drawerHandleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
         >
           {visitForm}
         </FormModal>

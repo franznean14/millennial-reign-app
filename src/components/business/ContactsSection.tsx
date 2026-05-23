@@ -4,11 +4,11 @@ import React, { useMemo, useState } from "react";
 import { BookOpen, ChevronRight } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { FormModal } from "@/components/shared/FormModal";
 import { type HouseholderWithDetails } from "@/lib/db/business";
 import { formatStatusText } from "@/lib/utils/formatters";
 import {
   Drawer,
+  DrawerContent,
   DrawerHeader,
   DrawerTitle,
   DrawerWideLeftContentTop,
@@ -240,9 +240,20 @@ export function ContactsSection({
           </DrawerWideLeftContentTop>
         </Drawer>
       ) : (
-        <FormModal open={drawerOpen} onOpenChange={setDrawerOpen} title="Contacts" headerClassName="text-center">
-          {expandedListBody(false)}
-        </FormModal>
+        <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+          <DrawerContent
+            className={cn(
+              "h-[85svh] max-h-[85svh] dark:border-[#1c1921] dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
+              contactsListPaneShade
+            )}
+            handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
+          >
+            <DrawerHeader className="shrink-0 bg-transparent px-4 pb-2 pt-4 items-center">
+              <DrawerTitle className="text-center text-lg font-bold">Contacts</DrawerTitle>
+            </DrawerHeader>
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{expandedListBody(true)}</div>
+          </DrawerContent>
+        </Drawer>
       )}
     </div>
   );
