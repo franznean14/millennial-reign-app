@@ -9,13 +9,13 @@ import { VisitTimelineRow } from "@/components/visit/VisitTimelineRow";
 import { VisitList } from "@/components/visit/VisitList";
 import { getTimelineLineStyle } from "@/lib/utils/visit-timeline";
 import { cn } from "@/lib/utils";
-import { studyBibleSectionToggle } from "@/lib/theme/study-bible-dark";
+import { studyBibleSectionToggle, studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
+import { getEventTypeAccentClass } from "@/lib/utils/event-type-accent";
 import { getProfile } from "@/lib/db/profiles";
 import {
   formatEventTypeLabel,
   listEventSchedules,
   type EventSchedule,
-  type EventType,
 } from "@/lib/db/eventSchedules";
 import { formatTimeLabel, getNextOccurrenceOnOrAfter } from "@/lib/utils/recurrence";
 import {
@@ -40,27 +40,6 @@ type UpcomingEventsCachePayload = {
   events: EventSchedule[];
   updatedAt: number;
 };
-
-function eventTypeAccent(eventType: EventType): string {
-  switch (eventType) {
-    case "meeting":
-      return "border-sky-500 bg-sky-500/15 text-sky-200";
-    case "memorial":
-      return "border-violet-500 bg-violet-500/15 text-violet-200";
-    case "circuit_overseer":
-      return "border-amber-500 bg-amber-500/15 text-amber-200";
-    case "cabr":
-      return "border-emerald-500 bg-emerald-500/15 text-emerald-200";
-    case "caco":
-      return "border-cyan-500 bg-cyan-500/15 text-cyan-200";
-    case "regional_convention":
-      return "border-fuchsia-500 bg-fuchsia-500/15 text-fuchsia-200";
-    case "annual_pioneers_meeting":
-      return "border-indigo-500 bg-indigo-500/15 text-indigo-200";
-    default:
-      return "border-muted-foreground/50 bg-muted/40 text-muted-foreground";
-  }
-}
 
 interface UpcomingEventsProps {
   userId: string;
@@ -195,7 +174,7 @@ export function UpcomingEvents({ userId }: UpcomingEventsProps) {
     const { event, nextDate } = row;
     const locSummary = formatEventLocationSummaryForDisplay(event);
     const isNextInLine = index === 0;
-    const accent = eventTypeAccent(event.event_type);
+    const accent = getEventTypeAccentClass(event.event_type);
     return (
       <VisitTimelineRow
         onClick={() => setDetailEvent(event)}
@@ -273,8 +252,8 @@ export function UpcomingEvents({ userId }: UpcomingEventsProps) {
     getNextOccurrenceOnOrAfter(detailEvent, new Date());
 
   return (
-    <section className="space-y-3">
-      <div className="rounded-lg border overflow-hidden bg-background">
+    <section>
+      <div className={cn("mt-3 rounded-lg border overflow-hidden", studyBibleDarkClasses.bwiCard)}>
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className={cn("grid-cols-2", studyBibleSectionToggle.cardTabList)}>
             <TabsTrigger
@@ -397,7 +376,7 @@ export function UpcomingEvents({ userId }: UpcomingEventsProps) {
         {detailEvent ? (
           <div className="space-y-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+24px)]">
             <div className="flex flex-wrap gap-2">
-              <Badge variant="outline" className={cn(eventTypeAccent(detailEvent.event_type))}>
+              <Badge variant="outline" className={cn(getEventTypeAccentClass(detailEvent.event_type))}>
                 {formatEventTypeLabel(detailEvent.event_type)}
               </Badge>
             </div>

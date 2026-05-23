@@ -11,12 +11,12 @@ import { VisitList } from "@/components/visit/VisitList";
 import { getTimelineLineStyle } from "@/lib/utils/visit-timeline";
 import { cn } from "@/lib/utils";
 import { studyBibleSectionToggle } from "@/lib/theme/study-bible-dark";
+import { getEventTypeAccentClass } from "@/lib/utils/event-type-accent";
 import {
   formatEventTypeLabel,
   listEventSchedules,
   readCachedEventSchedules,
   type EventSchedule,
-  type EventType,
 } from "@/lib/db/eventSchedules";
 import { formatTimeLabel, getNextOccurrenceOnOrAfter } from "@/lib/utils/recurrence";
 import {
@@ -32,27 +32,6 @@ import { EventScheduleLocationBlock } from "@/components/congregation/EventSched
 import { EventScheduleDirectionsLink } from "@/components/congregation/EventScheduleDirectionsLink";
 
 const PREVIEW_LIMIT = 5;
-
-function eventTypeAccent(eventType: EventType): string {
-  switch (eventType) {
-    case "meeting":
-      return "border-sky-500 bg-sky-500/15 text-sky-200";
-    case "memorial":
-      return "border-violet-500 bg-violet-500/15 text-violet-200";
-    case "circuit_overseer":
-      return "border-amber-500 bg-amber-500/15 text-amber-200";
-    case "cabr":
-      return "border-emerald-500 bg-emerald-500/15 text-emerald-200";
-    case "caco":
-      return "border-cyan-500 bg-cyan-500/15 text-cyan-200";
-    case "regional_convention":
-      return "border-fuchsia-500 bg-fuchsia-500/15 text-fuchsia-200";
-    case "annual_pioneers_meeting":
-      return "border-indigo-500 bg-indigo-500/15 text-indigo-200";
-    default:
-      return "border-muted-foreground/50 bg-muted/40 text-muted-foreground";
-  }
-}
 
 interface AdminRow {
   event: EventSchedule;
@@ -177,7 +156,7 @@ export function CongregationAdminEventsCard({ congregationId, canEdit }: Congreg
   ) => {
     const { event, nextDate } = row;
     const locSummary = formatEventLocationSummaryForDisplay(event);
-    const accent = eventTypeAccent(event.event_type);
+    const accent = getEventTypeAccentClass(event.event_type);
     return (
       <VisitTimelineRow
         onClick={() => handleRowActivate(event)}
@@ -234,7 +213,7 @@ export function CongregationAdminEventsCard({ congregationId, canEdit }: Congreg
   const renderRowAll = (row: AdminRow, index: number, total: number, isDrawer: boolean) => {
     const { event, displayYmd, hasNext } = row;
     const locSummary = formatEventLocationSummaryForDisplay(event);
-    const accent = eventTypeAccent(event.event_type);
+    const accent = getEventTypeAccentClass(event.event_type);
     return (
       <VisitTimelineRow
         onClick={() => handleRowActivate(event)}
@@ -296,9 +275,9 @@ export function CongregationAdminEventsCard({ congregationId, canEdit }: Congreg
   const detailNext = detailEvent && getNextOccurrenceOnOrAfter(detailEvent, new Date());
 
   return (
-    <section className="space-y-3 pb-[calc(max(env(safe-area-inset-bottom),0px)+8px)]">
+    <section className="space-y-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+8px)]">
       <h2 className="text-lg font-semibold">Congregation events</h2>
-      <p className="text-sm text-muted-foreground -mt-1">
+      <p className="text-sm text-muted-foreground">
         Non-ministry schedules. {canEdit ? "Tap an event to edit." : "Tap for details."}
       </p>
 
@@ -440,7 +419,7 @@ export function CongregationAdminEventsCard({ congregationId, canEdit }: Congreg
           {detailEvent ? (
             <div className="space-y-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+24px)]">
               <div className="flex flex-wrap gap-2">
-                <Badge variant="outline" className={cn(eventTypeAccent(detailEvent.event_type))}>
+                <Badge variant="outline" className={cn(getEventTypeAccentClass(detailEvent.event_type))}>
                   {formatEventTypeLabel(detailEvent.event_type)}
                 </Badge>
               </div>

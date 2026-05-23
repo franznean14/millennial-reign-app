@@ -1,5 +1,5 @@
 /**
- * Compact role labels + Tailwind classes for congregation member lists (dark-theme friendly).
+ * Compact role labels + Tailwind classes for congregation member lists.
  */
 export type CongregationRoleTone =
   | "elder"
@@ -16,21 +16,21 @@ export type PrimaryRoleDisplay = {
   tone: CongregationRoleTone;
 };
 
-/** Border + background + text for role pills on dark UI */
+/** Border + background + text for role pills (light + dark) */
 export const CONG_ROLE_BADGE_CLASSES: Record<CongregationRoleTone, string> = {
-  elder: "border-amber-500/45 bg-amber-500/15 text-amber-100",
-  ms: "border-blue-500/45 bg-blue-500/15 text-blue-100",
-  secretary: "border-violet-500/45 bg-violet-500/15 text-violet-100",
-  coordinator: "border-indigo-500/45 bg-indigo-500/15 text-indigo-100",
-  go: "border-yellow-500/45 bg-yellow-500/15 text-yellow-100",
-  ga: "border-sky-500/45 bg-sky-500/15 text-sky-100",
-  rp: "border-emerald-500/45 bg-emerald-500/15 text-emerald-100",
-  ap: "border-teal-500/45 bg-teal-500/15 text-teal-100",
+  elder: "border-amber-500/45 bg-amber-500/15 text-amber-900 dark:text-amber-100",
+  ms: "border-blue-500/45 bg-blue-500/15 text-blue-900 dark:text-blue-100",
+  secretary: "border-violet-500/45 bg-violet-500/15 text-violet-900 dark:text-violet-100",
+  coordinator: "border-indigo-500/45 bg-indigo-500/15 text-indigo-900 dark:text-indigo-100",
+  go: "border-yellow-600/45 bg-yellow-500/15 text-yellow-900 dark:text-yellow-100",
+  ga: "border-sky-500/45 bg-sky-500/15 text-sky-900 dark:text-sky-100",
+  rp: "border-emerald-500/45 bg-emerald-500/15 text-emerald-900 dark:text-emerald-100",
+  ap: "border-teal-500/45 bg-teal-500/15 text-teal-900 dark:text-teal-100",
 };
 
 /** BWI participant — distinct from privilege roles */
 export const CONG_BWI_BADGE_CLASS =
-  "border-fuchsia-500/45 bg-fuchsia-500/15 text-fuchsia-100";
+  "border-fuchsia-500/45 bg-fuchsia-500/15 text-fuchsia-900 dark:text-fuchsia-100";
 
 /**
  * Single primary badge for list cells (priority: ordained → appointed offices → pioneers).

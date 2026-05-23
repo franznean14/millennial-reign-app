@@ -165,7 +165,7 @@ export function HomeView({
       </div>
 
       <div
-        className={homeTab === "events" ? "block px-4" : "hidden"}
+        className={homeTab === "events" ? "block min-w-0" : "hidden"}
         aria-hidden={homeTab !== "events"}
       >
         <UpcomingEvents userId={userId} />

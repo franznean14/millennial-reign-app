@@ -202,6 +202,8 @@ export function FabMenu({
           x: fallbackX,
           y: actions.length === 3 && index === 1 ? -22 : 0,
         };
+        const actionVariant = action.variant ?? "default";
+        const isOutlineAction = actionVariant === "outline";
 
         return (
         <RadixPortal
@@ -212,10 +214,13 @@ export function FabMenu({
             ref={(node) => {
               actionButtonRefs.current[index] = node;
             }}
-            variant={action.variant ?? "default"}
+            variant={actionVariant}
             className={cn(
-              "pointer-events-auto fixed right-4 z-40 rounded-full shadow-lg md:right-6 md:z-10 text-xl font-semibold px-6 py-6 border-border dark:border-[#1c1921] dark:bg-[#30283c] text-foreground dark:text-[#fffaff] dark:hover:bg-[#3b3348] dark:data-[state=open]:bg-[#3b3348] md:[--fab-action-effective-row-x:var(--fab-action-row-x)] md:[--fab-action-effective-arc-y:var(--fab-action-arc-y)]",
-              action.variant !== "outline" && "dark:!bg-[#80778e] dark:!text-white dark:hover:!bg-[#8c839a]",
+              "pointer-events-auto fixed right-4 z-40 rounded-full shadow-lg md:right-6 md:z-10 text-xl font-semibold px-6 py-6 md:[--fab-action-effective-row-x:var(--fab-action-row-x)] md:[--fab-action-effective-arc-y:var(--fab-action-arc-y)]",
+              isOutlineAction
+                ? "border border-border bg-background text-foreground hover:bg-accent dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff] dark:hover:bg-[#3b3348]"
+                : "!border-0 !bg-primary !text-primary-foreground hover:!bg-primary/90 [&_svg]:text-primary-foreground dark:!bg-[#80778e] dark:!text-white dark:hover:!bg-[#8c839a] dark:[&_svg]:text-white",
+              action.className,
               actionClassName
             )}
             style={{
@@ -273,8 +278,8 @@ export function FabMenu({
                         : variantResolved === "destructive"
                           ? "dark:border-red-900/70"
                           : cn(
-                              "border-[#3a3631] bg-[#2a2823] text-[#fdf8f4] hover:bg-[#39352f]",
-                              "dark:border-[#2e2933] dark:bg-[#332d39] text-foreground dark:text-[#fffaff] dark:hover:bg-[#403948]"
+                              "border-[#e2dde8] bg-[#ffffff] text-[#1a1820] hover:bg-[#ece8f2]",
+                              "dark:border-[#2e2933] dark:bg-[#332d39] dark:text-[#fffaff] dark:hover:bg-[#403948]"
                             )
                     )}
                     style={{
