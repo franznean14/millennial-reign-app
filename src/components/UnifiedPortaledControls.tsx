@@ -11,6 +11,7 @@ import { AccountTabToggle } from "@/components/account/AccountTabToggle";
 import { FilterControls, type FilterBadge } from "@/components/shared/FilterControls";
 import { buildFilterBadges } from "@/lib/utils/filter-badges";
 import { cn } from "@/lib/utils";
+import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 import { LayoutGrid, List, Table as TableIcon, X, Crosshair, ChevronLeft, Edit } from "lucide-react";
 import type { BusinessFiltersState, EstablishmentWithDetails, HouseholderWithDetails } from "@/lib/db/business";
 import { getBusinessDetailsHeaderTitleStatus, getStatusTitleColor } from "@/lib/utils/status-hierarchy";
@@ -402,7 +403,10 @@ function BusinessControlsContent({
                             type="button"
                             variant="default"
                             size="sm"
-                            className="h-9 rounded-full px-3 flex items-center gap-2 flex-shrink-0 dark:!bg-[#80778e] dark:!text-white dark:hover:!bg-[#8c839a]"
+                            className={cn(
+                              "h-9 rounded-full px-3 flex items-center gap-2 flex-shrink-0 shadow-none border",
+                              studyBibleDarkClasses.filterToolbarButtonActive
+                            )}
                             onClick={onToggleNearMe}
                             aria-label="Near me"
                           >
@@ -413,9 +417,12 @@ function BusinessControlsContent({
                         ) : (
                           <Button
                             type="button"
-                            variant="outline"
+                            variant="secondary"
                             size="icon"
-                            className="h-9 w-9 rounded-full flex-shrink-0 border-border dark:border-[#1c1921] dark:bg-[#30283c] text-foreground dark:text-[#fffaff] dark:hover:bg-[#3b3348]"
+                            className={cn(
+                              "h-9 w-9 rounded-full flex-shrink-0 shadow-none border",
+                              studyBibleDarkClasses.filterToolbarButton
+                            )}
                             onClick={onToggleNearMe}
                             aria-pressed={false}
                             aria-label="Near me"
@@ -426,9 +433,12 @@ function BusinessControlsContent({
                         )}
                         <Button
                           type="button"
-                          variant="outline"
+                          variant="secondary"
                           size="icon"
-                          className="h-9 w-9 rounded-full flex-shrink-0 border-border dark:border-[#1c1921] dark:bg-[#30283c] text-foreground dark:text-[#fffaff] dark:hover:bg-[#3b3348]"
+                          className={cn(
+                            "h-9 w-9 rounded-full flex-shrink-0 shadow-none border",
+                            studyBibleDarkClasses.filterToolbarButton
+                          )}
                           onClick={onCycleViewMode}
                           title={`View: ${viewMode}`}
                         >

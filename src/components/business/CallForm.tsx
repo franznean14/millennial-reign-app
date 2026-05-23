@@ -799,7 +799,7 @@ export function CallForm({ establishments, selectedEstablishmentId, onSaved, ini
                       checked={item.is_done}
                       onCheckedChange={() => handleToggleTodo(item)}
                       aria-label={item.is_done ? "Mark not done" : "Mark done"}
-                      className="shrink-0 dark:border-[#80778e] dark:data-[state=checked]:bg-[#80778e]"
+                      className="shrink-0"
                     />
                     {isEditing ? (
                       <Input

@@ -9,6 +9,7 @@ import { getInitialsFromName } from "@/lib/utils/visit-history-ui";
 import { Filter as FilterIcon, SquarePen, Search, User, UserCheck, Users, X, Building2 } from "lucide-react";
 import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
 import { cn } from "@/lib/utils";
+import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 import type { FilterBadge } from "@/lib/utils/filter-badges";
 
 export type { FilterBadge } from "@/lib/utils/filter-badges";
@@ -81,12 +82,16 @@ export function FilterControls({
   trailingActions
 }: FilterControlsProps) {
   const hasActiveFilters = filterBadges.length > 0;
-  const controlButtonClass =
-    "border-border dark:border-[#1c1921] dark:bg-[#30283c] text-foreground dark:text-[#fffaff] dark:hover:bg-[#3b3348] dark:[&>svg]:text-[#fffaff]";
-  const activeControlClass =
-    "dark:!bg-[#80778e] dark:!text-white dark:hover:!bg-[#8c839a] dark:[&>svg]:!text-white";
+  const filterIconButtonClass = cn(
+    "h-9 w-9 rounded-full flex-shrink-0 shadow-none border",
+    studyBibleDarkClasses.filterToolbarButton
+  );
+  const filterPillActiveClass = cn(
+    "shadow-none border",
+    studyBibleDarkClasses.filterToolbarButtonActive
+  );
   const searchInputClass =
-    "border-border dark:border-[#1c1921] dark:bg-[#30283c] text-foreground dark:text-[#fffaff] dark:placeholder:text-[#ded6e7]/70";
+    "border-[#e2dde8] !bg-[#ece8f2] text-[#1a1820] placeholder:text-[#8e89a3] dark:border-[#1c1921] dark:!bg-[#3b3348] dark:text-[#fffaff] dark:placeholder:text-[#ded6e7]/70";
 
   return (
     <>
@@ -149,7 +154,7 @@ export function FilterControls({
             type="button"
             variant="default"
             size="sm"
-            className={cn("h-auto min-h-9 rounded-full px-3 py-1.5 flex items-center gap-1.5 max-w-full text-primary-foreground", activeControlClass)}
+            className={cn("h-auto min-h-9 rounded-full px-3 py-1.5 flex items-center gap-1.5 max-w-full text-primary-foreground", filterPillActiveClass)}
             onClick={(e) => {
               const target = e.target as HTMLElement;
               if (!target.closest(".filter-badge") && !target.closest(".filter-x-button")) {
@@ -237,7 +242,7 @@ export function FilterControls({
               type="button"
               variant="default"
               size="sm"
-              className={cn("h-9 rounded-full px-3 flex items-center gap-2 text-primary-foreground", activeControlClass)}
+              className={cn("h-9 rounded-full px-3 flex items-center gap-2 text-primary-foreground", filterPillActiveClass)}
               onClick={onMyClear}
               aria-label={myLabel}
             >
@@ -249,9 +254,9 @@ export function FilterControls({
           {preserveActionButtonsWhenTogglesActive && showMyFilter && !myActive && onMyActivate && (
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="icon"
-              className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
+              className={filterIconButtonClass}
               onClick={onMyActivate}
               aria-pressed={false}
               aria-label={myLabel}
@@ -263,12 +268,12 @@ export function FilterControls({
           {preserveActionButtonsWhenTogglesActive && (bwiActive || householderActive) && onBwiActivate && (
             <Button
               type="button"
-              variant={householderActive ? "outline" : "default"}
+              variant={householderActive ? "secondary" : "default"}
               size="sm"
               className={cn(
                 "h-9 rounded-full flex items-center gap-2",
                 householderActive ? "px-2" : "px-3",
-                householderActive ? controlButtonClass : activeControlClass
+                householderActive ? cn("shadow-none border", studyBibleDarkClasses.filterToolbarButton) : filterPillActiveClass
               )}
               onClick={householderActive ? onBwiActivate : onBwiClear}
               aria-label={bwiLabel}
@@ -288,9 +293,9 @@ export function FilterControls({
           {preserveActionButtonsWhenTogglesActive && (bwiActive || householderActive) && onHouseholderActivate && !householderActive && (
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="icon"
-              className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
+              className={filterIconButtonClass}
               onClick={onHouseholderActivate}
               aria-label={householderLabel}
               title={householderLabel}
@@ -303,7 +308,7 @@ export function FilterControls({
               type="button"
               variant="default"
               size="sm"
-              className={cn("h-9 rounded-full px-3 flex items-center gap-2 text-primary-foreground", activeControlClass)}
+              className={cn("h-9 rounded-full px-3 flex items-center gap-2 text-primary-foreground", filterPillActiveClass)}
               onClick={onHouseholderClear}
               aria-label={householderLabel}
             >
@@ -315,9 +320,9 @@ export function FilterControls({
           {preserveActionButtonsWhenTogglesActive && !bwiActive && !householderActive && onBwiActivate && (
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="icon"
-              className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
+              className={filterIconButtonClass}
               onClick={onBwiActivate}
               aria-pressed={false}
               aria-label={bwiLabel}
@@ -329,9 +334,9 @@ export function FilterControls({
           {preserveActionButtonsWhenTogglesActive && (
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="icon"
-              className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
+              className={filterIconButtonClass}
               onClick={onSearchActivate}
               aria-label="Search"
               title="Search"
@@ -342,9 +347,9 @@ export function FilterControls({
           {preserveActionButtonsWhenTogglesActive && showEditButton && onEditClick && (
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="icon"
-              className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
+              className={filterIconButtonClass}
               onClick={onEditClick}
               aria-label={editLabel}
               title={editLabel}
@@ -367,7 +372,7 @@ export function FilterControls({
               type="button"
               variant="default"
               size="sm"
-              className={cn("h-9 rounded-full px-3 flex items-center gap-2 text-primary-foreground", activeControlClass)}
+              className={cn("h-9 rounded-full px-3 flex items-center gap-2 text-primary-foreground", filterPillActiveClass)}
               onClick={onMyClear}
               aria-label={myLabel}
             >
@@ -379,9 +384,9 @@ export function FilterControls({
           {showMyFilter && !myActive && onMyActivate && (
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="icon"
-              className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
+              className={filterIconButtonClass}
               onClick={onMyActivate}
               aria-pressed={false}
               aria-label={myLabel}
@@ -393,12 +398,12 @@ export function FilterControls({
           {(bwiActive || householderActive) && onBwiActivate && (
             <Button
               type="button"
-              variant={householderActive ? "outline" : "default"}
+              variant={householderActive ? "secondary" : "default"}
               size="sm"
               className={cn(
                 "h-9 rounded-full flex items-center gap-2",
                 householderActive ? "px-2" : "px-3",
-                householderActive ? controlButtonClass : activeControlClass
+                householderActive ? cn("shadow-none border", studyBibleDarkClasses.filterToolbarButton) : filterPillActiveClass
               )}
               onClick={householderActive ? onBwiActivate : onBwiClear}
               aria-label={bwiLabel}
@@ -418,9 +423,9 @@ export function FilterControls({
           {(bwiActive || householderActive) && onHouseholderActivate && !householderActive && (
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="icon"
-              className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
+              className={filterIconButtonClass}
               onClick={onHouseholderActivate}
               aria-label={householderLabel}
               title={householderLabel}
@@ -433,7 +438,7 @@ export function FilterControls({
               type="button"
               variant="default"
               size="sm"
-              className={cn("h-9 rounded-full px-3 flex items-center gap-2 text-primary-foreground", activeControlClass)}
+              className={cn("h-9 rounded-full px-3 flex items-center gap-2 text-primary-foreground", filterPillActiveClass)}
               onClick={onHouseholderClear}
               aria-label={householderLabel}
             >
@@ -445,9 +450,9 @@ export function FilterControls({
           {preserveActionButtonsWhenTogglesActive && !bwiActive && !householderActive && onBwiActivate && (
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="icon"
-              className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
+              className={filterIconButtonClass}
               onClick={onBwiActivate}
               aria-pressed={false}
               aria-label={bwiLabel}
@@ -460,9 +465,9 @@ export function FilterControls({
             <>
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 size="icon"
-                className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
+                className={filterIconButtonClass}
                 onClick={onSearchActivate}
                 aria-label="Search"
                 title="Search"
@@ -471,9 +476,9 @@ export function FilterControls({
               </Button>
               <Button
                 type="button"
-                variant="outline"
+                variant="secondary"
                 size="icon"
-                className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
+                className={filterIconButtonClass}
                 onClick={onOpenFilters}
                 aria-label="Filter"
                 title="Filter"
@@ -483,9 +488,9 @@ export function FilterControls({
               {showEditButton && onEditClick && (
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   size="icon"
-                  className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
+                  className={filterIconButtonClass}
                   onClick={onEditClick}
                   aria-label={editLabel}
                   title={editLabel}
@@ -509,9 +514,9 @@ export function FilterControls({
           {showMyFilter && onMyActivate && (
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="icon"
-              className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
+              className={filterIconButtonClass}
               onClick={onMyActivate}
               aria-pressed={false}
               aria-label={myLabel}
@@ -523,9 +528,9 @@ export function FilterControls({
           {onBwiActivate && (
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="icon"
-              className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
+              className={filterIconButtonClass}
               onClick={onBwiActivate}
               aria-pressed={false}
               aria-label={bwiLabel}
@@ -536,9 +541,9 @@ export function FilterControls({
           )}
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             size="icon"
-            className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
+            className={filterIconButtonClass}
             onClick={onSearchActivate}
             aria-label="Search"
             title="Search"
@@ -547,9 +552,9 @@ export function FilterControls({
           </Button>
           <Button
             type="button"
-            variant="outline"
+            variant="secondary"
             size="icon"
-            className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
+            className={filterIconButtonClass}
             onClick={onOpenFilters}
             aria-label="Filter"
             title="Filter"
@@ -559,9 +564,9 @@ export function FilterControls({
           {showEditButton && onEditClick && (
             <Button
               type="button"
-              variant="outline"
+              variant="secondary"
               size="icon"
-              className={cn("h-9 w-9 rounded-full flex-shrink-0", controlButtonClass)}
+              className={filterIconButtonClass}
               onClick={onEditClick}
               aria-label={editLabel}
               title={editLabel}

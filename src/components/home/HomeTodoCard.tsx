@@ -4123,7 +4123,7 @@ function TodoRow({
         />
       ) : (
         <span
-          className="rounded border border-border bg-muted/50 w-5 h-5 shrink-0"
+          className={cn("rounded w-5 h-5 shrink-0 border", studyBibleDarkClasses.checkboxPlaceholder)}
           aria-hidden
         />
       )}

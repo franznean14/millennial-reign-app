@@ -66,6 +66,16 @@ export const studyBibleDarkClasses = {
     "border border-transparent ring-0 data-[state=on]:ring-0 focus-visible:ring-0 text-[#6d6880] hover:bg-[#ece8f2] hover:border-transparent data-[state=on]:!border-[#6b5196] data-[state=on]:!bg-[#6b5196] data-[state=on]:!text-white dark:text-[#ded6e7] dark:hover:bg-[#3b3348] dark:hover:border-transparent dark:data-[state=on]:!border-[#80778e] dark:data-[state=on]:!bg-[#80778e] dark:data-[state=on]:!text-white",
   rowActionButton:
     "border-[#e2dde8] bg-[#ffffff] text-[#1a1820] hover:bg-[#ece8f2] active:bg-[#e4deea] dark:border-[#1c1921] dark:bg-[#272133] dark:text-[#fffaff] dark:hover:bg-[#3b3348] dark:active:bg-[#463b55]",
+  /** Unchecked/checked boxes on tinted todo and form rows */
+  checkbox:
+    "border-[#8e89a3] bg-[#ffffff] shadow-none data-[state=checked]:border-[#6b5196] data-[state=checked]:bg-[#6b5196] data-[state=checked]:text-white dark:border-[#80778e] dark:bg-[#3b3348] dark:data-[state=checked]:border-[#80778e] dark:data-[state=checked]:bg-[#80778e] dark:data-[state=checked]:text-white",
+  checkboxPlaceholder:
+    "border-[#8e89a3] bg-[#ffffff] dark:border-[#80778e] dark:bg-[#3b3348]",
+  /** Solid circular/pill controls in drawer filter toolbars (Calls, To-Do, BWI). */
+  filterToolbarButton:
+    "border-[#e2dde8] !bg-[#ece8f2] text-[#1a1820] hover:!bg-[#e4deea] active:!bg-[#ded6e7] [&>svg]:text-[#1a1820] dark:border-[#1c1921] dark:!bg-[#3b3348] dark:text-[#fffaff] dark:hover:!bg-[#463b55] dark:active:!bg-[#514562] dark:[&>svg]:text-[#fffaff]",
+  filterToolbarButtonActive:
+    "border-[#6b5196] !bg-[#6b5196] !text-white hover:!bg-[#5d4788] [&>svg]:!text-white dark:border-[#80778e] dark:!bg-[#80778e] dark:!text-white dark:hover:!bg-[#8c839a] dark:[&>svg]:!text-white",
   drawerHandle:
     "bg-[#6b5196] shadow-[0_0_18px_rgba(107,81,150,0.35)] dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]",
   /** Tappable card title bar — same surface as card body (not a contrasting header strip). */

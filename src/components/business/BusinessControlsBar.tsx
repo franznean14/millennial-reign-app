@@ -6,6 +6,7 @@ import { Filter, User, UserCheck, LayoutGrid, List, Table as TableIcon } from "l
 import type { BusinessFiltersState } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { cn } from "@/lib/utils";
+import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 
 interface BusinessControlsBarProps {
   filters: BusinessFiltersState;
@@ -18,8 +19,14 @@ interface BusinessControlsBarProps {
 export function BusinessControlsBar({ filters, viewMode }: BusinessControlsBarProps) {
   const [myOnly, setMyOnly] = useState<boolean>(!!filters.myEstablishments);
   const [mode, setMode] = useState<'detailed' | 'compact' | 'table'>(viewMode);
-  const controlButtonClass = "border-border dark:border-[#1c1921] dark:bg-[#30283c] text-foreground dark:text-[#fffaff] dark:hover:bg-[#3b3348]";
-  const activeControlClass = "dark:!bg-[#80778e] dark:!text-white dark:hover:!bg-[#8c839a]";
+  const filterIconButtonClass = cn(
+    "h-9 w-9 rounded-full shadow-none border",
+    studyBibleDarkClasses.filterToolbarButton
+  );
+  const filterIconButtonActiveClass = cn(
+    filterIconButtonClass,
+    studyBibleDarkClasses.filterToolbarButtonActive
+  );
 
   // Keep in sync with AppClient state
   useEffect(() => {
@@ -38,9 +45,9 @@ export function BusinessControlsBar({ filters, viewMode }: BusinessControlsBarPr
       <div className="mx-auto max-w-screen-lg h-12 px-4 flex items-center justify-end gap-2">
         <Button
           type="button"
-          variant={myOnly ? "default" : "outline"}
+          variant={myOnly ? "default" : "secondary"}
           size="icon"
-          className={cn("h-9 w-9 rounded-full", controlButtonClass, myOnly && activeControlClass)}
+          className={cn(filterIconButtonClass, myOnly && filterIconButtonActiveClass)}
           onClick={() => businessEventBus.emit('business_controls_action', { action: 'toggle_my' })}
           aria-pressed={!!myOnly}
           aria-label="My establishments"
@@ -50,9 +57,9 @@ export function BusinessControlsBar({ filters, viewMode }: BusinessControlsBarPr
         </Button>
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           size="icon"
-          className={cn("h-9 w-9 rounded-full", controlButtonClass)}
+          className={filterIconButtonClass}
           onClick={() => businessEventBus.emit('business_controls_action', { action: 'open_filters' })}
           title="Filters"
         >
@@ -60,9 +67,9 @@ export function BusinessControlsBar({ filters, viewMode }: BusinessControlsBarPr
         </Button>
         <Button
           type="button"
-          variant="outline"
+          variant="secondary"
           size="icon"
-          className={cn("h-9 w-9 rounded-full", controlButtonClass)}
+          className={filterIconButtonClass}
           onClick={() => businessEventBus.emit('business_controls_action', { action: 'cycle_view' })}
           title={`View: ${mode}`}
         >
