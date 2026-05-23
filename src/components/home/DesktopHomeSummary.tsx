@@ -17,7 +17,7 @@ import { FormModal } from "@/components/shared/FormModal";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { DailyRecord } from "@/lib/db/types";
 import { cn } from "@/lib/utils";
-import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
+import { studyBibleDarkClasses, getStudyBibleDarkCardShade } from "@/lib/theme/study-bible-dark";
 
 type StudyCount = [string, number];
 
@@ -588,6 +588,25 @@ export function DesktopHomeSummary({
     });
   }, [monthlyAggregates, activeServiceYear]);
 
+  const monthlyRecordActionButtonClass = cn(
+    "flex-shrink-0 flex items-center justify-center rounded-md border border-border p-0 touch-manipulation",
+    "hover:bg-muted/25 active:bg-muted/40",
+    "dark:border-[#1c1921] dark:bg-[#272133] dark:text-[#fffaff]",
+    "dark:hover:bg-[#3b3348] dark:active:bg-[#463b55]"
+  );
+
+  const monthlyRecordYearToggleItemClass = cn(
+    "min-w-0 px-3 h-12 flex items-center justify-center transition-colors shadow-none",
+    "!rounded-none first:!rounded-none last:!rounded-none",
+    "dark:text-[#ded6e7] dark:hover:bg-[#3b3348]",
+    "dark:data-[state=on]:!bg-[#80778e] dark:data-[state=on]:!text-white"
+  );
+
+  const monthlyRecordYearToggleShellClass = cn(
+    "relative w-full max-w-screen-sm overflow-hidden rounded-xl border shadow-lg",
+    "dark:border-[#1c1921] dark:bg-[#2a2534]"
+  );
+
   // Format month for display
   const formatMonth = (monthStr: string) => {
     const [year, month] = monthStr.split('-');
@@ -974,7 +993,7 @@ export function DesktopHomeSummary({
           {serviceYears.length > 0 ? (
             <>
               <div className="flex justify-center">
-                <div className="bg-background/95 backdrop-blur-sm border p-0.1 rounded-lg shadow-lg w-full max-w-screen-sm relative overflow-hidden">
+                <div className={monthlyRecordYearToggleShellClass}>
                   <div className="w-full overflow-x-auto no-scrollbar">
                     {selectedMonth ? (
                       <div className="flex items-center gap-0.5 w-full h-12 px-1">
@@ -984,13 +1003,13 @@ export function DesktopHomeSummary({
                           size="sm"
                           disabled={!canGoPrevMonth}
                           onClick={goPrevMonth}
-                          className="flex-shrink-0 h-12 w-10 px-0 flex items-center justify-center transition-colors hover:bg-muted disabled:opacity-30"
+                          className="flex-shrink-0 h-12 w-10 px-0 flex items-center justify-center transition-colors hover:bg-muted disabled:opacity-30 dark:text-[#ded6e7] dark:hover:bg-[#3b3348] disabled:dark:opacity-30"
                           aria-label="Previous month"
                         >
                           <ChevronLeft className="h-4 w-4 flex-shrink-0" />
                         </Button>
                         <div className="flex-1 min-w-0 px-1 h-12 flex items-center justify-center">
-                          <span className="text-sm font-semibold text-foreground truncate w-full text-center pointer-events-none">
+                          <span className="text-sm font-semibold text-foreground truncate w-full text-center pointer-events-none dark:text-[#fffaff]">
                             {formatFullMonth(selectedMonth)}
                           </span>
                         </div>
@@ -1000,7 +1019,7 @@ export function DesktopHomeSummary({
                             variant="ghost"
                             size="sm"
                             onClick={goNextMonth}
-                            className="flex-shrink-0 h-12 w-10 px-0 flex items-center justify-center transition-colors hover:bg-muted"
+                            className="flex-shrink-0 h-12 w-10 px-0 flex items-center justify-center transition-colors hover:bg-muted dark:text-[#ded6e7] dark:hover:bg-[#3b3348]"
                             aria-label="Next month"
                           >
                             <ChevronRight className="h-4 w-4 flex-shrink-0" />
@@ -1019,13 +1038,13 @@ export function DesktopHomeSummary({
                             setSelectedMonth(null);
                           }
                         }}
-                        className="w-max min-w-full h-full justify-center"
+                        className="w-max min-w-full h-full justify-center gap-0 rounded-none"
                       >
                         {serviceYears.map((year) => (
                           <ToggleGroupItem
                             key={year}
                             value={String(year)}
-                            className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm min-w-0 px-3 h-12 flex items-center justify-center transition-colors"
+                            className={monthlyRecordYearToggleItemClass}
                             title={String(year)}
                           >
                             <span className="text-[11px] font-medium text-center truncate w-full">{year}</span>
@@ -1041,26 +1060,33 @@ export function DesktopHomeSummary({
                 /* Detail View */
                 <div className="space-y-4">
                   {/* Hours Summary */}
-                  <div className="rounded-lg border p-4 bg-muted/30">
+                  <div className={cn("rounded-lg border p-4 bg-muted/30", studyBibleDarkClasses.summaryCard)}>
                     <div className="text-center">
                       <div className="text-3xl font-semibold">{fmtHours(monthDetailData.totalHours)}</div>
-                      <div className="text-sm text-muted-foreground mt-1">Hours</div>
+                      <div className={cn("text-sm mt-1", studyBibleDarkClasses.muted)}>Hours</div>
                     </div>
                   </div>
 
                   {/* Bible Studies Table */}
                   {monthDetailData.bibleStudies.length > 0 ? (
-                    <div className="rounded-lg border">
-                      <div className="px-4 py-3 border-b bg-muted/30">
-                        <h3 className="text-sm font-semibold">Bible Studies</h3>
+                    <div className={cn("rounded-xl border border-border/70 overflow-hidden dark:border-[#3a3342]", studyBibleDarkClasses.card)}>
+                      <div className={cn("px-4 py-3 border-b dark:border-[#1c1921] dark:bg-[#30283c]", studyBibleDarkClasses.divider)}>
+                        <h3 className="text-sm font-semibold dark:text-[#fffaff]">Bible Studies</h3>
                       </div>
-                      <div className="max-h-[200px] overflow-y-auto">
+                      <div className="max-h-[200px] overflow-y-auto dark:bg-[#24231f]">
                         <table className="w-full text-sm">
                           <tbody>
                             {monthDetailData.bibleStudies.map((bs, idx) => (
-                              <tr key={idx} className="border-b last:border-b-0">
-                                <td className="p-3">{bs.name}</td>
-                                <td className="p-3 text-right text-muted-foreground">
+                              <tr
+                                key={idx}
+                                className={cn(
+                                  "border-b last:border-b-0 dark:border-[#3a3342]",
+                                  getStudyBibleDarkCardShade(`home-monthly-bs:${selectedMonth}:${idx}`),
+                                  studyBibleDarkClasses.cardHover
+                                )}
+                              >
+                                <td className="p-3 dark:text-[#fffaff]">{bs.name}</td>
+                                <td className={cn("p-3 text-right", studyBibleDarkClasses.muted)}>
                                   {bs.sessions} session{bs.sessions !== 1 ? "s" : ""}
                                 </td>
                               </tr>
@@ -1070,23 +1096,23 @@ export function DesktopHomeSummary({
                       </div>
                     </div>
                   ) : (
-                    <div className="rounded-lg border p-4 text-center text-sm text-muted-foreground">
+                    <div className={cn("rounded-xl border p-4 text-center text-sm dark:border-[#3a3342]", studyBibleDarkClasses.card, studyBibleDarkClasses.muted)}>
                       No Bible Studies
                     </div>
                   )}
 
                   {/* Notes Table */}
                   {monthDetailData.notes.length > 0 ? (
-                    <div className="rounded-lg border">
-                      <div className="px-4 py-3 border-b bg-muted/30">
-                        <h3 className="text-sm font-semibold">Notes</h3>
+                    <div className={cn("rounded-xl border border-border/70 overflow-hidden dark:border-[#3a3342]", studyBibleDarkClasses.card)}>
+                      <div className={cn("px-4 py-3 border-b dark:border-[#1c1921] dark:bg-[#30283c]", studyBibleDarkClasses.divider)}>
+                        <h3 className="text-sm font-semibold dark:text-[#fffaff]">Notes</h3>
                       </div>
-                      <div className="max-h-[200px] overflow-y-auto">
+                      <div className="max-h-[200px] overflow-y-auto dark:bg-[#24231f]">
                         <table className="w-full text-sm">
                           <thead>
-                            <tr className="border-b">
-                              <th className="text-left py-2 px-3 w-[30%]">Date</th>
-                              <th className="text-left py-2 px-3 w-[70%]">Note</th>
+                            <tr className={cn("border-b dark:border-[#1c1921]", studyBibleDarkClasses.muted)}>
+                              <th className={cn("text-left py-2 px-3 w-[30%] font-medium", studyBibleDarkClasses.muted)}>Date</th>
+                              <th className={cn("text-left py-2 px-3 w-[70%] font-medium", studyBibleDarkClasses.muted)}>Note</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1094,9 +1120,16 @@ export function DesktopHomeSummary({
                               const date = new Date(note.date);
                               const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                               return (
-                                <tr key={idx} className="border-b last:border-b-0">
-                                  <td className="p-3 text-muted-foreground">{dateStr}</td>
-                                  <td className="p-3">{note.note}</td>
+                                <tr
+                                  key={idx}
+                                  className={cn(
+                                    "border-b last:border-b-0 dark:border-[#3a3342]",
+                                    getStudyBibleDarkCardShade(`home-monthly-note:${selectedMonth}:${idx}`),
+                                    studyBibleDarkClasses.cardHover
+                                  )}
+                                >
+                                  <td className={cn("p-3", studyBibleDarkClasses.muted)}>{dateStr}</td>
+                                  <td className="p-3 dark:text-[#fffaff]">{note.note}</td>
                                 </tr>
                               );
                             })}
@@ -1105,7 +1138,7 @@ export function DesktopHomeSummary({
                       </div>
                     </div>
                   ) : (
-                    <div className="rounded-lg border p-4 text-center text-sm text-muted-foreground">
+                    <div className={cn("rounded-xl border p-4 text-center text-sm dark:border-[#3a3342]", studyBibleDarkClasses.card, studyBibleDarkClasses.muted)}>
                       No Notes
                     </div>
                   )}
@@ -1115,19 +1148,19 @@ export function DesktopHomeSummary({
                 <>
                   {/* Summary Section */}
                   {activeServiceYear && (
-                    <div className="rounded-lg border p-4 bg-muted/30">
+                    <div className={cn("rounded-lg border p-4 bg-muted/30", studyBibleDarkClasses.summaryCard)}>
                       <div className="grid grid-cols-3 gap-4 text-center">
                         <div>
                           <div className="text-2xl font-semibold">{fmtHours(serviceYearTotals.totalHours)}</div>
-                          <div className="text-xs text-muted-foreground mt-1">Hours</div>
+                          <div className={cn("text-xs mt-1", studyBibleDarkClasses.muted)}>Hours</div>
                         </div>
                         <div>
                           <div className="text-2xl font-semibold">{serviceYearTotals.totalBS}</div>
-                          <div className="text-xs text-muted-foreground mt-1">BS</div>
+                          <div className={cn("text-xs mt-1", studyBibleDarkClasses.muted)}>BS</div>
                         </div>
                         <div>
                           <div className="text-2xl font-semibold">{serviceYearTotals.totalNotes}</div>
-                          <div className="text-xs text-muted-foreground mt-1">Notes</div>
+                          <div className={cn("text-xs mt-1", studyBibleDarkClasses.muted)}>Notes</div>
                         </div>
                       </div>
                     </div>
@@ -1142,16 +1175,16 @@ export function DesktopHomeSummary({
           )}
 
           {!selectedMonth && (
-            <div className="w-full h-[calc(70vh)] overflow-hidden flex flex-col overscroll-none">
+            <div className={cn("w-full h-[calc(70vh)] overflow-hidden flex flex-col overscroll-none rounded-xl border border-border/70 dark:border-[#3a3342]", studyBibleDarkClasses.card)}>
               {/* Fixed Table Header */}
-              <div className="flex-shrink-0 border-b bg-background">
+              <div className="flex-shrink-0 border-b bg-background dark:border-[#1c1921] dark:bg-[#30283c]">
                 <table className="w-full text-sm table-fixed">
                   <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-3 px-3 w-[30%]">Month</th>
-                      <th className="text-center py-3 px-3 w-[20%]">Hours</th>
-                      <th className="text-center py-3 px-3 w-[20%]">BS</th>
-                      <th className="text-center py-3 px-3 w-[30%]">Notes</th>
+                    <tr className={cn("border-b dark:border-[#1c1921]", studyBibleDarkClasses.muted)}>
+                      <th className={cn("text-left py-3 px-3 w-[30%] font-medium", studyBibleDarkClasses.muted)}>Month</th>
+                      <th className={cn("text-center py-3 px-3 w-[20%] font-medium", studyBibleDarkClasses.muted)}>Hours</th>
+                      <th className={cn("text-center py-3 px-3 w-[20%] font-medium", studyBibleDarkClasses.muted)}>BS</th>
+                      <th className={cn("text-center py-3 px-3 w-[30%] font-medium", studyBibleDarkClasses.muted)}>Notes</th>
                       <th className="w-auto"></th>
                     </tr>
                   </thead>
@@ -1160,7 +1193,7 @@ export function DesktopHomeSummary({
 
               {/* Scrollable Table Body */}
               <div
-                className="flex-1 overflow-y-auto no-scrollbar overscroll-none"
+                className="flex-1 overflow-y-auto no-scrollbar overscroll-none dark:bg-[#24231f]"
                 style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
                 onClick={(e) => e.stopPropagation()}
               >
@@ -1180,26 +1213,34 @@ export function DesktopHomeSummary({
                       </tr>
                     ) : (
                       filteredRecords.map((agg) => (
-                        <tr key={agg.month} className="border-b hover:bg-muted/30 group">
-                          <td className="p-3 w-[30%]">
+                        <tr
+                          key={agg.month}
+                          className={cn(
+                            "border-b transition-colors group dark:border-[#3a3342]",
+                            getStudyBibleDarkCardShade(`home-monthly-record:${agg.month}`),
+                            "hover:bg-muted/30",
+                            studyBibleDarkClasses.cardHover
+                          )}
+                        >
+                          <td className="p-3 w-[30%] dark:text-[#fffaff]">
                             <span className="font-medium">{formatMonth(agg.month)}</span>
                           </td>
-                          <td className="p-3 w-[20%] text-center">
+                          <td className="p-3 w-[20%] text-center dark:text-[#fffaff]">
                             <span>{fmtHours(agg.hours)}</span>
                           </td>
-                          <td className="p-3 w-[20%] text-center">
+                          <td className="p-3 w-[20%] text-center dark:text-[#fffaff]">
                             <span>{agg.bsCount}</span>
                           </td>
                           <td className="p-3 w-[30%] min-w-0 text-center">
-                            <span className="truncate block text-muted-foreground">
+                            <span className={cn("truncate block", studyBibleDarkClasses.muted)}>
                               {agg.notes.length > 0 ? `${agg.notes.length} note${agg.notes.length > 1 ? 's' : ''}` : ""}
                             </span>
                           </td>
                           <td className="p-3 w-auto" style={{ pointerEvents: 'auto', position: 'relative', zIndex: 10002 }}>
-                            <div className="flex items-center gap-2" style={{ pointerEvents: 'auto' }}>
+                            <div className="flex items-center gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity" style={{ pointerEvents: 'auto' }}>
                               <button
                                 type="button"
-                                className="h-8 w-8 p-0 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground active:bg-accent/80"
+                                className={cn(monthlyRecordActionButtonClass, "h-8 w-8")}
                                 style={{ 
                                   touchAction: 'manipulation', 
                                   zIndex: 10002, 
@@ -1228,7 +1269,7 @@ export function DesktopHomeSummary({
                               </button>
                               <button
                                 type="button"
-                                className="h-8 w-8 p-0 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground active:bg-accent/80"
+                                className={cn(monthlyRecordActionButtonClass, "h-8 w-8")}
                                 style={{ 
                                   touchAction: 'manipulation', 
                                   zIndex: 10002, 

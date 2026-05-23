@@ -13,7 +13,7 @@ import InstallPrompt from "@/components/InstallPrompt";
 import { toast } from "@/components/ui/sonner";
 import type { DailyRecord } from "@/lib/db/types";
 import { cn } from "@/lib/utils";
-import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
+import { studyBibleDarkClasses, getStudyBibleDarkCardShade } from "@/lib/theme/study-bible-dark";
 
 type StudyCount = [string, number];
 
@@ -494,6 +494,25 @@ export function HomeSummary({
     });
   }, [monthlyAggregates, activeServiceYear]);
 
+  const monthlyRecordActionButtonClass = cn(
+    "flex-shrink-0 flex items-center justify-center rounded-md border border-border p-0 touch-manipulation",
+    "hover:bg-muted/25 active:bg-muted/40",
+    "dark:border-[#1c1921] dark:bg-[#272133] dark:text-[#fffaff]",
+    "dark:hover:bg-[#3b3348] dark:active:bg-[#463b55]"
+  );
+
+  const monthlyRecordYearToggleItemClass = cn(
+    "min-w-0 px-3 h-12 flex items-center justify-center transition-colors shadow-none",
+    "!rounded-none first:!rounded-none last:!rounded-none",
+    "dark:text-[#ded6e7] dark:hover:bg-[#3b3348]",
+    "dark:data-[state=on]:!bg-[#80778e] dark:data-[state=on]:!text-white"
+  );
+
+  const monthlyRecordYearToggleShellClass = cn(
+    "relative w-full max-w-screen-sm overflow-hidden rounded-xl border shadow-lg",
+    "dark:border-[#1c1921] dark:bg-[#2a2534]"
+  );
+
   // SwipeableTableRow component
   const SwipeableTableRow = ({
     month,
@@ -573,7 +592,12 @@ export function HomeSummary({
 
       return (
       <tr 
-        className="border-b hover:bg-muted/30 group relative"
+        className={cn(
+          "border-b transition-colors group relative dark:border-[#3a3342]",
+          getStudyBibleDarkCardShade(`home-monthly-record:${month}`),
+          "hover:bg-muted/30",
+          studyBibleDarkClasses.cardHover
+        )}
         style={{ 
           overflow: 'visible',
           zIndex: 1,
@@ -583,17 +607,17 @@ export function HomeSummary({
         onTouchEnd={handleTouchEnd}
       >
         {/* Table content cells - swipeable */}
-        <td className="p-3 w-[30%] bg-background relative" style={{ transform: `translateX(${swipeOffset}px)`, transition: isSwiping ? 'none' : 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+        <td className="p-3 w-[30%] relative dark:text-[#fffaff]" style={{ transform: `translateX(${swipeOffset}px)`, transition: isSwiping ? 'none' : 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
           <span className="font-medium">{formatMonth(month)}</span>
         </td>
-        <td className="p-3 w-[20%] text-center bg-background relative" style={{ transform: `translateX(${swipeOffset}px)`, transition: isSwiping ? 'none' : 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+        <td className="p-3 w-[20%] text-center relative dark:text-[#fffaff]" style={{ transform: `translateX(${swipeOffset}px)`, transition: isSwiping ? 'none' : 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
           <span>{fmtHours(hours)}</span>
         </td>
-        <td className="p-3 w-[20%] text-center bg-background relative" style={{ transform: `translateX(${swipeOffset}px)`, transition: isSwiping ? 'none' : 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+        <td className="p-3 w-[20%] text-center relative dark:text-[#fffaff]" style={{ transform: `translateX(${swipeOffset}px)`, transition: isSwiping ? 'none' : 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
           <span>{bsCount}</span>
         </td>
-        <td className="p-3 w-[30%] min-w-0 text-center bg-background relative" style={{ transform: `translateX(${swipeOffset}px)`, transition: isSwiping ? 'none' : 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
-          <span className="truncate block text-muted-foreground">
+        <td className="p-3 w-[30%] min-w-0 text-center relative" style={{ transform: `translateX(${swipeOffset}px)`, transition: isSwiping ? 'none' : 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+          <span className={cn("truncate block", studyBibleDarkClasses.muted)}>
             {notesCount > 0 ? `${notesCount} note${notesCount > 1 ? 's' : ''}` : ""}
           </span>
           {/* Background action buttons (mobile) - always rendered, revealed on swipe */}
@@ -606,7 +630,7 @@ export function HomeSummary({
               transition: isSwiping ? 'none' : 'right 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
               opacity: Math.abs(swipeOffset) > 10 ? 1 : 0,
               zIndex: 10,
-              backgroundColor: 'hsl(var(--muted))',
+              backgroundColor: '#463b55',
               padding: '0 8px',
               display: 'flex',
               pointerEvents: swipeOffset < -BUTTON_WIDTH / 2 ? 'auto' : 'none',
@@ -614,7 +638,7 @@ export function HomeSummary({
           >
             <button
               type="button"
-              className="h-9 w-9 p-0 flex items-center justify-center rounded-md bg-background border border-border hover:bg-accent hover:text-accent-foreground active:bg-accent/80 text-foreground shadow-sm flex-shrink-0"
+              className={cn(monthlyRecordActionButtonClass, "h-9 w-9")}
               style={{ 
                 touchAction: 'manipulation',
                 WebkitTapHighlightColor: 'transparent',
@@ -627,11 +651,11 @@ export function HomeSummary({
               }}
               title="View details"
             >
-              <Eye className="h-4 w-4 text-foreground" />
+              <Eye className="h-4 w-4" />
             </button>
             <button
               type="button"
-              className="h-9 w-9 p-0 flex items-center justify-center rounded-md bg-background border border-border hover:bg-accent hover:text-accent-foreground active:bg-accent/80 text-foreground shadow-sm flex-shrink-0"
+              className={cn(monthlyRecordActionButtonClass, "h-9 w-9")}
               style={{ 
                 touchAction: 'manipulation',
                 WebkitTapHighlightColor: 'transparent',
@@ -644,16 +668,16 @@ export function HomeSummary({
               }}
               title="Copy to clipboard"
             >
-              <Copy className="h-4 w-4 text-foreground" />
+              <Copy className="h-4 w-4" />
             </button>
           </div>
         </td>
         {/* Desktop: always visible on hover */}
-        <td className="p-3 w-auto hidden md:table-cell bg-background z-10">
+        <td className="p-3 w-auto hidden md:table-cell z-10">
           <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
             <button
               type="button"
-              className="h-8 w-8 p-0 flex items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground"
+              className={cn(monthlyRecordActionButtonClass, "h-8 w-8")}
               onClick={(e) => {
                 e.stopPropagation();
                 onViewDetails();
@@ -664,7 +688,7 @@ export function HomeSummary({
             </button>
             <button
               type="button"
-              className="h-8 w-8 p-0 flex items-center justify-center rounded-md hover:bg-accent hover:text-accent-foreground"
+              className={cn(monthlyRecordActionButtonClass, "h-8 w-8")}
               onClick={async (e) => {
                 e.stopPropagation();
                 await onCopy();
@@ -933,7 +957,7 @@ export function HomeSummary({
           {serviceYears.length > 0 ? (
             <>
               <div className="flex justify-center">
-                <div className="bg-background/95 backdrop-blur-sm border p-0.1 rounded-lg shadow-lg w-full max-w-screen-sm relative overflow-hidden">
+                <div className={monthlyRecordYearToggleShellClass}>
                   <div className="w-full overflow-x-auto no-scrollbar">
                     {selectedMonth ? (
                       <div className="flex items-center gap-0.5 w-full h-12 px-1">
@@ -943,13 +967,13 @@ export function HomeSummary({
                           size="sm"
                           disabled={!canGoPrevMonth}
                           onClick={goPrevMonth}
-                          className="flex-shrink-0 h-12 w-10 px-0 flex items-center justify-center transition-colors hover:bg-muted disabled:opacity-30"
+                          className="flex-shrink-0 h-12 w-10 px-0 flex items-center justify-center transition-colors hover:bg-muted disabled:opacity-30 dark:text-[#ded6e7] dark:hover:bg-[#3b3348] disabled:dark:opacity-30"
                           aria-label="Previous month"
                         >
                           <ChevronLeft className="h-4 w-4 flex-shrink-0" />
                         </Button>
                         <div className="flex-1 min-w-0 px-1 h-12 flex items-center justify-center">
-                          <span className="text-sm font-semibold text-foreground truncate w-full text-center pointer-events-none">
+                          <span className="text-sm font-semibold text-foreground truncate w-full text-center pointer-events-none dark:text-[#fffaff]">
                             {formatFullMonth(selectedMonth)}
                           </span>
                         </div>
@@ -959,7 +983,7 @@ export function HomeSummary({
                             variant="ghost"
                             size="sm"
                             onClick={goNextMonth}
-                            className="flex-shrink-0 h-12 w-10 px-0 flex items-center justify-center transition-colors hover:bg-muted"
+                            className="flex-shrink-0 h-12 w-10 px-0 flex items-center justify-center transition-colors hover:bg-muted dark:text-[#ded6e7] dark:hover:bg-[#3b3348]"
                             aria-label="Next month"
                           >
                             <ChevronRight className="h-4 w-4 flex-shrink-0" />
@@ -978,13 +1002,13 @@ export function HomeSummary({
                             setSelectedMonth(null);
                           }
                         }}
-                        className="w-max min-w-full h-full justify-center"
+                        className="w-max min-w-full h-full justify-center gap-0 rounded-none"
                       >
                         {serviceYears.map((year) => (
                           <ToggleGroupItem
                             key={year}
                             value={String(year)}
-                            className="data-[state=on]:!bg-primary data-[state=on]:!text-primary-foreground data-[state=on]:shadow-sm min-w-0 px-3 h-12 flex items-center justify-center transition-colors"
+                            className={monthlyRecordYearToggleItemClass}
                             title={String(year)}
                           >
                             <span className="text-[11px] font-medium text-center truncate w-full">{year}</span>
@@ -1000,26 +1024,33 @@ export function HomeSummary({
                 /* Detail View */
                 <div className="space-y-4 pb-6">
                   {/* Hours Summary */}
-                  <div className="rounded-lg border p-4 bg-muted/30">
+                  <div className={cn("rounded-lg border p-4 bg-muted/30", studyBibleDarkClasses.summaryCard)}>
                     <div className="text-center">
                       <div className="text-3xl font-semibold">{fmtHours(monthDetailData.totalHours)}</div>
-                      <div className="text-sm text-muted-foreground mt-1">Hours</div>
+                      <div className={cn("text-sm mt-1", studyBibleDarkClasses.muted)}>Hours</div>
                     </div>
                   </div>
 
                   {/* Bible Studies Table */}
                   {monthDetailData.bibleStudies && monthDetailData.bibleStudies.length > 0 ? (
-                    <div className="rounded-lg border">
-                      <div className="px-4 py-3 border-b bg-muted/30">
-                        <h3 className="text-sm font-semibold">Bible Studies</h3>
+                    <div className={cn("rounded-xl border border-border/70 overflow-hidden dark:border-[#3a3342]", studyBibleDarkClasses.card)}>
+                      <div className={cn("px-4 py-3 border-b dark:border-[#1c1921] dark:bg-[#30283c]", studyBibleDarkClasses.divider)}>
+                        <h3 className="text-sm font-semibold dark:text-[#fffaff]">Bible Studies</h3>
                       </div>
-                      <div className="max-h-[200px] overflow-y-auto">
+                      <div className="max-h-[200px] overflow-y-auto dark:bg-[#24231f]">
                         <table className="w-full text-sm">
                           <tbody>
                             {monthDetailData.bibleStudies.map((bs, idx) => (
-                              <tr key={idx} className="border-b last:border-b-0">
-                                <td className="p-3">{bs.name}</td>
-                                <td className="p-3 text-right text-muted-foreground">{bs.sessions} session{bs.sessions !== 1 ? 's' : ''}</td>
+                              <tr
+                                key={idx}
+                                className={cn(
+                                  "border-b last:border-b-0 dark:border-[#3a3342]",
+                                  getStudyBibleDarkCardShade(`home-monthly-bs:${selectedMonth}:${idx}`),
+                                  studyBibleDarkClasses.cardHover
+                                )}
+                              >
+                                <td className="p-3 dark:text-[#fffaff]">{bs.name}</td>
+                                <td className={cn("p-3 text-right", studyBibleDarkClasses.muted)}>{bs.sessions} session{bs.sessions !== 1 ? 's' : ''}</td>
                               </tr>
                             ))}
                           </tbody>
@@ -1027,27 +1058,34 @@ export function HomeSummary({
                       </div>
                     </div>
                   ) : (
-                    <div className="rounded-lg border p-4 text-center text-sm text-muted-foreground">
+                    <div className={cn("rounded-xl border p-4 text-center text-sm dark:border-[#3a3342]", studyBibleDarkClasses.card, studyBibleDarkClasses.muted)}>
                       No Bible Studies
                     </div>
                   )}
 
                   {/* Notes Table */}
                   {monthDetailData.notes.length > 0 ? (
-                    <div className="rounded-lg border">
-                      <div className="px-4 py-3 border-b bg-muted/30">
-                        <h3 className="text-sm font-semibold">Notes</h3>
+                    <div className={cn("rounded-xl border border-border/70 overflow-hidden dark:border-[#3a3342]", studyBibleDarkClasses.card)}>
+                      <div className={cn("px-4 py-3 border-b dark:border-[#1c1921] dark:bg-[#30283c]", studyBibleDarkClasses.divider)}>
+                        <h3 className="text-sm font-semibold dark:text-[#fffaff]">Notes</h3>
                       </div>
-                      <div className="max-h-[200px] overflow-y-auto">
+                      <div className="max-h-[200px] overflow-y-auto dark:bg-[#24231f]">
                         <table className="w-full text-sm">
                           <tbody>
                             {monthDetailData.notes.map((note, idx) => {
                               const date = new Date(note.date);
                               const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                               return (
-                                <tr key={idx} className="border-b last:border-b-0">
-                                  <td className="p-3 text-muted-foreground">{dateStr}</td>
-                                  <td className="p-3">{note.note}</td>
+                                <tr
+                                  key={idx}
+                                  className={cn(
+                                    "border-b last:border-b-0 dark:border-[#3a3342]",
+                                    getStudyBibleDarkCardShade(`home-monthly-note:${selectedMonth}:${idx}`),
+                                    studyBibleDarkClasses.cardHover
+                                  )}
+                                >
+                                  <td className={cn("p-3", studyBibleDarkClasses.muted)}>{dateStr}</td>
+                                  <td className="p-3 dark:text-[#fffaff]">{note.note}</td>
                                 </tr>
                               );
                             })}
@@ -1056,7 +1094,7 @@ export function HomeSummary({
                       </div>
                     </div>
                   ) : (
-                    <div className="rounded-lg border p-4 text-center text-sm text-muted-foreground">
+                    <div className={cn("rounded-xl border p-4 text-center text-sm dark:border-[#3a3342]", studyBibleDarkClasses.card, studyBibleDarkClasses.muted)}>
                       No Notes
                     </div>
                   )}
@@ -1066,19 +1104,19 @@ export function HomeSummary({
                 <>
                   {/* Summary Section */}
                   {activeServiceYear && (
-                    <div className="rounded-lg border p-4 bg-muted/30">
+                    <div className={cn("rounded-lg border p-4 bg-muted/30", studyBibleDarkClasses.summaryCard)}>
                       <div className="grid grid-cols-3 gap-4 text-center">
                         <div>
                           <div className="text-2xl font-semibold">{fmtHours(serviceYearTotals.totalHours)}</div>
-                          <div className="text-xs text-muted-foreground mt-1">Hours</div>
+                          <div className={cn("text-xs mt-1", studyBibleDarkClasses.muted)}>Hours</div>
                         </div>
                         <div>
                           <div className="text-2xl font-semibold">{serviceYearTotals.totalBS}</div>
-                          <div className="text-xs text-muted-foreground mt-1">BS</div>
+                          <div className={cn("text-xs mt-1", studyBibleDarkClasses.muted)}>BS</div>
                         </div>
                         <div>
                           <div className="text-2xl font-semibold">{serviceYearTotals.totalNotes}</div>
-                          <div className="text-xs text-muted-foreground mt-1">Notes</div>
+                          <div className={cn("text-xs mt-1", studyBibleDarkClasses.muted)}>Notes</div>
                         </div>
                       </div>
                     </div>
@@ -1093,16 +1131,16 @@ export function HomeSummary({
           )}
 
           {!selectedMonth && (
-            <div className="w-full h-[calc(70vh)] overflow-y-auto overflow-x-visible flex flex-col overscroll-none">
+            <div className={cn("w-full h-[calc(70vh)] overflow-hidden flex flex-col overscroll-none rounded-xl border border-border/70 dark:border-[#3a3342]", studyBibleDarkClasses.card)}>
             {/* Fixed Table Header */}
-            <div className="flex-shrink-0 border-b bg-background">
+            <div className="flex-shrink-0 border-b bg-background dark:border-[#1c1921] dark:bg-[#30283c]">
               <table className="w-full text-sm table-fixed" style={{ touchAction: 'none' }}>
                   <thead>
-                    <tr className="border-b">
-                      <th className="text-left py-3 px-3 w-[30%]">Month</th>
-                      <th className="text-center py-3 px-3 w-[20%]">Hours</th>
-                      <th className="text-center py-3 px-3 w-[20%]">BS</th>
-                      <th className="text-center py-3 px-3 w-[30%]">Notes</th>
+                    <tr className={cn("border-b dark:border-[#1c1921]", studyBibleDarkClasses.muted)}>
+                      <th className={cn("text-left py-3 px-3 w-[30%] font-medium", studyBibleDarkClasses.muted)}>Month</th>
+                      <th className={cn("text-center py-3 px-3 w-[20%] font-medium", studyBibleDarkClasses.muted)}>Hours</th>
+                      <th className={cn("text-center py-3 px-3 w-[20%] font-medium", studyBibleDarkClasses.muted)}>BS</th>
+                      <th className={cn("text-center py-3 px-3 w-[30%] font-medium", studyBibleDarkClasses.muted)}>Notes</th>
                       <th className="w-auto"></th>
                     </tr>
                   </thead>
@@ -1111,7 +1149,7 @@ export function HomeSummary({
 
               {/* Scrollable Table Body */}
               <div
-                className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar overscroll-none"
+                className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar overscroll-none dark:bg-[#24231f]"
                 style={{ 
                   overscrollBehavior: "contain",
                   touchAction: 'pan-y', // Only allow vertical panning
