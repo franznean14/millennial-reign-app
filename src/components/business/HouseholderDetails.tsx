@@ -10,6 +10,10 @@ import { Calendar, MapPinned, Archive, FilePlus2, UserPlus, Minus } from "lucide
 import { FormModal } from "@/components/shared/FormModal";
 import { toast } from "@/components/ui/sonner";
 import { HouseholderForm } from "@/components/business/HouseholderForm";
+import {
+  HouseholderSummaryFields,
+  HouseholderSummaryFieldsSkeleton,
+} from "@/components/business/HouseholderSummaryFields";
 import { CallForm } from "@/components/business/CallForm";
 import { TodoForm } from "@/components/business/TodoForm";
 import { CallSection } from "@/components/business/CallSection";
@@ -358,10 +362,6 @@ export function HouseholderDetails({
   const areaFromEstablishment =
     establishment?.area?.trim() || linkedEstablishment?.area?.trim();
   const householderNote = householder.note?.trim() ?? "";
-  const householderDetailFieldCount =
-    Number(Boolean(showEstablishment && areaFromEstablishment)) + Number(Boolean(householderNote));
-  const householderDetailGridClass =
-    householderDetailFieldCount >= 2 ? "grid-cols-2" : "grid-cols-1";
   const establishmentDisplayName =
     (establishment?.name?.trim() || householder.establishment_name?.trim() || "") || "";
   const visitLinkedEstablishmentStatus =
@@ -402,14 +402,6 @@ export function HouseholderDetails({
   }, [showMinusButton, showRemoveConfirm]);
 
   const detailTransition = { duration: 0.2, ease: "easeOut" } as const;
-  const itemVariants = {
-    hidden: { opacity: 0, y: 8 },
-    visible: (i: number) => ({
-      opacity: 1,
-      y: 0,
-      transition: { delay: i * 0.05, ...detailTransition },
-    }),
-  };
 
   const handleTodoTapOpenCall = (todo: MyOpenCallTodoItem) => {
     if (!todo.call_id) {
@@ -620,48 +612,13 @@ export function HouseholderDetails({
           </CardHeader>
           <CardContent className="space-y-4">
             {isLoading ? (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <div className="mb-2 h-3 w-12 animate-pulse rounded bg-muted/60" />
-                  <div className="h-4 w-24 animate-pulse rounded bg-muted/60" />
-                </div>
-                {showEstablishment && (
-                  <div>
-                    <div className="mb-2 h-3 w-24 animate-pulse rounded bg-muted/60" />
-                    <div className="h-4 w-32 animate-pulse rounded bg-muted/60" />
-                  </div>
-                )}
-                <div>
-                  <div className="mb-2 h-3 w-14 animate-pulse rounded bg-muted/60" />
-                  <div className="h-4 max-w-[300px] animate-pulse rounded bg-muted/60" />
-                  <div className="mt-2 h-4 max-w-[200px] animate-pulse rounded bg-muted/60" />
-                </div>
-              </div>
+              <HouseholderSummaryFieldsSkeleton showArea={showEstablishment} />
             ) : (
-              <div className={cn("grid gap-4", householderDetailGridClass)}>
-                {showEstablishment && areaFromEstablishment && (
-                  <motion.div
-                    custom={0}
-                    initial="hidden"
-                    animate="visible"
-                    variants={itemVariants}
-                  >
-                    <p className="text-sm font-medium text-muted-foreground">Area</p>
-                    <p>{areaFromEstablishment}</p>
-                  </motion.div>
-                )}
-                {householderNote && (
-                  <motion.div
-                    custom={1}
-                    initial="hidden"
-                    animate="visible"
-                    variants={itemVariants}
-                  >
-                    <p className="text-sm font-medium text-muted-foreground">Note</p>
-                    <p className="text-sm break-words">{householderNote}</p>
-                  </motion.div>
-                )}
-              </div>
+              <HouseholderSummaryFields
+                area={areaFromEstablishment}
+                note={householderNote}
+                showArea={showEstablishment}
+              />
             )}
           </CardContent>
         </Card>

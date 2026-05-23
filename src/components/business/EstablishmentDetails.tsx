@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/drawer";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { EstablishmentForm } from "@/components/business/EstablishmentForm";
+import { EstablishmentSummaryFields } from "@/components/business/EstablishmentSummaryFields";
 import { TodoForm } from "@/components/business/TodoForm";
 import { getBwiParticipants } from "@/lib/db/business";
 import { CallSection } from "@/components/business/CallSection";
@@ -585,62 +586,12 @@ export function EstablishmentDetails({
               </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Details card uses list data (establishment) so we always have it — no skeleton */}
-            <div className="grid grid-cols-2 gap-4">
-                  {establishment.area?.trim() && (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Area</p>
-                      <p>{establishment.area.trim()}</p>
-                    </div>
-                  )}
-                  {/* Row 2: Description or Note (left) | Floor (right) when both exist; otherwise full-width or single cell */}
-                  {establishment.description?.trim() && (
-                    <div className={establishment.floor?.trim() ? undefined : "col-span-2"}>
-                      <p className="text-sm font-medium text-muted-foreground">Description</p>
-                      <p className="break-words">{establishment.description.trim()}</p>
-                    </div>
-                  )}
-                  {establishment.description?.trim() && establishment.floor?.trim() && (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Floor</p>
-                      <p>{establishment.floor.trim()}</p>
-                    </div>
-                  )}
-                  {!establishment.description?.trim() && establishment.note?.trim() && (
-                    <div className={establishment.floor?.trim() ? undefined : "col-span-2"}>
-                      <p className="text-sm font-medium text-muted-foreground">Note</p>
-                      <p className="text-sm break-words">
-                        {establishment.note.trim().length > 100
-                          ? establishment.note.trim().slice(0, 100) + '…'
-                          : establishment.note.trim()}
-                      </p>
-                    </div>
-                  )}
-                  {!establishment.description?.trim() && establishment.note?.trim() && establishment.floor?.trim() && (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Floor</p>
-                      <p>{establishment.floor.trim()}</p>
-                    </div>
-                  )}
-                  {/* Row 3 when both Description and Note exist: Note only (Floor is already on row 2 with Description) */}
-                  {establishment.description?.trim() && establishment.note?.trim() && (
-                    <div className="col-span-2">
-                      <p className="text-sm font-medium text-muted-foreground">Note</p>
-                      <p className="text-sm break-words">
-                        {establishment.note.trim().length > 100
-                          ? establishment.note.trim().slice(0, 100) + '…'
-                          : establishment.note.trim()}
-                      </p>
-                    </div>
-                  )}
-                  {/* No description and no note: Floor alone on row 2 (left column) */}
-                  {!establishment.description?.trim() && !establishment.note?.trim() && establishment.floor?.trim() && (
-                    <div>
-                      <p className="text-sm font-medium text-muted-foreground">Floor</p>
-                      <p>{establishment.floor.trim()}</p>
-                    </div>
-                  )}
-                </div>
+            <EstablishmentSummaryFields
+              area={establishment.area}
+              description={establishment.description}
+              floor={establishment.floor}
+              note={establishment.note}
+            />
           </CardContent>
         </Card>
       </motion.div>

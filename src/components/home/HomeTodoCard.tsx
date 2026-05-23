@@ -80,6 +80,8 @@ import { CallSection } from "@/components/business/CallSection";
 import { ContactsSection } from "@/components/business/ContactsSection";
 import { TodoForm } from "@/components/business/TodoForm";
 import { EstablishmentForm } from "@/components/business/EstablishmentForm";
+import { EstablishmentSummaryFields } from "@/components/business/EstablishmentSummaryFields";
+import { HouseholderSummaryFields } from "@/components/business/HouseholderSummaryFields";
 import { HouseholderForm } from "@/components/business/HouseholderForm";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { studyBibleDarkClasses, getStudyBibleDarkCardShade } from "@/lib/theme/study-bible-dark";
@@ -1795,10 +1797,6 @@ export function HomeTodoCard({
   const detailSurfaceClass = selectedEstablishmentDetails
     ? getStatusColor(detailPrimaryStatus)
     : "";
-  const detailDescription = selectedEstablishmentDetails?.description?.trim() ?? "";
-  const detailNote = selectedEstablishmentDetails?.note?.trim() ?? "";
-  const detailFloor = selectedEstablishmentDetails?.floor?.trim() ?? "";
-  const detailArea = selectedEstablishmentDetails?.area?.trim() ?? "";
   const selectedHouseholder = selectedHouseholderDetails?.householder ?? null;
   const selectedHouseholderEstablishment = selectedHouseholderDetails?.establishment ?? null;
   const householderSurfaceClass = selectedHouseholder
@@ -1809,9 +1807,6 @@ export function HomeTodoCard({
   const householderArea =
     selectedHouseholderEstablishment?.area?.trim() ?? "";
   const householderNote = selectedHouseholder?.note?.trim() ?? "";
-  const householderDetailFieldCount = Number(Boolean(householderArea)) + Number(Boolean(householderNote));
-  const householderDetailGridClass =
-    householderDetailFieldCount >= 2 ? "grid-cols-2" : "grid-cols-1";
   const householderEstablishmentName =
     selectedHouseholderEstablishment?.name?.trim() ||
     selectedHouseholder?.establishment_name?.trim() ||
@@ -1888,10 +1883,6 @@ export function HomeTodoCard({
     : "";
   const contactSubdrawerArea = contactSubdrawerEstablishment?.area?.trim() ?? "";
   const contactSubdrawerNote = contactSubdrawerHouseholder?.note?.trim() ?? "";
-  const contactSubdrawerDetailFieldCount =
-    Number(Boolean(contactSubdrawerArea)) + Number(Boolean(contactSubdrawerNote));
-  const contactSubdrawerDetailGridClass =
-    contactSubdrawerDetailFieldCount >= 2 ? "grid-cols-2" : "grid-cols-1";
   const contactSubdrawerEstablishmentName =
     contactSubdrawerEstablishment?.name?.trim() ||
     contactSubdrawerHouseholder?.establishment_name?.trim() ||
@@ -2369,20 +2360,7 @@ export function HomeTodoCard({
               ) : null}
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className={cn("grid gap-4", householderDetailGridClass)}>
-                {householderArea ? (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Area</p>
-                    <p>{householderArea}</p>
-                  </div>
-                ) : null}
-                {householderNote ? (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Note</p>
-                    <p className="text-sm break-words">{householderNote}</p>
-                  </div>
-                ) : null}
-              </div>
+              <HouseholderSummaryFields area={householderArea} note={householderNote} />
             </CardContent>
           </Card>
           </div>
@@ -2459,54 +2437,12 @@ export function HomeTodoCard({
               ) : null}
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {detailArea ? (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Area</p>
-                    <p>{detailArea}</p>
-                  </div>
-                ) : null}
-                {detailDescription ? (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Description</p>
-                    <p className="break-words">{detailDescription}</p>
-                  </div>
-                ) : null}
-                {detailDescription && detailFloor ? (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Floor</p>
-                    <p>{detailFloor}</p>
-                  </div>
-                ) : null}
-                {!detailDescription && detailNote ? (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Note</p>
-                    <p className="text-sm break-words">
-                      {detailNote.length > 100 ? `${detailNote.slice(0, 100)}...` : detailNote}
-                    </p>
-                  </div>
-                ) : null}
-                {!detailDescription && detailNote && detailFloor ? (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Floor</p>
-                    <p>{detailFloor}</p>
-                  </div>
-                ) : null}
-                {detailDescription && detailNote ? (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Note</p>
-                    <p className="text-sm break-words">
-                      {detailNote.length > 100 ? `${detailNote.slice(0, 100)}...` : detailNote}
-                    </p>
-                  </div>
-                ) : null}
-                {!detailDescription && !detailNote && detailFloor ? (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Floor</p>
-                    <p>{detailFloor}</p>
-                  </div>
-                ) : null}
-              </div>
+              <EstablishmentSummaryFields
+                area={selectedEstablishmentDetails?.area}
+                description={selectedEstablishmentDetails?.description}
+                floor={selectedEstablishmentDetails?.floor}
+                note={selectedEstablishmentDetails?.note}
+              />
             </CardContent>
           </Card>
           </div>
@@ -3045,20 +2981,7 @@ export function HomeTodoCard({
             ) : null}
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className={cn("grid gap-4", contactSubdrawerDetailGridClass)}>
-              {contactSubdrawerArea ? (
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Area</p>
-                  <p>{contactSubdrawerArea}</p>
-                </div>
-              ) : null}
-              {contactSubdrawerNote ? (
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Note</p>
-                  <p className="text-sm break-words">{contactSubdrawerNote}</p>
-                </div>
-              ) : null}
-            </div>
+            <HouseholderSummaryFields area={contactSubdrawerArea} note={contactSubdrawerNote} />
           </CardContent>
         </Card>
         </div>
