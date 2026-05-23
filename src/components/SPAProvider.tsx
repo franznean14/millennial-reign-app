@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useLayoutEffect, useRef, ReactNode } from 'react';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { computeMfaPasskeyRequired } from '@/lib/auth/mfa-passkey';
 import {
@@ -8,14 +8,19 @@ import {
   hasCompletedAppBootSession,
   markAppBootSessionComplete,
 } from '@/lib/app/boot-session';
+import {
+  clearCachedNavPermissions,
+  deriveNavPermissions,
+  readCachedNavPermissions,
+  writeCachedNavPermissions,
+  type NavPermissions,
+} from '@/lib/app/nav-permissions-cache';
+import { cacheGet } from '@/lib/offline/store';
 
 interface SPAContextType {
   currentSection: string;
   setCurrentSection: (section: string) => void;
-  userPermissions: {
-    showCongregation: boolean;
-    showBusiness: boolean;
-  };
+  userPermissions: NavPermissions;
   onSectionChange: (section: string) => void;
   isAuthenticated: boolean;
   /** Session is AAL1 but verified WebAuthn MFA factors exist — user must complete passkey step. */
@@ -30,13 +35,20 @@ interface SPAContextType {
 
 const SPAContext = createContext<SPAContextType | undefined>(undefined);
 
+const DEFAULT_NAV_PERMISSIONS: NavPermissions = {
+  showCongregation: false,
+  showBusiness: false,
+};
+
 export function SPAProvider({ children }: { children: ReactNode }) {
   const [currentSection, setCurrentSection] = useState('home'); // Default to home
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [userPermissions, setUserPermissions] = useState({
-    showCongregation: false,
-    showBusiness: false,
-  });
+  const [userPermissions, setUserPermissions] = useState<NavPermissions>(DEFAULT_NAV_PERMISSIONS);
+
+  const applyNavPermissions = (userId: string, permissions: NavPermissions) => {
+    setUserPermissions(permissions);
+    writeCachedNavPermissions(userId, permissions);
+  };
   
   // Loading states — full-screen boot only on true cold start (not PWA resume)
   const [authLoading, setAuthLoading] = useState(true);
@@ -99,13 +111,11 @@ export function SPAProvider({ children }: { children: ReactNode }) {
         if (error.message?.includes('Refresh Token') || error.message?.includes('Invalid Refresh Token')) {
           console.log('Refresh token invalid, clearing session...');
           clearAppBootSession();
+          clearCachedNavPermissions();
           await supabase.auth.signOut();
           setIsAuthenticated(false);
           setMfaPasskeyRequired(false);
-          setUserPermissions({
-            showCongregation: false,
-            showBusiness: false,
-          });
+          setUserPermissions({ showCongregation: false, showBusiness: false });
           // Redirect to login page
           window.location.href = '/login';
           // Don't return here, let it continue to finally block
@@ -114,6 +124,21 @@ export function SPAProvider({ children }: { children: ReactNode }) {
       
       if (session?.user) {
         setIsAuthenticated(true);
+
+        const cachedNav = readCachedNavPermissions(session.user.id);
+        if (cachedNav) {
+          setUserPermissions(cachedNav);
+        }
+
+        const cachedProfile = await cacheGet<{
+          id: string;
+          role?: string | null;
+          privileges?: string[] | null;
+          congregation_id?: string | null;
+        }>(`profile:${session.user.id}`).catch(() => null);
+        if (cachedProfile?.id === session.user.id) {
+          applyNavPermissions(session.user.id, deriveNavPermissions(cachedProfile));
+        }
 
         const mfaPending = await computeMfaPasskeyRequired(supabase).catch(() => false);
         setMfaPasskeyRequired(mfaPending);
@@ -126,15 +151,7 @@ export function SPAProvider({ children }: { children: ReactNode }) {
           .single();
 
         if (profile) {
-          const isElder = Array.isArray(profile?.privileges) && profile.privileges.includes('Elder');
-          const isSuperadmin = profile?.role === "superadmin";
-          const assigned = !!profile?.congregation_id;
-          const admin = profile?.role === "admin";
-          
-          setUserPermissions({
-            showCongregation: true, // Show for all authenticated users
-            showBusiness: assigned || isSuperadmin || (admin && isElder),
-          });
+          applyNavPermissions(session.user.id, deriveNavPermissions(profile));
         }
 
         // If we just signed in from /login, reset to home and clean URL/state (skip until passkey MFA completes)
@@ -151,19 +168,15 @@ export function SPAProvider({ children }: { children: ReactNode }) {
       } else {
         setIsAuthenticated(false);
         setMfaPasskeyRequired(false);
-        setUserPermissions({
-          showCongregation: false,
-          showBusiness: false,
-        });
+        clearCachedNavPermissions();
+        setUserPermissions({ showCongregation: false, showBusiness: false });
       }
     } catch (error) {
       console.error('Auth check error:', error);
       setIsAuthenticated(false);
       setMfaPasskeyRequired(false);
-      setUserPermissions({
-        showCongregation: false,
-        showBusiness: false,
-      });
+      clearCachedNavPermissions();
+      setUserPermissions({ showCongregation: false, showBusiness: false });
     } finally {
       authInitializedRef.current = true;
       setAuthLoading(false);
@@ -171,6 +184,13 @@ export function SPAProvider({ children }: { children: ReactNode }) {
   };
 
   // PWA resume: skip blocking boot loader when this browser session already loaded once
+  useLayoutEffect(() => {
+    const cached = readCachedNavPermissions();
+    if (cached) {
+      setUserPermissions(cached);
+    }
+  }, []);
+
   useEffect(() => {
     if (!hasCompletedAppBootSession()) return;
     authInitializedRef.current = true;
@@ -216,6 +236,7 @@ export function SPAProvider({ children }: { children: ReactNode }) {
       async (event) => {
         if (event === 'SIGNED_OUT') {
           clearAppBootSession();
+          clearCachedNavPermissions();
           authInitializedRef.current = false;
           checkAuth({ silent: false });
           return;

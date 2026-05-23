@@ -40,6 +40,7 @@ import { getSharedEstablishmentsAndHouseholders } from "@/lib/business/bwi-lists
 import { formatStatusText } from "@/lib/utils/formatters";
 import { applyDeviceSafeAreaInsets } from "@/lib/utils/device-safe-area";
 import { hasCompletedAppBootSession, markAppBootSessionComplete } from "@/lib/app/boot-session";
+import { deriveNavPermissions, writeCachedNavPermissions } from "@/lib/app/nav-permissions-cache";
 
 // Lazy-load heavy UI components to reduce initial bundle
 import { HomeSection } from "@/components/sections/HomeSection";
@@ -402,6 +403,9 @@ export function AppClient() {
           setCong(congregationData);
           setBwiEnabled(!!bwiEnabledData.data);
           setIsBwiParticipant(!!bwiParticipantData.data);
+          if (profileData) {
+            writeCachedNavPermissions(id, deriveNavPermissions(profileData));
+          }
 
           if (!congregationData?.id && adminStatus) {
             setMode("create");
