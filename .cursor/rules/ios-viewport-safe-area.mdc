@@ -40,3 +40,55 @@ Use this app-wide pattern:
 - Set mobile/PWA paint colors to the app surface color, not black. Keep `theme-color`, manifest `theme_color`, and manifest `background_color` aligned with the page surface (currently `#24231f`).
 - Move content down with section-level padding, not body padding. Use `pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+<existing-offset>)]` on scrollable section shells.
 - Keep the top safe area painted by the app background; only the content should move down.
+
+---
+
+## Bottom gray bar, clipping, and safe-area (standalone iPhone PWA) — what we fixed
+
+This documents fixes applied when iOS standalone showed a **solid gray/black band** under the tab bar, **dead gap** above the nav, or **scroll content clipped** just above the nav. Use as a regression checklist before inventing new padding hacks.
+
+### Symptoms vs causes
+
+| Symptom | Likely cause |
+|--------|----------------|
+| Strip **below** fixed bottom nav (often gray), sometimes with home indicator sitting in “wrong” paint | Layout viewport shorter than visible viewport: **`100dvh`** / **`interactive-widget=resizes-content`** / wrong shell height so **`fixed bottom-0`** chrome ends above physical bottom; unpainted strip shows OS/theme fill. |
+| **Gap** between scroll content and nav; last cards **cut off** early | Section uses **`h-[calc(100vh-…)]`** instead of filling the **`flex-1 min-h-0`** column under `AppChrome`, so scroll height ≠ real viewport. |
+| **Two-tone** band inside nav (frosted vs solid) | Split layers: translucent **`backdrop-blur`** + **`env(safe-area-inset-bottom)`** padding sampled weird pixels; or separate gutter div vs frosted row. |
+| Nav labels **too low** / extra empty band inside nav | **`padding-bottom: env(safe-area-inset-bottom)`** on nav reserves inset **inside** the bar (product choice: flush **`pb-0`** vs inset—see below). |
+
+### Fixes (files and intent)
+
+1. **`src/app/layout.tsx`**
+   - **Single viewport definition**: rely on Next **`export const viewport`** (`viewportFit: "cover"`). Remove duplicate **`<meta name="viewport" …>`** in `<head>` so iOS doesn’t get conflicting sizing.
+   - Removed **`interactiveWidget: "resizes-content"`** (and the same token from manual meta when it existed). On some standalone builds it contributes to layout vs visual viewport mismatch and a persistent bottom dead zone.
+
+2. **`src/app/globals.css`** (`max-width: 767px`)
+   - After existing **`min-height: 100dvh`** on `html`/`body`, add **`min-height: 100lvh`** so the **layout box reaches the largest painted phone height** when `dvh` stops above the home-indicator region (exception to “don’t blindly use `lvh` on phones”: scoped to **`767px`** only, tablets unchanged).
+
+3. **`src/components/AppChrome.tsx`**
+   - **`SidebarProvider`** (mobile): **`max-md:!fixed max-md:!inset-0`** with **`max-md:!h-auto max-md:!max-h-none`** so the shell pins to the viewport (avoid **`top-0 bottom-auto h-[100lvh]`**-style shells that can leave unpainted strips).
+   - Paint-through: **`max-md:bg-background max-md:dark:bg-[#24231f]`** on the shell so gaps aren’t naked/default gray.
+   - **Bottom nav**: opaque **`dark:bg-[#2a2534]`** (no translucent/blur stack over the inset zone—blur was reading as gray). **`pb-0`** flush to **`bottom-0`** was chosen so the bar doesn’t reserve an extra inset slab **inside** the nav; scroll areas still use **`env(safe-area-inset-bottom)`** in **`pb-[calc(…+NavHeight)]`** so lists clear the nav when scrolled.
+   - Tab styling (optional UX): **`min-h-[68px]`** row with **`justify-start`** and smaller icons/text so chrome stays compact.
+
+4. **`src/lib/utils/device-safe-area.ts`** (+ **`body.has-device-safe-top`** in **`globals.css`**)
+   - **`applyDeviceSafeAreaInsets()`** sets **`--device-safe-top`** and **`has-device-safe-top`** so **top** inset is owned by chrome/sections, not body padding (avoids top unpainted strip). Bottom **`env()`** is enough for scroll padding; avoid duplicating bottom inset on **`body`** unless there’s a measured need.
+
+5. **`src/components/sections/BusinessSection.tsx`** (BWI scroll clipping)
+   - Replaced **`h-[calc(100vh-80px)]`** + **`pb-20`** with **`flex-1 min-h-0 overflow-y-auto`** (same mental model as **`HomeSection`**) and **`pb-[calc(max(env(safe-area-inset-bottom),0px)+96px)]`** on mobile so content **fills** the column to the bottom edge while **scrolled-end** padding clears fixed nav + FAB.
+
+6. **Manifest / meta** (already aligned)
+   - **`theme-color`**, **`manifest` `theme_color` / `background_color`** match page surface (**`#24231f`**) so overscroll/UI chrome isn’t pure black next to the app.
+
+### Patterns to keep
+
+- **Fixed chrome**: **`fixed inset-x-0 bottom-0`**, opaque surface for mobile nav.
+- **Scrollable sections**: **`flex-1 min-h-0`** + **`overflow-y-auto`** inside the flex column; **never** rely on **`100vh − headerGuess`** for primary section scroll height on mobile.
+- **End-of-scroll clearance**: **`pb-[calc(max(env(safe-area-inset-bottom),0px)+NNpx)]`** where **`NN`** ≈ nav + FAB slack (Home ~88px; BWI may use ~96px).
+
+### If it regresses
+
+1. Confirm **no duplicate viewport meta** and **`viewport-fit=cover`**.
+2. Confirm **`interactive-widget`** isn’t reintroduced globally without testing standalone.
+3. Compare broken section’s shell classes to **`HomeSection`** / **`BusinessSection`** (`flex-1 min-h-0`, bottom **`calc`** padding).
+4. Hard-refresh / update **service worker**—stale shell CSS mimics layout bugs.

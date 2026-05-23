@@ -35,6 +35,7 @@ export interface CongregationSectionProps {
     visits: VisitWithUser[];
     establishment?: { id: string; name: string } | null;
   } | null;
+  householderDetailsLoading: boolean;
   onSelectHouseholder: (householder: HouseholderWithDetails | null) => void;
   onSelectHouseholderDetails: (details: {
     householder: HouseholderWithDetails;
@@ -67,6 +68,7 @@ export function CongregationSection({
   userId,
   selectedHouseholder,
   selectedHouseholderDetails,
+  householderDetailsLoading,
   onSelectHouseholder,
   onSelectHouseholderDetails,
   onClearSelectedHouseholder,
@@ -117,6 +119,7 @@ export function CongregationSection({
             userId={userId}
             selectedHouseholder={selectedHouseholder}
             selectedHouseholderDetails={selectedHouseholderDetails}
+            householderDetailsLoading={householderDetailsLoading}
             onSelectHouseholder={onSelectHouseholder}
             onSelectHouseholderDetails={onSelectHouseholderDetails}
             onClearSelectedHouseholder={onClearSelectedHouseholder}

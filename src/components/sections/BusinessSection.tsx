@@ -95,6 +95,7 @@ export interface BusinessSectionProps {
     visits: VisitWithUser[];
     establishment?: { id: string; name: string } | null;
   } | null;
+  householderDetailsLoading: boolean;
   setSelectedHouseholderDetails: Dispatch<
     SetStateAction<{
       householder: HouseholderWithDetails;
@@ -145,6 +146,7 @@ export function BusinessSection({
   selectedHouseholder,
   setSelectedHouseholder,
   selectedHouseholderDetails,
+  householderDetailsLoading,
   setSelectedHouseholderDetails,
   loadEstablishmentDetails,
   loadHouseholderDetails,
@@ -374,7 +376,7 @@ export function BusinessSection({
         establishments={
           selectedHouseholderDetails?.establishment ? [selectedHouseholderDetails.establishment] : []
         }
-        isLoading={!selectedHouseholderDetails}
+        isLoading={householderDetailsLoading}
         onBackClick={closeHouseholderSideDetails}
         publisherId={userId}
         onRequestSummaryEdit={() => setBusinessEditSheet("householder")}
@@ -519,7 +521,7 @@ export function BusinessSection({
                     establishments={
                       selectedHouseholderDetails?.establishment ? [selectedHouseholderDetails.establishment] : []
                     }
-                    isLoading={!selectedHouseholderDetails}
+                    isLoading={householderDetailsLoading}
                     onBackClick={() => {
                       setSelectedHouseholder(null);
                       setSelectedHouseholderDetails(null);

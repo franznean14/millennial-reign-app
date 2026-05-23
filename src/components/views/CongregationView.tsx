@@ -54,6 +54,7 @@ interface CongregationViewProps {
     visits: VisitWithUser[];
     establishment?: { id: string; name: string } | null;
   } | null;
+  householderDetailsLoading: boolean;
   onSelectHouseholder: (householder: HouseholderWithDetails | null) => void;
   onSelectHouseholderDetails: (details: {
     householder: HouseholderWithDetails;
@@ -64,7 +65,7 @@ interface CongregationViewProps {
   loadHouseholderDetails: (householderId: string) => Promise<void>;
 }
 
-export function CongregationView({ data, onEdit, canEdit, canManageCongregationUsers = false, initialTab = 'meetings', congregationTab: externalCongregationTab, onCongregationTabChange: externalOnCongregationTabChange, userId, isElder = false, selectedHouseholder, selectedHouseholderDetails, onSelectHouseholder, onSelectHouseholderDetails, onClearSelectedHouseholder, loadHouseholderDetails }: CongregationViewProps) {
+export function CongregationView({ data, onEdit, canEdit, canManageCongregationUsers = false, initialTab = 'meetings', congregationTab: externalCongregationTab, onCongregationTabChange: externalOnCongregationTabChange, userId, isElder = false, selectedHouseholder, selectedHouseholderDetails, householderDetailsLoading, onSelectHouseholder, onSelectHouseholderDetails, onClearSelectedHouseholder, loadHouseholderDetails }: CongregationViewProps) {
   const isMdUp = useMediaQuery("(min-width: 768px)");
   const [internalCongregationTab, setInternalCongregationTab] = useState<'meetings' | 'ministry' | 'admin'>(initialTab);
   
@@ -185,7 +186,7 @@ export function CongregationView({ data, onEdit, canEdit, canManageCongregationU
         context="congregation"
         showEstablishment={false}
         publisherId={(selectedHouseholderDetails?.householder || selectedHouseholder).publisher_id ?? null}
-        isLoading={!selectedHouseholderDetails}
+        isLoading={householderDetailsLoading}
         preferLeftDetailPanel
         onBackClick={() => onClearSelectedHouseholder()}
       />

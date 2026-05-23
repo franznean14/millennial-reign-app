@@ -46,6 +46,65 @@ import { UnifiedFab } from "@/components/shared/UnifiedFab";
 const HomeSummary = dynamic(() => import("@/components/home/HomeSummary").then(m => m.HomeSummary), { ssr: false });
 // FAB handled by UnifiedFab
 
+type HouseholderDetailsSnapshot = {
+  householder: HouseholderWithDetails;
+  visits: VisitWithUser[];
+  establishment?: { id: string; name: string; area?: string | null; statuses?: string[] | null } | null;
+};
+
+function householderDetailsCacheKey(householderId: string) {
+  return `householder:details:v3:${householderId}`;
+}
+
+/** Stale-while-revalidate loader shared by BWI and congregation contact detail views. */
+async function loadHouseholderDetailsSwr(
+  householderId: string,
+  options: {
+    hasInMemory: boolean;
+    setLoading: (loading: boolean) => void;
+    setDetails: (details: HouseholderDetailsSnapshot | null) => void;
+    setHouseholder: (householder: HouseholderWithDetails | null) => void;
+    logLabel?: string;
+  }
+): Promise<void> {
+  const { hasInMemory, setLoading, setDetails, setHouseholder, logLabel = "householder" } = options;
+  const cacheKey = householderDetailsCacheKey(householderId);
+
+  if (!hasInMemory) {
+    setDetails(null);
+    setLoading(true);
+  } else {
+    setLoading(false);
+  }
+
+  try {
+    const cached = hasInMemory
+      ? null
+      : await cacheGet<HouseholderDetailsSnapshot>(cacheKey);
+
+    if (!hasInMemory && cached) {
+      setDetails(cached);
+      setHouseholder(cached.householder);
+      setLoading(false);
+    }
+
+    const details = await getHouseholderDetails(householderId);
+    if (details) {
+      setDetails(details);
+      setHouseholder(details.householder);
+    } else {
+      setDetails(null);
+      setHouseholder(null);
+      toast.info("Householder was deleted.");
+    }
+  } catch (error) {
+    console.error(`Failed to load ${logLabel} details:`, error);
+    // Keep IndexedDB snapshot for offline/transient failures.
+  } finally {
+    setLoading(false);
+  }
+}
+
 
 export function AppClient() {
   // Global app state
@@ -154,11 +213,9 @@ export function AppClient() {
   /** Explicit fetch lifecycle — do not infer loading from `!selectedEstablishmentDetails` or failed loads stick on skeleton forever */
   const [establishmentDetailsLoading, setEstablishmentDetailsLoading] = useState(false);
   const [selectedHouseholder, setSelectedHouseholder] = useState<HouseholderWithDetails | null>(null);
-  const [selectedHouseholderDetails, setSelectedHouseholderDetails] = useState<{
-    householder: HouseholderWithDetails;
-    visits: VisitWithUser[];
-    establishment?: { id: string; name: string } | null;
-  } | null>(null);
+  const [selectedHouseholderDetails, setSelectedHouseholderDetails] = useState<HouseholderDetailsSnapshot | null>(null);
+  /** Explicit fetch lifecycle — same pattern as establishment details (stale-while-revalidate). */
+  const [householderDetailsLoading, setHouseholderDetailsLoading] = useState(false);
   const defaultFilters: BusinessFiltersState = {
     search: "",
     statuses: [],
@@ -255,11 +312,9 @@ export function AppClient() {
   const [congregationInitialTab, setCongregationInitialTab] = useState<'meetings' | 'ministry' | 'admin' | undefined>(undefined);
   const [congregationTab, setCongregationTab] = useState<'meetings' | 'ministry' | 'admin'>('meetings');
   const [congregationSelectedHouseholder, setCongregationSelectedHouseholder] = useState<HouseholderWithDetails | null>(null);
-  const [congregationSelectedHouseholderDetails, setCongregationSelectedHouseholderDetails] = useState<{
-    householder: HouseholderWithDetails;
-    visits: VisitWithUser[];
-    establishment?: { id: string; name: string } | null;
-  } | null>(null);
+  const [congregationSelectedHouseholderDetails, setCongregationSelectedHouseholderDetails] =
+    useState<HouseholderDetailsSnapshot | null>(null);
+  const [congregationHouseholderDetailsLoading, setCongregationHouseholderDetailsLoading] = useState(false);
   
   // Update congregation tab when initialTab changes
   useEffect(() => {
@@ -597,13 +652,26 @@ export function AppClient() {
 
   // Refs so Realtime refetch can refresh open detail views without stale closures
   const selectedEstablishmentIdRef = useRef<string | null>(null);
+  const selectedEstablishmentDetailsRef = useRef(selectedEstablishmentDetails);
+  const selectedHouseholderDetailsRef = useRef(selectedHouseholderDetails);
+  const congregationSelectedHouseholderDetailsRef = useRef(congregationSelectedHouseholderDetails);
   const selectedHouseholderIdRef = useRef<string | null>(null);
   const congregationSelectedHouseholderIdRef = useRef<string | null>(null);
   useEffect(() => {
     selectedEstablishmentIdRef.current = selectedEstablishment?.id ?? null;
+    selectedEstablishmentDetailsRef.current = selectedEstablishmentDetails;
     selectedHouseholderIdRef.current = selectedHouseholder?.id ?? null;
+    selectedHouseholderDetailsRef.current = selectedHouseholderDetails;
     congregationSelectedHouseholderIdRef.current = congregationSelectedHouseholder?.id ?? null;
-  }, [selectedEstablishment?.id, selectedHouseholder?.id, congregationSelectedHouseholder?.id]);
+    congregationSelectedHouseholderDetailsRef.current = congregationSelectedHouseholderDetails;
+  }, [
+    selectedEstablishment?.id,
+    selectedEstablishmentDetails,
+    selectedHouseholder?.id,
+    selectedHouseholderDetails,
+    congregationSelectedHouseholder?.id,
+    congregationSelectedHouseholderDetails,
+  ]);
 
   // Refetch-only (no event bus). Used when Supabase Realtime detects changes so views re-render with latest data.
   const refetchBusinessData = useCallback(async () => {
@@ -752,22 +820,33 @@ export function AppClient() {
 
   const loadEstablishmentDetails = useCallback(async (establishmentId: string) => {
     const cacheKey = `establishment:details:${establishmentId}`;
-    setEstablishmentDetailsLoading(true);
-    try {
+    const hasInMemory =
+      selectedEstablishmentDetailsRef.current?.establishment?.id === establishmentId;
+
+    if (!hasInMemory) {
       // Drop stale snapshot when navigating to a different establishment (avoid showing wrong visits/contacts)
-      setSelectedEstablishmentDetails((prev) =>
-        prev?.establishment?.id === establishmentId ? prev : null
-      );
-      // Show cached details immediately when available (e.g. from a previous open)
-      const cached = await cacheGet<{
-        establishment: EstablishmentWithDetails;
-        visits: VisitWithUser[];
-        householders: HouseholderWithDetails[];
-      }>(cacheKey);
-      if (cached) {
+      setSelectedEstablishmentDetails(null);
+      setEstablishmentDetailsLoading(true);
+    } else {
+      setEstablishmentDetailsLoading(false);
+    }
+
+    try {
+      // Stale-while-revalidate: IndexedDB snapshot renders immediately; network refresh updates in place.
+      const cached = hasInMemory
+        ? null
+        : await cacheGet<{
+            establishment: EstablishmentWithDetails;
+            visits: VisitWithUser[];
+            householders: HouseholderWithDetails[];
+          }>(cacheKey);
+
+      if (!hasInMemory && cached) {
         setSelectedEstablishmentDetails(cached);
         setSelectedEstablishment(cached.establishment);
+        setEstablishmentDetailsLoading(false);
       }
+
       const details = await getEstablishmentDetails(establishmentId);
       if (details) {
         setSelectedEstablishmentDetails(details);
@@ -830,38 +909,39 @@ export function AppClient() {
     }
   }, [selectedHouseholder]);
 
-  const loadHouseholderDetails = useCallback(async (householderId: string) => {
-    try {
-      const details = await getHouseholderDetails(householderId);
-      if (details) {
-        setSelectedHouseholderDetails(details);
-        setSelectedHouseholder(details.householder);
-      } else {
-        setSelectedHouseholderDetails(null);
-        setSelectedHouseholder(null);
-        toast.info("Householder was deleted.");
-      }
-    } catch (error) {
-      console.error('Failed to load householder details:', error);
+  useEffect(() => {
+    if (!selectedHouseholder) {
+      setHouseholderDetailsLoading(false);
     }
+  }, [selectedHouseholder]);
+
+  useEffect(() => {
+    if (!congregationSelectedHouseholder) {
+      setCongregationHouseholderDetailsLoading(false);
+    }
+  }, [congregationSelectedHouseholder]);
+
+  const loadHouseholderDetails = useCallback(async (householderId: string) => {
+    const hasInMemory =
+      selectedHouseholderDetailsRef.current?.householder?.id === householderId;
+    await loadHouseholderDetailsSwr(householderId, {
+      hasInMemory,
+      setLoading: setHouseholderDetailsLoading,
+      setDetails: setSelectedHouseholderDetails,
+      setHouseholder: setSelectedHouseholder,
+    });
   }, []);
 
   const loadCongregationHouseholderDetails = useCallback(async (householderId: string) => {
-    try {
-      const details = await getHouseholderDetails(householderId);
-      if (details) {
-        setCongregationSelectedHouseholderDetails(details);
-        setCongregationSelectedHouseholder(details.householder);
-      } else {
-        setCongregationSelectedHouseholderDetails(null);
-        setCongregationSelectedHouseholder(null);
-        toast.info("Householder was deleted.");
-      }
-    } catch (error) {
-      console.error("Failed to load congregation householder details:", error);
-      setCongregationSelectedHouseholderDetails(null);
-      setCongregationSelectedHouseholder(null);
-    }
+    const hasInMemory =
+      congregationSelectedHouseholderDetailsRef.current?.householder?.id === householderId;
+    await loadHouseholderDetailsSwr(householderId, {
+      hasInMemory,
+      setLoading: setCongregationHouseholderDetailsLoading,
+      setDetails: setCongregationSelectedHouseholderDetails,
+      setHouseholder: setCongregationSelectedHouseholder,
+      logLabel: "congregation householder",
+    });
   }, []);
 
 
@@ -1357,6 +1437,7 @@ export function AppClient() {
           selectedHouseholder={selectedHouseholder}
           setSelectedHouseholder={setSelectedHouseholder}
           selectedHouseholderDetails={selectedHouseholderDetails}
+          householderDetailsLoading={householderDetailsLoading}
           setSelectedHouseholderDetails={setSelectedHouseholderDetails}
           loadEstablishmentDetails={loadEstablishmentDetails}
           loadHouseholderDetails={loadHouseholderDetails}
@@ -1399,6 +1480,7 @@ export function AppClient() {
           userId={userId}
             selectedHouseholder={congregationSelectedHouseholder}
             selectedHouseholderDetails={congregationSelectedHouseholderDetails}
+            householderDetailsLoading={congregationHouseholderDetailsLoading}
             onSelectHouseholder={setCongregationSelectedHouseholder}
             onSelectHouseholderDetails={setCongregationSelectedHouseholderDetails}
             onClearSelectedHouseholder={() => {
