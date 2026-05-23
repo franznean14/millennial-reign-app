@@ -1,8 +1,13 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { createSupabaseBrowserClient } from '@/lib/supabase/client';
 import { computeMfaPasskeyRequired } from '@/lib/auth/mfa-passkey';
+import {
+  clearAppBootSession,
+  hasCompletedAppBootSession,
+  markAppBootSessionComplete,
+} from '@/lib/app/boot-session';
 
 interface SPAContextType {
   currentSection: string;
@@ -33,10 +38,11 @@ export function SPAProvider({ children }: { children: ReactNode }) {
     showBusiness: false,
   });
   
-  // Loading states
+  // Loading states — full-screen boot only on true cold start (not PWA resume)
   const [authLoading, setAuthLoading] = useState(true);
   const [navigationLoading, setNavigationLoading] = useState(true);
   const [contentLoading, setContentLoading] = useState(true);
+  const authInitializedRef = useRef(false);
   
   // Navigation stack for SPA back navigation
   const [navigationStack, setNavigationStack] = useState<string[]>(['home']);
@@ -75,12 +81,13 @@ export function SPAProvider({ children }: { children: ReactNode }) {
   };
 
   const refreshAuth = () => {
-    checkAuth();
+    checkAuth({ silent: authInitializedRef.current });
   };
 
-  const checkAuth = async () => {
+  const checkAuth = async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent ?? false;
     try {
-      setAuthLoading(true);
+      if (!silent) setAuthLoading(true);
       const supabase = createSupabaseBrowserClient();
       const { data: { session }, error } = await supabase.auth.getSession();
       
@@ -91,6 +98,7 @@ export function SPAProvider({ children }: { children: ReactNode }) {
         // If it's a refresh token error, clear the session and redirect to login
         if (error.message?.includes('Refresh Token') || error.message?.includes('Invalid Refresh Token')) {
           console.log('Refresh token invalid, clearing session...');
+          clearAppBootSession();
           await supabase.auth.signOut();
           setIsAuthenticated(false);
           setMfaPasskeyRequired(false);
@@ -157,12 +165,40 @@ export function SPAProvider({ children }: { children: ReactNode }) {
         showBusiness: false,
       });
     } finally {
+      authInitializedRef.current = true;
       setAuthLoading(false);
     }
   };
 
+  // PWA resume: skip blocking boot loader when this browser session already loaded once
   useEffect(() => {
-    checkAuth();
+    if (!hasCompletedAppBootSession()) return;
+    authInitializedRef.current = true;
+    setAuthLoading(false);
+    setNavigationLoading(false);
+    setContentLoading(false);
+  }, []);
+
+  useEffect(() => {
+    const resumed = hasCompletedAppBootSession();
+    checkAuth({ silent: resumed });
+  }, []);
+
+  useEffect(() => {
+    if (isAppReady) {
+      markAppBootSessionComplete();
+    }
+  }, [isAppReady]);
+
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (!event.persisted || !hasCompletedAppBootSession()) return;
+      setAuthLoading(false);
+      setNavigationLoading(false);
+      setContentLoading(false);
+    };
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
   }, []);
 
   // Set navigation as ready after auth check
@@ -177,15 +213,21 @@ export function SPAProvider({ children }: { children: ReactNode }) {
     const supabase = createSupabaseBrowserClient();
     
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        
+      async (event) => {
+        if (event === 'SIGNED_OUT') {
+          clearAppBootSession();
+          authInitializedRef.current = false;
+          checkAuth({ silent: false });
+          return;
+        }
+
         if (
-          event === 'SIGNED_OUT' ||
           event === 'TOKEN_REFRESHED' ||
           event === 'SIGNED_IN' ||
           event === 'MFA_CHALLENGE_VERIFIED'
         ) {
-          checkAuth();
+          // Token refresh on resume must not replay the full-screen boot loader
+          checkAuth({ silent: authInitializedRef.current });
         }
       }
     );

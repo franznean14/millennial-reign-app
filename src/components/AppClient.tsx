@@ -17,7 +17,6 @@ import { motion } from "motion/react";
 import { toast } from "@/components/ui/sonner";
 import { LoginView } from "@/components/views/LoginView";
 import { MfaPasskeyGate } from "@/components/auth/MfaPasskeyGate";
-import { LoadingView } from "@/components/views/LoadingView";
 import { UnifiedPortaledControls } from "@/components/UnifiedPortaledControls";
 import { useSPA } from "@/components/SPAProvider";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -40,6 +39,7 @@ import { businessEventBus } from "@/lib/events/business-events";
 import { getSharedEstablishmentsAndHouseholders } from "@/lib/business/bwi-lists-coordinator";
 import { formatStatusText } from "@/lib/utils/formatters";
 import { applyDeviceSafeAreaInsets } from "@/lib/utils/device-safe-area";
+import { hasCompletedAppBootSession, markAppBootSessionComplete } from "@/lib/app/boot-session";
 
 // Lazy-load heavy UI components to reduce initial bundle
 import { HomeSection } from "@/components/sections/HomeSection";
@@ -110,7 +110,8 @@ export function AppClient() {
   // Global app state
   const [userId, setUserId] = useState<string | null>(null);
   const [profile, setProfile] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  /** Session/profile bootstrap complete — avoids LoginView flash before getSession. */
+  const [sessionHydrated, setSessionHydrated] = useState(false);
   const [admin, setAdmin] = useState(false);
   const [isElderByServer, setIsElderByServer] = useState(false);
   
@@ -357,11 +358,6 @@ export function AppClient() {
   const businessRefetchInFlightRef = useRef(false);
   const businessRefetchQueuedRef = useRef(false);
 
-  // Set content loading to false immediately when component mounts
-  useEffect(() => {
-    setContentLoading(false);
-  }, [setContentLoading]);
-
   useEffect(() => {
     const handleSafeArea = () => applyDeviceSafeAreaInsets();
     handleSafeArea();
@@ -373,48 +369,52 @@ export function AppClient() {
     };
   }, []);
 
-  // Load initial app data
+  // Load initial app data (blocking loader only on true cold start)
   useEffect(() => {
     const loadAppData = async () => {
-      setContentLoading(true);
-      const supabase = await getSupabaseClient();
-      const { data: { session } } = await supabase.auth.getSession();
-      const id = session?.user?.id || null;
-      setUserId(id);
-      
-      if (id) {
-        const [profileData, adminStatus, congregationData, { data: { user } }, bwiEnabledData, bwiParticipantData, elderStatus] = await Promise.all([
-          getProfile(id),
-          isAdmin(id),
-          getMyCongregation(),
-          supabase.auth.getUser(),
-          supabase.rpc('is_business_enabled'),
-          supabase.rpc('is_business_participant'),
-          supabase.rpc('is_elder', { uid: id }),
-        ]);
-        
-        // Add email from auth to profile data
-        const profileWithEmail = profileData
-          ? { ...profileData, email: user?.email, __isElderServer: !!elderStatus.data }
-          : null;
-        setProfile(profileWithEmail);
-        setAdmin(adminStatus);
-        setIsElderByServer(!!elderStatus.data);
-        setCong(congregationData);
-        setBwiEnabled(!!bwiEnabledData.data);
-        setIsBwiParticipant(!!bwiParticipantData.data);
-        
-        // Auto-open create modal if no congregation exists and user can create
-        if (!congregationData?.id && adminStatus) {
-          setMode("create");
-          setModalOpen(true);
-        }
-      } else {
-        setIsElderByServer(false);
+      const resumedSession = hasCompletedAppBootSession();
+      if (!resumedSession) {
+        setContentLoading(true);
       }
-      
-      setIsLoading(false);
-      setContentLoading(false);
+      try {
+        const supabase = await getSupabaseClient();
+        const { data: { session } } = await supabase.auth.getSession();
+        const id = session?.user?.id || null;
+        setUserId(id);
+
+        if (id) {
+          const [profileData, adminStatus, congregationData, { data: { user } }, bwiEnabledData, bwiParticipantData, elderStatus] = await Promise.all([
+            getProfile(id),
+            isAdmin(id),
+            getMyCongregation(),
+            supabase.auth.getUser(),
+            supabase.rpc('is_business_enabled'),
+            supabase.rpc('is_business_participant'),
+            supabase.rpc('is_elder', { uid: id }),
+          ]);
+
+          const profileWithEmail = profileData
+            ? { ...profileData, email: user?.email, __isElderServer: !!elderStatus.data }
+            : null;
+          setProfile(profileWithEmail);
+          setAdmin(adminStatus);
+          setIsElderByServer(!!elderStatus.data);
+          setCong(congregationData);
+          setBwiEnabled(!!bwiEnabledData.data);
+          setIsBwiParticipant(!!bwiParticipantData.data);
+
+          if (!congregationData?.id && adminStatus) {
+            setMode("create");
+            setModalOpen(true);
+          }
+        } else {
+          setIsElderByServer(false);
+        }
+      } finally {
+        setContentLoading(false);
+        setSessionHydrated(true);
+        markAppBootSessionComplete();
+      }
     };
 
     loadAppData();
@@ -1253,9 +1253,9 @@ export function AppClient() {
   };
 
 
-  // Render different sections based on currentSection
-  if (isLoading) {
-    return <LoadingView />;
+  // FullScreenLoading (AppChrome) covers cold start; return null until session is known.
+  if (!sessionHydrated) {
+    return null;
   }
 
   if (!userId) {

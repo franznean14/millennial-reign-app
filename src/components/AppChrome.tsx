@@ -1,10 +1,12 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { Home, Landmark, Briefcase, User } from "lucide-react";
 import { useSPA } from "@/components/SPAProvider";
 import { FullScreenLoading } from "@/components/FullScreenLoading";
+import { hasCompletedAppBootSession, markAppBootSessionComplete } from "@/lib/app/boot-session";
 import {
   SidebarInset,
   SidebarProvider,
@@ -27,6 +29,20 @@ interface AppChromeProps {
 export function AppChrome({ children }: AppChromeProps) {
   const pathname = usePathname();
   const { currentSection, userPermissions, onSectionChange, isAuthenticated, isAppReady } = useSPA();
+  const [suppressBootLoader, setSuppressBootLoader] = useState(false);
+
+  useEffect(() => {
+    if (hasCompletedAppBootSession()) {
+      setSuppressBootLoader(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isAppReady) {
+      markAppBootSessionComplete();
+      setSuppressBootLoader(true);
+    }
+  }, [isAppReady]);
   const isUtilityRoute =
     pathname === "/diag" ||
     pathname.startsWith("/diag/") ||
@@ -63,7 +79,7 @@ export function AppChrome({ children }: AppChromeProps) {
 
   return (
     <>
-      <FullScreenLoading isVisible={!isAppReady} />
+      <FullScreenLoading isVisible={!isAppReady && !suppressBootLoader} />
       
       <OfflineInit />
       <ServiceWorkerRegister />
