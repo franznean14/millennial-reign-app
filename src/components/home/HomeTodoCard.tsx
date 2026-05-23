@@ -497,24 +497,39 @@ export function HomeTodoCard({
     [todoDrawerShadeKey]
   );
 
-  const loadTodos = useCallback((opts?: { useCache?: boolean; forceNetwork?: boolean; trustFreshLocalCache?: boolean }) => {
+  const loadTodos = useCallback((opts?: {
+    useCache?: boolean;
+    forceNetwork?: boolean;
+    trustFreshLocalCache?: boolean;
+    /** When true, never replace a non-empty in-memory list with an empty cache/network snapshot. */
+    preserveNonEmpty?: boolean;
+  }) => {
     if (!scopeKey) return;
     const useCache = opts?.useCache ?? true;
     const forceNetwork = opts?.forceNetwork ?? true;
     const trustFreshLocalCache = opts?.trustFreshLocalCache ?? false;
+    const preserveNonEmpty = opts?.preserveNonEmpty ?? false;
     const key = TODOS_CACHE_KEY(scopeKey);
     const genAtStart = loadGenRef.current;
     const isCurrent = () => genAtStart === loadGenRef.current;
+
+    const applyLists = (open: MyOpenCallTodoItem[], completed: MyOpenCallTodoItem[]) => {
+      if (!isCurrent()) return;
+      const incomingCount = open.length + completed.length;
+      setOpenTodos((prev) =>
+        preserveNonEmpty && incomingCount === 0 && prev.length > 0 ? prev : open
+      );
+      setCompletedTodos((prev) =>
+        preserveNonEmpty && incomingCount === 0 && prev.length > 0 ? prev : completed
+      );
+    };
 
     let usedFreshLocalCache = false;
     let localCachedItemCount = 0;
     if (useCache) {
       const localCached = readLocalTodosCache(scopeKey);
       if (localCached) {
-        if (isCurrent()) {
-          setOpenTodos(localCached.open);
-          setCompletedTodos(localCached.completed);
-        }
+        applyLists(localCached.open, localCached.completed);
         localCachedItemCount = localCached.open.length + localCached.completed.length;
         usedFreshLocalCache =
           localCached.syncedAt > 0 && Date.now() - localCached.syncedAt < TODOS_FRESH_MS;
@@ -527,8 +542,7 @@ export function HomeTodoCard({
         cacheGet<{ open: MyOpenCallTodoItem[]; completed: MyOpenCallTodoItem[] }>(key).then((cached) => {
           if (genAtIdb !== loadGenRef.current) return;
           if (cached && Array.isArray(cached.open) && Array.isArray(cached.completed)) {
-            setOpenTodos(cached.open);
-            setCompletedTodos(cached.completed);
+            applyLists(cached.open, cached.completed);
           }
         });
       }
@@ -601,8 +615,7 @@ export function HomeTodoCard({
         if (genAtFetch !== loadGenRef.current) return;
         hasLoadedRef.current = true;
         lastSyncedAtRef.current = Date.now();
-        setOpenTodos(open);
-        setCompletedTodos(completed);
+        applyLists(open, completed);
       })
       .finally(() => {
         if (genAtFetch === loadGenRef.current) {
@@ -817,12 +830,31 @@ export function HomeTodoCard({
       useCache: true,
       forceNetwork: false,
       trustFreshLocalCache: filters.myUpdatesOnly,
+      preserveNonEmpty: true,
     });
   }, [loadTodos, filters.myUpdatesOnly]);
 
   useEffect(() => {
-    if (drawerOpen) loadTodos({ useCache: true, forceNetwork: false, trustFreshLocalCache: false });
+    if (!drawerOpen) return;
+    // Stale-while-revalidate: drawer shares in-memory card data; refresh in background only when stale.
+    loadTodos({
+      useCache: true,
+      forceNetwork: false,
+      trustFreshLocalCache: false,
+      preserveNonEmpty: true,
+    });
   }, [drawerOpen, loadTodos]);
+
+  const openTodoDrawer = useCallback(() => {
+    if (scopeKey) {
+      const localCached = readLocalTodosCache(scopeKey);
+      if (localCached && localCached.open.length + localCached.completed.length > 0) {
+        setOpenTodos((prev) => (prev.length > 0 ? prev : localCached.open));
+        setCompletedTodos((prev) => (prev.length > 0 ? prev : localCached.completed));
+      }
+    }
+    setDrawerOpen(true);
+  }, [scopeKey]);
 
   useEffect(() => {
     if (detailsBridgeOnly) return;
@@ -1576,14 +1608,6 @@ export function HomeTodoCard({
     completedTodos,
   ]);
 
-  const cardOpenTodos = useMemo(
-    () => [...openTodos].sort(compareDeadlineAsc),
-    [openTodos]
-  );
-  const cardCompletedTodos = useMemo(
-    () => [...completedTodos].sort(compareLatestDesc),
-    [completedTodos]
-  );
   const isTodoAssigned = useCallback((todo: MyOpenCallTodoItem) => {
     return Boolean(
       todo.publisher_id ||
@@ -1766,7 +1790,8 @@ export function HomeTodoCard({
     applyBulkEditRows(prefilledRows, "overwrite");
   }, [selectedTodoIds, selectableTodos, applyBulkEditRows, openTodos, completedTodos, householderId, establishmentId]);
 
-  const displayTodos = cardOpenTodos.slice(0, 5);
+  const displayTodos = filteredOpenTodos.slice(0, 5);
+  const displayCompletedPreview = filteredCompletedTodos.slice(0, 1);
   const openCount = filteredOpenTodos.length;
   const doneCount = filteredCompletedTodos.length;
   const hasNavigation = !!(onNavigateToTodoCall || onTodoTap);
@@ -3407,7 +3432,7 @@ export function HomeTodoCard({
         <div className={cn("flex h-full min-h-0 flex-col", headerVariant === "bar" ? "" : "p-4")}>
           <button
             type="button"
-            onClick={() => setDrawerOpen(true)}
+            onClick={openTodoDrawer}
             className={cn(
               headerVariant === "bar"
                 ? "flex h-10 shrink-0 items-center gap-2 border-b px-4 text-sm font-medium hover:bg-muted/50 transition-colors"
@@ -3429,7 +3454,7 @@ export function HomeTodoCard({
           </button>
           <div className={cn("min-h-0 flex-1 overflow-y-auto scrollbar-hide", headerVariant === "bar" && "p-4")}>
             <ul className="space-y-2.5">
-              {cardOpenTodos.length === 0 && cardCompletedTodos.length === 0 ? (
+              {filteredOpenTodos.length === 0 && filteredCompletedTodos.length === 0 ? (
                 <li className={cn("text-sm text-muted-foreground py-1", studyBibleDarkClasses.muted)}>{emptyText}</li>
               ) : (
                 displayTodos.map((todo, index) => (
@@ -3453,7 +3478,7 @@ export function HomeTodoCard({
                 ))
               )}
             </ul>
-            {cardCompletedTodos.length > 0 && (
+            {filteredCompletedTodos.length > 0 && (
               <>
                 <div className={cn("text-xs text-muted-foreground mt-4 mb-2 font-medium inline-flex items-center gap-1.5", studyBibleDarkClasses.muted)}>
                   <span>Done</span>
@@ -3461,12 +3486,12 @@ export function HomeTodoCard({
                     variant="secondary"
                     className="h-4 rounded-full px-1.5 text-[10px] leading-none"
                   >
-                    {cardCompletedTodos.length}
+                    {doneCount}
                   </Badge>
                 </div>
-                {cardOpenTodos.length === 0 && (
+                {filteredOpenTodos.length === 0 && (
                   <ul className="space-y-2.5">
-                    {cardCompletedTodos.slice(0, 1).map((todo, index) => (
+                    {displayCompletedPreview.map((todo, index) => (
                       <TodoRow
                         key={todo.id}
                         todo={{ ...todo, is_done: true }}
