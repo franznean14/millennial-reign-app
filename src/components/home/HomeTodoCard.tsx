@@ -97,6 +97,7 @@ const TODOS_FRESH_MS = 30_000;
 const TODOS_CACHE_KEY = (scopeKey: string) => `home-todos:${scopeKey}`;
 const TODOS_LOCAL_STORAGE_KEY = (scopeKey: string) => `home-todos:local:${scopeKey}`;
 const TODO_FILTERS_LOCAL_STORAGE_KEY = (scopeKey: string) => `home-todos:filters:${scopeKey}`;
+const HOME_TODO_FILTERS_SYNC_EVENT = "home-todos-filters-sync";
 const GUEST_SLOT_PREFIX = "guest::";
 const PARTICIPANTS_CACHE_KEY = "business:participants:local:v1";
 
@@ -294,6 +295,21 @@ function getTodoAssigneeSlots(todo: MyOpenCallTodoItem): TodoAssigneeSlot[] {
   return slots.slice(0, 2);
 }
 
+function isUnassignedTodoItem(todo: MyOpenCallTodoItem): boolean {
+  return (
+    !todo.publisher_id &&
+    !todo.partner_id &&
+    !(todo.publisher_guest_name?.trim()) &&
+    !(todo.partner_guest_name?.trim())
+  );
+}
+
+/** Matches home "My To-Dos" filter: assigned to me or unassigned congregation pool. */
+function matchesMyTodosFilter(todo: MyOpenCallTodoItem, userId: string): boolean {
+  const isMine = todo.publisher_id === userId || todo.partner_id === userId;
+  return isMine || isUnassignedTodoItem(todo);
+}
+
 function getHouseholderStatusColorClass(status: string) {
   switch (status) {
     case "potential":
@@ -392,6 +408,7 @@ export function HomeTodoCard({
   const queuedForceRefreshRef = useRef(false);
   /** Bumps on scope change so stale IndexedDB / network results never overwrite the active list. */
   const loadGenRef = useRef(0);
+  const filtersSyncInProgressRef = useRef(false);
   const [filters, setFilters] = useState<VisitFilters>({
     search: "",
     statuses: [],
@@ -449,16 +466,14 @@ export function HomeTodoCard({
   const isMobile = useMobile();
   const isTodoDetailsSideLayout = useMediaQuery("(min-width: 768px)");
   const isXlViewport = useMediaQuery("(min-width: 1280px)");
-  const userScopeMode =
-    userId && !establishmentId && !householderId
-      ? (filters.myUpdatesOnly ? "my" : "all")
-      : null;
+  // Home scope always caches the full congregation list; "My To-Dos" is applied client-side
+  // (same as status/area/search) so the card preview and drawer stay in sync when toggling.
   const scopeKey = establishmentId
     ? `establishment:${establishmentId}`
     : householderId
       ? `householder:${householderId}`
       : userId
-        ? `user:${userId}:${userScopeMode ?? "my"}`
+        ? `user:${userId}:all`
         : null;
   const filterScopeKey = establishmentId
     ? `establishment:${establishmentId}`
@@ -573,42 +588,25 @@ export function HomeTodoCard({
       }
       return Array.from(byId.values());
     };
-    const isUnassignedTodo = (item: MyOpenCallTodoItem): boolean => {
-      return (
-        !item.publisher_id &&
-        !item.partner_id &&
-        !(item.publisher_guest_name?.trim()) &&
-        !(item.partner_guest_name?.trim())
-      );
-    };
-
     const openQuery = establishmentId
       ? getEstablishmentOpenCallTodos(establishmentId, 50)
       : householderId
         ? getHouseholderOpenCallTodos(householderId, 50)
         : userId
-          ? (filters.myUpdatesOnly
-              ? Promise.all([
-                  getMyOpenCallTodos(userId, 120),
-                  getCongregationOpenCallTodos(220),
-                ]).then(([mine, congregation]) =>
-                  mergeById(mine, congregation.filter(isUnassignedTodo)))
-              : Promise.all([
-                  getMyOpenCallTodos(userId, 120),
-                  getCongregationOpenCallTodos(180),
-                ]).then(([mine, congregation]) => mergeById(mine, congregation)))
+          ? Promise.all([
+              getMyOpenCallTodos(userId, 120),
+              getCongregationOpenCallTodos(180),
+            ]).then(([mine, congregation]) => mergeById(mine, congregation))
           : Promise.resolve<MyOpenCallTodoItem[]>([]);
     const completedQuery = establishmentId
       ? getEstablishmentCompletedCallTodos(establishmentId, 50)
       : householderId
         ? getHouseholderCompletedCallTodos(householderId, 50)
         : userId
-          ? (filters.myUpdatesOnly
-              ? getMyCompletedCallTodos(userId, 40)
-              : Promise.all([
-                  getMyCompletedCallTodos(userId, 80),
-                  getCongregationCompletedCallTodos(120),
-                ]).then(([mine, congregation]) => mergeById(mine, congregation)))
+          ? Promise.all([
+              getMyCompletedCallTodos(userId, 80),
+              getCongregationCompletedCallTodos(120),
+            ]).then(([mine, congregation]) => mergeById(mine, congregation))
           : Promise.resolve<MyOpenCallTodoItem[]>([]);
 
     Promise.all([openQuery, completedQuery])
@@ -629,7 +627,7 @@ export function HomeTodoCard({
           }
         }
       });
-  }, [scopeKey, establishmentId, householderId, userId, filters.myUpdatesOnly]);
+  }, [scopeKey, establishmentId, householderId, userId]);
 
   const scheduleRealtimeTodoReload = useCallback(() => {
     if (realtimeTodoReloadDebounceRef.current) clearTimeout(realtimeTodoReloadDebounceRef.current);
@@ -730,8 +728,71 @@ export function HomeTodoCard({
     }
   }, [filterScopeKey]);
 
+  // Keep mobile + tablet HomeTodoCard instances aligned when filters change in either sibling.
   useEffect(() => {
-    if (!filterScopeKey || !filtersHydrated) return;
+    if (!filterScopeKey) return;
+    const applyStoredFilters = () => {
+      try {
+        const raw = window.localStorage.getItem(TODO_FILTERS_LOCAL_STORAGE_KEY(filterScopeKey));
+        if (!raw) return;
+        const parsed = JSON.parse(raw) as {
+          filters?: VisitFilters;
+          searchValue?: string;
+          dueDate?: string | null;
+        };
+        const hydrated = parsed.filters;
+        if (hydrated) {
+          setFilters((prev) => ({
+            ...prev,
+            search: typeof hydrated.search === "string" ? hydrated.search : prev.search,
+            statuses: Array.isArray(hydrated.statuses) ? hydrated.statuses : prev.statuses,
+            areas: Array.isArray(hydrated.areas) ? hydrated.areas : prev.areas,
+            assigneeIds: Array.isArray(hydrated.assigneeIds)
+              ? hydrated.assigneeIds.filter((id): id is string => typeof id === "string")
+              : prev.assigneeIds,
+            myUpdatesOnly:
+              typeof hydrated.myUpdatesOnly === "boolean"
+                ? hydrated.myUpdatesOnly
+                : prev.myUpdatesOnly,
+            bwiOnly: typeof hydrated.bwiOnly === "boolean" ? hydrated.bwiOnly : prev.bwiOnly,
+            householderOnly:
+              typeof hydrated.householderOnly === "boolean"
+                ? hydrated.householderOnly
+                : prev.householderOnly,
+            callDateFrom:
+              hydrated.callDateFrom === null || typeof hydrated.callDateFrom === "string"
+                ? hydrated.callDateFrom
+                : prev.callDateFrom,
+            callDateTo:
+              hydrated.callDateTo === null || typeof hydrated.callDateTo === "string"
+                ? hydrated.callDateTo
+                : prev.callDateTo,
+          }));
+        }
+        if (typeof parsed.searchValue === "string") {
+          setSearchValue(parsed.searchValue);
+          setIsSearchActive(parsed.searchValue.trim().length > 0);
+        }
+        setDueDateFilter(parseLocalDateString(parsed.dueDate));
+      } catch {
+        // no-op
+      }
+    };
+    const onFiltersSynced = (event: Event) => {
+      const detail = (event as CustomEvent<{ filterScopeKey?: string }>).detail;
+      if (detail?.filterScopeKey !== filterScopeKey) return;
+      filtersSyncInProgressRef.current = true;
+      applyStoredFilters();
+      queueMicrotask(() => {
+        filtersSyncInProgressRef.current = false;
+      });
+    };
+    window.addEventListener(HOME_TODO_FILTERS_SYNC_EVENT, onFiltersSynced);
+    return () => window.removeEventListener(HOME_TODO_FILTERS_SYNC_EVENT, onFiltersSynced);
+  }, [filterScopeKey]);
+
+  useEffect(() => {
+    if (!filterScopeKey || !filtersHydrated || filtersSyncInProgressRef.current) return;
     try {
       window.localStorage.setItem(
         TODO_FILTERS_LOCAL_STORAGE_KEY(filterScopeKey),
@@ -741,48 +802,15 @@ export function HomeTodoCard({
           dueDate: dueDateFilter ? toLocalDateString(dueDateFilter) : null,
         })
       );
+      window.dispatchEvent(
+        new CustomEvent(HOME_TODO_FILTERS_SYNC_EVENT, {
+          detail: { filterScopeKey },
+        })
+      );
     } catch {
       // no-op
     }
   }, [filterScopeKey, filtersHydrated, filters, searchValue, dueDateFilter]);
-
-  // Warm up "all to-dos" in localStorage while user is on My To-Dos (re-fetch when snapshot is missing or stale).
-  useEffect(() => {
-    if (!userId || establishmentId || householderId || !filters.myUpdatesOnly) return;
-    const allScopeKey = `user:${userId}:all`;
-    const existingLocal = readLocalTodosCache(allScopeKey);
-    const hasRows =
-      !!existingLocal && (existingLocal.open.length > 0 || existingLocal.completed.length > 0);
-    const freshEnough =
-      !!existingLocal &&
-      existingLocal.syncedAt > 0 &&
-      Date.now() - existingLocal.syncedAt < TODOS_FRESH_MS;
-    if (hasRows && freshEnough) return;
-    let cancelled = false;
-    const mergeById = (...groups: MyOpenCallTodoItem[][]): MyOpenCallTodoItem[] => {
-      const byId = new Map<string, MyOpenCallTodoItem>();
-      for (const group of groups) {
-        for (const item of group) byId.set(item.id, item);
-      }
-      return Array.from(byId.values());
-    };
-    Promise.all([
-      Promise.all([getMyOpenCallTodos(userId, 120), getCongregationOpenCallTodos(180)]).then(([mine, congregation]) =>
-        mergeById(mine, congregation)
-      ),
-      Promise.all([getMyCompletedCallTodos(userId, 80), getCongregationCompletedCallTodos(120)]).then(
-        ([mine, congregation]) => mergeById(mine, congregation)
-      ),
-    ]).then(([open, completed]) => {
-      if (cancelled) return;
-      const syncedAt = Date.now();
-      cacheSet(TODOS_CACHE_KEY(allScopeKey), { open, completed });
-      writeLocalTodosCache(allScopeKey, open, completed, syncedAt);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [userId, establishmentId, householderId, filters.myUpdatesOnly]);
 
   useEffect(() => {
     let cancelled = false;
@@ -824,16 +852,15 @@ export function HomeTodoCard({
     };
   }, []);
 
-  // Only skip a network round-trip when "My To-Dos" has a fresh local snapshot.
-  // Congregation scope must always revalidate: LS may be mine-only if a prior merge missed congregation data.
+  // Initial / scope load — home "My To-Dos" is client-side only (see applyFilters).
   useEffect(() => {
     loadTodos({
       useCache: true,
       forceNetwork: false,
-      trustFreshLocalCache: filters.myUpdatesOnly,
+      trustFreshLocalCache: false,
       preserveNonEmpty: true,
     });
-  }, [loadTodos, filters.myUpdatesOnly]);
+  }, [loadTodos]);
 
   useEffect(() => {
     if (!drawerOpen) return;
@@ -1075,9 +1102,7 @@ export function HomeTodoCard({
         return false;
       }
       if (filters.myUpdatesOnly && userId) {
-        const isMine = todo.publisher_id === userId || todo.partner_id === userId;
-        const isUnassigned = getTodoAssigneeSlots(todo).length === 0;
-        if (!isMine && !isUnassigned) return false;
+        if (!matchesMyTodosFilter(todo, userId)) return false;
       }
       return true;
     });
@@ -1279,7 +1304,7 @@ export function HomeTodoCard({
         if (householderId) return todo.householder_id === householderId;
         if (!userId) return false;
         if (filters.myUpdatesOnly) {
-          return todo.publisher_id === userId || todo.partner_id === userId;
+          return matchesMyTodosFilter(todo as MyOpenCallTodoItem, userId);
         }
         return true;
       };
@@ -1482,9 +1507,7 @@ export function HomeTodoCard({
 
         // My To-Dos toggle
         if (filters.myUpdatesOnly && userId) {
-          const isMine = todo.publisher_id === userId || todo.partner_id === userId;
-          const isUnassigned = getTodoAssigneeSlots(todo).length === 0;
-          if (!isMine && !isUnassigned) return false;
+          if (!matchesMyTodosFilter(todo, userId)) return false;
         }
 
         return true;
@@ -1762,7 +1785,29 @@ export function HomeTodoCard({
     applyBulkEditRows(prefilledRows, "overwrite");
   }, [selectedTodoIds, selectableTodos, applyBulkEditRows, openTodos, completedTodos, householderId, establishmentId]);
 
-  const displayTodos = filteredOpenTodos.slice(0, 5);
+  const filteredAssignedOpenTodos = useMemo(
+    () => filteredOpenTodos.filter(isTodoAssigned),
+    [filteredOpenTodos, isTodoAssigned]
+  );
+  const filteredUnassignedOpenTodos = useMemo(
+    () => filteredOpenTodos.filter((todo) => !isTodoAssigned(todo)),
+    [filteredOpenTodos, isTodoAssigned]
+  );
+  /** Match drawer section order (assigned, then unassigned) so the home card preview aligns with the full list. */
+  const cardPreviewOpenTodos = useMemo(() => {
+    if (userId && !establishmentId && !householderId) {
+      return [...filteredAssignedOpenTodos, ...filteredUnassignedOpenTodos];
+    }
+    return filteredOpenTodos;
+  }, [
+    userId,
+    establishmentId,
+    householderId,
+    filteredOpenTodos,
+    filteredAssignedOpenTodos,
+    filteredUnassignedOpenTodos,
+  ]);
+  const displayTodos = cardPreviewOpenTodos.slice(0, 5);
   const displayCompletedPreview = filteredCompletedTodos.slice(0, 1);
   const openCount = filteredOpenTodos.length;
   const doneCount = filteredCompletedTodos.length;
@@ -1775,14 +1820,6 @@ export function HomeTodoCard({
     preferLeftCompanionDrawer && isTodoDetailsSideLayout && (!!establishmentId || !!householderId)
   );
   const useSingleColumnTodoDrawerBody = prefersCompanionLeftTodoDrawer;
-  const filteredAssignedOpenTodos = useMemo(
-    () => filteredOpenTodos.filter(isTodoAssigned),
-    [filteredOpenTodos, isTodoAssigned]
-  );
-  const filteredUnassignedOpenTodos = useMemo(
-    () => filteredOpenTodos.filter((todo) => !isTodoAssigned(todo)),
-    [filteredOpenTodos, isTodoAssigned]
-  );
   const emptyText = userId
     ? "No open to-dos from your calls"
     : "No open to-dos for this call history";
