@@ -62,7 +62,7 @@ import { Badge } from "@/components/ui/badge";
 import { FormModal } from "@/components/shared/FormModal";
 import { useHomeTodoDetailsFabOptional } from "@/components/home/home-todo-details-fab-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { getInitialsFromName } from "@/lib/utils/visit-history-ui";
+import { getAssigneeAvatarInitials } from "@/lib/utils/visit-history-ui";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useMobile } from "@/lib/hooks/use-mobile";
 import { getBestStatus, getStatusColor, getStatusTextColor } from "@/lib/utils/status-hierarchy";
@@ -86,6 +86,24 @@ const TODOS_CACHE_KEY = (scopeKey: string) => `home-todos:${scopeKey}`;
 const TODOS_LOCAL_STORAGE_KEY = (scopeKey: string) => `home-todos:local:${scopeKey}`;
 const TODO_FILTERS_LOCAL_STORAGE_KEY = (scopeKey: string) => `home-todos:filters:${scopeKey}`;
 const GUEST_SLOT_PREFIX = "guest::";
+const PARTICIPANTS_CACHE_KEY = "business:participants:local:v1";
+
+type ParticipantProfile = { first_name: string; last_name: string; avatar_url?: string };
+
+function participantsToById(
+  participants: Array<{ id: string; first_name: string; last_name: string; avatar_url?: string }>
+): Record<string, ParticipantProfile> {
+  const nextMap: Record<string, ParticipantProfile> = {};
+  participants.forEach((participant) => {
+    if (!participant.id) return;
+    nextMap[participant.id] = {
+      first_name: participant.first_name,
+      last_name: participant.last_name,
+      avatar_url: participant.avatar_url,
+    };
+  });
+  return nextMap;
+}
 type EstablishmentDetailsSnapshot = {
   establishment: EstablishmentWithDetails;
   visits: VisitWithUser[];
@@ -388,9 +406,8 @@ export function HomeTodoCard({
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [dueDateFilter, setDueDateFilter] = useState<Date | null>(null);
-  const [participantsById, setParticipantsById] = useState<
-    Record<string, { first_name: string; last_name: string; avatar_url?: string }>
-  >({});
+  const [participantsById, setParticipantsById] = useState<Record<string, ParticipantProfile>>({});
+  const [participantsReady, setParticipantsReady] = useState(false);
   const [bulkEditPromptOpen, setBulkEditPromptOpen] = useState(false);
   const [selectedTodoIds, setSelectedTodoIds] = useState<string[]>([]);
   const [bulkDraftMergePromptOpen, setBulkDraftMergePromptOpen] = useState(false);
@@ -757,20 +774,34 @@ export function HomeTodoCard({
     let cancelled = false;
     const loadParticipants = async () => {
       try {
+        try {
+          const cachedRaw = window.localStorage.getItem(PARTICIPANTS_CACHE_KEY);
+          if (cachedRaw) {
+            const cached = JSON.parse(cachedRaw) as {
+              items?: Array<{ id: string; first_name: string; last_name: string; avatar_url?: string }>;
+            };
+            if (Array.isArray(cached?.items) && cached.items.length > 0) {
+              const filtered = cached.items.filter(
+                (item): item is { id: string; first_name: string; last_name: string; avatar_url?: string } =>
+                  typeof item?.id === "string"
+              );
+              if (!cancelled && filtered.length > 0) {
+                setParticipantsById(participantsToById(filtered));
+              }
+            }
+          }
+        } catch {
+          // ignore corrupt participant cache
+        }
+
         const participants = await getBwiParticipants();
         if (cancelled) return;
-        const nextMap: Record<string, { first_name: string; last_name: string; avatar_url?: string }> = {};
-        participants.forEach((participant) => {
-          if (!participant.id) return;
-          nextMap[participant.id] = {
-            first_name: participant.first_name,
-            last_name: participant.last_name,
-            avatar_url: participant.avatar_url,
-          };
-        });
-        setParticipantsById(nextMap);
+        setParticipantsById(participantsToById(participants));
+        window.localStorage.setItem(PARTICIPANTS_CACHE_KEY, JSON.stringify({ items: participants }));
       } catch {
         if (!cancelled) setParticipantsById({});
+      } finally {
+        if (!cancelled) setParticipantsReady(true);
       }
     };
     loadParticipants();
@@ -2703,6 +2734,7 @@ export function HomeTodoCard({
                     showAssigneeAvatars={showAssigneeAvatars}
                     highlightOtherPublishers={showOtherPublisherDecorations}
                     participantsById={participantsById}
+                    participantsReady={participantsReady}
                     rowIndex={index}
                     layoutId={`${layoutScopeId}-drawer-${todo.id}`}
                     layoutTransition={todoLayoutTransition}
@@ -2741,6 +2773,7 @@ export function HomeTodoCard({
                     showAssigneeAvatars={showAssigneeAvatars}
                     highlightOtherPublishers={showOtherPublisherDecorations}
                     participantsById={participantsById}
+                    participantsReady={participantsReady}
                     rowIndex={index}
                     layoutId={`${layoutScopeId}-drawer-${todo.id}`}
                     layoutTransition={todoLayoutTransition}
@@ -2797,6 +2830,7 @@ export function HomeTodoCard({
                     showAssigneeAvatars={showAssigneeAvatars}
                     highlightOtherPublishers={showOtherPublisherDecorations}
                     participantsById={participantsById}
+                    participantsReady={participantsReady}
                     rowIndex={index}
                     layoutId={`${layoutScopeId}-drawer-${todo.id}`}
                     layoutTransition={todoLayoutTransition}
@@ -2838,6 +2872,7 @@ export function HomeTodoCard({
                         showAssigneeAvatars={showAssigneeAvatars}
                         highlightOtherPublishers={showOtherPublisherDecorations}
                         participantsById={participantsById}
+                    participantsReady={participantsReady}
                         rowIndex={index}
                         layoutId={`${layoutScopeId}-drawer-md-to-${todo.id}`}
                         layoutTransition={todoLayoutTransition}
@@ -2870,6 +2905,7 @@ export function HomeTodoCard({
                         showAssigneeAvatars={showAssigneeAvatars}
                         highlightOtherPublishers={showOtherPublisherDecorations}
                         participantsById={participantsById}
+                    participantsReady={participantsReady}
                         rowIndex={index}
                         layoutId={`${layoutScopeId}-drawer-md-open-${todo.id}`}
                         layoutTransition={todoLayoutTransition}
@@ -2920,6 +2956,7 @@ export function HomeTodoCard({
                         showAssigneeAvatars={showAssigneeAvatars}
                         highlightOtherPublishers={showOtherPublisherDecorations}
                         participantsById={participantsById}
+                    participantsReady={participantsReady}
                         rowIndex={index}
                         layoutId={`${layoutScopeId}-drawer-md-done-${todo.id}`}
                         layoutTransition={todoLayoutTransition}
@@ -3406,6 +3443,7 @@ export function HomeTodoCard({
                     showAssigneeAvatars={showAssigneeAvatars}
                     highlightOtherPublishers={showOtherPublisherDecorations}
                     participantsById={participantsById}
+                    participantsReady={participantsReady}
                     rowIndex={index}
                     layoutId={`${layoutScopeId}-card-${todo.id}`}
                     layoutTransition={todoLayoutTransition}
@@ -3439,6 +3477,7 @@ export function HomeTodoCard({
                         showAssigneeAvatars={showAssigneeAvatars}
                         highlightOtherPublishers={showOtherPublisherDecorations}
                         participantsById={participantsById}
+                    participantsReady={participantsReady}
                         rowIndex={index}
                         layoutId={`${layoutScopeId}-card-${todo.id}`}
                         layoutTransition={todoLayoutTransition}
@@ -3719,6 +3758,7 @@ export function HomeTodoCard({
                                 todo={todo}
                                 checked={selectedTodoIds.includes(todo.id)}
                                 participantsById={participantsById}
+                                participantsReady={participantsReady}
                                 onCheckedChange={(next) => toggleSelectedTodo(todo.id, next)}
                               />
                             ))}
@@ -3735,6 +3775,7 @@ export function HomeTodoCard({
                                 todo={todo}
                                 checked={selectedTodoIds.includes(todo.id)}
                                 participantsById={participantsById}
+                                participantsReady={participantsReady}
                                 onCheckedChange={(next) => toggleSelectedTodo(todo.id, next)}
                               />
                             ))}
@@ -3823,6 +3864,7 @@ export function HomeTodoCard({
                             todo={todo}
                             checked={selectedTodoIds.includes(todo.id)}
                             participantsById={participantsById}
+                            participantsReady={participantsReady}
                             onCheckedChange={(next) => toggleSelectedTodo(todo.id, next)}
                           />
                         ))}
@@ -3839,6 +3881,7 @@ export function HomeTodoCard({
                             todo={todo}
                             checked={selectedTodoIds.includes(todo.id)}
                             participantsById={participantsById}
+                            participantsReady={participantsReady}
                             onCheckedChange={(next) => toggleSelectedTodo(todo.id, next)}
                           />
                         ))}
@@ -3912,16 +3955,50 @@ export function HomeTodoCard({
   );
 }
 
+/** Assignee avatar for todo rows — uses cached publisher profiles; never shows "AS" from a placeholder. */
+function TodoAssigneeAvatar({
+  slot,
+  profile,
+  participantsReady,
+  className = "h-5 w-5 border border-border/70 dark:border-[#1c1921]",
+}: {
+  slot: TodoAssigneeSlot;
+  profile?: ParticipantProfile;
+  participantsReady: boolean;
+  className?: string;
+}) {
+  const isPublisher = slot.type === "publisher";
+  const { initials, isLoading, displayName } = getAssigneeAvatarInitials({
+    isPublisher,
+    profile: isPublisher ? profile : null,
+    guestName: isPublisher ? undefined : slot.name,
+    participantsReady,
+  });
+
+  return (
+    <Avatar className={className}>
+      {profile?.avatar_url ? <AvatarImage src={profile.avatar_url} alt={displayName} /> : null}
+      <AvatarFallback
+        className={cn("text-[10px]", isLoading && "animate-pulse bg-muted/60 text-transparent dark:bg-[#3b3348]/60")}
+      >
+        {isLoading ? "\u00a0" : initials}
+      </AvatarFallback>
+    </Avatar>
+  );
+}
+
 /** Edit To-Dos picker row — matches drawer density: context badges, assignees, due date, body, area. */
 function BulkEditTodoListItem({
   todo,
   checked,
   participantsById,
+  participantsReady,
   onCheckedChange,
 }: {
   todo: MyOpenCallTodoItem;
   checked: boolean;
-  participantsById: Record<string, { first_name: string; last_name: string; avatar_url?: string }>;
+  participantsById: Record<string, ParticipantProfile>;
+  participantsReady: boolean;
   onCheckedChange: (checked: boolean) => void;
 }) {
   const householderStatus = todo.context_status || "for_scouting";
@@ -3981,21 +4058,14 @@ function BulkEditTodoListItem({
             </div>
             {assigneeSlots.length > 0 ? (
               <div className="inline-flex items-center gap-1 shrink-0 ml-auto pl-1">
-                {assigneeSlots.map((slot, idx) => {
-                  const isPublisher = slot.type === "publisher";
-                  const profile = isPublisher ? participantsById[slot.id] : undefined;
-                  const fullName = isPublisher
-                    ? profile
-                      ? `${profile.first_name} ${profile.last_name}`.trim()
-                      : "Assigned"
-                    : slot.name;
-                  return (
-                    <Avatar key={`${todo.id}-${isPublisher ? slot.id : `guest-${slot.name}-${idx}`}`} className="h-5 w-5 border border-border/70 dark:border-[#1c1921]">
-                      {profile?.avatar_url ? <AvatarImage src={profile.avatar_url} alt={fullName} /> : null}
-                      <AvatarFallback className="text-[10px]">{getInitialsFromName(fullName || "A")}</AvatarFallback>
-                    </Avatar>
-                  );
-                })}
+                {assigneeSlots.map((slot, idx) => (
+                  <TodoAssigneeAvatar
+                    key={`${todo.id}-${slot.type === "publisher" ? slot.id : `guest-${slot.name}-${idx}`}`}
+                    slot={slot}
+                    profile={slot.type === "publisher" ? participantsById[slot.id] : undefined}
+                    participantsReady={participantsReady}
+                  />
+                ))}
               </div>
             ) : null}
           </div>
@@ -4031,6 +4101,7 @@ function TodoRow({
   showAssigneeAvatars = false,
   highlightOtherPublishers = false,
   participantsById = {},
+  participantsReady = false,
   layoutId,
   layoutTransition,
   rowIndex,
@@ -4046,7 +4117,8 @@ function TodoRow({
   currentUserId?: string;
   showAssigneeAvatars?: boolean;
   highlightOtherPublishers?: boolean;
-  participantsById?: Record<string, { first_name: string; last_name: string; avatar_url?: string }>;
+  participantsById?: Record<string, ParticipantProfile>;
+  participantsReady?: boolean;
   layoutId?: string;
   layoutTransition?: { type: "spring"; stiffness: number; damping: number };
   rowIndex?: number;
@@ -4075,23 +4147,15 @@ function TodoRow({
   const assigneeAvatarsNode =
     showAssigneeAvatars && assigneeSlots.length > 0 ? (
       <div className="inline-flex items-center gap-1 shrink-0 ml-auto pl-1">
-        {assigneeSlots.map((slot, idx) => {
-          const isPublisher = slot.type === "publisher";
-          const profile = isPublisher ? participantsById[slot.id] : undefined;
-          const fullName = isPublisher
-            ? profile
-              ? `${profile.first_name} ${profile.last_name}`.trim()
-              : "Assigned"
-            : slot.name;
-          return (
-            <Avatar key={`${todo.id}-${isPublisher ? slot.id : `guest-${slot.name}-${idx}`}`} className="h-5 w-5 border border-border/70">
-              {profile?.avatar_url ? <AvatarImage src={profile.avatar_url} alt={fullName} /> : null}
-              <AvatarFallback className="text-[10px]">
-                {getInitialsFromName(fullName || "A")}
-              </AvatarFallback>
-            </Avatar>
-          );
-        })}
+        {assigneeSlots.map((slot, idx) => (
+          <TodoAssigneeAvatar
+            key={`${todo.id}-${slot.type === "publisher" ? slot.id : `guest-${slot.name}-${idx}`}`}
+            slot={slot}
+            profile={slot.type === "publisher" ? participantsById[slot.id] : undefined}
+            participantsReady={participantsReady}
+            className="h-5 w-5 border border-border/70"
+          />
+        ))}
       </div>
     ) : null;
   const content = (

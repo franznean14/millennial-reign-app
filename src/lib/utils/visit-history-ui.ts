@@ -80,6 +80,49 @@ export function getInitialsFromName(name: string): string {
   return s.slice(0, 2).toUpperCase() || "?";
 }
 
+export type AssigneeProfileLike = {
+  first_name: string;
+  last_name: string;
+  avatar_url?: string;
+};
+
+/**
+ * Todo/call assignee avatar fallback — never derive initials from placeholders like "Assigned"
+ * (which incorrectly renders as "AS").
+ */
+export function getAssigneeAvatarInitials(options: {
+  isPublisher: boolean;
+  profile?: AssigneeProfileLike | null;
+  guestName?: string | null;
+  participantsReady?: boolean;
+}): { initials: string; isLoading: boolean; displayName: string } {
+  const { isPublisher, profile, guestName, participantsReady = true } = options;
+
+  if (!isPublisher) {
+    const name = (guestName ?? "").trim();
+    return {
+      initials: getInitialsFromName(name || "?"),
+      isLoading: false,
+      displayName: name || "Guest",
+    };
+  }
+
+  if (profile) {
+    const displayName = `${profile.first_name} ${profile.last_name}`.trim() || "Publisher";
+    return {
+      initials: getInitialsFromName(displayName),
+      isLoading: false,
+      displayName,
+    };
+  }
+
+  if (!participantsReady) {
+    return { initials: "", isLoading: true, displayName: "Publisher" };
+  }
+
+  return { initials: "?", isLoading: false, displayName: "Publisher" };
+}
+
 export function getVisitDisplayName(visit: VisitRecord): string {
   return visit.householder_name || visit.establishment_name || "";
 }

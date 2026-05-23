@@ -34,7 +34,7 @@ import {
   type HouseholderWithDetails,
   type MyOpenCallTodoItem,
 } from "@/lib/db/business";
-import { getInitialsFromName } from "@/lib/utils/visit-history-ui";
+import { getAssigneeAvatarInitials, getInitialsFromName } from "@/lib/utils/visit-history-ui";
 import { getBestStatus, getStatusTitleColor } from "@/lib/utils/status-hierarchy";
 import { formatStatusText } from "@/lib/utils/formatters";
 import { VisitStatusBadge } from "@/components/visit/VisitStatusBadge";
@@ -3314,11 +3314,19 @@ export function BulkTodoForm({
                         <div className="inline-flex items-center gap-1 shrink-0">
                           {assigneeIds.map((id) => {
                             const profile = participantsById.get(id);
-                            const fullName = profile ? `${profile.first_name} ${profile.last_name}`.trim() : "Assigned";
+                            const { initials, isLoading, displayName } = getAssigneeAvatarInitials({
+                              isPublisher: true,
+                              profile: profile ?? null,
+                              participantsReady: participants.length > 0,
+                            });
                             return (
                               <Avatar key={`${pendingTodo.id}-${id}`} className="h-5 w-5 border border-border/70">
-                                {profile?.avatar_url ? <AvatarImage src={profile.avatar_url} alt={fullName} /> : null}
-                                <AvatarFallback className="text-[10px]">{getInitialsFromName(fullName || "A")}</AvatarFallback>
+                                {profile?.avatar_url ? <AvatarImage src={profile.avatar_url} alt={displayName} /> : null}
+                                <AvatarFallback
+                                  className={cn("text-[10px]", isLoading && "animate-pulse bg-muted/60 text-transparent")}
+                                >
+                                  {isLoading ? "\u00a0" : initials}
+                                </AvatarFallback>
                               </Avatar>
                             );
                           })}
