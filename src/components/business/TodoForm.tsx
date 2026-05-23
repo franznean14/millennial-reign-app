@@ -36,7 +36,7 @@ type PublisherSlot = { type: "publisher"; id: string } | { type: "guest"; name: 
 const PARTICIPANTS_CACHE_KEY = "business:participants:local:v1";
 const GUEST_NAMES_CACHE_KEY = "business:guest-names:local:v1";
 
-/** Quick-fill buttons for common establishment to-dos; tablet uses a 3-column layout. */
+/** Quick-fill buttons for new establishment to-dos (not shown on contact/householder forms). */
 const NEW_TODO_BODY_PRESETS = [
   { label: "Replenish", body: "Replenish" },
   { label: "Follow Up", body: "Follow up" },
@@ -627,11 +627,11 @@ export function TodoForm({
 
       <div className="grid gap-1">
         <Label className={sidebarFormClasses.label}>To-do</Label>
-        {!initialTodo?.id ? (
+        {!initialTodo?.id && !householderId ? (
           <div
-            className="mb-2 grid grid-cols-1 gap-2 md:grid-cols-3"
+            className="mb-2 grid grid-cols-3 gap-2"
             role="group"
-            aria-label="Common to-do presets"
+            aria-label="Common establishment to-do presets"
           >
             {NEW_TODO_BODY_PRESETS.map((preset) => (
               <Button
@@ -639,7 +639,7 @@ export function TodoForm({
                 type="button"
                 variant="outline"
                 className={cn(
-                  "h-auto min-h-10 w-full justify-center px-2 py-2.5 text-center text-sm font-medium leading-tight",
+                  "h-auto min-h-10 w-full justify-center px-1.5 py-2 text-center text-xs font-medium leading-tight sm:px-2 sm:text-sm",
                   sidebarFormClasses.button,
                   body.trim() === preset.body ? "ring-1 ring-[#80778e]/80 dark:ring-[#80778e]/90" : ""
                 )}

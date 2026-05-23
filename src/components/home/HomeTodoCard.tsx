@@ -32,6 +32,16 @@ import {
 } from "@/lib/db/business";
 import { getProfile } from "@/lib/db/profiles";
 import { cacheGet, cacheSet, cacheDelete } from "@/lib/offline/store";
+import {
+  establishmentDetailsCacheKey,
+  householderDetailsCacheKey,
+  resolveEstablishmentDetailsSnapshot,
+  resolveHouseholderDetailsSnapshot,
+  warmEstablishmentDetailsInMemory,
+  warmHouseholderDetailsInMemory,
+  type EstablishmentDetailsSnapshot,
+  type HouseholderDetailsSnapshot,
+} from "@/lib/db/entity-details-cache";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { FilterControls, type FilterBadge } from "@/components/shared/FilterControls";
 import {
@@ -104,17 +114,6 @@ function participantsToById(
   });
   return nextMap;
 }
-type EstablishmentDetailsSnapshot = {
-  establishment: EstablishmentWithDetails;
-  visits: VisitWithUser[];
-  householders: HouseholderWithDetails[];
-};
-
-type HouseholderDetailsSnapshot = {
-  householder: HouseholderWithDetails;
-  visits: VisitWithUser[];
-  establishment?: { id: string; name: string; area?: string | null; statuses?: string[] | null } | null;
-};
 
 type TodoEditorItem = MyOpenCallTodoItem & {
   call_note?: string | null;
@@ -866,13 +865,12 @@ export function HomeTodoCard({
 
   useEffect(() => {
     if (!todoDetailsDrawerOpen) return;
-    const householderId = selectedTodoForDetails?.householder_id;
-    if (householderId) {
-      const cachedHouseholder = householderDetailsCacheRef.current.get(householderId);
-      if (cachedHouseholder) {
-        setSelectedHouseholderDetails(cachedHouseholder);
-      } else {
-        setSelectedHouseholderDetails({
+    let cancelled = false;
+
+    void (async () => {
+      const householderId = selectedTodoForDetails?.householder_id;
+      if (householderId) {
+        const fallbackStub: HouseholderDetailsSnapshot = {
           householder: {
             id: householderId,
             name: selectedTodoForDetails?.context_name ?? "Contact",
@@ -893,14 +891,21 @@ export function HomeTodoCard({
                 area: selectedTodoForDetails.context_area ?? null,
               }
             : null,
-        });
-      }
-      setSelectedTodoDetails(null);
+        };
 
-      let cancelled = false;
-      setIsLoadingTodoDetails(!cachedHouseholder);
-      getHouseholderDetails(householderId)
-        .then((result) => {
+        const { snapshot, hadWarmCache } = await resolveHouseholderDetailsSnapshot(
+          householderId,
+          householderDetailsCacheRef.current,
+          fallbackStub
+        );
+        if (cancelled) return;
+
+        setSelectedHouseholderDetails(snapshot);
+        setSelectedTodoDetails(null);
+        setIsLoadingTodoDetails(!hadWarmCache);
+
+        try {
+          const result = await getHouseholderDetails(householderId);
           if (cancelled) return;
           const nextSnapshot = result
             ? {
@@ -912,27 +917,19 @@ export function HomeTodoCard({
           if (nextSnapshot) {
             householderDetailsCacheRef.current.set(householderId, nextSnapshot);
             setSelectedHouseholderDetails(nextSnapshot);
-          } else if (!cachedHouseholder) {
+          } else if (!hadWarmCache) {
             setSelectedHouseholderDetails(null);
           }
-        })
-        .finally(() => {
+        } finally {
           if (!cancelled) setIsLoadingTodoDetails(false);
-        });
+        }
+        return;
+      }
 
-      return () => {
-        cancelled = true;
-      };
-    }
+      const establishmentId = selectedTodoForDetails?.establishment_id;
+      if (!establishmentId) return;
 
-    const establishmentId = selectedTodoForDetails?.establishment_id;
-    if (!establishmentId) return;
-
-    const cached = establishmentDetailsCacheRef.current.get(establishmentId);
-    if (cached) {
-      setSelectedTodoDetails(cached);
-    } else {
-      setSelectedTodoDetails({
+      const fallbackStub: EstablishmentDetailsSnapshot = {
         establishment: {
           id: establishmentId,
           name: selectedTodoForDetails?.context_name ?? "Establishment",
@@ -950,14 +947,21 @@ export function HomeTodoCard({
         },
         visits: [],
         householders: [],
-      });
-    }
-    setSelectedHouseholderDetails(null);
+      };
 
-    let cancelled = false;
-    setIsLoadingTodoDetails(!cached);
-    getEstablishmentDetails(establishmentId)
-      .then((result) => {
+      const { snapshot, hadWarmCache } = await resolveEstablishmentDetailsSnapshot(
+        establishmentId,
+        establishmentDetailsCacheRef.current,
+        fallbackStub
+      );
+      if (cancelled) return;
+
+      setSelectedTodoDetails(snapshot);
+      setSelectedHouseholderDetails(null);
+      setIsLoadingTodoDetails(!hadWarmCache);
+
+      try {
+        const result = await getEstablishmentDetails(establishmentId);
         if (cancelled) return;
         const nextSnapshot = result
           ? {
@@ -969,29 +973,28 @@ export function HomeTodoCard({
         if (nextSnapshot) {
           establishmentDetailsCacheRef.current.set(establishmentId, nextSnapshot);
           setSelectedTodoDetails(nextSnapshot);
-        } else if (!cached) {
+        } else if (!hadWarmCache) {
           setSelectedTodoDetails(null);
         }
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setIsLoadingTodoDetails(false);
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;
     };
-  }, [todoDetailsDrawerOpen, selectedTodoForDetails?.establishment_id, selectedTodoForDetails?.householder_id]);
+  }, [todoDetailsDrawerOpen, selectedTodoForDetails?.establishment_id, selectedTodoForDetails?.householder_id, selectedTodoForDetails?.context_name, selectedTodoForDetails?.context_status, selectedTodoForDetails?.context_area, selectedTodoForDetails?.context_establishment_status, selectedTodoForDetails?.context_establishment_name]);
 
   useEffect(() => {
     if (!contactDetailsSubdrawerOpen) return;
     const householderId = selectedContactFromEstablishment?.id;
     if (!householderId) return;
 
-    const cached = householderDetailsCacheRef.current.get(householderId);
-    if (cached) {
-      setContactSubdrawerDetails(cached);
-    } else {
-      setContactSubdrawerDetails({
+    let cancelled = false;
+
+    void (async () => {
+      const fallbackStub: HouseholderDetailsSnapshot = {
         householder: selectedContactFromEstablishment,
         visits: [],
         establishment: selectedContactFromEstablishment.establishment_id
@@ -1001,13 +1004,20 @@ export function HomeTodoCard({
               area: null,
             }
           : null,
-      });
-    }
+      };
 
-    let cancelled = false;
-    setIsLoadingContactSubdrawerDetails(!cached);
-    getHouseholderDetails(householderId)
-      .then((result) => {
+      const { snapshot, hadWarmCache } = await resolveHouseholderDetailsSnapshot(
+        householderId,
+        householderDetailsCacheRef.current,
+        fallbackStub
+      );
+      if (cancelled) return;
+
+      setContactSubdrawerDetails(snapshot);
+      setIsLoadingContactSubdrawerDetails(!hadWarmCache);
+
+      try {
+        const result = await getHouseholderDetails(householderId);
         if (cancelled || !result) return;
         const nextSnapshot: HouseholderDetailsSnapshot = {
           householder: result.householder,
@@ -1016,15 +1026,15 @@ export function HomeTodoCard({
         };
         householderDetailsCacheRef.current.set(householderId, nextSnapshot);
         setContactSubdrawerDetails(nextSnapshot);
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setIsLoadingContactSubdrawerDetails(false);
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;
     };
-  }, [contactDetailsSubdrawerOpen, selectedContactFromEstablishment?.id]);
+  }, [contactDetailsSubdrawerOpen, selectedContactFromEstablishment]);
 
   useEffect(() => {
     if (!scopeKey || !hasLoadedRef.current) return;
@@ -1508,34 +1518,12 @@ export function HomeTodoCard({
     ).slice(0, 10);
     if (establishmentIds.length === 0 && householderIds.length === 0) return;
 
-    let cancelled = false;
     Promise.all([
-      ...establishmentIds.map(async (id) => {
-        if (establishmentDetailsCacheRef.current.has(id)) return;
-        const result = await getEstablishmentDetails(id);
-        if (!result || cancelled) return;
-        establishmentDetailsCacheRef.current.set(id, {
-          establishment: result.establishment,
-          visits: result.visits,
-          householders: result.householders,
-        });
-      }),
-      ...householderIds.map(async (id) => {
-        if (householderDetailsCacheRef.current.has(id)) return;
-        const result = await getHouseholderDetails(id);
-        if (!result || cancelled) return;
-        householderDetailsCacheRef.current.set(id, {
-          householder: result.householder,
-          visits: result.visits,
-          establishment: result.establishment,
-        });
-      }),
+      ...establishmentIds.map((id) => warmEstablishmentDetailsInMemory(id, establishmentDetailsCacheRef.current)),
+      ...householderIds.map((id) => warmHouseholderDetailsInMemory(id, householderDetailsCacheRef.current)),
     ]).catch(() => {
       // no-op; background prefetch only
     });
-    return () => {
-      cancelled = true;
-    };
   }, [
     drawerOpen,
     isMobile,
@@ -1576,26 +1564,8 @@ export function HomeTodoCard({
     });
 
     Promise.all([
-      ...establishmentIds.map(async (id) => {
-        if (establishmentDetailsCacheRef.current.has(id)) return;
-        const result = await getEstablishmentDetails(id);
-        if (!result) return;
-        establishmentDetailsCacheRef.current.set(id, {
-          establishment: result.establishment,
-          visits: result.visits,
-          householders: result.householders,
-        });
-      }),
-      ...householderIds.map(async (id) => {
-        if (householderDetailsCacheRef.current.has(id)) return;
-        const result = await getHouseholderDetails(id);
-        if (!result) return;
-        householderDetailsCacheRef.current.set(id, {
-          householder: result.householder,
-          visits: result.visits,
-          establishment: result.establishment,
-        });
-      }),
+      ...establishmentIds.map((id) => warmEstablishmentDetailsInMemory(id, establishmentDetailsCacheRef.current)),
+      ...householderIds.map((id) => warmHouseholderDetailsInMemory(id, householderDetailsCacheRef.current)),
     ]).catch(() => {
       // prewarm only
     });
@@ -2012,15 +1982,9 @@ export function HomeTodoCard({
     if (selectedDetailHouseholders.length === 0) return;
 
     Promise.all(
-      selectedDetailHouseholders.slice(0, 20).map(async (householder) => {
-        if (!householder.id || householderDetailsCacheRef.current.has(householder.id)) return;
-        const result = await getHouseholderDetails(householder.id);
-        if (!result) return;
-        householderDetailsCacheRef.current.set(householder.id, {
-          householder: result.householder,
-          visits: result.visits,
-          establishment: result.establishment,
-        });
+      selectedDetailHouseholders.slice(0, 20).map((householder) => {
+        if (!householder.id) return Promise.resolve();
+        return warmHouseholderDetailsInMemory(householder.id, householderDetailsCacheRef.current);
       })
     ).catch(() => {
       // prewarm only
@@ -2074,7 +2038,7 @@ export function HomeTodoCard({
     const hhTarget = selectedTodoForDetails?.householder_id;
     const estTarget = selectedTodoForDetails?.establishment_id;
     if (hhTarget) {
-      await cacheDelete(`householder:details:v3:${hhTarget}`);
+      await cacheDelete(householderDetailsCacheKey(hhTarget));
       const result = await getHouseholderDetails(hhTarget);
       if (result) {
         const snap: HouseholderDetailsSnapshot = {
@@ -2086,7 +2050,7 @@ export function HomeTodoCard({
         setSelectedHouseholderDetails(snap);
       }
     } else if (estTarget) {
-      await cacheDelete(`establishment:details:${estTarget}`);
+      await cacheDelete(establishmentDetailsCacheKey(estTarget));
       const result = await getEstablishmentDetails(estTarget);
       if (result) {
         const snap: EstablishmentDetailsSnapshot = {
@@ -2104,7 +2068,7 @@ export function HomeTodoCard({
   const refreshAfterContactSubdrawerEdit = useCallback(async () => {
     const hhId = contactSubdrawerHouseholder?.id;
     if (hhId) {
-      await cacheDelete(`householder:details:v3:${hhId}`);
+      await cacheDelete(householderDetailsCacheKey(hhId));
       const result = await getHouseholderDetails(hhId);
       if (result) {
         const snap: HouseholderDetailsSnapshot = {

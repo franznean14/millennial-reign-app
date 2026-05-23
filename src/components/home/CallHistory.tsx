@@ -33,6 +33,12 @@ import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
 import { getSelectedStatusColor } from "@/lib/utils/status-filter-styles";
 import NumberFlow from "@number-flow/react";
 import { cacheGet, cacheSet, cacheDelete } from "@/lib/offline/store";
+import {
+  establishmentDetailsCacheKey,
+  householderDetailsCacheKey,
+  resolveEstablishmentDetailsSnapshot,
+  resolveHouseholderDetailsSnapshot,
+} from "@/lib/db/entity-details-cache";
 import { getSharedEstablishmentsAndHouseholders } from "@/lib/business/bwi-lists-coordinator";
 import { businessEventBus, type BusinessEventType } from "@/lib/events/business-events";
 import {
@@ -701,7 +707,7 @@ export function CallHistory({
     selectedCallsEstablishmentDetails?.establishment?.name,
   ]);
 
-  function openCallsDetailsDrawer(
+  async function openCallsDetailsDrawer(
     target:
       | {
           kind: "visit";
@@ -718,117 +724,129 @@ export function CallHistory({
       target.kind === "visit" ? target.visit.establishment_id : target.todo.establishment_id;
 
     if (householderId) {
-      const cached = callsHouseholderCacheRef.current.get(householderId);
-      if (cached) {
-        setSelectedCallsHouseholderDetails(cached);
-      } else {
-        const fallbackName =
-          target.kind === "visit"
-            ? target.visit.householder_name ?? "Contact"
-            : target.todo.context_name ?? "Contact";
-        const fallbackStatus =
-          target.kind === "visit"
-            ? (target.visit.householder_status as HouseholderWithDetails["status"] | undefined) ?? "potential"
-            : (target.todo.context_status as HouseholderWithDetails["status"] | undefined) ?? "potential";
-        const fallbackEstablishmentName =
-          target.kind === "visit"
-            ? target.visit.establishment_name ?? null
-            : target.todo.context_establishment_name ?? null;
-        const fallbackEstablishmentStatus =
-          target.kind === "visit"
-            ? target.visit.establishment_status ?? null
-            : target.todo.context_establishment_status ?? null;
-        setSelectedCallsHouseholderDetails({
-          householder: {
-            id: householderId,
-            name: fallbackName,
-            status: fallbackStatus,
-            note: null,
-            establishment_id: establishmentId ?? null,
-            establishment_name: fallbackEstablishmentName,
-            publisher_id: null,
-            lat: null,
-            lng: null,
-          },
-          visits: [],
-          establishment: establishmentId
-            ? {
-                id: establishmentId,
-                name: fallbackEstablishmentName ?? "",
-                area: null,
-                statuses: fallbackEstablishmentStatus ? [fallbackEstablishmentStatus] : null,
-              }
-            : null,
-        });
-      }
+      const fallbackName =
+        target.kind === "visit"
+          ? target.visit.householder_name ?? "Contact"
+          : target.todo.context_name ?? "Contact";
+      const fallbackStatus =
+        target.kind === "visit"
+          ? (target.visit.householder_status as HouseholderWithDetails["status"] | undefined) ?? "potential"
+          : (target.todo.context_status as HouseholderWithDetails["status"] | undefined) ?? "potential";
+      const fallbackEstablishmentName =
+        target.kind === "visit"
+          ? target.visit.establishment_name ?? null
+          : target.todo.context_establishment_name ?? null;
+      const fallbackEstablishmentStatus =
+        target.kind === "visit"
+          ? target.visit.establishment_status ?? null
+          : target.todo.context_establishment_status ?? null;
+
+      const fallbackStub: CallsHouseholderSnapshot = {
+        householder: {
+          id: householderId,
+          name: fallbackName,
+          status: fallbackStatus,
+          note: null,
+          establishment_id: establishmentId ?? null,
+          establishment_name: fallbackEstablishmentName,
+          publisher_id: null,
+          lat: null,
+          lng: null,
+        },
+        visits: [],
+        establishment: establishmentId
+          ? {
+              id: establishmentId,
+              name: fallbackEstablishmentName ?? "",
+              area: null,
+              statuses: fallbackEstablishmentStatus ? [fallbackEstablishmentStatus] : null,
+            }
+          : null,
+      };
+
+      const { snapshot, hadWarmCache } = await resolveHouseholderDetailsSnapshot(
+        householderId,
+        callsHouseholderCacheRef.current,
+        fallbackStub
+      );
+
+      setSelectedCallsHouseholderDetails(snapshot);
       setSelectedCallsEstablishmentDetails(null);
       setCallsDetailsDrawerOpen(true);
-      setIsLoadingCallsDetails(!cached);
-      getHouseholderDetails(householderId)
-        .then((details) => {
-          if (!details) return;
-          const nextSnapshot: CallsHouseholderSnapshot = {
-            householder: details.householder,
-            visits: details.visits,
-            establishment: details.establishment,
-          };
-          callsHouseholderCacheRef.current.set(householderId, nextSnapshot);
-          setSelectedCallsHouseholderDetails(nextSnapshot);
-        })
-        .finally(() => setIsLoadingCallsDetails(false));
+      setIsLoadingCallsDetails(!hadWarmCache);
+
+      try {
+        const details = await getHouseholderDetails(householderId);
+        if (!details) return;
+        const nextSnapshot: CallsHouseholderSnapshot = {
+          householder: details.householder,
+          visits: details.visits,
+          establishment: details.establishment,
+        };
+        callsHouseholderCacheRef.current.set(householderId, nextSnapshot);
+        setSelectedCallsHouseholderDetails(nextSnapshot);
+      } finally {
+        setIsLoadingCallsDetails(false);
+      }
       return;
     }
 
     if (establishmentId) {
-      const cached = callsEstablishmentCacheRef.current.get(establishmentId);
-      if (cached) {
-        setSelectedCallsEstablishmentDetails(cached);
-      } else {
-        const fallbackName =
-          target.kind === "visit"
-            ? target.visit.establishment_name ?? "Establishment"
-            : target.todo.context_name ?? "Establishment";
-        const fallbackStatus =
-          target.kind === "visit"
-            ? target.visit.establishment_status ?? "for_scouting"
-            : target.todo.context_establishment_status ||
-              target.todo.context_status ||
-              "for_scouting";
-        const fallbackArea =
-          target.kind === "visit"
-            ? target.visit.establishment_area ?? null
-            : target.todo.context_area ?? null;
-        setSelectedCallsEstablishmentDetails({
-          establishment: {
-            id: establishmentId,
-            name: fallbackName,
-            area: fallbackArea,
-            description: null,
-            floor: null,
-            note: null,
-            statuses: [fallbackStatus],
-            lat: null,
-            lng: null,
-          },
-          visits: [],
-          householders: [],
-        });
-      }
+      const fallbackName =
+        target.kind === "visit"
+          ? target.visit.establishment_name ?? "Establishment"
+          : target.todo.context_name ?? "Establishment";
+      const fallbackStatus =
+        target.kind === "visit"
+          ? target.visit.establishment_status ?? "for_scouting"
+          : target.todo.context_establishment_status ||
+            target.todo.context_status ||
+            "for_scouting";
+      const fallbackArea =
+        target.kind === "visit"
+          ? target.visit.establishment_area ?? null
+          : target.todo.context_area ?? null;
+
+      const fallbackStub: CallsEstablishmentSnapshot = {
+        establishment: {
+          id: establishmentId,
+          name: fallbackName,
+          area: fallbackArea,
+          description: null,
+          floor: null,
+          note: null,
+          statuses: [fallbackStatus],
+          lat: null,
+          lng: null,
+        },
+        visits: [],
+        householders: [],
+      };
+
+      const { snapshot, hadWarmCache } = await resolveEstablishmentDetailsSnapshot(
+        establishmentId,
+        callsEstablishmentCacheRef.current,
+        fallbackStub
+      );
+
+      setSelectedCallsEstablishmentDetails(snapshot);
       setSelectedCallsHouseholderDetails(null);
       setCallsDetailsDrawerOpen(true);
-      setIsLoadingCallsDetails(!cached);
-      getEstablishmentDetails(establishmentId)
-        .then((details) => {
-          if (!details) return;
-          const nextSnapshot: CallsEstablishmentSnapshot = {
-            establishment: details.establishment,
-            visits: details.visits,
-            householders: details.householders,
-          };
-          callsEstablishmentCacheRef.current.set(establishmentId, nextSnapshot);
-          setSelectedCallsEstablishmentDetails(nextSnapshot);
-        })
-        .finally(() => setIsLoadingCallsDetails(false));
+      setIsLoadingCallsDetails(!hadWarmCache);
+
+      try {
+        const details = await getEstablishmentDetails(establishmentId);
+        if (!details) return;
+        const nextSnapshot: CallsEstablishmentSnapshot = {
+          establishment: details.establishment,
+          visits: details.visits,
+          householders: details.householders,
+        };
+        callsEstablishmentCacheRef.current.set(establishmentId, nextSnapshot);
+        setSelectedCallsEstablishmentDetails(nextSnapshot);
+      } finally {
+        setIsLoadingCallsDetails(false);
+      }
       return;
     }
 
@@ -837,53 +855,58 @@ export function CallHistory({
     }
   }
 
-  function openCallsContactSubdrawer(householder: HouseholderWithDetails) {
+  async function openCallsContactSubdrawer(householder: HouseholderWithDetails) {
     const householderId = householder.id;
     if (!householderId) return;
-    const cached = callsHouseholderCacheRef.current.get(householderId);
 
-    if (cached) {
-      setSelectedCallsContactDetails(cached);
-    } else {
-      const establishment =
-        selectedCallsEstablishmentDetails?.establishment &&
-        selectedCallsEstablishmentDetails.establishment.id === householder.establishment_id
-          ? selectedCallsEstablishmentDetails.establishment
-          : null;
-      const fallbackEstablishmentName =
-        establishment?.name ?? householder.establishment_name ?? null;
-      const fallbackStatuses =
-        establishment?.statuses && establishment.statuses.length > 0
-          ? establishment.statuses
-          : null;
-      setSelectedCallsContactDetails({
-        householder,
-        visits: [],
-        establishment: householder.establishment_id
-          ? {
-              id: householder.establishment_id,
-              name: fallbackEstablishmentName ?? "",
-              area: establishment?.area ?? null,
-              statuses: fallbackStatuses,
-            }
-          : null,
-      });
-    }
+    const establishment =
+      selectedCallsEstablishmentDetails?.establishment &&
+      selectedCallsEstablishmentDetails.establishment.id === householder.establishment_id
+        ? selectedCallsEstablishmentDetails.establishment
+        : null;
+    const fallbackEstablishmentName =
+      establishment?.name ?? householder.establishment_name ?? null;
+    const fallbackStatuses =
+      establishment?.statuses && establishment.statuses.length > 0
+        ? establishment.statuses
+        : null;
 
+    const fallbackStub: CallsHouseholderSnapshot = {
+      householder,
+      visits: [],
+      establishment: householder.establishment_id
+        ? {
+            id: householder.establishment_id,
+            name: fallbackEstablishmentName ?? "",
+            area: establishment?.area ?? null,
+            statuses: fallbackStatuses,
+          }
+        : null,
+    };
+
+    const { snapshot, hadWarmCache } = await resolveHouseholderDetailsSnapshot(
+      householderId,
+      callsHouseholderCacheRef.current,
+      fallbackStub
+    );
+
+    setSelectedCallsContactDetails(snapshot);
     setCallsContactSubdrawerOpen(true);
-    setIsLoadingCallsContactDetails(!cached);
-    getHouseholderDetails(householderId)
-      .then((details) => {
-        if (!details) return;
-        const nextSnapshot: CallsHouseholderSnapshot = {
-          householder: details.householder,
-          visits: details.visits,
-          establishment: details.establishment,
-        };
-        callsHouseholderCacheRef.current.set(householderId, nextSnapshot);
-        setSelectedCallsContactDetails(nextSnapshot);
-      })
-      .finally(() => setIsLoadingCallsContactDetails(false));
+    setIsLoadingCallsContactDetails(!hadWarmCache);
+
+    try {
+      const details = await getHouseholderDetails(householderId);
+      if (!details) return;
+      const nextSnapshot: CallsHouseholderSnapshot = {
+        householder: details.householder,
+        visits: details.visits,
+        establishment: details.establishment,
+      };
+      callsHouseholderCacheRef.current.set(householderId, nextSnapshot);
+      setSelectedCallsContactDetails(nextSnapshot);
+    } finally {
+      setIsLoadingCallsContactDetails(false);
+    }
   }
 
   const closeCallsContactSubdrawer = useCallback(() => {
@@ -917,7 +940,7 @@ export function CallHistory({
     const hhId = selectedCallsHouseholderDetailsRef.current?.householder.id;
     const estId = selectedCallsEstablishmentDetailsRef.current?.establishment.id;
     if (hhId) {
-      await cacheDelete(`householder:details:v3:${hhId}`);
+      await cacheDelete(householderDetailsCacheKey(hhId));
       const result = await getHouseholderDetails(hhId);
       if (result) {
         const snap: CallsHouseholderSnapshot = {
@@ -929,7 +952,7 @@ export function CallHistory({
         setSelectedCallsHouseholderDetails(snap);
       }
     } else if (estId) {
-      await cacheDelete(`establishment:details:${estId}`);
+      await cacheDelete(establishmentDetailsCacheKey(estId));
       const result = await getEstablishmentDetails(estId);
       if (result) {
         const snap: CallsEstablishmentSnapshot = {
@@ -948,7 +971,7 @@ export function CallHistory({
     const hhId = selectedCallsContactDetailsRef.current?.householder.id;
     const parentEstId = selectedCallsEstablishmentDetailsRef.current?.establishment.id;
     if (hhId) {
-      await cacheDelete(`householder:details:v3:${hhId}`);
+      await cacheDelete(householderDetailsCacheKey(hhId));
       const result = await getHouseholderDetails(hhId);
       if (result) {
         const snap: CallsHouseholderSnapshot = {
@@ -961,7 +984,7 @@ export function CallHistory({
       }
     }
     if (parentEstId) {
-      await cacheDelete(`establishment:details:${parentEstId}`);
+      await cacheDelete(establishmentDetailsCacheKey(parentEstId));
       const estResult = await getEstablishmentDetails(parentEstId);
       if (estResult) {
         const snap: CallsEstablishmentSnapshot = {

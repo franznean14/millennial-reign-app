@@ -31,6 +31,10 @@ import { useAccountState } from "@/lib/hooks/use-account-state";
 import { getMyCongregation, saveCongregation, isAdmin, type Congregation } from "@/lib/db/congregations";
 import { getProfile } from "@/lib/db/profiles";
 import { cacheDelete, cacheGet } from "@/lib/offline/store";
+import {
+  establishmentDetailsCacheKey,
+  householderDetailsCacheKey,
+} from "@/lib/db/entity-details-cache";
 import { archiveEstablishment, deleteEstablishment } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { getSharedEstablishmentsAndHouseholders } from "@/lib/business/bwi-lists-coordinator";
@@ -51,10 +55,6 @@ type HouseholderDetailsSnapshot = {
   visits: VisitWithUser[];
   establishment?: { id: string; name: string; area?: string | null; statuses?: string[] | null } | null;
 };
-
-function householderDetailsCacheKey(householderId: string) {
-  return `householder:details:v3:${householderId}`;
-}
 
 /** Stale-while-revalidate loader shared by BWI and congregation contact detail views. */
 async function loadHouseholderDetailsSwr(
@@ -686,9 +686,9 @@ export function AppClient() {
       const congHhId = congregationSelectedHouseholderIdRef.current;
       // Invalidate detail caches first so detail fetches never see stale cache (list and details both get fresh data)
       await Promise.all([
-        estId ? cacheDelete(`establishment:details:${estId}`) : Promise.resolve(),
-        hhId ? cacheDelete(`householder:details:v3:${hhId}`) : Promise.resolve(),
-        congHhId ? cacheDelete(`householder:details:v3:${congHhId}`) : Promise.resolve(),
+        estId ? cacheDelete(establishmentDetailsCacheKey(estId)) : Promise.resolve(),
+        hhId ? cacheDelete(householderDetailsCacheKey(hhId)) : Promise.resolve(),
+        congHhId ? cacheDelete(householderDetailsCacheKey(congHhId)) : Promise.resolve(),
       ]);
       const [establishmentsData, householdersData] = await getSharedEstablishmentsAndHouseholders();
       setEstablishments(establishmentsData);
@@ -803,7 +803,7 @@ export function AppClient() {
     const handler = () => {
       const estId = selectedEstablishmentIdRef.current;
       if (!estId) return;
-      cacheDelete(`establishment:details:${estId}`).then(() =>
+      cacheDelete(establishmentDetailsCacheKey(estId)).then(() =>
         getEstablishmentDetails(estId).then((d) => {
           if (d) {
             setSelectedEstablishmentDetails(d);
@@ -819,7 +819,7 @@ export function AppClient() {
   }, []);
 
   const loadEstablishmentDetails = useCallback(async (establishmentId: string) => {
-    const cacheKey = `establishment:details:${establishmentId}`;
+    const cacheKey = establishmentDetailsCacheKey(establishmentId);
     const hasInMemory =
       selectedEstablishmentDetailsRef.current?.establishment?.id === establishmentId;
 
