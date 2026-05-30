@@ -436,10 +436,18 @@ body.app-scroll-locked {
     min-height: 0 !important;
     overflow-y: auto !important;
     padding-bottom: max(env(safe-area-inset-bottom, 0px), 12px) !important;
-    scroll-padding-bottom: max(env(safe-area-inset-bottom, 0px), 12px) !important;
+    scroll-padding-top: 12px !important;
+    scroll-padding-bottom: max(env(safe-area-inset-bottom, 0px), 56px) !important;
   }
 
+  /*
+   * Anchor the sheet to the visible viewport (not layout bottom). Without this, fixed
+   * bottom-0 drawers sit below the visual viewport when iOS scrolls the layout for inputs.
+   */
   html.visual-keyboard-open [data-form-modal-drawer][data-vaul-drawer] {
+    top: var(--visual-viewport-offset-top, 0px) !important;
+    bottom: auto !important;
+    margin-top: 0 !important;
     height: auto !important;
     max-height: var(--visual-viewport-height, 100dvh) !important;
   }

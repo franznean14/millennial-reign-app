@@ -107,11 +107,13 @@ When a **bottom drawer contains inputs** (text fields, textarea, search), iOS ca
 
 3. **Scroll end padding** — use **`drawerFormScrollPadClass`** (80px + nav), **`drawerFormScrollPad112Class`** (FAB-heavy lists), or **`drawerFormScrollPadTightClass`** (nested pickers) from **`form-drawer-phone.ts`** on custom scroll regions; class **`drawer-form-scroll`** pairs with keyboard rules in **`globals.css`**.
 
-4. **`html.visual-keyboard-open`** — set in **`use-visual-viewport.ts`** when a software keyboard is detected on phone-like devices. Do not reserve nav padding while the keyboard is open (see **`globals.css`** for **`.form-modal-body`** and **`.drawer-form-scroll`**).
+4. **`html.visual-keyboard-open`** — set in **`use-visual-viewport.ts`** when a software keyboard is detected on phone-like devices. Sets **`--visual-viewport-height`** and **`--visual-viewport-offset-top`** so **`[data-form-modal-drawer]`** anchors to the visible viewport (`top` + `max-height`, not `bottom-0` alone). **`FormModalBody`** uses **`handleFormDrawerFocusCapture`** to scroll upper fields above the accessory bar.
 
-5. **Short / fit-content forms** (e.g. Field Service) — **`drawerFitContent`** on **`FormModal`** or **`fitContent`** on **`FormDrawerContent`**. Adds **`data-drawer-fit-content`** and **`flex-none`** inner when closed; globals expand inner scroll when **`visual-keyboard-open`**.
+5. Do not reserve nav padding while the keyboard is open (see **`globals.css`** for **`.form-modal-body`** and **`.drawer-form-scroll`**).
 
-6. **Focused fields** — on long forms, **`scrollIntoView({ block: "nearest" })`** in **`requestAnimationFrame`** on **`onFocus`** for low fields (Field Service Bible Studies / Note pattern).
+6. **Short / fit-content forms** (e.g. Field Service) — **`drawerFitContent`** on **`FormModal`** or **`fitContent`** on **`FormDrawerContent`**. Adds **`data-drawer-fit-content`** and **`flex-none`** inner when closed; globals expand inner scroll when **`visual-keyboard-open`**.
+
+7. **Focused fields** — **`FormModal`** forms get focus capture via **`form-drawer-focus.ts`**; Field Service also uses **`scrollIntoView`** on specific low fields if needed.
 
 ### Do not
 
@@ -126,3 +128,4 @@ When a **bottom drawer contains inputs** (text fields, textarea, search), iOS ca
 - **`src/components/shared/FormModal.tsx`** — all **`FormModal`** phone drawers
 - **`src/app/globals.css`** — **`max-width: 599px`** **`[data-form-modal-drawer]`** keyboard rules
 - **`src/lib/hooks/use-visual-viewport.ts`** — **`visual-keyboard-open`** class
+- **`src/lib/utils/form-drawer-focus.ts`** — scroll focused fields inside form drawers

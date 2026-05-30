@@ -20,6 +20,7 @@ import {
   getFormDrawerPhoneClassName,
 } from "@/lib/theme/form-drawer-phone";
 import { FormDrawerRoot } from "@/components/shared/FormDrawerPhone";
+import { handleFormDrawerFocusCapture } from "@/lib/utils/form-drawer-focus";
 
 const FORM_MODAL_SHELL_BASE = cn(studyBibleDarkClasses.drawerPanel);
 const FORM_MODAL_DRAWER_HANDLE = studyBibleDarkClasses.drawerHandle;
@@ -45,6 +46,7 @@ function FormModalBody({ children, className }: FormModalBodyProps) {
         "max-xl:pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] xl:pb-6",
         className
       )}
+      onFocusCapture={handleFormDrawerFocusCapture}
     >
       {children}
     </div>
