@@ -44,7 +44,7 @@ export function AccountTabToggle({
 
   return (
     <div className={cn(studyBibleSectionToggle.shellRow, "h-full min-h-0", className)}>
-      <div className="pl-2 flex-shrink-0 flex items-center justify-center h-full">
+      <div className="flex h-full shrink-0 items-center justify-center pl-2">
         <ThemeToggle />
       </div>
       <ToggleGroup
@@ -55,40 +55,43 @@ export function AccountTabToggle({
             onValueChange(newValue as 'profile' | 'account');
           }
         }}
-        className={cn(studyBibleSectionToggle.group, "flex-[3] flex-1 rounded-none")}
+        className={cn(
+          studyBibleSectionToggle.group,
+          "min-h-0 min-w-0 flex-1 !w-auto !min-w-0 rounded-none"
+        )}
       >
         <ToggleGroupItem
           value="profile"
           className={cn(studyBibleSectionToggle.item, studyBibleSectionToggle.itemIcon)}
         >
-          <User className="h-4 w-4 flex-shrink-0" />
-          <span className="text-[10px] font-medium text-center">Profile</span>
+          <User className="h-4 w-4 shrink-0" />
+          <span className="text-[10px] font-medium leading-none text-center">Profile</span>
         </ToggleGroupItem>
         <ToggleGroupItem
           value="account"
           className={cn(studyBibleSectionToggle.item, studyBibleSectionToggle.itemIcon)}
         >
-          <Settings className="h-4 w-4 flex-shrink-0" />
-          <span className="text-[10px] font-medium text-center">Account</span>
+          <Settings className="h-4 w-4 shrink-0" />
+          <span className="text-[10px] font-medium leading-none text-center">Account</span>
         </ToggleGroupItem>
       </ToggleGroup>
-      <div className="pr-3 pl-2 flex-shrink-0 flex items-center justify-center h-full">
+      <div className="flex h-full shrink-0 items-center justify-center pl-1.5 pr-2">
         <Button
           variant="ghost"
           onClick={handleLogout}
           disabled={loading}
           className={cn(
             studyBibleSectionToggle.ghostSideButton,
-            "flex-col gap-1 px-2 text-muted-foreground dark:text-[#ded6e7]"
+            "flex w-auto shrink-0 flex-col items-center justify-center gap-0.5 !px-1 text-muted-foreground dark:text-[#ded6e7]"
           )}
           aria-label={loading ? "Signing out" : "Sign out"}
         >
           {loading ? (
-            <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin" />
+            <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
           ) : (
-            <LogOut className="h-4 w-4 flex-shrink-0" />
+            <LogOut className="h-4 w-4 shrink-0" />
           )}
-          <span className="text-[10px] font-medium text-center">Sign out</span>
+          <span className="text-[10px] font-medium leading-none text-center">Sign out</span>
         </Button>
       </div>
     </div>
