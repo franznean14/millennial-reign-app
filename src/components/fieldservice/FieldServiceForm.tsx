@@ -1212,7 +1212,12 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
                 placeholder="Type a name and press Enter"
                 value={bibleStudiesInputValue}
                 onChange={(e) => setBibleStudiesInputValue(e.target.value)}
-                onFocus={() => setBibleStudiesInputFocused(true)}
+                onFocus={(e) => {
+                  setBibleStudiesInputFocused(true);
+                  requestAnimationFrame(() => {
+                    e.target.scrollIntoView({ block: "nearest", behavior: "smooth" });
+                  });
+                }}
                 onBlur={(e) => {
                   // Check if the blur is going to the dropdown
                   const relatedTarget = e.relatedTarget as HTMLElement;
@@ -1316,12 +1321,17 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
             <span className={studyBibleDarkClasses.fieldServiceLabel}>Note</span>
             <Textarea
               className={cn("min-h-[112px]", studyBibleDarkClasses.fieldServiceInput)}
-              value={note} 
-              onChange={(e) => { 
-                setNote(e.target.value); 
-                setDirty(true); 
-              }} 
-              placeholder="Credits...?" 
+              value={note}
+              onFocus={(e) => {
+                requestAnimationFrame(() => {
+                  e.target.scrollIntoView({ block: "nearest", behavior: "smooth" });
+                });
+              }}
+              onChange={(e) => {
+                setNote(e.target.value);
+                setDirty(true);
+              }}
+              placeholder="Credits...?"
             />
           </div>
         </div>

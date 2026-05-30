@@ -36,6 +36,7 @@ export function useVisualViewport() {
         
         // Never drive --visual-viewport-height on tablets: globals + drawers use it to clamp sheets.
         if (isKeyboardOpen && isPhoneLikeDeviceByScreen()) {
+          document.documentElement.classList.add("visual-keyboard-open");
           // Set CSS custom properties for keyboard open state - only height constraint
           document.documentElement.style.setProperty('--visual-viewport-height', `${newHeight}px`);
           // Don't set width or positioning properties - let keyboard push drawer up naturally
@@ -43,6 +44,7 @@ export function useVisualViewport() {
           // document.documentElement.style.setProperty('--visual-viewport-offset-top', `${newOffsetTop}px`);
           // document.documentElement.style.setProperty('--visual-viewport-offset-left', `${newOffsetLeft}px`);
         } else {
+          document.documentElement.classList.remove("visual-keyboard-open");
           // Reset immediately — delayed removal races iOS PWA keyboard dismiss and leaves
           // `[data-vaul-drawer]` / overlays clamped to a stale height (gray band over bottom nav).
           document.documentElement.style.removeProperty("--visual-viewport-height");
@@ -105,6 +107,8 @@ export function useVisualViewport() {
     });
 
     return () => {
+      document.documentElement.classList.remove("visual-keyboard-open");
+      document.documentElement.style.removeProperty("--visual-viewport-height");
       if (window.visualViewport) {
         window.visualViewport.removeEventListener('resize', updateViewport);
         window.visualViewport.removeEventListener('scroll', updateViewport);

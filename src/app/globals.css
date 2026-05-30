@@ -422,6 +422,28 @@ body.app-scroll-locked {
   [data-vaul-drawer][style*="max-height"] {
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
   }
+
+  /* Software keyboard: nav is covered — do not reserve 80px under form bodies */
+  html.visual-keyboard-open .form-modal-body {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 12px) !important;
+  }
+
+  /*
+   * Field Service fit-content drawer: Vaul repositionInputs off + flex-none when closed.
+   * When keyboard opens, inner scroll fills the clamped sheet (no gray band above keyboard).
+   */
+  html.visual-keyboard-open [data-field-service-drawer] .drawer-content-inner {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    overflow-y: auto !important;
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 12px) !important;
+    scroll-padding-bottom: max(env(safe-area-inset-bottom, 0px), 12px) !important;
+  }
+
+  html.visual-keyboard-open [data-field-service-drawer][data-vaul-drawer] {
+    height: auto !important;
+    max-height: var(--visual-viewport-height, 100dvh) !important;
+  }
 }
 
 /* Ensure bottom navbar stays absolutely fixed on mobile */
