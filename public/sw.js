@@ -38,26 +38,49 @@ self.addEventListener('push', (event) => {
   );
 });
 
-// Handle notification clicks
+// Handle notification clicks — open business + establishment details via query / postMessage
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  
-  const urlToOpen = event.notification.data?.url || '/';
-  
+
+  const data = event.notification.data || {};
+  const establishmentId = data.establishmentId ? String(data.establishmentId) : '';
+  let urlToOpen = data.url || '/business';
+
+  try {
+    const target = new URL(urlToOpen, self.location.origin);
+    if (establishmentId) {
+      target.searchParams.set('establishmentId', establishmentId);
+    }
+    urlToOpen = target.href;
+  } catch {
+    urlToOpen = self.location.origin + (urlToOpen.startsWith('/') ? urlToOpen : '/' + urlToOpen);
+  }
+
   event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true })
-      .then((clientList) => {
-        // Check if there's already a window open
-        for (const client of clientList) {
-          if (client.url === urlToOpen && 'focus' in client) {
-            return client.focus();
-          }
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      const sameOrigin = clientList.filter((client) => {
+        try {
+          return new URL(client.url).origin === self.location.origin;
+        } catch {
+          return false;
         }
-        // Open new window if none found
-        if (clients.openWindow) {
-          return clients.openWindow(urlToOpen);
-        }
-      })
+      });
+
+      if (sameOrigin.length > 0) {
+        const client = sameOrigin[0];
+        return client.focus().then(() => {
+          client.postMessage({
+            type: 'PUSH_NAVIGATE',
+            establishmentId: establishmentId || null,
+            url: urlToOpen,
+          });
+        });
+      }
+
+      if (clients.openWindow) {
+        return clients.openWindow(urlToOpen);
+      }
+    })
   );
 });
 

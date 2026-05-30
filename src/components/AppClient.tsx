@@ -42,6 +42,7 @@ import { formatStatusText } from "@/lib/utils/formatters";
 import { applyDeviceSafeAreaInsets } from "@/lib/utils/device-safe-area";
 import { hasCompletedAppBootSession, markAppBootSessionComplete } from "@/lib/app/boot-session";
 import { deriveNavPermissions, writeCachedNavPermissions } from "@/lib/app/nav-permissions-cache";
+import { useEstablishmentPushDeepLink } from "@/lib/hooks/use-establishment-push-deep-link";
 
 // Lazy-load heavy UI components to reduce initial bundle
 import { HomeSection } from "@/components/sections/HomeSection";
@@ -897,6 +898,23 @@ export function AppClient() {
       setEstablishmentDetailsLoading(false);
     }
   }, [selectedEstablishment]);
+
+  const clearBusinessContactSelection = useCallback(() => {
+    setSelectedContact(null);
+    setSelectedContactDetails(null);
+  }, []);
+
+  useEstablishmentPushDeepLink({
+    sessionReady: sessionHydrated && !!userId,
+    userId,
+    currentSection,
+    pushNavigation,
+    onSectionChange,
+    setBusinessTab,
+    setSelectedEstablishment,
+    clearSelectedContact: clearBusinessContactSelection,
+    loadEstablishmentDetails,
+  });
 
   useEffect(() => {
     if (!selectedContact) {

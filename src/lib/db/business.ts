@@ -16,6 +16,7 @@ import {
   DELETE_CONTACT_RPC_LEGACY,
   mapContactFkRow,
 } from "@/lib/db/contact-supabase";
+import { notifyEstablishmentRackStatusChange } from "@/lib/push/notify-establishment-rack-status";
 
 // Calculate distance between two coordinates using Haversine formula
 export function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -599,6 +600,13 @@ export async function upsertEstablishment(establishment: {
   
   try {
     if (establishmentData.id) {
+      const { data: existingRow } = await supabase
+        .from('business_establishments')
+        .select('statuses')
+        .eq('id', establishmentData.id)
+        .single();
+      const previousStatuses = (existingRow?.statuses as string[] | undefined) ?? [];
+
       // Update existing establishment
       const { data, error } = await supabase
         .from('business_establishments')
@@ -621,6 +629,12 @@ export async function upsertEstablishment(establishment: {
         console.error('Error updating establishment:', error);
         throw error;
       }
+
+      notifyEstablishmentRackStatusChange({
+        establishmentId: establishmentData.id,
+        previousStatuses,
+        nextStatuses: establishmentData.statuses,
+      });
       
       return data;
     } else {
@@ -658,6 +672,14 @@ export async function upsertEstablishment(establishment: {
       if (error) {
         console.error('Error inserting establishment:', error);
         throw error;
+      }
+
+      if (data?.id) {
+        notifyEstablishmentRackStatusChange({
+          establishmentId: data.id,
+          previousStatuses: [],
+          nextStatuses: establishmentData.statuses,
+        });
       }
       
       return data;
