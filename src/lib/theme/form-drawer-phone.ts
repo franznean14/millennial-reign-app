@@ -6,6 +6,14 @@ import { cn } from "@/lib/utils";
  */
 export const FORM_DRAWER_PHONE_ATTR = { "data-form-modal-drawer": "" } as const;
 
+/** Home To-Do / Calls list drawers: lvh + !important beats DrawerContent inline 100svh (iOS standalone). */
+export const homeListDrawerHeightClass =
+  "!h-[95lvh] !max-h-[95lvh] md:!h-[98lvh] md:!max-h-[98lvh]";
+
+/** Tablet three-column body inside home list drawers. */
+export const homeListDrawerTabletColumnsClass =
+  "md:h-[calc(92lvh-10rem)]";
+
 /** Scroll padding when keyboard closed — cleared via globals when `html.visual-keyboard-open`. */
 export const drawerFormScrollPadClass =
   "drawer-form-scroll pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]";

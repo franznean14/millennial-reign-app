@@ -54,7 +54,7 @@ import {
   DrawerWideRightContent,
 } from "@/components/ui/drawer";
 import { FormDrawerRoot, FormDrawerContent } from "@/components/shared/FormDrawerPhone";
-import { drawerFormScrollPadClass, drawerFormScrollPad112Class } from "@/lib/theme/form-drawer-phone";
+import { drawerFormScrollPadClass, drawerFormScrollPad112Class, homeListDrawerHeightClass } from "@/lib/theme/form-drawer-phone";
 import { EstablishmentForm } from "@/components/business/EstablishmentForm";
 import { ContactForm } from "@/components/business/ContactForm";
 import { EstablishmentDetails } from "@/components/business/EstablishmentDetails";
@@ -1928,7 +1928,8 @@ export function CallHistory({
       >
         <FormDrawerContent
           className={cn(
-            "h-[85svh] max-h-[85svh] md:h-[92dvh] md:max-h-[92dvh] border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
+            homeListDrawerHeightClass,
+            "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
             callsDrawerPanelClass
           )}
           handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"

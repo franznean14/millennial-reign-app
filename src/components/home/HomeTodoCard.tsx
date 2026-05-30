@@ -84,7 +84,7 @@ import { formatStatusText } from "@/lib/utils/formatters";
 import { Badge } from "@/components/ui/badge";
 import { FormModal } from "@/components/shared/FormModal";
 import { FormDrawerRoot, FormDrawerContent } from "@/components/shared/FormDrawerPhone";
-import { drawerFormScrollPadClass } from "@/lib/theme/form-drawer-phone";
+import { drawerFormScrollPadClass, homeListDrawerHeightClass, homeListDrawerTabletColumnsClass } from "@/lib/theme/form-drawer-phone";
 import { useHomeTodoDetailsFabOptional } from "@/components/home/home-todo-details-fab-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getAssigneeAvatarInitials } from "@/lib/utils/visit-history-ui";
@@ -2957,12 +2957,11 @@ export function HomeTodoCard({
     </>
   );
 
-  const renderTodoDrawerBody = () => (
-    <>
-      {userId && !establishmentId && !contactId && (
-        <div className="mb-4 w-full overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-          <div className="w-max min-w-full flex justify-center">
-            <FilterControls
+  const renderTodoDrawerFilters = () =>
+    userId && !establishmentId && !contactId ? (
+      <div className="mb-4 w-full shrink-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        <div className="w-max min-w-full flex justify-center">
+          <FilterControls
             isSearchActive={isSearchActive}
             searchValue={searchValue}
             searchInputRef={searchInputRef}
@@ -3048,10 +3047,12 @@ export function HomeTodoCard({
             }
             maxWidthClassName={isSearchActive ? "" : "mx-4"}
           />
-          </div>
         </div>
-      )}
+      </div>
+    ) : null;
 
+  const renderTodoDrawerListBody = () => (
+    <>
       {filteredOpenTodos.length === 0 && filteredCompletedTodos.length === 0 ? (
         <p className={cn("text-sm py-4", studyBibleDarkClasses.todoMeta)}>{emptyDrawerText}</p>
       ) : (
@@ -3182,7 +3183,7 @@ export function HomeTodoCard({
             className={cn(
               useSingleColumnTodoDrawerBody
                 ? "hidden"
-                : "hidden md:grid md:h-[calc(80dvh-10rem)] md:min-h-[320px] md:grid-cols-3 md:gap-3 md:items-stretch"
+                : cn("hidden md:grid md:min-h-[320px] md:grid-cols-3 md:gap-3 md:items-stretch", homeListDrawerTabletColumnsClass)
             )}
           >
             <div className={cn("flex min-h-0 flex-col", studyBibleDarkClasses.todoDrawerColumnShell)}>
@@ -3821,16 +3822,18 @@ export function HomeTodoCard({
                 {renderTodoHeaderBadges("h-5 rounded-full px-2 text-[11px] leading-none")}
               </DrawerTitle>
             </DrawerHeader>
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
-                {renderTodoDrawerBody()}
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4">
+              {renderTodoDrawerFilters()}
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
+                {renderTodoDrawerListBody()}
               </div>
             </div>
           </DrawerWideLeftContent>
         ) : (
           <FormDrawerContent
             className={cn(
-              "h-[85svh] max-h-[85svh] md:h-[92dvh] md:max-h-[92dvh] border-[#d4c8e4] text-[#1a1820] dark:border-[#1c1921] dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
+              homeListDrawerHeightClass,
+              "border-[#d4c8e4] text-[#1a1820] dark:border-[#1c1921] dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
               todoMainDrawerPanelClass
             )}
             handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
@@ -3843,6 +3846,7 @@ export function HomeTodoCard({
               </DrawerTitle>
             </DrawerHeader>
             <div className="flex min-h-0 flex-1 flex-col px-4">
+              {renderTodoDrawerFilters()}
               <div
                 className={cn(
                   "relative min-h-0 flex-1",
@@ -3851,7 +3855,7 @@ export function HomeTodoCard({
                     : cn("overflow-y-auto overscroll-contain", drawerFormScrollPadClass)
                 )}
               >
-                {renderTodoDrawerBody()}
+                {renderTodoDrawerListBody()}
               </div>
             </div>
           </FormDrawerContent>
