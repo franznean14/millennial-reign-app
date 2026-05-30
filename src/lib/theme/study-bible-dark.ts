@@ -335,6 +335,36 @@ export function getStudyBibleHomeCardTabTrackHex(slot: StudyBibleHomeCardShadeSl
   return studyBibleLightCardShadeHex[trackIndex];
 }
 
+/** Congregation page — spread palette slots so adjacent cards differ in light mode. */
+export const studyBibleCongregationCardShadeSlots = {
+  meetings: 0,
+  members: 2,
+  ministryToday: 4,
+  ministryContacts: 1,
+  ministryAssignments: 3,
+  events: 5,
+} as const;
+
+export type StudyBibleCongregationCardShadeSlot = keyof typeof studyBibleCongregationCardShadeSlots;
+
+export function getStudyBibleCongregationCardShade(slot: StudyBibleCongregationCardShadeSlot) {
+  return getStudyBibleCardShadeByIndex(studyBibleCongregationCardShadeSlots[slot]);
+}
+
+export function getStudyBibleCongregationCardShadeHex(slot: StudyBibleCongregationCardShadeSlot) {
+  return studyBibleLightCardShadeHex[studyBibleCongregationCardShadeSlots[slot]];
+}
+
+export function getStudyBibleCongregationCardDarkShadeHex(slot: StudyBibleCongregationCardShadeSlot) {
+  return studyBibleDarkCardShadeHex[studyBibleCongregationCardShadeSlots[slot]];
+}
+
+export function getStudyBibleCongregationCardTabTrackHex(slot: StudyBibleCongregationCardShadeSlot) {
+  const slotIndex = studyBibleCongregationCardShadeSlots[slot];
+  const trackIndex = (slotIndex + 3) % studyBibleLightCardShadeHex.length;
+  return studyBibleLightCardShadeHex[trackIndex];
+}
+
 export function getStudyBibleDarkCardFade(key: string) {
   const index = getStablePaletteIndex(key, studyBibleLightCardFadeClasses.length);
   return `${studyBibleLightCardFadeClasses[index]} ${studyBibleDarkCardFadeClasses[index]}`;

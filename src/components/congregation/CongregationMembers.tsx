@@ -25,7 +25,15 @@ import {
   CONG_ROLE_BADGE_CLASSES,
   getPrimaryRoleDisplay,
 } from "@/lib/utils/congregation-member-roles";
-import { studyBibleDarkClasses, studyBibleSectionToggle } from "@/lib/theme/study-bible-dark";
+import {
+  getStudyBibleCongregationCardShade,
+  getStudyBibleDarkCardShade,
+  studyBibleDarkClasses,
+  studyBibleSectionToggle,
+} from "@/lib/theme/study-bible-dark";
+
+const membersCardShade = getStudyBibleCongregationCardShade("members");
+const membersDirectoryShade = getStudyBibleDarkCardShade("cong-members-directory:v1");
 
 const GUEST_MEMBERS_TAB = "__cong_guest_members__";
 
@@ -338,18 +346,38 @@ export function CongregationMembers({
 
       <div
         className={cn(
-          "flex w-full flex-col overflow-hidden overscroll-none rounded-xl border border-border dark:border-[#1c1921] bg-card dark:bg-[#181714]",
+          "flex w-full flex-col overflow-hidden overscroll-none rounded-xl border text-[#1a1820] dark:border-[#1c1921] dark:text-[#fffaff]",
+          studyBibleDarkClasses.divider,
+          membersDirectoryShade,
           isMdUp ? "min-h-0 flex-1" : "h-[calc(70vh)]"
         )}
       >
-        <div className="flex-shrink-0 border-b bg-card border-border dark:border-[#1c1921] dark:bg-[#30283c]">
+        <div
+          className={cn(
+            "flex-shrink-0 border-b",
+            studyBibleDarkClasses.divider,
+            studyBibleDarkClasses.cardBarHeader,
+            membersDirectoryShade,
+            "dark:border-[#1c1921] dark:bg-[#30283c]"
+          )}
+        >
           <table className="w-full table-fixed text-sm">
             <thead>
-              <tr className="border-b border-border dark:border-[#1c1921]">
-                <th className="w-[70%] px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-[#ded6e7]">
+              <tr className={cn("border-b", studyBibleDarkClasses.divider)}>
+                <th
+                  className={cn(
+                    "w-[70%] px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide",
+                    studyBibleDarkClasses.muted
+                  )}
+                >
                   Name
                 </th>
-                <th className="w-[30%] px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground dark:text-[#ded6e7]">
+                <th
+                  className={cn(
+                    "w-[30%] px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide",
+                    studyBibleDarkClasses.muted
+                  )}
+                >
                   Role
                 </th>
               </tr>
@@ -358,7 +386,7 @@ export function CongregationMembers({
         </div>
 
         <div
-          className="no-scrollbar flex-1 overflow-y-auto overscroll-none bg-card dark:bg-[#181714]"
+          className={cn("no-scrollbar flex-1 overflow-y-auto overscroll-none", membersDirectoryShade)}
           style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
         >
           <table className="w-full table-fixed text-sm">
@@ -371,7 +399,11 @@ export function CongregationMembers({
                 return (
                   <tr
                     key={member.id}
-                    className="cursor-pointer border-b transition-colors hover:bg-muted/30 dark:border-[#3a3342] dark:hover:bg-[#2a2534]"
+                    className={cn(
+                      "cursor-pointer border-b transition-colors dark:border-[#3a3342] dark:hover:bg-[#2a2534]",
+                      studyBibleDarkClasses.divider,
+                      studyBibleDarkClasses.cardHover
+                    )}
                     onClick={() => {
                       setSelectedUser(member);
                       setUserManagementModalOpen(true);
@@ -443,16 +475,25 @@ export function CongregationMembers({
       <Card
         className={cn(
           "min-w-0 gap-0 overflow-hidden rounded-xl border py-0 shadow-md",
-          studyBibleDarkClasses.bwiCard
+          studyBibleDarkClasses.bwiCard,
+          membersCardShade
         )}
       >
-        <CardHeader className="rounded-t-xl border-b px-4 pt-3 !pb-3 border-border dark:border-[#1c1921] dark:bg-[#2a2534]">
+        <CardHeader
+          className={cn(
+            "rounded-t-xl border-b px-4 pt-3 !pb-3",
+            studyBibleDarkClasses.divider,
+            studyBibleDarkClasses.cardBarHeader,
+            membersCardShade,
+            "dark:border-[#1c1921] dark:bg-[#2a2534]"
+          )}
+        >
           <button
             type="button"
             className="flex w-full items-center justify-between gap-3 rounded-md text-left transition-colors hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#80778e] focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-offset-[#181714]"
             onClick={() => setMembersDrawerOpen(true)}
           >
-            <CardTitle className="flex items-center gap-2 text-base font-bold leading-tight text-foreground dark:text-[#fffaff]">
+            <CardTitle className="flex items-center gap-2 text-base font-bold leading-tight text-[#1a1820] dark:text-[#fffaff]">
               <Users className="h-5 w-5 shrink-0 opacity-90" />
               Congregation Members
             </CardTitle>
@@ -461,15 +502,18 @@ export function CongregationMembers({
         </CardHeader>
         <CardContent className="space-y-2 p-0 pb-6 pt-2">
           {loading ? (
-            <div className="px-4 pb-4 text-sm text-muted-foreground dark:text-[#ded6e7]/80">Loading...</div>
+            <div className={cn("px-4 pb-4 text-sm", studyBibleDarkClasses.muted)}>Loading...</div>
           ) : previewMembers.length === 0 ? (
-            <div className="px-4 pb-6 text-sm text-muted-foreground dark:text-[#ded6e7]/75">No members found.</div>
+            <div className={cn("px-4 pb-6 text-sm", studyBibleDarkClasses.muted)}>No members found.</div>
           ) : (
             <div className="space-y-2 px-4 py-2">
               {previewMembers.map((member) => (
                 <div
                   key={member.id}
-                  className="cursor-pointer rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/50 dark:hover:bg-[#2a2534]/85"
+                  className={cn(
+                    "cursor-pointer rounded-lg px-3 py-2.5 transition-colors dark:hover:bg-[#2a2534]/85",
+                    studyBibleDarkClasses.cardHover
+                  )}
                   role="button"
                   tabIndex={0}
                   onClick={() => setMembersDrawerOpen(true)}
@@ -496,8 +540,20 @@ export function CongregationMembers({
           modal
           shouldScaleBackground={false}
         >
-          <DrawerWideRightContent className="flex flex-col overflow-hidden border-border dark:border-[#1c1921] bg-card dark:bg-[#181714] text-foreground dark:text-[#fffaff] md:max-h-[100lvh]">
-            <DrawerHeader className="shrink-0 px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center bg-card dark:bg-[#181714]">
+          <DrawerWideRightContent
+            className={cn(
+              "flex flex-col overflow-hidden text-[#1a1820] dark:border-[#1c1921] dark:text-[#fffaff] md:max-h-[100lvh]",
+              studyBibleDarkClasses.divider,
+              membersDirectoryShade
+            )}
+          >
+            <DrawerHeader
+              className={cn(
+                "shrink-0 px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center",
+                membersDirectoryShade,
+                "dark:bg-[#181714]"
+              )}
+            >
               <DrawerTitle className="text-center text-lg font-bold">Congregation Members</DrawerTitle>
               <DrawerDescription className="sr-only">
                 Browse and filter congregation members by group or role.
@@ -520,7 +576,10 @@ export function CongregationMembers({
         onOpenChange={setUserManagementModalOpen}
         title="Manage User"
         desktopPresentation="left-sheet"
-        className="border-border dark:border-[#1c1921] bg-card dark:bg-[#181714] md:max-h-[100lvh]"
+        className={cn(
+          "dark:border-[#1c1921] dark:bg-[#181714] md:max-h-[100lvh]",
+          membersDirectoryShade
+        )}
         headerClassName="text-center"
       >
         {selectedUser && (

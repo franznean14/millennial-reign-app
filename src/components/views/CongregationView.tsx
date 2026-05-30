@@ -256,6 +256,7 @@ export function CongregationView({ data, onEdit, canEdit, canManageCongregationU
               onOpenChange={(open) => {
                 if (!open) onClearSelectedHouseholder();
               }}
+              stackAboveParentSheet
               title={ministryContactDetailsTitle}
               bodyClassName="space-y-3"
             >

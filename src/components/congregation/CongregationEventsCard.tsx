@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Calendar, ChevronRight, LayoutList } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -12,10 +12,19 @@ import { EventScheduleListRow } from "@/components/congregation/EventScheduleLis
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import {
+  getStudyBibleCongregationCardDarkShadeHex,
+  getStudyBibleCongregationCardShade,
+  getStudyBibleCongregationCardShadeHex,
+  getStudyBibleCongregationCardTabTrackHex,
   getStudyBibleDarkCardShade,
   studyBibleSectionToggle,
   studyBibleDarkClasses,
 } from "@/lib/theme/study-bible-dark";
+
+const eventsCardShade = getStudyBibleCongregationCardShade("events");
+const eventsCardShadeHex = getStudyBibleCongregationCardShadeHex("events");
+const eventsCardDarkShadeHex = getStudyBibleCongregationCardDarkShadeHex("events");
+const eventsCardTabTrackHex = getStudyBibleCongregationCardTabTrackHex("events");
 import type { EventSchedule } from "@/lib/db/eventSchedules";
 import { getNextOccurrenceOnOrAfter } from "@/lib/utils/recurrence";
 import {
@@ -169,14 +178,34 @@ export function CongregationEventsCard({
   return (
     <section>
       {header}
-      <div className={cn("mt-3 md:mt-0 rounded-lg border overflow-hidden", studyBibleDarkClasses.bwiCard)}>
+      <div
+        className={cn(
+          "mt-3 md:mt-0 rounded-lg border overflow-hidden",
+          studyBibleDarkClasses.bwiCard,
+          eventsCardShade
+        )}
+        style={
+          {
+            "--study-card-shade": eventsCardShadeHex,
+            "--study-card-shade-dark": eventsCardDarkShadeHex,
+            "--study-card-tab-track": eventsCardTabTrackHex,
+          } as CSSProperties
+        }
+      >
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className={cn("grid-cols-2", studyBibleSectionToggle.cardTabList)}>
+          <TabsList
+            className={cn(
+              "grid-cols-2",
+              studyBibleSectionToggle.cardTabList,
+              "!bg-[var(--study-card-tab-track)] dark:!bg-[#2a2534]"
+            )}
+          >
             <TabsTrigger
               value="soon"
               className={cn(
                 studyBibleSectionToggle.cardTabTrigger,
                 studyBibleSectionToggle.cardTabTriggerLeft,
+                studyBibleSectionToggle.cardTabActiveFromShell,
                 "px-3 transition-colors duration-200"
               )}
             >
@@ -192,6 +221,7 @@ export function CongregationEventsCard({
               className={cn(
                 studyBibleSectionToggle.cardTabTrigger,
                 studyBibleSectionToggle.cardTabTriggerRight,
+                studyBibleSectionToggle.cardTabActiveFromShell,
                 "px-3 transition-colors duration-200"
               )}
             >
@@ -205,11 +235,11 @@ export function CongregationEventsCard({
 
           <TabsContent value="soon" className={studyBibleSectionToggle.cardTabContent}>
             {loading ? (
-              <p className="text-sm text-muted-foreground">Loading…</p>
+              <p className={cn("text-sm", studyBibleDarkClasses.muted)}>Loading…</p>
             ) : congregationId === null && noCongregationMessage ? (
-              <p className="text-sm text-muted-foreground text-center py-6">{noCongregationMessage}</p>
+              <p className={cn("text-sm text-center py-6", studyBibleDarkClasses.muted)}>{noCongregationMessage}</p>
             ) : previewRows.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
+              <div className={cn("text-center py-8", studyBibleDarkClasses.muted)}>
                 <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
                 <p>{upcomingEmptyTitle}</p>
                 {upcomingEmptyHint ? <p className="text-sm mt-1">{upcomingEmptyHint}</p> : null}
@@ -233,9 +263,9 @@ export function CongregationEventsCard({
             )}
           >
             {loading ? (
-              <p className="text-sm text-muted-foreground">Loading…</p>
+              <p className={cn("text-sm", studyBibleDarkClasses.muted)}>Loading…</p>
             ) : congregationId === null && noCongregationMessage ? (
-              <p className="text-sm text-muted-foreground text-center py-6">{noCongregationMessage}</p>
+              <p className={cn("text-sm text-center py-6", studyBibleDarkClasses.muted)}>{noCongregationMessage}</p>
             ) : showInlineAllList ? (
               <EventScheduleAllList
                 rows={allRows}

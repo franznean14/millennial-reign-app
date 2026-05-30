@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { CongregationEventsCard } from "@/components/congregation/CongregationEventsCard";
+import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
+import { cn } from "@/lib/utils";
 import { EventScheduleFormSheet } from "@/components/congregation/EventScheduleFormSheet";
 import { listEventSchedules, readCachedEventSchedules, type EventSchedule } from "@/lib/db/eventSchedules";
 
@@ -62,7 +64,9 @@ export function CongregationAdminEventsCard({ congregationId, canEdit }: Congreg
         allEmptyText="No congregation events yet."
         allSheetTitleLabel="Congregation events"
         header={
-          <h2 className="text-lg font-semibold pb-4">Congregation events</h2>
+          <h2 className={cn("pb-4 text-lg font-semibold", studyBibleDarkClasses.sectionLabel)}>
+            Congregation events
+          </h2>
         }
       />
 

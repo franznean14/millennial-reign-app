@@ -14,7 +14,11 @@ interface HomeMobileDetailsDrawerProps {
   children: ReactNode;
   contentClassName?: string;
   bodyClassName?: string;
+  /** Stack above another bottom sheet (e.g. contacts list) without closing it. */
+  stackAboveParentSheet?: boolean;
 }
+
+const STACK_ABOVE_PARENT_Z = 150;
 
 export function HomeMobileDetailsDrawer({
   open,
@@ -23,11 +27,21 @@ export function HomeMobileDetailsDrawer({
   children,
   contentClassName,
   bodyClassName,
+  stackAboveParentSheet = false,
 }: HomeMobileDetailsDrawerProps) {
+  const stackStyle = stackAboveParentSheet ? ({ zIndex: STACK_ABOVE_PARENT_Z } as const) : undefined;
+
   return (
-    <FormDrawerRoot open={open} onOpenChange={onOpenChange}>
+    <FormDrawerRoot open={open} onOpenChange={onOpenChange} nested={stackAboveParentSheet}>
       <FormDrawerContent
-        className={cn(studyBibleDarkClasses.drawerPanel, "max-h-[90vh]", contentClassName)}
+        className={cn(
+          studyBibleDarkClasses.drawerPanel,
+          "max-h-[90vh]",
+          stackAboveParentSheet && "!z-[150]",
+          contentClassName
+        )}
+        overlayClassName={stackAboveParentSheet ? "!z-[150]" : undefined}
+        style={stackStyle}
         handleClassName={studyBibleDarkClasses.drawerHandle}
       >
         <DrawerHeader className="bg-transparent px-4 pb-3 pt-4 text-center">
