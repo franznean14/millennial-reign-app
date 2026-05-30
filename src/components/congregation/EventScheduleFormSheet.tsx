@@ -1,29 +1,14 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMediaQuery } from "@/hooks/use-media-query";
 import { FormModal } from "@/components/shared/FormModal";
-import {
-  Drawer,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerWideLeftContentTop,
-} from "@/components/ui/drawer";
-import { cn } from "@/lib/utils";
+import { getStudyBibleDarkCardShade } from "@/lib/theme/study-bible-dark";
 import type { EventSchedule } from "@/lib/db/eventSchedules";
 
 const EventScheduleForm = dynamic(
   () => import("@/components/congregation/EventScheduleForm").then((m) => m.EventScheduleForm),
   { ssr: false }
 );
-
-/** Match Ministry schedules / congregation drawer surfaces (#181714, #1c1921 borders). */
-const sheetChrome =
-  "flex flex-col overflow-hidden border-border dark:border-[#1c1921] bg-card dark:bg-[#181714] text-foreground dark:text-[#fffaff] md:max-h-[100lvh]";
-
-const sheetHeaderChrome =
-  "shrink-0 border-b border-border px-5 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] border-border dark:border-[#1c1921] bg-card dark:bg-[#181714]";
 
 export interface EventScheduleFormSheetProps {
   open: boolean;
@@ -50,42 +35,12 @@ export function EventScheduleFormSheet({
   onSaved,
   stackAboveDetailsSheet = true,
 }: EventScheduleFormSheetProps) {
-  const isMdUp = useMediaQuery("(min-width: 768px)");
   const isEditing = initialData != null;
   const title = isEditing ? "Edit Event Schedule" : "New Event Schedule";
   const description = isEditing
     ? "Update date, recurrence, location, and other schedule details."
     : "Create a new event schedule.";
-
-  const form = open ? (
-    <EventScheduleForm
-      congregationId={congregationId}
-      initialData={initialData ?? undefined}
-      isEditing={isEditing}
-      onSaved={onSaved}
-    />
-  ) : null;
-
-  if (isMdUp) {
-    return (
-      <Drawer open={open} onOpenChange={onOpenChange} direction="left" modal nested shouldScaleBackground={false}>
-        <DrawerWideLeftContentTop
-          stackAboveStackedRightSheet={stackAboveDetailsSheet}
-          className={sheetChrome}
-        >
-          <DrawerHeader className={cn(sheetHeaderChrome, "text-center sm:text-center")}>
-            <DrawerTitle className="text-center text-lg font-bold tracking-tight">{title}</DrawerTitle>
-            <DrawerDescription className="px-1 pt-1 text-center text-sm leading-snug text-muted-foreground dark:text-[#ded6e7]/80">
-              {description}
-            </DrawerDescription>
-          </DrawerHeader>
-          <div className="schedule-form-sheet-body min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-4 bg-card dark:bg-[#181714]">
-            {form}
-          </div>
-        </DrawerWideLeftContentTop>
-      </Drawer>
-    );
-  }
+  const drawerShade = getStudyBibleDarkCardShade(`cong-event-schedule-form:${congregationId}`);
 
   return (
     <FormModal
@@ -93,11 +48,21 @@ export function EventScheduleFormSheet({
       onOpenChange={onOpenChange}
       title={title}
       description={description}
-      className="border-border dark:border-[#1c1921] bg-card dark:bg-[#181714] text-foreground dark:text-[#fffaff]"
-      headerClassName={cn(sheetHeaderChrome, "text-center sm:text-center")}
-      drawerContentClassName="border-border dark:border-[#1c1921] bg-card dark:bg-[#181714]"
+      desktopPresentation="left-sheet"
+      leftSheetStackAboveNestedRight={stackAboveDetailsSheet}
+      className={drawerShade}
+      drawerContentClassName={drawerShade}
+      headerClassName="text-center sm:text-center"
+      drawerDescriptionClassName="px-1 pt-1 text-center leading-snug"
     >
-      <div className="px-0.5 pt-1">{form}</div>
+      {open ? (
+        <EventScheduleForm
+          congregationId={congregationId}
+          initialData={initialData ?? undefined}
+          isEditing={isEditing}
+          onSaved={onSaved}
+        />
+      ) : null}
     </FormModal>
   );
 }

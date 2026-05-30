@@ -161,6 +161,9 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
     if (eventType === "memorial" && prevEventTypeRef.current !== "memorial") {
       setTitle(MEMORIAL_DEFAULT_TITLE);
     }
+    if (eventType === "circuit_overseer" && prevEventTypeRef.current !== "circuit_overseer") {
+      setTitle("");
+    }
     if (
       eventTypeImpliesKingdomHall(eventType) &&
       prevEventTypeRef.current !== eventType &&
@@ -302,15 +305,19 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
       }
 
       const trimmedTitle = title.trim();
-      if (eventType !== "annual_pioneers_meeting" && !trimmedTitle) {
+      const titleOptional =
+        eventType === "annual_pioneers_meeting" || eventType === "circuit_overseer";
+      if (!titleOptional && !trimmedTitle) {
         toast.error("Title is required");
         setSaving(false);
         return;
       }
       const resolvedTitle =
-        eventType === "annual_pioneers_meeting" && !trimmedTitle
-          ? formatEventTypeLabel("annual_pioneers_meeting")
-          : trimmedTitle;
+        eventType === "circuit_overseer"
+          ? formatEventTypeLabel("circuit_overseer")
+          : eventType === "annual_pioneers_meeting" && !trimmedTitle
+            ? formatEventTypeLabel("annual_pioneers_meeting")
+            : trimmedTitle;
 
       const eventData: EventSchedule = {
         id: initialData?.id,
@@ -532,16 +539,20 @@ export function EventScheduleForm({ congregationId, onSaved, initialData = null,
         </div>
       )}
 
-      <div className="grid gap-1">
-        <Label className={sidebarFormClasses.label}>Title{eventType === "annual_pioneers_meeting" ? " (optional)" : ""}</Label>
-        <Input
-          className={sidebarFormClasses.input}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          required={eventType !== "annual_pioneers_meeting"}
-          placeholder={eventType === "annual_pioneers_meeting" ? "Optional" : undefined}
-        />
-      </div>
+      {eventType !== "circuit_overseer" ? (
+        <div className="grid gap-1">
+          <Label className={sidebarFormClasses.label}>
+            Title{eventType === "annual_pioneers_meeting" ? " (optional)" : ""}
+          </Label>
+          <Input
+            className={sidebarFormClasses.input}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required={eventType !== "annual_pioneers_meeting"}
+            placeholder={eventType === "annual_pioneers_meeting" ? "Optional" : undefined}
+          />
+        </div>
+      ) : null}
 
       <div className="grid gap-1">
         <Label className={sidebarFormClasses.label}>Description</Label>
