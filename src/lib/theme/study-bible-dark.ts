@@ -36,7 +36,25 @@ export const studyBibleDarkClasses = {
   bwiCard:
     "border-[#e2dde8] bg-[#e8e2ef] text-[#1a1820] dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff]",
   todoCard:
-    "border-[#e2dde8] bg-[#ece8f2] text-[#1a1820] dark:border-[#1c1921] dark:bg-[#2a2534] dark:text-[#fffaff]",
+    "border-[#d4c8e4] bg-[#ded6e7] text-[#1a1820] dark:border-[#1c1921] dark:bg-[#2a2534] dark:text-[#fffaff]",
+  /** Individual to-do rows (card preview + drawer lists). */
+  todoRow:
+    "border border-[#d4c8e4] bg-[#f5f2f8] shadow-[0_1px_2px_rgba(93,71,136,0.1)] dark:border-transparent dark:bg-transparent dark:shadow-none",
+  todoRowStripe: "bg-[#ebe4f2] dark:bg-[#30283c]/40",
+  /** In-card section labels (To-Do / Open / Done). */
+  sectionLabel: "text-[#5d4788] dark:text-[#ded6e7]",
+  /** Collapsible drawer section chrome (mobile stacked + tablet columns). */
+  todoDrawerSectionShell:
+    "border border-[#d4c8e4] bg-[#ded6e7] dark:border-[#1c1921] dark:bg-[#30283c]",
+  todoDrawerSectionHeader:
+    "text-sm font-bold text-[#5d4788] hover:text-[#1a1820] transition-colors dark:text-[#ded6e7] dark:hover:text-[#fffaff]",
+  todoDrawerSectionBody:
+    "border-x border-b border-[#d4c8e4] bg-[#f5f2f8] dark:border-[#1c1921] dark:bg-[#2a2534]",
+  todoDrawerColumnShell:
+    "overflow-hidden rounded-lg border border-[#d4c8e4] bg-[#f0ebf5] dark:border-[#1c1921] dark:bg-[#2a2534]",
+  todoDrawerColumnHeader:
+    "shrink-0 border-b border-[#d4c8e4] bg-[#ded6e7] px-3 py-2 text-xs font-bold uppercase tracking-wide text-[#5d4788] dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#ded6e7]",
+  todoMeta: "text-[#6d6880] dark:text-[#ded6e7]",
   callsCard:
     "border-[#e2dde8] bg-[#e0d8e8] text-[#1a1820] dark:border-[#1c1921] dark:bg-[#3b3348] dark:text-[#fffaff]",
   cardHover: "hover:bg-[#ded6e7] dark:hover:bg-[#3b3348]",
@@ -52,7 +70,8 @@ export const studyBibleDarkClasses = {
   divider: "border-[#e2dde8] dark:border-[#1c1921]",
   popoverPanel:
     "border-[#e2dde8] bg-[#e8e2ef] text-[#1a1820] dark:border-[#1c1921] dark:bg-[#342a43] dark:text-[#fffaff]",
-  laneTitleBar: "bg-[#e4deea] dark:bg-[#272133]",
+  laneTitleBar:
+    "border-b border-[#d4c8e4] bg-[#ded6e7] text-[#1a1820] dark:border-[#1c1921] dark:bg-[#272133] dark:text-[#fffaff]",
   sheetEmptyWell: "border-[#e2dde8] bg-[#ece8f2]/90 dark:border-[#1c1921] dark:bg-[#30283c]/40",
   /** Bottom sheets and wide drawers */
   drawerPanel:
@@ -73,7 +92,7 @@ export const studyBibleDarkClasses = {
     "border-[#8e89a3] bg-[#ffffff] dark:border-[#80778e] dark:bg-[#3b3348]",
   /** Solid circular/pill controls in drawer filter toolbars (Calls, To-Do, BWI). */
   filterToolbarButton:
-    "border-[#e2dde8] !bg-[#e4deea] text-[#1a1820] hover:!bg-[#ded6e7] active:!bg-[#d4cbdf] [&>svg]:text-[#1a1820] dark:border-[#1c1921] dark:!bg-[#3b3348] dark:text-[#fffaff] dark:hover:!bg-[#463b55] dark:active:!bg-[#514562] dark:[&>svg]:text-[#fffaff]",
+    "border-[#c8bdd6] !bg-[#ded6e7] !text-[#5d4788] hover:!bg-[#d4c8e4] hover:!text-[#1a1820] active:!bg-[#cbc0db] [&_svg]:!text-[#5d4788] hover:[&_svg]:!text-[#1a1820] dark:border-[#1c1921] dark:!bg-[#3b3348] dark:!text-[#fffaff] dark:hover:!bg-[#463b55] dark:hover:!text-[#fffaff] dark:active:!bg-[#514562] dark:[&_svg]:!text-[#fffaff]",
   filterToolbarButtonActive:
     "border-[#6b5196] !bg-[#6b5196] !text-white hover:!bg-[#5d4788] [&>svg]:!text-white dark:border-[#80778e] dark:!bg-[#80778e] dark:!text-white dark:hover:!bg-[#8c839a] dark:[&>svg]:!text-white",
   drawerHandle:
@@ -122,7 +141,7 @@ export const studyBibleDarkClasses = {
     "border border-[#c8c0d4] !bg-[#e8e2ef] !text-[#1a1820] hover:!bg-[#ded6e7] [&_svg]:!text-[#1a1820] dark:border-[#5a5068] dark:!bg-[#30283c] dark:!text-[#fffaff] dark:hover:!bg-[#3b3348] dark:[&_svg]:!text-[#fffaff]",
   /** Tappable card title bar — same surface as card body (not a contrasting header strip). */
   cardBarHeader:
-    "border-[#e2dde8] bg-[#e8e2ef] text-[#1a1820] dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff]",
+    "border-[#d4c8e4] bg-[#ded6e7] text-[#1a1820] hover:bg-[#d4c8e4] dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff] dark:hover:bg-[#3b3348]",
 } as const;
 
 /** Flush segmented toggles — no inner padding; shell overflow clips square items for smooth corners. */
@@ -260,7 +279,7 @@ export function getStudyBibleLightCardShadeHex(key: string) {
 /** Fixed palette slots — adjacent home cards use spread indices for distinct tints. */
 export const studyBibleHomeCardShadeSlots = {
   hoursSummary: 0,
-  todo: 2,
+  todo: 4,
   bwiCallsTabs: 5,
   bwiSummary: 3,
   calls: 4,

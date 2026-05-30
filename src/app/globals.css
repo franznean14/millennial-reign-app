@@ -131,36 +131,36 @@ body.has-device-safe-top {
 
 :root {
   --radius: 0.625rem;
-  --background: #f5f4f7;
+  --background: #f0ecf5;
   --foreground: #1a1820;
-  --card: #e8e2ef;
+  --card: #e4d8ef;
   --card-foreground: #1a1820;
-  --popover: #e8e2ef;
+  --popover: #e4d8ef;
   --popover-foreground: #1a1820;
   --primary: #6b5196;
   --primary-foreground: #ffffff;
-  --secondary: #e4deea;
+  --secondary: #ddd2ea;
   --secondary-foreground: #1a1820;
-  --muted: #e4deea;
+  --muted: #ddd2ea;
   --muted-foreground: #6d6880;
-  --accent: #e4deea;
+  --accent: #ddd2ea;
   --accent-foreground: #6b5196;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: #e2dde8;
-  --input: #e2dde8;
+  --border: #d4cadf;
+  --input: #d4cadf;
   --ring: #6b5196;
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: #ece8f2;
+  --sidebar: #e8e0f2;
   --sidebar-foreground: #1a1820;
   --sidebar-primary: #6b5196;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #ece8f2;
+  --sidebar-accent: #e8e0f2;
   --sidebar-accent-foreground: #1a1820;
-  --sidebar-border: #e2dde8;
+  --sidebar-border: #d4cadf;
   --sidebar-ring: #6b5196;
 }
 

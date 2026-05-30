@@ -1799,7 +1799,7 @@ export function CallHistory({
               type="button"
               onClick={() => setShowAreaDrawer(true)}
               className={cn(
-                "flex h-10 shrink-0 items-center justify-center gap-2 border-b px-4 text-sm font-medium hover:bg-[#ece8f2] dark:hover:bg-[#3b3348]",
+                "flex h-10 shrink-0 items-center justify-center gap-2 border-b px-4 text-sm font-medium hover:bg-[#d4c8e4] dark:hover:bg-[#3b3348]",
                 studyBibleDarkClasses.cardBarHeader,
                 homeCardShade
               )}
@@ -1818,7 +1818,7 @@ export function CallHistory({
               type="button"
               onClick={() => setShowDrawer(true)}
               className={cn(
-                "flex h-10 shrink-0 items-center gap-2 border-b px-4 text-sm font-medium hover:bg-[#ece8f2] dark:hover:bg-[#3b3348]",
+                "flex h-10 shrink-0 items-center gap-2 border-b px-4 text-sm font-medium hover:bg-[#d4c8e4] dark:hover:bg-[#3b3348]",
                 studyBibleDarkClasses.cardBarHeader,
                 homeCardShade
               )}

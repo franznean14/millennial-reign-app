@@ -190,7 +190,7 @@ export function FilterControls({
     studyBibleDarkClasses.filterToolbarButtonActive
   );
   const searchInputClass =
-    "border-[#e2dde8] !bg-[#ece8f2] text-[#1a1820] placeholder:text-[#8e89a3] dark:border-[#1c1921] dark:!bg-[#3b3348] dark:text-[#fffaff] dark:placeholder:text-[#ded6e7]/70";
+    "border-[#c8bdd6] !bg-[#e8e0f2] text-[#1a1820] placeholder:text-[#8e89a3] dark:border-[#1c1921] dark:!bg-[#3b3348] dark:text-[#fffaff] dark:placeholder:text-[#ded6e7]/70";
 
   const toolbarRowClassName = cn(
     "flex items-center flex-nowrap",

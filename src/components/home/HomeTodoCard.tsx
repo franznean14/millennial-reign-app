@@ -375,15 +375,15 @@ function getTodoAgeBorderClass(
   const daysMs = 24 * 60 * 60 * 1000;
   const daysUntilDeadline = (deadline - todayStart) / daysMs;
   if (softened) {
-    if (daysUntilDeadline < 0) return "bg-red-500/[0.025] dark:bg-red-500/[0.04]";
-    if (daysUntilDeadline < 7) return "bg-orange-500/[0.022] dark:bg-orange-500/[0.036]";
-    if (daysUntilDeadline < 14) return "bg-yellow-500/[0.02] dark:bg-yellow-500/[0.034]";
-    return "bg-green-500/[0.02] dark:bg-green-500/[0.034]";
+    if (daysUntilDeadline < 0) return "bg-red-500/[0.1] dark:bg-red-500/[0.04]";
+    if (daysUntilDeadline < 7) return "bg-orange-500/[0.09] dark:bg-orange-500/[0.036]";
+    if (daysUntilDeadline < 14) return "bg-yellow-500/[0.08] dark:bg-yellow-500/[0.034]";
+    return "bg-green-500/[0.08] dark:bg-green-500/[0.034]";
   }
-  if (daysUntilDeadline < 0) return "bg-red-500/[0.04] dark:bg-red-500/[0.06]";
-  if (daysUntilDeadline < 7) return "bg-orange-500/[0.035] dark:bg-orange-500/[0.055]";
-  if (daysUntilDeadline < 14) return "bg-yellow-500/[0.03] dark:bg-yellow-500/[0.05]";
-  return "bg-green-500/[0.03] dark:bg-green-500/[0.05]";
+  if (daysUntilDeadline < 0) return "bg-red-500/[0.14] dark:bg-red-500/[0.06]";
+  if (daysUntilDeadline < 7) return "bg-orange-500/[0.12] dark:bg-orange-500/[0.055]";
+  if (daysUntilDeadline < 14) return "bg-yellow-500/[0.1] dark:bg-yellow-500/[0.05]";
+  return "bg-green-500/[0.1] dark:bg-green-500/[0.05]";
 }
 
 type TodoAssigneeSlot =
@@ -1972,11 +1972,14 @@ export function HomeTodoCard({
     <div
       className={cn(
         "text-xs font-semibold tracking-wide inline-flex items-center gap-1.5",
-        studyBibleDarkClasses.muted
+        studyBibleDarkClasses.sectionLabel
       )}
     >
       <span>{label}</span>
-      <Badge variant="secondary" className="h-4 rounded-full px-1.5 text-[10px] leading-none font-normal">
+      <Badge
+        variant="secondary"
+        className="h-4 rounded-full border border-[#c8bdd6] bg-[#e8e0f2] px-1.5 text-[10px] font-semibold leading-none text-[#5d4788] dark:border-transparent dark:bg-secondary dark:font-normal dark:text-secondary-foreground"
+      >
         {count}
       </Badge>
     </div>
@@ -3034,16 +3037,16 @@ export function HomeTodoCard({
       )}
 
       {filteredOpenTodos.length === 0 && filteredCompletedTodos.length === 0 ? (
-        <p className={cn("text-sm text-muted-foreground py-4", studyBibleDarkClasses.muted)}>{emptyDrawerText}</p>
+        <p className={cn("text-sm py-4", studyBibleDarkClasses.todoMeta)}>{emptyDrawerText}</p>
       ) : (
         <>
           {/* Phone: stacked collapsible sections (also used for scoped left companion drawer on tablet) */}
           <div className={cn(useSingleColumnTodoDrawerBody ? "block" : "md:hidden")}>
-          <div className="mt-2 overflow-hidden rounded-t-lg border border-border bg-muted/15 border-border dark:border-[#1c1921] dark:bg-[#30283c]">
+          <div className={cn("mt-2 overflow-hidden rounded-t-lg", studyBibleDarkClasses.todoDrawerSectionShell)}>
             <button
               type="button"
               onClick={() => setDrawerTodoExpanded((prev) => !prev)}
-              className={cn("w-full flex items-center justify-between px-3 py-2 text-sm text-muted-foreground font-bold hover:text-foreground transition-colors", studyBibleDarkClasses.muted)}
+              className={cn("w-full flex items-center justify-between px-3 py-2", studyBibleDarkClasses.todoDrawerSectionHeader)}
             >
               <span>To-Do ({filteredAssignedOpenTodos.length})</span>
               {drawerTodoExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
@@ -3051,7 +3054,7 @@ export function HomeTodoCard({
           </div>
           {drawerTodoExpanded && (
             filteredAssignedOpenTodos.length > 0 ? (
-              <ul className="space-y-3 rounded-b-lg border-x border-b border-border p-2 border-border dark:border-[#1c1921] dark:bg-[#2a2534]">
+              <ul className={cn("space-y-3 rounded-b-lg p-2", studyBibleDarkClasses.todoDrawerSectionBody)}>
                 {filteredAssignedOpenTodos.map((todo, index) => (
                   <TodoRow
                     key={todo.id}
@@ -3074,15 +3077,15 @@ export function HomeTodoCard({
                 ))}
               </ul>
             ) : (
-              <p className={cn("rounded-b-lg border-x border-b border-border px-3 py-2 text-xs text-muted-foreground border-border dark:border-[#1c1921] dark:bg-[#2a2534]", studyBibleDarkClasses.muted)}>No assigned to-dos.</p>
+              <p className={cn("rounded-b-lg px-3 py-2 text-xs", studyBibleDarkClasses.todoDrawerSectionBody, studyBibleDarkClasses.todoMeta)}>No assigned to-dos.</p>
             )
           )}
 
-          <div className="mt-3 overflow-hidden rounded-t-lg border border-border bg-muted/15 border-border dark:border-[#1c1921] dark:bg-[#30283c]">
+          <div className={cn("mt-3 overflow-hidden rounded-t-lg", studyBibleDarkClasses.todoDrawerSectionShell)}>
             <button
               type="button"
               onClick={() => setDrawerOpenSectionExpanded((prev) => !prev)}
-              className={cn("w-full flex items-center justify-between px-3 py-2 text-sm text-muted-foreground font-bold hover:text-foreground transition-colors", studyBibleDarkClasses.muted)}
+              className={cn("w-full flex items-center justify-between px-3 py-2", studyBibleDarkClasses.todoDrawerSectionHeader)}
             >
               <span>Open ({filteredUnassignedOpenTodos.length})</span>
               {drawerOpenSectionExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
@@ -3090,7 +3093,7 @@ export function HomeTodoCard({
           </div>
           {drawerOpenSectionExpanded && (
             filteredUnassignedOpenTodos.length > 0 ? (
-              <ul className="space-y-3 rounded-b-lg border-x border-b border-border p-2 border-border dark:border-[#1c1921] dark:bg-[#2a2534]">
+              <ul className={cn("space-y-3 rounded-b-lg p-2", studyBibleDarkClasses.todoDrawerSectionBody)}>
                 {filteredUnassignedOpenTodos.map((todo, index) => (
                   <TodoRow
                     key={todo.id}
@@ -3114,15 +3117,15 @@ export function HomeTodoCard({
                 ))}
               </ul>
             ) : (
-              <p className={cn("rounded-b-lg border-x border-b border-border px-3 py-2 text-xs text-muted-foreground border-border dark:border-[#1c1921] dark:bg-[#2a2534]", studyBibleDarkClasses.muted)}>No unassigned to-dos.</p>
+              <p className={cn("rounded-b-lg px-3 py-2 text-xs", studyBibleDarkClasses.todoDrawerSectionBody, studyBibleDarkClasses.todoMeta)}>No unassigned to-dos.</p>
             )
           )}
 
-          <div className="mt-3 overflow-hidden rounded-t-lg border border-border bg-muted/15 border-border dark:border-[#1c1921] dark:bg-[#30283c]">
+          <div className={cn("mt-3 overflow-hidden rounded-t-lg", studyBibleDarkClasses.todoDrawerSectionShell)}>
             <button
               type="button"
               onClick={() => setDrawerDoneExpanded((prev) => !prev)}
-              className={cn("w-full flex items-center justify-between px-3 py-2 text-sm text-muted-foreground font-bold hover:text-foreground transition-colors", studyBibleDarkClasses.muted)}
+              className={cn("w-full flex items-center justify-between px-3 py-2", studyBibleDarkClasses.todoDrawerSectionHeader)}
             >
               <span>Done ({filteredCompletedTodos.length})</span>
               {drawerDoneExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
@@ -3130,7 +3133,7 @@ export function HomeTodoCard({
           </div>
           {drawerDoneExpanded && (
             filteredCompletedTodos.length > 0 ? (
-              <ul className="space-y-3 rounded-b-lg border-x border-b border-border p-2 border-border dark:border-[#1c1921] dark:bg-[#2a2534]">
+              <ul className={cn("space-y-3 rounded-b-lg p-2", studyBibleDarkClasses.todoDrawerSectionBody)}>
                 {filteredCompletedTodos.map((todo, index) => (
                   <TodoRow
                     key={todo.id}
@@ -3153,7 +3156,7 @@ export function HomeTodoCard({
                 ))}
               </ul>
             ) : (
-              <p className={cn("rounded-b-lg border-x border-b border-border px-3 py-2 text-xs text-muted-foreground border-border dark:border-[#1c1921] dark:bg-[#2a2534]", studyBibleDarkClasses.muted)}>No done to-dos.</p>
+              <p className={cn("rounded-b-lg px-3 py-2 text-xs", studyBibleDarkClasses.todoDrawerSectionBody, studyBibleDarkClasses.todoMeta)}>No done to-dos.</p>
             )
           )}
           </div>
@@ -3166,8 +3169,8 @@ export function HomeTodoCard({
                 : "hidden md:grid md:h-[calc(80dvh-10rem)] md:min-h-[320px] md:grid-cols-3 md:gap-3 md:items-stretch"
             )}
           >
-            <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-muted/15 border-border dark:border-[#1c1921] dark:bg-[#2a2534]">
-              <div className={cn("shrink-0 border-b border-border px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground border-border dark:border-[#1c1921] dark:bg-[#30283c]", studyBibleDarkClasses.muted)}>
+            <div className={cn("flex min-h-0 flex-col", studyBibleDarkClasses.todoDrawerColumnShell)}>
+              <div className={studyBibleDarkClasses.todoDrawerColumnHeader}>
                 To-Do ({filteredAssignedOpenTodos.length})
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3">
@@ -3195,12 +3198,12 @@ export function HomeTodoCard({
                     ))}
                   </ul>
                 ) : (
-                  <p className={cn("text-xs text-muted-foreground py-1", studyBibleDarkClasses.muted)}>No assigned to-dos.</p>
+                  <p className={cn("text-xs py-1", studyBibleDarkClasses.todoMeta)}>No assigned to-dos.</p>
                 )}
               </div>
             </div>
-            <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-muted/15 border-border dark:border-[#1c1921] dark:bg-[#2a2534]">
-              <div className={cn("shrink-0 border-b border-border px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground border-border dark:border-[#1c1921] dark:bg-[#30283c]", studyBibleDarkClasses.muted)}>
+            <div className={cn("flex min-h-0 flex-col", studyBibleDarkClasses.todoDrawerColumnShell)}>
+              <div className={studyBibleDarkClasses.todoDrawerColumnHeader}>
                 Open ({filteredUnassignedOpenTodos.length})
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3">
@@ -3229,12 +3232,12 @@ export function HomeTodoCard({
                     ))}
                   </ul>
                 ) : (
-                  <p className={cn("text-xs text-muted-foreground py-1", studyBibleDarkClasses.muted)}>No unassigned to-dos.</p>
+                  <p className={cn("text-xs py-1", studyBibleDarkClasses.todoMeta)}>No unassigned to-dos.</p>
                 )}
               </div>
             </div>
-            <div className="flex min-h-0 flex-col overflow-hidden rounded-lg border border-border bg-muted/15 border-border dark:border-[#1c1921] dark:bg-[#2a2534]">
-              <div className={cn("shrink-0 border-b border-border px-3 py-2 text-xs font-bold uppercase tracking-wide text-muted-foreground border-border dark:border-[#1c1921] dark:bg-[#30283c]", studyBibleDarkClasses.muted)}>
+            <div className={cn("flex min-h-0 flex-col", studyBibleDarkClasses.todoDrawerColumnShell)}>
+              <div className={studyBibleDarkClasses.todoDrawerColumnHeader}>
                 Done ({filteredCompletedTodos.length})
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 py-3">
@@ -3262,7 +3265,7 @@ export function HomeTodoCard({
                     ))}
                   </ul>
                 ) : (
-                  <p className={cn("text-xs text-muted-foreground py-1", studyBibleDarkClasses.muted)}>No done to-dos.</p>
+                  <p className={cn("text-xs py-1", studyBibleDarkClasses.todoMeta)}>No done to-dos.</p>
                 )}
               </div>
             </div>
@@ -3693,9 +3696,9 @@ export function HomeTodoCard({
             onClick={openTodoDrawer}
             className={cn(
               headerVariant === "bar"
-                ? "flex h-10 shrink-0 items-center gap-2 border-b px-4 text-sm font-medium hover:bg-[#ece8f2] dark:hover:bg-[#3b3348] transition-colors"
+                ? "flex h-10 shrink-0 items-center gap-2 border-b px-4 text-sm font-medium transition-colors"
                 : "text-xs text-muted-foreground mb-4 flex items-center gap-1.5 w-full text-left hover:text-foreground transition-colors",
-              headerVariant === "bar" ? cn(studyBibleDarkClasses.cardBarHeader, homeTodoCardShade) : studyBibleDarkClasses.muted
+              headerVariant === "bar" ? cn(studyBibleDarkClasses.cardBarHeader, homeTodoCardShade) : studyBibleDarkClasses.sectionLabel
             )}
           >
             <ListTodo className="h-4 w-4 shrink-0" />
@@ -3707,7 +3710,7 @@ export function HomeTodoCard({
           </button>
           <div className={cn("min-h-0 flex-1 overflow-y-auto scrollbar-hide", headerVariant === "bar" && "p-4")}>
             {filteredOpenTodos.length === 0 && filteredCompletedTodos.length === 0 ? (
-              <p className={cn("text-sm text-muted-foreground py-1", studyBibleDarkClasses.muted)}>{emptyText}</p>
+              <p className={cn("text-sm py-1", studyBibleDarkClasses.todoMeta)}>{emptyText}</p>
             ) : showSplitOpenHeaderBadges ? (
               <div className="space-y-3">
                 {assignedOpenCount > 0 ? (
@@ -3738,7 +3741,7 @@ export function HomeTodoCard({
             )}
             {filteredCompletedTodos.length > 0 && (
               <>
-                <div className={cn("text-xs text-muted-foreground mt-4 mb-2 font-medium inline-flex items-center gap-1.5", studyBibleDarkClasses.muted)}>
+                <div className={cn("text-xs mt-4 mb-2 font-semibold inline-flex items-center gap-1.5", studyBibleDarkClasses.sectionLabel)}>
                   <span>Done</span>
                   <Badge
                     variant="secondary"
@@ -3793,7 +3796,7 @@ export function HomeTodoCard({
       >
         {prefersCompanionLeftTodoDrawer ? (
           <DrawerWideLeftContent
-            className={cn("border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]", todoMainDrawerPanelClass)}
+            className={cn("border-[#d4c8e4] text-[#1a1820] dark:border-[#1c1921] dark:text-[#fffaff]", todoMainDrawerPanelClass)}
           >
             <DrawerHeader className="shrink-0 bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
               <DrawerTitle className="flex w-full flex-wrap items-center justify-center gap-2 text-center text-lg font-bold">
@@ -3811,7 +3814,7 @@ export function HomeTodoCard({
         ) : (
           <DrawerContent
             className={cn(
-              "h-[85svh] max-h-[85svh] md:h-[92dvh] md:max-h-[92dvh] border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
+              "h-[85svh] max-h-[85svh] md:h-[92dvh] md:max-h-[92dvh] border-[#d4c8e4] text-[#1a1820] dark:border-[#1c1921] dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
               todoMainDrawerPanelClass
             )}
             handleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
@@ -3875,7 +3878,7 @@ export function HomeTodoCard({
       {isTodoDetailsSideLayout ? (
         <Drawer open={filterDrawerOpen} onOpenChange={setFilterDrawerOpen} direction="left" modal shouldScaleBackground={false}>
           <DrawerWideLeftContent
-            className={cn("border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]", todoFilterDrawerPanelClass)}
+            className={cn("border-[#d4c8e4] text-[#1a1820] dark:border-[#1c1921] dark:text-[#fffaff]", todoFilterDrawerPanelClass)}
           >
             <DrawerHeader className="shrink-0 bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
               <DrawerTitle className="flex w-full items-center justify-center gap-2 text-center text-lg font-bold">
@@ -3982,7 +3985,7 @@ export function HomeTodoCard({
                     <>
                       <div
                         className={cn(
-                          "flex shrink-0 items-center gap-2 border-b px-3 py-2 border-border dark:border-[#1c1921]",
+                          "flex shrink-0 items-center gap-2 px-3 py-2",
                           studyBibleDarkClasses.laneTitleBar
                         )}
                       >
@@ -4010,7 +4013,7 @@ export function HomeTodoCard({
                       <div className="min-h-0 flex-1 overflow-y-auto space-y-3 p-2">
                         {selectableAssignedTodos.length > 0 ? (
                           <div className="space-y-2">
-                            <p className={cn("px-1 text-xs font-semibold uppercase tracking-wide", studyBibleDarkClasses.muted)}>
+                            <p className={cn("px-1 text-xs font-semibold uppercase tracking-wide", studyBibleDarkClasses.sectionLabel)}>
                               To-Do ({selectableAssignedTodos.length})
                             </p>
                             {selectableAssignedTodos.map((todo) => (
@@ -4027,7 +4030,7 @@ export function HomeTodoCard({
                         ) : null}
                         {selectableUnassignedTodos.length > 0 ? (
                           <div className="space-y-2">
-                            <p className={cn("px-1 text-xs font-semibold uppercase tracking-wide", studyBibleDarkClasses.muted)}>
+                            <p className={cn("px-1 text-xs font-semibold uppercase tracking-wide", studyBibleDarkClasses.sectionLabel)}>
                               Open ({selectableUnassignedTodos.length})
                             </p>
                             {selectableUnassignedTodos.map((todo) => (
@@ -4076,7 +4079,7 @@ export function HomeTodoCard({
                 <>
                   <div
                     className={cn(
-                      "flex items-center gap-2 border-b px-3 py-2 shrink-0 border-border dark:border-[#1c1921]",
+                      "flex items-center gap-2 px-3 py-2 shrink-0",
                       studyBibleDarkClasses.laneTitleBar
                     )}
                   >
@@ -4099,7 +4102,7 @@ export function HomeTodoCard({
                   <div className="min-h-0 flex-1 max-h-[50vh] overflow-y-auto space-y-3 p-2">
                     {selectableAssignedTodos.length > 0 ? (
                       <div className="space-y-2">
-                        <p className={cn("px-1 text-xs font-semibold uppercase tracking-wide", studyBibleDarkClasses.muted)}>
+                        <p className={cn("px-1 text-xs font-semibold uppercase tracking-wide", studyBibleDarkClasses.sectionLabel)}>
                           To-Do ({selectableAssignedTodos.length})
                         </p>
                         {selectableAssignedTodos.map((todo) => (
@@ -4116,7 +4119,7 @@ export function HomeTodoCard({
                     ) : null}
                     {selectableUnassignedTodos.length > 0 ? (
                       <div className="space-y-2">
-                        <p className={cn("px-1 text-xs font-semibold uppercase tracking-wide", studyBibleDarkClasses.muted)}>
+                        <p className={cn("px-1 text-xs font-semibold uppercase tracking-wide", studyBibleDarkClasses.sectionLabel)}>
                           Open ({selectableUnassignedTodos.length})
                         </p>
                         {selectableUnassignedTodos.map((todo) => (
@@ -4483,12 +4486,12 @@ function TodoRow({
             >
               {collapseHeaderRow ? assigneeAvatarsNode : null}
               {displayDate ? (
-                <span className="text-xs text-muted-foreground tabular-nums leading-snug pt-0.5">
+                <span className={cn("text-xs tabular-nums leading-snug pt-0.5", studyBibleDarkClasses.todoMeta)}>
                   {formatTodoDate(displayDate)}
                 </span>
               ) : null}
               {areaLabel ? (
-                <span className="text-xs text-muted-foreground leading-snug" title={areaLabel}>
+                <span className={cn("text-xs leading-snug", studyBibleDarkClasses.todoMeta)} title={areaLabel}>
                   {truncateLabel(areaLabel, 36)}
                 </span>
               ) : null}
@@ -4500,9 +4503,10 @@ function TodoRow({
   );
   const finalClassName = cn(
     "flex items-center gap-2 text-sm group rounded-md py-2.5 pl-2 text-foreground dark:text-[#fffaff]",
-    isEvenRow && "bg-muted/30",
+    studyBibleDarkClasses.todoRow,
+    isEvenRow && studyBibleDarkClasses.todoRowStripe,
     hasOtherPublisherHighlight &&
-      "border border-dashed border-muted-foreground/40 dark:border-[#5a5068] px-1.5 py-2.5",
+      "border border-dashed border-[#9b8fb0] dark:border-[#5a5068] px-1.5 py-2.5",
     ageBorderClass
   );
   const otherPublisherStyle = undefined;
