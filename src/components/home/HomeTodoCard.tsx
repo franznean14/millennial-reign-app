@@ -4356,7 +4356,7 @@ function TodoRow({
   hideHouseholderNameBadge?: boolean;
   hideHouseholderEstablishmentBadge?: boolean;
   headerAction?: ReactNode;
-  /** Home card preview: shows whether the row is assigned (To-Do) or pool (Open). */
+  /** Home card preview: shows Open badge on unassigned pool rows only. */
   listTier?: "assigned" | "unassigned";
 }) {
   const canNavigate = !!onTap && (!!todo.call_id || !!todo.establishment_id || !!todo.householder_id);
@@ -4375,7 +4375,8 @@ function TodoRow({
   const hasEstablishmentBadge =
     isHouseholder && !!todo.context_establishment_name && !hideHouseholderEstablishmentBadge;
   const hasVisibleBadges = hasNameBadge || hasEstablishmentBadge;
-  const collapseHeaderRow = !hasVisibleBadges && !headerAction && !listTier;
+  const showListTierBadge = listTier === "unassigned";
+  const collapseHeaderRow = !hasVisibleBadges && !headerAction && !showListTierBadge;
   const assigneeAvatarsNode =
     showAssigneeAvatars && assigneeSlots.length > 0 ? (
       <div className="inline-flex items-center gap-1 shrink-0 ml-auto pl-1">
@@ -4407,15 +4408,15 @@ function TodoRow({
       )}
       <div className="min-w-0 flex-1 flex flex-col gap-2.5 pr-2.5">
         {!collapseHeaderRow &&
-        (listTier || todo.context_name || (showAssigneeAvatars && assigneeSlots.length > 0) || !!headerAction) ? (
+        (showListTierBadge || todo.context_name || (showAssigneeAvatars && assigneeSlots.length > 0) || !!headerAction) ? (
           <div className="flex items-center gap-1.5 min-w-0 w-full">
             <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
-              {listTier ? (
+              {showListTierBadge ? (
                 <Badge
-                  variant={listTier === "assigned" ? "secondary" : "outline"}
+                  variant="outline"
                   className="h-4 shrink-0 rounded-full px-1.5 text-[9px] leading-none font-medium"
                 >
-                  {listTier === "assigned" ? "To-Do" : "Open"}
+                  Open
                 </Badge>
               ) : null}
               {todo.context_name ? (
