@@ -23,6 +23,8 @@ export interface EventScheduleListRowProps {
   /** e.g. past / ended hint on admin “All” tab */
   statusHint?: string;
   showChevron?: boolean;
+  /** Highlights the row when the schedule occurs on the current local day. */
+  isToday?: boolean;
   className?: string;
 }
 
@@ -35,6 +37,7 @@ export function EventScheduleListRow({
   onClick,
   statusHint,
   showChevron = false,
+  isToday = false,
   className,
 }: EventScheduleListRowProps) {
   const primary = getEventScheduleListPrimaryLabel(event);
@@ -47,7 +50,11 @@ export function EventScheduleListRow({
   const content = (
     <>
       <span
-        className={cn("w-0.5 shrink-0 self-stretch rounded-full min-h-[2.5rem]", railClass)}
+        className={cn(
+          "shrink-0 self-stretch rounded-full min-h-[2.5rem]",
+          isToday ? "w-1 shadow-[0_0_10px_rgba(128,119,142,0.45)]" : "w-0.5",
+          railClass
+        )}
         aria-hidden
       />
       <div className="min-w-0 flex-1 py-3.5 pl-3 pr-1">
@@ -82,20 +89,24 @@ export function EventScheduleListRow({
     </>
   );
 
+  const rowSurface = isToday
+    ? "bg-[#ece8f2]/90 ring-1 ring-inset ring-[#6b5196]/30 dark:bg-[#80778e]/22 dark:ring-[#80778e]/50"
+    : undefined;
+  const rowHover = isToday
+    ? "hover:bg-[#e4deea] dark:hover:bg-[#80778e]/30"
+    : "hover:bg-muted/30 dark:hover:bg-[#3b3348]/40";
+
   if (onClick) {
     return (
       <button
         type="button"
         onClick={onClick}
-        className={cn(
-          "flex w-full items-stretch text-left transition-colors hover:bg-muted/30 dark:hover:bg-[#3b3348]/40",
-          className
-        )}
+        className={cn("flex w-full items-stretch text-left transition-colors", rowSurface, rowHover, className)}
       >
         {content}
       </button>
     );
   }
 
-  return <div className={cn("flex w-full items-stretch", className)}>{content}</div>;
+  return <div className={cn("flex w-full items-stretch", rowSurface, className)}>{content}</div>;
 }

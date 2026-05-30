@@ -9,15 +9,14 @@ export function toLocalDateString(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-export function isEventOccurringToday(event: EventSchedule, today: Date): boolean {
+/** Whether an active schedule covers `day` (one-off range, recurrence, or single day). */
+export function isEventScheduleOccurringOnDate(event: EventSchedule, day: Date): boolean {
   if (event.status !== "active") return false;
-  if (event.event_type !== "ministry") return false;
 
-  const todayStr = toLocalDateString(today);
-  const todayDayOfWeek = today.getDay();
-  const todayDayOfMonth = today.getDate();
-  const todayMonth = today.getMonth() + 1;
-
+  const todayStr = toLocalDateString(day);
+  const todayDayOfWeek = day.getDay();
+  const todayDayOfMonth = day.getDate();
+  const todayMonth = day.getMonth() + 1;
   if (todayStr < event.start_date) return false;
   if (event.recurrence_end_date && todayStr > event.recurrence_end_date) return false;
 
@@ -33,7 +32,7 @@ export function isEventOccurringToday(event: EventSchedule, today: Date): boolea
     if (event.day_of_week !== todayDayOfWeek) return false;
 
     const startDate = new Date(event.start_date);
-    const daysDiff = Math.floor((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+    const daysDiff = Math.floor((day.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
     const weeksDiff = Math.floor(daysDiff / 7);
     return weeksDiff % event.recurrence_interval === 0;
   }
@@ -44,7 +43,7 @@ export function isEventOccurringToday(event: EventSchedule, today: Date): boolea
 
     const startDate = new Date(event.start_date);
     const monthsDiff =
-      (today.getFullYear() - startDate.getFullYear()) * 12 + (today.getMonth() - startDate.getMonth());
+      (day.getFullYear() - startDate.getFullYear()) * 12 + (day.getMonth() - startDate.getMonth());
     return monthsDiff % event.recurrence_interval === 0;
   }
 
@@ -53,11 +52,20 @@ export function isEventOccurringToday(event: EventSchedule, today: Date): boolea
     if (event.month_of_year !== todayMonth || event.day_of_month !== todayDayOfMonth) return false;
 
     const startDate = new Date(event.start_date);
-    const yearsDiff = today.getFullYear() - startDate.getFullYear();
+    const yearsDiff = day.getFullYear() - startDate.getFullYear();
     return yearsDiff % event.recurrence_interval === 0;
   }
 
   return false;
+}
+
+export function isEventScheduleOccurringToday(event: EventSchedule, today: Date = new Date()): boolean {
+  return isEventScheduleOccurringOnDate(event, today);
+}
+
+export function isEventOccurringToday(event: EventSchedule, today: Date): boolean {
+  if (event.event_type !== "ministry") return false;
+  return isEventScheduleOccurringOnDate(event, today);
 }
 
 /** Next calendar date (local) on which the event occurs, on or after `from`, or null if none. For non-ministry schedules (meetings, memorial, etc.). */

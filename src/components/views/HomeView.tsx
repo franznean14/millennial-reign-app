@@ -68,11 +68,8 @@ export function HomeView({
 
   return (
     <div className="space-y-4 md:space-y-5 w-full max-w-full overflow-x-hidden">
-      {/* Keep both panels mounted so Events does not remount/refetch on Summary ↔ Events; hide inactive tab */}
-      <div
-        className={homeTab === "summary" ? "block" : "hidden"}
-        aria-hidden={homeTab !== "summary"}
-      >
+      {homeTab === "summary" ? (
+      <div>
         {/* Mobile: keep the existing stacked layout and combined BWI/Calls tabs. */}
         <div className="flex flex-col gap-4 md:hidden">
           <div className="min-w-0">
@@ -163,13 +160,21 @@ export function HomeView({
           </div>
         </div>
       </div>
+      ) : null}
 
-      <div
-        className={homeTab === "events" ? "block min-w-0" : "hidden"}
-        aria-hidden={homeTab !== "events"}
-      >
-        <UpcomingEvents userId={userId} />
-      </div>
+      {homeTab === "events" ? (
+        <div
+          className={cn(
+            "block min-w-0 md:grid md:items-start md:gap-4",
+            showBwi ? "md:grid-cols-3" : "md:grid-cols-2"
+          )}
+        >
+          {/* Tablet / iPad: same column width as Summary (1 of 3), not full bleed */}
+          <div className="min-w-0">
+            <UpcomingEvents userId={userId} />
+          </div>
+        </div>
+      ) : null}
       {/* FAB handled by UnifiedFab */}
     </div>
   );

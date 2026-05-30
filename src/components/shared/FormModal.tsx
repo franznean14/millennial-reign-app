@@ -83,6 +83,8 @@ interface FormModalProps {
   drawerHandleClassName?: string;
   /** Visible subtitle under the title on bottom drawers when {@link description} is set. */
   drawerDescriptionClassName?: string;
+  /** Merged onto sheet/dialog title (e.g. `text-left` for detail panels). */
+  titleClassName?: string;
 }
 
 export function FormModal({
@@ -103,6 +105,7 @@ export function FormModal({
   sheetBodyScrollClassName,
   drawerHandleClassName,
   drawerDescriptionClassName,
+  titleClassName,
 }: FormModalProps) {
   const isDesktop = useMediaQuery(desktopQuery);
   const isTabletUp = useMediaQuery(tabletQuery);
@@ -240,9 +243,11 @@ export function FormModal({
                 headerClassName
               )}
             >
-              <DrawerTitle className="text-center text-lg font-bold">{title}</DrawerTitle>
+              <DrawerTitle className={cn("text-lg font-bold w-full", titleClassName ?? "text-center")}>
+                {title}
+              </DrawerTitle>
               <DrawerDescription
-                className={description ? cn("text-center text-sm", studyBibleDarkClasses.muted) : "sr-only"}
+                className={description ? cn("text-sm", studyBibleDarkClasses.muted, titleClassName?.includes("text-left") ? "text-left" : "text-center") : "sr-only"}
               >
                 {a11yDescription}
               </DrawerDescription>
@@ -274,10 +279,12 @@ export function FormModal({
           handleClassName={resolvedDrawerHandle}
         >
           <DrawerHeader className={cn("bg-transparent text-foreground dark:text-[#fffaff]", headerClassName)}>
-            <DrawerTitle>{title}</DrawerTitle>
+            <DrawerTitle className={cn("text-lg font-bold w-full", titleClassName)}>{title}</DrawerTitle>
             <DrawerDescription
               className={
-                description ? cn("text-sm", studyBibleDarkClasses.muted, drawerDescriptionClassName) : "sr-only"
+                description
+                  ? cn("text-sm", studyBibleDarkClasses.muted, drawerDescriptionClassName, titleClassName)
+                  : "sr-only"
               }
             >
               {a11yDescription}

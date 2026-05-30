@@ -265,9 +265,13 @@ export function CongregationView({ data, onEdit, canEdit, canManageCongregationU
         </>
       )}
       
-      {congregationTab === 'admin' && isElder && data.id && (
-        <CongregationAdminEventsCard congregationId={data.id} canEdit={!!canEdit} />
-      )}
+      {congregationTab === "admin" && isElder && data.id ? (
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-3 md:items-start md:gap-6">
+          <div className="min-w-0">
+            <CongregationAdminEventsCard congregationId={data.id} canEdit={!!canEdit} />
+          </div>
+        </div>
+      ) : null}
       </div>
     </>
   );

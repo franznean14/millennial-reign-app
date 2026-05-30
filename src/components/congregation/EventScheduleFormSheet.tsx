@@ -22,10 +22,12 @@ export interface EventScheduleFormSheetProps {
    * @default true
    */
   stackAboveDetailsSheet?: boolean;
+  /** Tablet+ layout: left sheet (ministry stack) or right sheet (home/admin events). */
+  desktopPresentation?: "left-sheet" | "right-sheet";
 }
 
 /**
- * Shared tablet+ **left** sheet and phone drawer/dialog for congregation event schedules.
+ * Shared tablet+ edge sheet and phone drawer for congregation event schedules.
  */
 export function EventScheduleFormSheet({
   open,
@@ -34,6 +36,7 @@ export function EventScheduleFormSheet({
   initialData,
   onSaved,
   stackAboveDetailsSheet = true,
+  desktopPresentation = "left-sheet",
 }: EventScheduleFormSheetProps) {
   const isEditing = initialData != null;
   const title = isEditing ? "Edit Event Schedule" : "New Event Schedule";
@@ -48,7 +51,7 @@ export function EventScheduleFormSheet({
       onOpenChange={onOpenChange}
       title={title}
       description={description}
-      desktopPresentation="left-sheet"
+      desktopPresentation={desktopPresentation}
       leftSheetStackAboveNestedRight={stackAboveDetailsSheet}
       className={drawerShade}
       drawerContentClassName={drawerShade}

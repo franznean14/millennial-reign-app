@@ -2,6 +2,7 @@
 
 import { format } from "date-fns";
 import { formatEventTypeLabel, type EventSchedule } from "@/lib/db/eventSchedules";
+import { getNextOccurrenceOnOrAfter } from "@/lib/utils/recurrence";
 
 /** Multi-day block: one-off schedule with an end date after start (e.g. convention Aug 7–9). */
 export function isCalendarDateRange(event: EventSchedule): boolean {
@@ -52,9 +53,50 @@ export function formatEventListDateLine(event: EventSchedule, anchorYmd: string)
   return formatScheduleDayLong(anchorYmd);
 }
 
-/**
- * Detail sheet: prefer full calendar range when set; else single next/occurrence day.
- */
+export type EventScheduleAllRow = {
+  event: EventSchedule;
+  /** Sort/display anchor — next occurrence or original start when past. */
+  displayYmd: string;
+  hasNext: boolean;
+};
+
+/** All active non-ministry schedules, including past one-offs and ended recurrence. */
+export function buildNonMinistryEventScheduleRows(
+  events: EventSchedule[],
+  now: Date = new Date()
+): EventScheduleAllRow[] {
+  const rows: EventScheduleAllRow[] = [];
+  for (const ev of events) {
+    if (ev.event_type === "ministry") continue;
+    if (ev.status !== "active") continue;
+    const next = getNextOccurrenceOnOrAfter(ev, now);
+    rows.push({
+      event: ev,
+      displayYmd: next ?? ev.start_date,
+      hasNext: !!next,
+    });
+  }
+  rows.sort(
+    (a, b) =>
+      a.displayYmd.localeCompare(b.displayYmd) || a.event.title.localeCompare(b.event.title)
+  );
+  return rows;
+}
+
+/** Split sorted all-rows at the first upcoming occurrence (hasNext), for a Today divider in the UI. */
+export function splitEventScheduleRowsPastAndUpcoming(rows: EventScheduleAllRow[]): {
+  past: EventScheduleAllRow[];
+  upcoming: EventScheduleAllRow[];
+} {
+  const firstUpcomingIdx = rows.findIndex((r) => r.hasNext);
+  if (firstUpcomingIdx < 0) return { past: rows, upcoming: [] };
+  if (firstUpcomingIdx === 0) return { past: [], upcoming: rows };
+  return {
+    past: rows.slice(0, firstUpcomingIdx),
+    upcoming: rows.slice(firstUpcomingIdx),
+  };
+}
+
 /** Primary list label — avoids repeating the type badge when title matches the event type. */
 export function getEventScheduleListPrimaryLabel(event: EventSchedule): string {
   const typeLabel = formatEventTypeLabel(event.event_type);
