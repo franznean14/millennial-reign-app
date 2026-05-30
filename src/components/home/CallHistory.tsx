@@ -270,6 +270,10 @@ export function CallHistory({
     () => getStudyBibleDarkCardShade(`bwi-calls-contact-subdrawer:${userId}`),
     [userId]
   );
+  const bwiAreaDrawerPanelClass = useMemo(
+    () => getStudyBibleDarkCardShade(`home-bwi-area-picker:${userId}`),
+    [userId]
+  );
   const callsEntityEditPanelClass = useMemo(
     () => getStudyBibleDarkCardShade(`bwi-calls-entity-edit:${userId}`),
     [userId]
@@ -1128,6 +1132,31 @@ export function CallHistory({
     callsDrawerTabletLayout,
   ]);
   /* eslint-enable react-hooks/exhaustive-deps */
+
+  const setHomeFabBlockingDrawer = homeDetailsFabCtx?.setHomeFabBlockingDrawer;
+
+  useEffect(() => {
+    if (!setHomeFabBlockingDrawer || !fabBridgeActiveForCallHistory) return;
+    setHomeFabBlockingDrawer("calls-list", showDrawer);
+    setHomeFabBlockingDrawer("calls-area", showAreaDrawer);
+    setHomeFabBlockingDrawer("calls-filters", showFiltersDrawer);
+    setHomeFabBlockingDrawer("calls-details", callsDetailsDrawerOpen);
+    setHomeFabBlockingDrawer("calls-contact-sub", callsContactSubdrawerOpen);
+    setHomeFabBlockingDrawer(
+      "calls-entity-edit",
+      callsDetailsEntityEditOpen || callsContactSubdrawerEntityEditOpen
+    );
+  }, [
+    callsContactSubdrawerEntityEditOpen,
+    callsContactSubdrawerOpen,
+    callsDetailsDrawerOpen,
+    callsDetailsEntityEditOpen,
+    setHomeFabBlockingDrawer,
+    showAreaDrawer,
+    fabBridgeActiveForCallHistory,
+    showDrawer,
+    showFiltersDrawer,
+  ]);
 
   const renderCallsMainDetailsBody = () => {
     if (selectedCallsHouseholderDetails) {
@@ -2351,63 +2380,85 @@ export function CallHistory({
 
       {/* Area picker drawer for BWI tab header */}
       <Drawer open={showAreaDrawer} onOpenChange={setShowAreaDrawer}>
-        <DrawerContent className="max-h-[80vh]">
-          <DrawerHeader className="px-4 pt-4 pb-2 items-center">
-            <DrawerTitle className="flex w-full items-center justify-center gap-2 text-center text-lg font-bold">
+        <DrawerContent
+          className={cn(
+            "max-h-[80vh] border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
+            bwiAreaDrawerPanelClass
+          )}
+          handleClassName={studyBibleDarkClasses.drawerHandle}
+        >
+          <DrawerHeader className="shrink-0 bg-transparent px-4 pb-2 pt-4 items-center">
+            <DrawerTitle className="flex w-full items-center justify-center gap-2 text-center text-lg font-bold dark:text-[#fffaff]">
               <Building2 className="h-5 w-5" />
               Select Area
             </DrawerTitle>
           </DrawerHeader>
-          <div className="space-y-4 overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant={bwiAreaFilter.length === 0 ? "default" : "outline"}
-              size="sm"
-              onClick={() => {
-                onBwiAreaChange([]);
-              }}
-              className="h-8"
-            >
-              All
-            </Button>
-            {bwiAreasSorted.map((area) => (
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]">
+            <div className="flex flex-wrap gap-2">
               <Button
-                key={area}
                 type="button"
-                variant={bwiAreaFilter.includes(area) ? "default" : "outline"}
+                variant="outline"
                 size="sm"
-                onClick={() => {
-                  onBwiAreaChange(
-                    bwiAreaFilter.includes(area)
-                      ? bwiAreaFilter.filter((value) => value !== area)
-                      : [...bwiAreaFilter, area]
-                  );
-                }}
-                className="h-8"
+                onClick={() => onBwiAreaChange([])}
+                className={cn(
+                  "h-8",
+                  bwiAreaFilter.length === 0
+                    ? studyBibleDarkClasses.filterToolbarButtonActive
+                    : studyBibleDarkClasses.filterToolbarButton
+                )}
               >
-                {area}
+                All
               </Button>
-            ))}
-          </div>
-          {bwiAreasSorted.length === 0 ? (
-            <div className="text-sm text-muted-foreground">No areas available.</div>
-          ) : null}
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onBwiAreaChange([])}
-            >
-              Clear
-            </Button>
-            <Button
-              type="button"
-              onClick={() => setShowAreaDrawer(false)}
-            >
-              Done
-            </Button>
-          </div>
+              {bwiAreasSorted.map((area) => {
+                const selected = bwiAreaFilter.includes(area);
+                return (
+                  <Button
+                    key={area}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      onBwiAreaChange(
+                        selected
+                          ? bwiAreaFilter.filter((value) => value !== area)
+                          : [...bwiAreaFilter, area]
+                      );
+                    }}
+                    className={cn(
+                      "h-8",
+                      selected
+                        ? studyBibleDarkClasses.filterToolbarButtonActive
+                        : studyBibleDarkClasses.filterToolbarButton
+                    )}
+                  >
+                    {area}
+                  </Button>
+                );
+              })}
+            </div>
+            {bwiAreasSorted.length === 0 ? (
+              <p className={cn("text-sm", studyBibleDarkClasses.muted)}>No areas available.</p>
+            ) : null}
+            <div className="flex justify-end gap-2 pt-1">
+              <Button
+                type="button"
+                variant="outline"
+                className={cn(
+                  "dark:border-[#80778e]/55 text-foreground dark:text-[#fffaff] dark:hover:bg-[#3b3348]/70",
+                  studyBibleDarkClasses.filterToolbarButton
+                )}
+                onClick={() => onBwiAreaChange([])}
+              >
+                Clear
+              </Button>
+              <Button
+                type="button"
+                className={studyBibleDarkClasses.filterToolbarButtonActive}
+                onClick={() => setShowAreaDrawer(false)}
+              >
+                Done
+              </Button>
+            </div>
           </div>
         </DrawerContent>
       </Drawer>

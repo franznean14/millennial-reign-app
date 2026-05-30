@@ -2544,6 +2544,10 @@ export function HomeTodoCard({
 
   const homeTodoDetailsFabCtx = useHomeTodoDetailsFabOptional();
   const setTodoDetailsFabOverride = homeTodoDetailsFabCtx?.setTodoDetailsFabOverride;
+  const setHomeTodoListFabBridgeSlot = homeTodoDetailsFabCtx?.setHomeTodoListFabBridgeSlot;
+  const setHomeFabBlockingDrawer = homeTodoDetailsFabCtx?.setHomeFabBlockingDrawer;
+  const homeTodoListFabBridgeSlot =
+    fabBridgeLayout === "xlAndUp" ? ("xlAndUp" as const) : ("belowXl" as const);
   const setHideHomeFab = homeTodoDetailsFabCtx?.setHideHomeFab;
 
   const isMainHomeTodoWidget = Boolean(userId && establishmentId == null && householderId == null);
@@ -2608,6 +2612,63 @@ export function HomeTodoCard({
     isMainHomeTodoWidget,
     setHideHomeFab,
   ]);
+
+  useEffect(() => {
+    if (!setHomeTodoListFabBridgeSlot || !isMainHomeTodoWidget || detailsBridgeOnly) return;
+    setHomeTodoListFabBridgeSlot(homeTodoListFabBridgeSlot, {
+      todoListDrawerOpen: drawerOpen,
+      bulkEditPickerOpen: bulkEditPromptOpen,
+      canBulkEditTodos: canAssignOpenTodos,
+      selectedBulkEditCount: selectedTodoIds.length,
+    });
+    return () => {
+      setHomeTodoListFabBridgeSlot(homeTodoListFabBridgeSlot, null);
+    };
+  }, [
+    bulkEditPromptOpen,
+    canAssignOpenTodos,
+    detailsBridgeOnly,
+    drawerOpen,
+    homeTodoListFabBridgeSlot,
+    isMainHomeTodoWidget,
+    selectedTodoIds.length,
+    setHomeTodoListFabBridgeSlot,
+  ]);
+
+  useEffect(() => {
+    if (!setHomeFabBlockingDrawer || !fabBridgeActiveForViewport || detailsBridgeOnly) return;
+    setHomeFabBlockingDrawer("todo-filter", filterDrawerOpen);
+    setHomeFabBlockingDrawer("todo-details", todoDetailsDrawerOpen);
+    setHomeFabBlockingDrawer("todo-contact-sub", contactDetailsSubdrawerOpen);
+    setHomeFabBlockingDrawer(
+      "todo-entity-edit",
+      detailsEntityEditOpen || contactSubdrawerEntityEditOpen
+    );
+  }, [
+    contactDetailsSubdrawerOpen,
+    contactSubdrawerEntityEditOpen,
+    detailsBridgeOnly,
+    detailsEntityEditOpen,
+    fabBridgeActiveForViewport,
+    filterDrawerOpen,
+    setHomeFabBlockingDrawer,
+    todoDetailsDrawerOpen,
+  ]);
+
+  useEffect(() => {
+    if (!fabBridgeActiveForViewport) return;
+    const openPicker = () => openBulkEditPrompt();
+    const cancelPicker = () => setBulkEditPromptOpen(false);
+    const loadPicker = () => confirmBulkEdit();
+    window.addEventListener("home-todo-open-bulk-edit-picker", openPicker);
+    window.addEventListener("home-bulk-edit-picker-cancel", cancelPicker);
+    window.addEventListener("home-bulk-edit-picker-load", loadPicker);
+    return () => {
+      window.removeEventListener("home-todo-open-bulk-edit-picker", openPicker);
+      window.removeEventListener("home-bulk-edit-picker-cancel", cancelPicker);
+      window.removeEventListener("home-bulk-edit-picker-load", loadPicker);
+    };
+  }, [confirmBulkEdit, fabBridgeActiveForViewport, openBulkEditPrompt]);
 
   const canDetailSummaryEdit = isHouseholderDetail
     ? !!selectedHouseholder?.id
@@ -2940,9 +3001,6 @@ export function HomeTodoCard({
             onOpenFilters={() => setFilterDrawerOpen(true)}
             onClearFilters={clearFilters}
             preserveActionButtonsWhenTogglesActive
-            showEditButton
-            editLabel="Edit To-Dos"
-            onEditClick={openBulkEditPrompt}
             onRemoveBadge={(badge) => {
               if (badge.type === "status") {
                 setFilters((prev) => ({
@@ -3987,24 +4045,6 @@ export function HomeTodoCard({
                     </>
                   )}
                 </div>
-                <div className="flex shrink-0 justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="dark:border-[#80778e]/55 text-foreground dark:text-[#fffaff] dark:hover:bg-[#3b3348]/70"
-                    onClick={() => setBulkEditPromptOpen(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    type="button"
-                    className="dark:bg-[#80778e] dark:text-white dark:hover:bg-[#9a92a8]"
-                    onClick={confirmBulkEdit}
-                    disabled={selectedTodoIds.length === 0}
-                  >
-                    Load Selected ({selectedTodoIds.length})
-                  </Button>
-                </div>
               </div>
             </div>
           </DrawerWideRightContent>
@@ -4013,6 +4053,7 @@ export function HomeTodoCard({
         <FormModal
           open={bulkEditPromptOpen}
           onOpenChange={setBulkEditPromptOpen}
+          skipFabRootInert
           title="Edit To-Dos"
           description="Select which filtered to-dos to load into bulk edit."
           headerClassName="text-center shrink-0 bg-transparent dark:bg-transparent px-4 pb-2 pt-2"
@@ -4092,24 +4133,6 @@ export function HomeTodoCard({
                   </div>
                 </>
               )}
-            </div>
-            <div className="flex shrink-0 justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="dark:border-[#80778e]/55 text-foreground dark:text-[#fffaff] dark:hover:bg-[#3b3348]/70"
-                onClick={() => setBulkEditPromptOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                className="dark:bg-[#80778e] dark:text-white dark:hover:bg-[#9a92a8]"
-                onClick={confirmBulkEdit}
-                disabled={selectedTodoIds.length === 0}
-              >
-                Load Selected ({selectedTodoIds.length})
-              </Button>
             </div>
           </div>
         </FormModal>

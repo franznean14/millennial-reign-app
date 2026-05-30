@@ -11,7 +11,19 @@ import { BulkTodoForm, BULK_TODO_TABLET_SHEET_MAX_REM, type BulkTodoTabletBulkSh
 import FieldServiceForm from "@/components/fieldservice/FieldServiceForm";
 import { EventScheduleFormSheet } from "@/components/congregation/EventScheduleFormSheet";
 import { AddUserToCongregationForm } from "@/components/congregation/AddUserToCongregationForm";
-import { Plus, X, UserPlus, FilePlus2, Building2, Calendar, ListTodo, Send, Eraser, Trash2 } from "lucide-react";
+import {
+  Plus,
+  X,
+  UserPlus,
+  FilePlus2,
+  Building2,
+  Calendar,
+  ListTodo,
+  Send,
+  Eraser,
+  Trash2,
+  SquarePen,
+} from "lucide-react";
 import type { EstablishmentWithDetails, HouseholderWithDetails } from "@/lib/db/business";
 import { useHomeTodoDetailsFabOptional } from "@/components/home/home-todo-details-fab-context";
 import { useMediaQuery } from "@/hooks/use-media-query";
@@ -58,6 +70,7 @@ type FabActionKey =
   | "congregation-visit"
   | "congregation-schedule"
   | "field-service"
+  | "home-edit-todos"
   | null;
 
 export function UnifiedFab({
@@ -80,6 +93,7 @@ export function UnifiedFab({
   const homeFabBridge = useHomeTodoDetailsFabOptional();
   const homeDetailsFab =
     homeFabBridge?.callsHistoryFabOverride ?? homeFabBridge?.todoDetailsFabOverride ?? null;
+  const homeTodoListFabBridge = homeFabBridge?.homeTodoListFabBridge ?? null;
   const hideHomeFab = currentSection === "home" && !!homeFabBridge?.hideHomeFab;
   const useBusinessLeftSheet =
     !!homeDetailsFab ||
@@ -210,7 +224,18 @@ export function UnifiedFab({
     }
 
     if (currentSection === "home") {
-      if (homeDetailsFab) {
+      if (homeTodoListFabBridge?.bulkEditPickerOpen) {
+        // Picker actions are docked on the FAB (see homeBulkEditPickerDocked).
+      } else if (homeTodoListFabBridge?.todoListDrawerOpen) {
+        // Home To-Do list drawer owns the FAB — never Field Service or call-detail actions here.
+        if (homeTodoListFabBridge.canBulkEditTodos) {
+          items.push({
+            key: "home-edit-todos",
+            label: "Edit To-Dos",
+            icon: <SquarePen className="size-6" />,
+          });
+        }
+      } else if (homeDetailsFab) {
         items.push(
           { key: "business-visit", label: "New Call", icon: <FilePlus2 className="size-6" /> },
           { key: "business-todo", label: "New To-Do", icon: <ListTodo className="size-6" /> }
@@ -233,6 +258,7 @@ export function UnifiedFab({
     canManageCongregation,
     currentSection,
     homeDetailsFab,
+    homeTodoListFabBridge,
     isElder,
     isCongregationAdminTab,
     isCongregationDetails,
@@ -274,7 +300,42 @@ export function UnifiedFab({
   }, [openKey]);
 
   const bulkFabDocked = openKey === "business-bulk-todos";
-  const bulkFabTabletDocked = bulkFabDocked && isTabletUp;
+  const homeBulkEditPickerDocked =
+    currentSection === "home" && !!homeTodoListFabBridge?.bulkEditPickerOpen;
+  const fabDockedForTodoWorkflow = bulkFabDocked || homeBulkEditPickerDocked;
+  const bulkFabTabletDocked = fabDockedForTodoWorkflow && isTabletUp;
+
+  const homeBulkEditPickerFabActions = useMemo((): BulkTabletDockedFabAction[] => {
+    const count = homeTodoListFabBridge?.selectedBulkEditCount ?? 0;
+    return [
+      {
+        label: "Cancel",
+        icon: <X className="size-6" />,
+        variant: "outline",
+        className: studyBibleDarkClasses.fabMenuSecondary,
+        onClick: () => {
+          try {
+            window.dispatchEvent(new CustomEvent("home-bulk-edit-picker-cancel"));
+          } catch {
+            /* ignore */
+          }
+        },
+      },
+      {
+        label: `Load Selected (${count})`,
+        icon: <Send className="size-6" />,
+        className: studyBibleDarkClasses.fabMenuPrimary,
+        onClick: () => {
+          if (count === 0) return;
+          try {
+            window.dispatchEvent(new CustomEvent("home-bulk-edit-picker-load"));
+          } catch {
+            /* ignore */
+          }
+        },
+      },
+    ];
+  }, [homeTodoListFabBridge?.selectedBulkEditCount]);
 
   const bulkFabDockedActions = useMemo((): BulkTabletDockedFabAction[] => {
     const items: BulkTabletDockedFabAction[] = [
@@ -330,20 +391,75 @@ export function UnifiedFab({
     return items;
   }, [bulkSavedEditRowCount]);
 
-  const fabMenuActions = bulkFabDocked ? [] : actions;
+  const fabMenuActions = fabDockedForTodoWorkflow ? [] : actions;
 
-  if (hideHomeFab || (!bulkFabDocked && fabMenuActions.length === 0)) return null;
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const fabRoot = document.getElementById("fab-root");
+    if (!fabRoot || currentSection !== "home") return;
+
+    const PREV_Z = "homeFabPrevZIndex";
+    const homeTodoListDrawerOpen = !!homeTodoListFabBridge?.todoListDrawerOpen;
+    const shouldElevateFab =
+      homeBulkEditPickerDocked ||
+      openKey === "business-bulk-todos" ||
+      homeTodoListDrawerOpen;
+    /** Only non–To-Do list home sheets (Calls, Select Area, filters, details, etc.) sit above the FAB. */
+    const shouldLowerFab = !shouldElevateFab && !!homeFabBridge?.homeBlockingDrawerOpen;
+
+    if (shouldElevateFab) {
+      if (fabRoot.dataset[PREV_Z]) {
+        fabRoot.style.zIndex = fabRoot.dataset[PREV_Z] || "";
+        delete fabRoot.dataset[PREV_Z];
+      }
+    } else if (shouldLowerFab) {
+      if (!fabRoot.dataset[PREV_Z]) {
+        fabRoot.dataset[PREV_Z] = fabRoot.style.zIndex || "";
+        fabRoot.style.zIndex = "40";
+      }
+    } else if (fabRoot.dataset[PREV_Z]) {
+      fabRoot.style.zIndex = fabRoot.dataset[PREV_Z] || "";
+      delete fabRoot.dataset[PREV_Z];
+    }
+
+    return () => {
+      if (fabRoot.dataset[PREV_Z]) {
+        fabRoot.style.zIndex = fabRoot.dataset[PREV_Z] || "";
+        delete fabRoot.dataset[PREV_Z];
+      }
+    };
+  }, [
+    currentSection,
+    homeBulkEditPickerDocked,
+    homeFabBridge?.homeBlockingDrawerOpen,
+    homeTodoListFabBridge?.todoListDrawerOpen,
+    openKey,
+  ]);
+
+  if (hideHomeFab || (!fabDockedForTodoWorkflow && fabMenuActions.length === 0)) return null;
 
   const mainIcon = fabMenuActions.length === 1 ? fabMenuActions[0].icon : <Plus className="size-6" />;
   const mainIconOpen = fabMenuActions.length === 1 ? fabMenuActions[0].icon : <X className="size-6" />;
 
+  const tabletDockedActions = homeBulkEditPickerDocked
+    ? homeBulkEditPickerFabActions
+    : bulkFabDocked
+      ? bulkFabDockedActions
+      : undefined;
+
   return (
     <>
       <FabMenu
-        label={bulkFabDocked ? "Bulk to-do actions" : "Actions"}
-        tabletDockedToBulkTodoSheet={bulkFabDocked}
+        label={
+          homeBulkEditPickerDocked
+            ? "Edit to-do picker"
+            : bulkFabDocked
+              ? "Bulk to-do actions"
+              : "Actions"
+        }
+        tabletDockedToBulkTodoSheet={fabDockedForTodoWorkflow}
         bulkTodoSheetDockedLayout={isTabletUp ? "tablet" : "mobile"}
-        tabletDockedActions={bulkFabDocked ? bulkFabDockedActions : undefined}
+        tabletDockedActions={tabletDockedActions}
         mainIcon={mainIcon}
         mainIconOpen={mainIconOpen}
         mainClassName={cn(
@@ -356,12 +472,22 @@ export function UnifiedFab({
         actionOffsetStart={112}
         actionOffsetStep={56}
         actionClassName="md:!left-1/2 md:!right-auto md:[--fab-action-x:-50%] md:[--fab-action-offset-step:0px] md:[--fab-action-closed-y:72px]"
-        tabletDockedSheetMaxWidthRem={bulkTabletSheetMaxWidthRem}
+        tabletDockedSheetMaxWidthRem={
+          homeBulkEditPickerDocked ? 36 : bulkTabletSheetMaxWidthRem
+        }
         actions={fabMenuActions.map((action) => ({
           label: action.label,
           icon: action.icon,
           variant: action.variant,
           onClick: () => {
+            if (action.key === "home-edit-todos") {
+              try {
+                window.dispatchEvent(new CustomEvent("home-todo-open-bulk-edit-picker"));
+              } catch {
+                /* ignore */
+              }
+              return;
+            }
             if (action.key === "business-bulk-todos") {
               setBulkTodoKind(getDraftBulkTodoKind());
             }
