@@ -1,7 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
-import type { EventSchedule } from "@/lib/db/eventSchedules";
+import { formatEventTypeLabel, type EventSchedule } from "@/lib/db/eventSchedules";
 
 /** Multi-day block: one-off schedule with an end date after start (e.g. convention Aug 7–9). */
 export function isCalendarDateRange(event: EventSchedule): boolean {
@@ -55,6 +55,22 @@ export function formatEventListDateLine(event: EventSchedule, anchorYmd: string)
 /**
  * Detail sheet: prefer full calendar range when set; else single next/occurrence day.
  */
+/** Primary list label — avoids repeating the type badge when title matches the event type. */
+export function getEventScheduleListPrimaryLabel(event: EventSchedule): string {
+  const typeLabel = formatEventTypeLabel(event.event_type);
+  const title = event.title?.trim() ?? "";
+  if (!title || title === typeLabel) return typeLabel;
+  if (event.event_type === "circuit_overseer" && /^co\s*visit$/i.test(title)) return typeLabel;
+  return title;
+}
+
+/** Muted type line when the primary label is a custom title. */
+export function getEventScheduleListTypeSubtitle(event: EventSchedule): string | null {
+  const typeLabel = formatEventTypeLabel(event.event_type);
+  const primary = getEventScheduleListPrimaryLabel(event);
+  return primary === typeLabel ? null : typeLabel;
+}
+
 export function formatEventDetailPrimaryDate(event: EventSchedule, nextYmd: string | null): string {
   if (isCalendarDateRange(event) && event.end_date) {
     return formatScheduleDateRangeLong(event.start_date, event.end_date);

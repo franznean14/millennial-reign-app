@@ -1,16 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Calendar, ChevronRight, LayoutList, MapPin } from "lucide-react";
+import { Calendar, ChevronRight, LayoutList } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FormModal } from "@/components/shared/FormModal";
 import { EventScheduleFormSheet } from "@/components/congregation/EventScheduleFormSheet";
-import { VisitTimelineRow } from "@/components/visit/VisitTimelineRow";
+import { EventScheduleListRow } from "@/components/congregation/EventScheduleListRow";
 import { VisitList } from "@/components/visit/VisitList";
-import { getTimelineLineStyle } from "@/lib/utils/visit-timeline";
 import { cn } from "@/lib/utils";
-import { studyBibleSectionToggle } from "@/lib/theme/study-bible-dark";
+import { studyBibleSectionToggle, studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 import { getEventTypeAccentClass } from "@/lib/utils/event-type-accent";
 import {
   formatEventTypeLabel,
@@ -21,15 +20,11 @@ import {
 import { formatTimeLabel, getNextOccurrenceOnOrAfter } from "@/lib/utils/recurrence";
 import {
   formatEventDetailPrimaryDate,
-  formatEventListDateLine,
+  getEventScheduleListPrimaryLabel,
   isCalendarDateRange,
 } from "@/lib/utils/event-schedule-display";
-import {
-  formatEventLocationSummaryForDisplay,
-  eventTypeImpliesKingdomHall,
-} from "@/lib/utils/event-location-display";
+import { eventTypeImpliesKingdomHall } from "@/lib/utils/event-location-display";
 import { EventScheduleLocationBlock } from "@/components/congregation/EventScheduleLocationBlock";
-import { EventScheduleDirectionsLink } from "@/components/congregation/EventScheduleDirectionsLink";
 
 const PREVIEW_LIMIT = 5;
 
@@ -148,127 +143,26 @@ export function CongregationAdminEventsCard({ congregationId, canEdit }: Congreg
     }
   };
 
-  const renderRowUpcoming = (
-    row: { event: EventSchedule; nextDate: string },
-    index: number,
-    total: number,
-    isDrawer: boolean
-  ) => {
-    const { event, nextDate } = row;
-    const locSummary = formatEventLocationSummaryForDisplay(event);
-    const accent = getEventTypeAccentClass(event.event_type);
-    return (
-      <VisitTimelineRow
-        onClick={() => handleRowActivate(event)}
-        index={index}
-        total={total}
-        rootClassName={cn("transition-opacity", canEdit ? "hover:opacity-90 cursor-pointer" : "hover:opacity-90")}
-        lineStyle={{
-          ...getTimelineLineStyle(isDrawer),
-          left: 11,
-        }}
-        dot={
-          <div
-            className={cn(
-              "w-6 h-6 rounded-full border relative z-10 flex-shrink-0 flex items-center justify-center",
-              accent
-            )}
-          >
-            <Calendar className="h-3.5 w-3.5" aria-hidden />
-          </div>
-        }
-        contentClassName="ml-3"
-      >
-        <div className="min-w-0 pr-1">
-          <div className="flex min-w-0 items-center justify-between gap-2">
-            <Badge
-              variant="outline"
-              className={cn("min-w-0 shrink truncate max-w-[min(100%,12rem)] text-[10px] px-1.5 py-0 h-5 leading-none", accent)}
-            >
-              {formatEventTypeLabel(event.event_type)}
-            </Badge>
-            <EventScheduleDirectionsLink event={event} />
-          </div>
-          <div className="text-sm font-medium text-foreground line-clamp-2 mt-1">{event.title}</div>
-          <div
-            className={cn(
-              "flex items-center gap-1 text-xs text-muted-foreground mt-1",
-              isDrawer && "mb-0.5"
-            )}
-          >
-            <Calendar className="h-3 w-3 shrink-0" aria-hidden />
-            <span className="min-w-0">{formatEventListDateLine(event, nextDate)}</span>
-          </div>
-          {locSummary ? (
-            <div className="flex items-start gap-1 text-xs text-muted-foreground mt-1">
-              <MapPin className="h-3 w-3 shrink-0 mt-0.5" aria-hidden />
-              <span className="line-clamp-2 break-words">{locSummary}</span>
-            </div>
-          ) : null}
-        </div>
-      </VisitTimelineRow>
-    );
-  };
+  const eventListClassName = cn("divide-y", studyBibleDarkClasses.divider);
 
-  const renderRowAll = (row: AdminRow, index: number, total: number, isDrawer: boolean) => {
-    const { event, displayYmd, hasNext } = row;
-    const locSummary = formatEventLocationSummaryForDisplay(event);
-    const accent = getEventTypeAccentClass(event.event_type);
-    return (
-      <VisitTimelineRow
-        onClick={() => handleRowActivate(event)}
-        index={index}
-        total={total}
-        rootClassName={cn("transition-opacity", canEdit ? "hover:opacity-90 cursor-pointer" : "hover:opacity-90")}
-        lineStyle={{
-          ...getTimelineLineStyle(isDrawer),
-          left: 11,
-        }}
-        dot={
-          <div
-            className={cn(
-              "w-6 h-6 rounded-full border relative z-10 flex-shrink-0 flex items-center justify-center",
-              accent
-            )}
-          >
-            <Calendar className="h-3.5 w-3.5" aria-hidden />
-          </div>
-        }
-        contentClassName="ml-3"
-      >
-        <div className="min-w-0 pr-1">
-          <div className="flex min-w-0 items-center justify-between gap-2">
-            <Badge
-              variant="outline"
-              className={cn("min-w-0 shrink truncate max-w-[min(100%,12rem)] text-[10px] px-1.5 py-0 h-5 leading-none", accent)}
-            >
-              {formatEventTypeLabel(event.event_type)}
-            </Badge>
-            <EventScheduleDirectionsLink event={event} />
-          </div>
-          <div className="text-sm font-medium text-foreground line-clamp-2 mt-1">{event.title}</div>
-          <div
-            className={cn(
-              "flex flex-wrap items-center gap-x-1 gap-y-0 text-xs text-muted-foreground mt-1",
-              isDrawer && "mb-0.5"
-            )}
-          >
-            <Calendar className="h-3 w-3 shrink-0" aria-hidden />
-            <span className="min-w-0">{formatEventListDateLine(event, displayYmd)}</span>
-            {!hasNext ? (
-              <span className="text-[10px] uppercase tracking-wide text-muted-foreground/80">(past / ended)</span>
-            ) : null}
-          </div>
-          {locSummary ? (
-            <div className="flex items-start gap-1 text-xs text-muted-foreground mt-1">
-              <MapPin className="h-3 w-3 shrink-0 mt-0.5" aria-hidden />
-              <span className="line-clamp-2 break-words">{locSummary}</span>
-            </div>
-          ) : null}
-        </div>
-      </VisitTimelineRow>
-    );
-  };
+  const renderRowUpcoming = (row: { event: EventSchedule; nextDate: string }) => (
+    <EventScheduleListRow
+      event={row.event}
+      displayYmd={row.nextDate}
+      onClick={() => handleRowActivate(row.event)}
+      showChevron={canEdit}
+    />
+  );
+
+  const renderRowAll = (row: AdminRow) => (
+    <EventScheduleListRow
+      event={row.event}
+      displayYmd={row.displayYmd}
+      onClick={() => handleRowActivate(row.event)}
+      statusHint={row.hasNext ? undefined : "past"}
+      showChevron={canEdit}
+    />
+  );
 
   const previewRows = upcomingRows.slice(0, PREVIEW_LIMIT);
 
@@ -281,7 +175,7 @@ export function CongregationAdminEventsCard({ congregationId, canEdit }: Congreg
         Non-ministry schedules. {canEdit ? "Tap an event to edit." : "Tap for details."}
       </p>
 
-      <div className="rounded-lg border overflow-hidden bg-background">
+      <div className={cn("rounded-lg border overflow-hidden", studyBibleDarkClasses.bwiCard)}>
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
           <TabsList className={cn("grid-cols-2", studyBibleSectionToggle.cardTabList)}>
             <TabsTrigger
@@ -327,8 +221,8 @@ export function CongregationAdminEventsCard({ congregationId, canEdit }: Congreg
               <VisitList
                 items={previewRows}
                 getKey={(r) => r.event.id ?? `${r.nextDate}-${r.event.title}`}
-                renderItem={(row, index, total) => renderRowUpcoming(row, index, total, false)}
-                className="space-y-6"
+                renderItem={(row) => renderRowUpcoming(row)}
+                className={eventListClassName}
                 emptyText=""
               />
             )}
@@ -344,10 +238,10 @@ export function CongregationAdminEventsCard({ congregationId, canEdit }: Congreg
               <VisitList
                 items={allRows}
                 getKey={(r) => r.event.id ?? `${r.displayYmd}-${r.event.title}`}
-                renderItem={(row, index, total) => renderRowAll(row, index, total, false)}
+                renderItem={(row) => renderRowAll(row)}
                 isEmpty={allRows.length === 0}
                 emptyText="No congregation events yet."
-                className="space-y-6"
+                className={eventListClassName}
               />
             )}
           </TabsContent>
@@ -377,8 +271,8 @@ export function CongregationAdminEventsCard({ congregationId, canEdit }: Congreg
             <VisitList
               items={allRows}
               getKey={(r) => r.event.id ?? `${r.displayYmd}-${r.event.title}`}
-              renderItem={(row, index, total) => renderRowAll(row, index, total, true)}
-              className="space-y-4"
+              renderItem={(row) => renderRowAll(row)}
+              className={eventListClassName}
               emptyText=""
             />
           )}
@@ -413,7 +307,7 @@ export function CongregationAdminEventsCard({ congregationId, canEdit }: Congreg
           onOpenChange={(open) => {
             if (!open) setDetailEvent(null);
           }}
-          title={detailEvent?.title ?? "Event"}
+          title={detailEvent ? getEventScheduleListPrimaryLabel(detailEvent) : "Event"}
           headerClassName="text-center"
         >
           {detailEvent ? (

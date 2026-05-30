@@ -1,13 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Calendar, ChevronRight, LayoutList, MapPin } from "lucide-react";
+import { Calendar, ChevronRight, LayoutList } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FormModal } from "@/components/shared/FormModal";
-import { VisitTimelineRow } from "@/components/visit/VisitTimelineRow";
 import { VisitList } from "@/components/visit/VisitList";
-import { getTimelineLineStyle } from "@/lib/utils/visit-timeline";
+import { EventScheduleListRow } from "@/components/congregation/EventScheduleListRow";
 import { cn } from "@/lib/utils";
 import { studyBibleSectionToggle, studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 import { getEventTypeAccentClass } from "@/lib/utils/event-type-accent";
@@ -20,15 +19,11 @@ import {
 import { formatTimeLabel, getNextOccurrenceOnOrAfter } from "@/lib/utils/recurrence";
 import {
   formatEventDetailPrimaryDate,
-  formatEventListDateLine,
+  getEventScheduleListPrimaryLabel,
   isCalendarDateRange,
 } from "@/lib/utils/event-schedule-display";
-import {
-  formatEventLocationSummaryForDisplay,
-  eventTypeImpliesKingdomHall,
-} from "@/lib/utils/event-location-display";
+import { eventTypeImpliesKingdomHall } from "@/lib/utils/event-location-display";
 import { EventScheduleLocationBlock } from "@/components/congregation/EventScheduleLocationBlock";
-import { EventScheduleDirectionsLink } from "@/components/congregation/EventScheduleDirectionsLink";
 import { cacheGet, cacheSet } from "@/lib/offline/store";
 
 const PREVIEW_LIMIT = 5;
@@ -165,87 +160,16 @@ export function UpcomingEvents({ userId }: UpcomingEventsProps) {
     }
   };
 
-  const renderRow = (
-    row: { event: EventSchedule; nextDate: string },
-    index: number,
-    total: number,
-    isDrawer: boolean
-  ) => {
-    const { event, nextDate } = row;
-    const locSummary = formatEventLocationSummaryForDisplay(event);
-    const isNextInLine = index === 0;
-    const accent = getEventTypeAccentClass(event.event_type);
-    return (
-      <VisitTimelineRow
-        onClick={() => setDetailEvent(event)}
-        index={index}
-        total={total}
-        rootClassName="hover:opacity-90 transition-opacity"
-        lineStyle={{
-          ...getTimelineLineStyle(isDrawer),
-          left: 11,
-        }}
-        dot={
-          <div
-            className={cn(
-              "w-6 h-6 rounded-full border relative z-10 flex-shrink-0 flex items-center justify-center",
-              accent
-            )}
-          >
-            <Calendar className="h-3.5 w-3.5" aria-hidden />
-          </div>
-        }
-        contentClassName="ml-3"
-      >
-        <div className="min-w-0 pr-1">
-          <div className="flex min-w-0 items-center justify-between gap-2">
-            <Badge
-              variant="outline"
-              className={cn(
-                "min-w-0 shrink truncate px-1.5 py-0 leading-none max-w-[min(100%,12rem)]",
-                isNextInLine ? "text-xs h-6" : "text-[10px] h-5",
-                accent
-              )}
-            >
-              {formatEventTypeLabel(event.event_type)}
-            </Badge>
-            <EventScheduleDirectionsLink event={event} />
-          </div>
-          <div
-            className={cn(
-              "font-medium text-foreground line-clamp-2 mt-1",
-              isNextInLine ? "text-base" : "text-sm"
-            )}
-          >
-            {event.title}
-          </div>
-          <div
-            className={cn(
-              "flex items-center gap-1 text-muted-foreground mt-1",
-              isNextInLine ? "text-sm" : "text-xs",
-              isDrawer && "mb-0.5"
-            )}
-          >
-            <Calendar className={cn("shrink-0", isNextInLine ? "h-3.5 w-3.5" : "h-3 w-3")} aria-hidden />
-            <span className="min-w-0">{formatEventListDateLine(event, nextDate)}</span>
-          </div>
-          {locSummary ? (
-            <div
-              className={cn(
-                "flex items-start gap-1 text-muted-foreground mt-1",
-                isNextInLine ? "text-sm" : "text-xs"
-              )}
-            >
-              <MapPin className={cn("shrink-0 mt-0.5", isNextInLine ? "h-3.5 w-3.5" : "h-3 w-3")} aria-hidden />
-              <span className="line-clamp-2 break-words">{locSummary}</span>
-            </div>
-          ) : null}
-        </div>
-      </VisitTimelineRow>
-    );
-  };
+  const renderRow = (row: { event: EventSchedule; nextDate: string }) => (
+    <EventScheduleListRow
+      event={row.event}
+      displayYmd={row.nextDate}
+      onClick={() => setDetailEvent(row.event)}
+    />
+  );
 
   const previewRows = upcomingRows.slice(0, PREVIEW_LIMIT);
+  const eventListClassName = cn("divide-y", studyBibleDarkClasses.divider);
 
   const detailNext =
     detailEvent &&
@@ -304,8 +228,8 @@ export function UpcomingEvents({ userId }: UpcomingEventsProps) {
               <VisitList
                 items={previewRows}
                 getKey={(r) => r.event.id ?? `${r.nextDate}-${r.event.title}`}
-                renderItem={(row, index, total) => renderRow(row, index, total, false)}
-                className="space-y-6"
+                renderItem={(row) => renderRow(row)}
+                className={eventListClassName}
                 emptyText=""
               />
             )}
@@ -322,10 +246,10 @@ export function UpcomingEvents({ userId }: UpcomingEventsProps) {
               <VisitList
                 items={upcomingRows}
                 getKey={(r) => r.event.id ?? `${r.nextDate}-${r.event.title}`}
-                renderItem={(row, index, total) => renderRow(row, index, total, false)}
+                renderItem={(row) => renderRow(row)}
                 isEmpty={upcomingRows.length === 0}
                 emptyText="No upcoming events scheduled."
-                className="space-y-6"
+                className={eventListClassName}
               />
             )}
           </TabsContent>
@@ -357,8 +281,8 @@ export function UpcomingEvents({ userId }: UpcomingEventsProps) {
             <VisitList
               items={upcomingRows}
               getKey={(r) => r.event.id ?? `${r.nextDate}-${r.event.title}`}
-              renderItem={(row, index, total) => renderRow(row, index, total, true)}
-              className="space-y-4"
+              renderItem={(row) => renderRow(row)}
+              className={eventListClassName}
               emptyText=""
             />
           )}
@@ -370,7 +294,7 @@ export function UpcomingEvents({ userId }: UpcomingEventsProps) {
         onOpenChange={(open) => {
           if (!open) setDetailEvent(null);
         }}
-        title={detailEvent?.title ?? "Event"}
+        title={detailEvent ? getEventScheduleListPrimaryLabel(detailEvent) : "Event"}
         headerClassName="text-center"
       >
         {detailEvent ? (

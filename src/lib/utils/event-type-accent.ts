@@ -21,3 +21,25 @@ export function getEventTypeAccentClass(eventType: EventType): string {
       return "border-muted-foreground/50 bg-muted/40 text-muted-foreground";
   }
 }
+
+/** Solid accent for compact list rows (left rail). */
+export function getEventTypeAccentRailClass(eventType: EventType): string {
+  switch (eventType) {
+    case "meeting":
+      return "bg-sky-500";
+    case "memorial":
+      return "bg-violet-500";
+    case "circuit_overseer":
+      return "bg-amber-500";
+    case "cabr":
+      return "bg-emerald-500";
+    case "caco":
+      return "bg-cyan-500";
+    case "regional_convention":
+      return "bg-fuchsia-500";
+    case "annual_pioneers_meeting":
+      return "bg-indigo-500";
+    default:
+      return "bg-muted-foreground/60";
+  }
+}
