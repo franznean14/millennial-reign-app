@@ -1,16 +1,16 @@
 import type {
   EstablishmentWithDetails,
-  HouseholderWithDetails,
+  ContactWithDetails,
   MyOpenTodoTargets,
 } from "@/lib/db/business";
 
-export function computeEstablishmentIdsFromTodoHouseholders(
-  householders: HouseholderWithDetails[],
-  householderIds: Set<string>
+export function computeEstablishmentIdsFromTodoContacts(
+  contacts: ContactWithDetails[],
+  contactIds: Set<string>
 ): Set<string> {
   const out = new Set<string>();
-  for (const h of householders) {
-    if (h.id && h.establishment_id && householderIds.has(h.id)) {
+  for (const h of contacts) {
+    if (h.id && h.establishment_id && contactIds.has(h.id)) {
       out.add(h.establishment_id);
     }
   }
@@ -20,16 +20,16 @@ export function computeEstablishmentIdsFromTodoHouseholders(
 export function establishmentMatchesMyOpenTodos(
   establishment: EstablishmentWithDetails,
   targets: MyOpenTodoTargets,
-  establishmentIdsFromTodoHouseholders: Set<string>
+  establishmentIdsFromTodoContacts: Set<string>
 ): boolean {
   if (!establishment.id) return false;
   if (targets.establishmentIds.has(establishment.id)) return true;
-  return establishmentIdsFromTodoHouseholders.has(establishment.id);
+  return establishmentIdsFromTodoContacts.has(establishment.id);
 }
 
-export function filterHouseholdersWithMyOpenTodos(
-  householders: HouseholderWithDetails[],
+export function filterContactsWithMyOpenTodos(
+  contacts: ContactWithDetails[],
   targets: MyOpenTodoTargets
-): HouseholderWithDetails[] {
-  return householders.filter((h) => !!h.id && targets.householderIds.has(h.id));
+): ContactWithDetails[] {
+  return contacts.filter((h) => !!h.id && targets.contactIds.has(h.id));
 }

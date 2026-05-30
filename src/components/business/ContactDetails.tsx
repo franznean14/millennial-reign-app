@@ -9,16 +9,16 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Calendar, MapPinned, Archive, FilePlus2, UserPlus, Minus } from "lucide-react";
 import { FormModal } from "@/components/shared/FormModal";
 import { toast } from "@/components/ui/sonner";
-import { HouseholderForm } from "@/components/business/HouseholderForm";
+import { ContactForm } from "@/components/business/ContactForm";
 import {
-  HouseholderSummaryFields,
-  HouseholderSummaryFieldsSkeleton,
-} from "@/components/business/HouseholderSummaryFields";
+  ContactSummaryFields,
+  ContactSummaryFieldsSkeleton,
+} from "@/components/business/ContactSummaryFields";
 import { CallForm } from "@/components/business/CallForm";
 import { TodoForm } from "@/components/business/TodoForm";
 import { CallSection } from "@/components/business/CallSection";
-import { type HouseholderWithDetails, type VisitWithUser, type MyOpenCallTodoItem, upsertHouseholder, type HouseholderStatus } from "@/lib/db/business";
-import { deleteHouseholder, archiveHouseholder } from "@/lib/db/business";
+import { type ContactWithDetails, type VisitWithUser, type MyOpenCallTodoItem, upsertContact, type ContactStatus } from "@/lib/db/business";
+import { deleteContact, archiveContact } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { cn } from "@/lib/utils";
 import { formatStatusText } from "@/lib/utils/formatters";
@@ -39,13 +39,15 @@ import { HomeTodoCard } from "@/components/home/HomeTodoCard";
 import { getStudyBibleDarkCardShade, studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import {
+  getBestContactStatus,
   getBestStatus,
   getPersonalTerritoryDetailsCardClass,
   getStatusTextColor,
+  resolveContactStatuses,
 } from "@/lib/utils/status-hierarchy";
 
-interface HouseholderDetailsProps {
-  householder: HouseholderWithDetails;
+interface ContactDetailsProps {
+  contact: ContactWithDetails;
   visits: VisitWithUser[];
   establishment?: {
     id: string;
@@ -70,7 +72,7 @@ interface HouseholderDetailsProps {
   onRequestSummaryEdit?: () => void;
   /** Tablet+: visit list / edit to-do use left sheets when nested in a right details drawer. */
   preferLeftDetailPanel?: boolean;
-  /** When this householder pane is stacked above the establishment sheet (contact drill-in). */
+  /** When this contact pane is stacked above the establishment sheet (contact drill-in). */
   insideStackedContactPane?: boolean;
 }
 
@@ -80,8 +82,8 @@ type TodoEditorItem = MyOpenCallTodoItem & {
   call_publishers?: string[];
 };
 
-// Helper function for householder status color coding
-const getHouseholderStatusColorClass = (status: string) => {
+// Helper function for contact status color coding
+const getContactStatusColorClass = (status: string) => {
   switch (status) {
     case 'potential':
       return 'text-cyan-600 border-cyan-200 bg-cyan-50 dark:text-cyan-400 dark:border-cyan-800 dark:bg-cyan-950';
@@ -101,8 +103,8 @@ const getHouseholderStatusColorClass = (status: string) => {
   }
 };
 
-// Helper function for householder card background color
-const getHouseholderCardColor = (status: string) => {
+// Helper function for contact card background color
+const getContactCardColor = (status: string) => {
   switch (status) {
     case 'potential':
       return 'border-cyan-500/50 bg-cyan-500/5';
@@ -122,8 +124,8 @@ const getHouseholderCardColor = (status: string) => {
   }
 };
 
-export function HouseholderDetails({
-  householder,
+export function ContactDetails({
+  contact,
   visits,
   establishment,
   establishments,
@@ -135,7 +137,7 @@ export function HouseholderDetails({
   onRequestSummaryEdit,
   preferLeftDetailPanel = false,
   insideStackedContactPane = false,
-}: HouseholderDetailsProps) {
+}: ContactDetailsProps) {
   
   // Reset scroll position to top when component mounts
   useEffect(() => {
@@ -153,12 +155,12 @@ export function HouseholderDetails({
   const isMdUp = useMediaQuery("(min-width: 768px)");
   const useLeftDetailPanels = Boolean(preferLeftDetailPanel && isMdUp);
   const bwiHhEditFormShade = useMemo(
-    () => getStudyBibleDarkCardShade(`bwi-hh-detail-edit:${householder.id}`),
-    [householder.id]
+    () => getStudyBibleDarkCardShade(`bwi-hh-detail-edit:${contact.id}`),
+    [contact.id]
   );
   const bwiHhEditTodoShade = useMemo(
-    () => getStudyBibleDarkCardShade(`bwi-hh-detail-edit-todo:${householder.id}`),
-    [householder.id]
+    () => getStudyBibleDarkCardShade(`bwi-hh-detail-edit-todo:${contact.id}`),
+    [contact.id]
   );
   const [deleting, setDeleting] = useState(false);
   const [archiving, setArchiving] = useState(false);
@@ -216,67 +218,67 @@ export function HouseholderDetails({
   const onEditSaved = (updated: any) => {
     setIsEditing(false);
     if (updated) {
-      businessEventBus.emit('householder-updated', updated);
+      businessEventBus.emit('contact-updated', updated);
     }
   };
 
   const handleDelete = async () => {
-    if (!householder?.id) return;
+    if (!contact?.id) return;
     setDeleting(true);
     try {
-      const ok = await deleteHouseholder(householder.id);
+      const ok = await deleteContact(contact.id);
       if (ok) {
-        toast.success("Householder deleted successfully");
-        businessEventBus.emit('householder-deleted', { id: householder.id });
+        toast.success("Contact deleted successfully");
+        businessEventBus.emit('contact-deleted', { id: contact.id });
         onBackClick();
       } else {
-        toast.error("Failed to delete householder");
+        toast.error("Failed to delete contact");
       }
     } catch (e) {
-      toast.error("Error deleting householder");
+      toast.error("Error deleting contact");
     } finally {
       setDeleting(false);
     }
   };
 
   const handleArchive = async () => {
-    if (!householder?.id) return;
+    if (!contact?.id) return;
     setArchiving(true);
     try {
-      const ok = await archiveHouseholder(householder.id);
+      const ok = await archiveContact(contact.id);
       if (ok) {
-        toast.success("Householder archived successfully");
-        businessEventBus.emit('householder-archived', { id: householder.id });
+        toast.success("Contact archived successfully");
+        businessEventBus.emit('contact-archived', { id: contact.id });
         onBackClick();
       } else {
-        toast.error("Failed to archive householder");
+        toast.error("Failed to archive contact");
       }
     } catch (e) {
-      toast.error("Error archiving householder");
+      toast.error("Error archiving contact");
     } finally {
       setArchiving(false);
     }
   };
 
   const handleAddAsPersonalContact = async () => {
-    if (!householder?.id || !effectivePublisherId) return;
+    if (!contact?.id || !effectivePublisherId) return;
     setUpdatingPublisher(true);
     try {
-      const updated = await upsertHouseholder({
-        ...householder,
-        id: householder.id,
+      const updated = await upsertContact({
+        ...contact,
+        id: contact.id,
         publisher_id: effectivePublisherId
       });
       if (updated && updated.id) {
         // Fetch the publisher profile to include in the update
         const profile = await getProfile(effectivePublisherId);
-        const updatedWithUser: HouseholderWithDetails = {
+        const updatedWithUser: ContactWithDetails = {
           id: updated.id,
           name: updated.name,
           status: updated.status,
           note: updated.note ?? null,
           establishment_id: updated.establishment_id ?? null,
-          establishment_name: householder.establishment_name ?? null,
+          establishment_name: contact.establishment_name ?? null,
           publisher_id: updated.publisher_id ?? null,
           lat: updated.lat ?? null,
           lng: updated.lng ?? null,
@@ -289,10 +291,10 @@ export function HouseholderDetails({
         };
         // Clear cache to force fresh fetch on next load
         if (updated.id) {
-          await cacheDelete(`householder:details:v3:${updated.id}`);
+          await cacheDelete(`contact:details:v4:${updated.id}`);
         }
         toast.success("Added as personal contact");
-        businessEventBus.emit('householder-updated', updatedWithUser);
+        businessEventBus.emit('contact-updated', updatedWithUser);
         setShowAddConfirm(false);
       } else {
         toast.error("Failed to add as personal contact");
@@ -305,22 +307,22 @@ export function HouseholderDetails({
   };
 
   const handleRemoveAsPersonalContact = async () => {
-    if (!householder?.id) return;
+    if (!contact?.id) return;
     setUpdatingPublisher(true);
     try {
-      const updated = await upsertHouseholder({
-        ...householder,
-        id: householder.id,
+      const updated = await upsertContact({
+        ...contact,
+        id: contact.id,
         publisher_id: null
       });
       if (updated && updated.id) {
-        const updatedWithUser: HouseholderWithDetails = {
+        const updatedWithUser: ContactWithDetails = {
           id: updated.id,
           name: updated.name,
           status: updated.status,
           note: updated.note ?? null,
           establishment_id: updated.establishment_id ?? null,
-          establishment_name: householder.establishment_name ?? null,
+          establishment_name: contact.establishment_name ?? null,
           publisher_id: null,
           lat: updated.lat ?? null,
           lng: updated.lng ?? null,
@@ -328,10 +330,10 @@ export function HouseholderDetails({
         };
         // Clear cache to force fresh fetch on next load
         if (updated.id) {
-          await cacheDelete(`householder:details:v3:${updated.id}`);
+          await cacheDelete(`contact:details:v4:${updated.id}`);
         }
         toast.success("Removed as personal contact");
-        businessEventBus.emit('householder-updated', updatedWithUser);
+        businessEventBus.emit('contact-updated', updatedWithUser);
         setShowRemoveConfirm(false);
         setShowMinusButton(false);
       } else {
@@ -344,28 +346,30 @@ export function HouseholderDetails({
     }
   };
 
-  const isCurrentUserPublisher = effectivePublisherId && householder.publisher_id === effectivePublisherId;
-  const assignedUser = householder.assigned_user;
-  const detailsCardSurfaceClass = householder.publisher_id
+  const isCurrentUserPublisher = effectivePublisherId && contact.publisher_id === effectivePublisherId;
+  const assignedUser = contact.assigned_user;
+  const detailsCardSurfaceClass = contact.publisher_id
     ? getPersonalTerritoryDetailsCardClass(!!isCurrentUserPublisher)
-    : getHouseholderCardColor(householder.status);
+    : getContactCardColor(contact.status);
 
-  const hasCoordinates = householder.lat != null && householder.lng != null;
+  const hasCoordinates = contact.lat != null && contact.lng != null;
   /** BWI: directions only after "Take as personal contact"; congregation unchanged. */
   const showDirections =
     context !== "bwi" || !!isCurrentUserPublisher;
 
   const linkedEstablishment = useMemo(
-    () => establishments.find((e) => e.id === householder.establishment_id),
-    [establishments, householder.establishment_id]
+    () => establishments.find((e) => e.id === contact.establishment_id),
+    [establishments, contact.establishment_id]
   );
   const areaFromEstablishment =
     establishment?.area?.trim() || linkedEstablishment?.area?.trim();
-  const householderNote = householder.note?.trim() ?? "";
+  const contactStatuses = resolveContactStatuses(contact);
+  const primaryContactStatus = getBestContactStatus(contactStatuses);
+  const contactNote = contact.note?.trim() ?? "";
   const establishmentDisplayName =
-    (establishment?.name?.trim() || householder.establishment_name?.trim() || "") || "";
+    (establishment?.name?.trim() || contact.establishment_name?.trim() || "") || "";
   const visitLinkedEstablishmentStatus =
-    visits.find((visit) => visit.establishment_id === householder.establishment_id)?.establishment?.status ?? null;
+    visits.find((visit) => visit.establishment_id === contact.establishment_id)?.establishment?.status ?? null;
   const resolvedEstablishmentStatuses =
     establishment?.statuses?.length
       ? establishment.statuses
@@ -455,13 +459,36 @@ export function HouseholderDetails({
                 <div className="h-6 w-28 rounded-full bg-muted/60 blur-[1px] animate-pulse" />
               ) : (
                 <>
-                  {householder.status?.trim() ? (
-                    <Badge
-                      variant="outline"
-                      className={cn("flex-shrink-0 capitalize", getHouseholderStatusColorClass(householder.status))}
-                    >
-                      {formatStatusText(householder.status)}
-                    </Badge>
+                  {contactStatuses.length > 0 ? (
+                    <>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "flex-shrink-0 capitalize",
+                          getContactStatusColorClass(primaryContactStatus)
+                        )}
+                      >
+                        {formatStatusText(primaryContactStatus)}
+                      </Badge>
+                      {contactStatuses.length > 1 ? (
+                        <div className="flex gap-1">
+                          {contactStatuses
+                            .filter((s) => s !== primaryContactStatus)
+                            .map((status) => (
+                              <Badge
+                                key={status}
+                                variant="outline"
+                                className={cn(
+                                  "h-5 px-1.5 py-0 text-[10px] font-medium leading-none",
+                                  getContactStatusColorClass(status)
+                                )}
+                              >
+                                {formatStatusText(status)}
+                              </Badge>
+                            ))}
+                        </div>
+                      ) : null}
+                    </>
                   ) : null}
                   {showEstablishment && establishmentDisplayName ? (
                     <Badge
@@ -488,7 +515,7 @@ export function HouseholderDetails({
                     hasCoordinates ? (
                       <a
                         className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-primary/60 bg-primary/10 text-primary shadow-sm transition-all hover:bg-primary/20 hover:border-primary hover:scale-[1.03] active:scale-100"
-                        href={`https://www.google.com/maps/dir/?api=1&destination=${householder.lat},${householder.lng}`}
+                        href={`https://www.google.com/maps/dir/?api=1&destination=${contact.lat},${contact.lng}`}
                         target="_blank"
                         rel="noreferrer"
                         aria-label="Open directions"
@@ -612,11 +639,11 @@ export function HouseholderDetails({
           </CardHeader>
           <CardContent className="space-y-4">
             {isLoading ? (
-              <HouseholderSummaryFieldsSkeleton showArea={showEstablishment} />
+              <ContactSummaryFieldsSkeleton showArea={showEstablishment} />
             ) : (
-              <HouseholderSummaryFields
+              <ContactSummaryFields
                 area={areaFromEstablishment}
-                note={householderNote}
+                note={contactNote}
                 showArea={showEstablishment}
               />
             )}
@@ -704,10 +731,10 @@ export function HouseholderDetails({
         </DrawerContent>
       </Drawer>
 
-      {/* To-Do scoped to this householder only */}
+      {/* To-Do scoped to this contact only */}
       <motion.div className="w-full" layout transition={detailTransition}>
         <HomeTodoCard
-          householderId={householder.id}
+          contactId={contact.id}
           userId={effectivePublisherId ?? undefined}
           onTodoTap={handleTodoTapOpenCall}
         />
@@ -716,12 +743,12 @@ export function HouseholderDetails({
       <motion.div className="w-full" layout transition={detailTransition}>
         <CallSection 
           visits={visits} 
-          isHouseholderContext={true}
+          isContactContext={true}
           establishments={establishments}
           selectedEstablishmentId={establishment?.id}
-          householderId={householder.id}
-          householderName={householder.name}
-          householderStatus={householder.status}
+          contactId={contact.id}
+          contactName={contact.name}
+          contactStatus={contact.status}
           isLoading={isLoading}
           preferLeftDetailPanel={preferLeftDetailPanel}
           insideStackedContactPane={insideStackedContactPane}
@@ -741,9 +768,9 @@ export function HouseholderDetails({
                 establishments={establishments}
           selectedEstablishmentId={context === "congregation" ? "none" : (establishment?.id || "none")}
           disableEstablishmentSelect={context === "congregation"}
-          householderId={householder.id}
-          householderName={householder.name}
-          householderStatus={householder.status}
+          contactId={contact.id}
+          contactName={contact.name}
+          contactStatus={contact.status}
           onSaved={() => {
             setNewVisitOpen(false);
           }}
@@ -764,25 +791,26 @@ export function HouseholderDetails({
             className={cn("border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]", bwiHhEditFormShade)}
           >
             <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center sm:text-center">
-              <DrawerTitle className="text-center text-lg font-bold">Edit Householder</DrawerTitle>
-              <DrawerDescription className="sr-only">Update householder details</DrawerDescription>
+              <DrawerTitle className="text-center text-lg font-bold">Edit Contact</DrawerTitle>
+              <DrawerDescription className="sr-only">Update contact details</DrawerDescription>
             </DrawerHeader>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
-              <HouseholderForm
+              <ContactForm
                 establishments={establishments}
-                selectedEstablishmentId={householder.establishment_id ?? undefined}
+                selectedEstablishmentId={contact.establishment_id ?? undefined}
                 isEditing
                 context={context}
-                publisherId={publisherId ?? householder.publisher_id ?? undefined}
+                publisherId={publisherId ?? contact.publisher_id ?? undefined}
                 initialData={{
-                  id: householder.id,
-                  establishment_id: householder.establishment_id || "",
-                  name: householder.name,
-                  status: householder.status as HouseholderStatus,
-                  note: householder.note || null,
-                  lat: householder.lat ?? null,
-                  lng: householder.lng ?? null,
-                  publisher_id: householder.publisher_id ?? null,
+                  id: contact.id,
+                  establishment_id: contact.establishment_id || "",
+                  name: contact.name,
+                  status: contact.status as ContactStatus,
+                  statuses: contact.statuses ?? (contact.status ? [contact.status] : []),
+                  note: contact.note || null,
+                  lat: contact.lat ?? null,
+                  lng: contact.lng ?? null,
+                  publisher_id: contact.publisher_id ?? null,
                 }}
                 onSaved={onEditSaved}
                 onDelete={handleDelete}
@@ -795,25 +823,26 @@ export function HouseholderDetails({
         <FormModal
           open={isEditing}
           onOpenChange={setIsEditing}
-          title="Edit Householder"
-          description="Update householder details"
+          title="Edit Contact"
+          description="Update contact details"
           headerClassName="text-center"
         >
-          <HouseholderForm
+          <ContactForm
             establishments={establishments}
-            selectedEstablishmentId={householder.establishment_id ?? undefined}
+            selectedEstablishmentId={contact.establishment_id ?? undefined}
             isEditing
             context={context}
-            publisherId={publisherId ?? householder.publisher_id ?? undefined}
+            publisherId={publisherId ?? contact.publisher_id ?? undefined}
             initialData={{
-              id: householder.id,
-              establishment_id: householder.establishment_id || "",
-              name: householder.name,
-              status: householder.status as HouseholderStatus,
-              note: householder.note || null,
-              lat: householder.lat ?? null,
-              lng: householder.lng ?? null,
-              publisher_id: householder.publisher_id ?? null,
+              id: contact.id,
+              establishment_id: contact.establishment_id || "",
+              name: contact.name,
+              status: contact.status as ContactStatus,
+              statuses: contact.statuses ?? (contact.status ? [contact.status] : []),
+              note: contact.note || null,
+              lat: contact.lat ?? null,
+              lng: contact.lng ?? null,
+              publisher_id: contact.publisher_id ?? null,
             }}
             onSaved={onEditSaved}
             onDelete={handleDelete}
@@ -847,8 +876,8 @@ export function HouseholderDetails({
                   selectedEstablishmentId={context === "congregation" ? "none" : (establishment?.id || "none")}
                   initialTodo={editTodo}
                   disableEstablishmentSelect
-                  householderId={householder.id}
-                  householderName={householder.name}
+                  contactId={contact.id}
+                  contactName={contact.name}
                   onSaved={() => setEditTodo(null)}
                 />
               </div>
@@ -868,8 +897,8 @@ export function HouseholderDetails({
               selectedEstablishmentId={context === "congregation" ? "none" : (establishment?.id || "none")}
               initialTodo={editTodo}
               disableEstablishmentSelect
-              householderId={householder.id}
-              householderName={householder.name}
+              contactId={contact.id}
+              contactName={contact.name}
               onSaved={() => setEditTodo(null)}
             />
           </FormModal>

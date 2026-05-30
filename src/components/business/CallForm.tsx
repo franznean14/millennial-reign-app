@@ -28,6 +28,7 @@ import { getBestStatus } from "@/lib/utils/status-hierarchy";
 import { getInitialsFromName } from "@/lib/utils/visit-history-ui";
 import { cn } from "@/lib/utils";
 import { getStudyBibleDarkCardShade } from "@/lib/theme/study-bible-dark";
+import { CONTACTS_TABLE } from "@/lib/db/contact-supabase";
 import { sidebarFormClasses } from "@/components/business/sidebar-form-styles";
 import { useMediaQuery } from "@/hooks/use-media-query";
 
@@ -49,7 +50,7 @@ interface CallFormProps {
   initialVisit?: {
     id: string;
     establishment_id?: string | null;
-    householder_id?: string | null;
+    contact_id?: string | null;
     note?: string | null;
     publisher_id?: string | null;
     partner_id?: string | null;
@@ -57,53 +58,53 @@ interface CallFormProps {
     partner_guest_name?: string | null;
     visit_date?: string;
   };
-  // Householder context
-  householderId?: string;
-  householderName?: string;
-  householderStatus?: string;
+  // Contact context
+  contactId?: string;
+  contactName?: string;
+  contactStatus?: string;
   // Optional prefill for note (used when creating)
   prefillNote?: string;
   disableEstablishmentSelect?: boolean;
 }
 
-export function CallForm({ establishments, selectedEstablishmentId, onSaved, initialVisit, householderId, householderName, householderStatus, prefillNote, disableEstablishmentSelect = false }: CallFormProps) {
+export function CallForm({ establishments, selectedEstablishmentId, onSaved, initialVisit, contactId, contactName, contactStatus, prefillNote, disableEstablishmentSelect = false }: CallFormProps) {
   const [estId, setEstId] = useState<string>(
     selectedEstablishmentId || initialVisit?.establishment_id || establishments[0]?.id || "none"
   );
-  const [householderEstablishmentId, setHouseholderEstablishmentId] = useState<string | null>(null);
+  const [contactEstablishmentId, setContactEstablishmentId] = useState<string | null>(null);
 
-  // Fetch householder's establishment_id when householderId is provided or when editing a visit with householder_id
+  // Fetch contact's establishment_id when contactId is provided or when editing a visit with contact_id
   useEffect(() => {
-    const hhId = householderId || initialVisit?.householder_id;
+    const hhId = contactId || initialVisit?.contact_id;
     if (!hhId) {
-      setHouseholderEstablishmentId(null);
+      setContactEstablishmentId(null);
       return;
     }
 
-    const fetchHouseholderEstablishment = async () => {
+    const fetchContactEstablishment = async () => {
       try {
         const supabase = createSupabaseBrowserClient();
         await supabase.auth.getSession();
         const { data, error } = await supabase
-          .from('householders')
+          .from(CONTACTS_TABLE)
           .select('establishment_id')
           .eq('id', hhId)
           .single();
 
         if (error) throw error;
         if (data?.establishment_id) {
-          setHouseholderEstablishmentId(data.establishment_id);
+          setContactEstablishmentId(data.establishment_id);
         } else {
-          setHouseholderEstablishmentId(null);
+          setContactEstablishmentId(null);
         }
       } catch (error) {
-        console.error('Error fetching householder establishment:', error);
-        setHouseholderEstablishmentId(null);
+        console.error('Error fetching contact establishment:', error);
+        setContactEstablishmentId(null);
       }
     };
 
-    fetchHouseholderEstablishment();
-  }, [householderId, initialVisit?.householder_id]);
+    fetchContactEstablishment();
+  }, [contactId, initialVisit?.contact_id]);
 
   // Keep estId in sync when props change with clear priority
   useEffect(() => {
@@ -116,25 +117,25 @@ export function CallForm({ establishments, selectedEstablishmentId, onSaved, ini
       return;
     }
     
-    const hhId = householderId || initialVisit?.householder_id;
+    const hhId = contactId || initialVisit?.contact_id;
     if (hhId) {
-      // If there's a householder, only use its establishment_id if it has one
-      // If householder doesn't have establishment_id, set to "none" (don't default to first establishment)
-      if (householderEstablishmentId) {
-        setEstId(householderEstablishmentId);
+      // If there's a contact, only use its establishment_id if it has one
+      // If contact doesn't have establishment_id, set to "none" (don't default to first establishment)
+      if (contactEstablishmentId) {
+        setEstId(contactEstablishmentId);
       } else {
         setEstId("none");
       }
       return;
     }
     
-    // No householder context, use first establishment or "none"
+    // No contact context, use first establishment or "none"
     if (establishments.length > 0) {
       setEstId(establishments[0]?.id || "none");
       return;
     }
     setEstId("none");
-  }, [selectedEstablishmentId, initialVisit?.establishment_id, householderEstablishmentId, householderId, initialVisit?.householder_id, establishments]);
+  }, [selectedEstablishmentId, initialVisit?.establishment_id, contactEstablishmentId, contactId, initialVisit?.contact_id, establishments]);
   
   const [note, setNote] = useState(initialVisit?.note || "");
   const [visitDate, setVisitDate] = useState<Date>(initialVisit?.visit_date ? new Date(initialVisit.visit_date) : new Date());
@@ -147,7 +148,7 @@ export function CallForm({ establishments, selectedEstablishmentId, onSaved, ini
   }>>([]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const usePublisherSidebar = useMediaQuery("(min-width: 768px)");
-  const bwiCallFormScope = householderId ?? initialVisit?.id ?? selectedEstablishmentId ?? "new-call";
+  const bwiCallFormScope = contactId ?? initialVisit?.id ?? selectedEstablishmentId ?? "new-call";
   const publisherPickerShade = useMemo(
     () => getStudyBibleDarkCardShade(`bwi-callform-publishers:${bwiCallFormScope}`),
     [bwiCallFormScope]
@@ -274,16 +275,16 @@ export function CallForm({ establishments, selectedEstablishmentId, onSaved, ini
     e.preventDefault();
     setSaving(true);
     try {
-      // Determine establishment_id based on householder context
+      // Determine establishment_id based on contact context
       let finalEstablishmentId: string | undefined;
-      const hhId = householderId || initialVisit?.householder_id;
+      const hhId = contactId || initialVisit?.contact_id;
       
       if (hhId) {
-        // If there's a householder, only use establishment_id if the householder has one
-        // If householder doesn't have establishment_id, visit should also not have one
-        finalEstablishmentId = householderEstablishmentId || undefined;
+        // If there's a contact, only use establishment_id if the contact has one
+        // If contact doesn't have establishment_id, visit should also not have one
+        finalEstablishmentId = contactEstablishmentId || undefined;
       } else {
-        // No householder, use selected establishment (or none)
+        // No contact, use selected establishment (or none)
         finalEstablishmentId = estId === "none" ? undefined : estId || undefined;
       }
 
@@ -297,7 +298,7 @@ export function CallForm({ establishments, selectedEstablishmentId, onSaved, ini
         partner_id: slot1?.type === 'publisher' ? slot1.id : undefined,
         publisher_guest_name: slot0?.type === 'guest' ? slot0.name : null,
         partner_guest_name: slot1?.type === 'guest' ? slot1.name : null,
-        householder_id: householderId || initialVisit?.householder_id || undefined,
+        contact_id: contactId || initialVisit?.contact_id || undefined,
       };
 
       if (!payload.note) {
@@ -343,7 +344,7 @@ export function CallForm({ establishments, selectedEstablishmentId, onSaved, ini
           const newVisit = {
             id: created.id,
             establishment_id: created.establishment_id || (estId === "none" ? undefined : estId),
-            householder_id: created.householder_id || householderId,
+            contact_id: created.contact_id || contactId,
             note: created.note || null,
             visit_date: created.visit_date!,
             publisher_id: created.publisher_id ?? undefined,
@@ -374,12 +375,12 @@ export function CallForm({ establishments, selectedEstablishmentId, onSaved, ini
                     status: getBestStatus(establishments.find(e => e.id === estId)!.statuses || []) || "for_scouting",
                   }
                 : undefined,
-            householder:
-              householderId && householderName
+            contact:
+              contactId && contactName
                 ? {
-                    id: householderId,
-                    name: householderName,
-                    status: householderStatus || "potential",
+                    id: contactId,
+                    name: contactName,
+                    status: contactStatus || "potential",
                   }
                 : undefined,
           };
@@ -671,11 +672,11 @@ export function CallForm({ establishments, selectedEstablishmentId, onSaved, ini
 
   return (
     <form className={cn("grid gap-3 pb-4", sidebarFormClasses.form)} onSubmit={handleSubmit}>
-      {householderId ? (
+      {contactId ? (
         <div className="grid gap-1">
-          <Label className={sidebarFormClasses.label}>Householder</Label>
+          <Label className={sidebarFormClasses.label}>Contact</Label>
           <div className={cn("rounded-md px-3 py-2", sidebarFormClasses.staticField)}>
-            {householderName || 'Selected householder'}
+            {contactName || 'Selected contact'}
           </div>
         </div>
       ) : (

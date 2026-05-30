@@ -38,7 +38,7 @@ type PublisherSlot = { type: "publisher"; id: string } | { type: "guest"; name: 
 const PARTICIPANTS_CACHE_KEY = "business:participants:local:v1";
 const GUEST_NAMES_CACHE_KEY = "business:guest-names:local:v1";
 
-/** Quick-fill buttons for new establishment to-dos (not shown on contact/householder forms). */
+/** Quick-fill buttons for new establishment to-dos (not shown on contact/contact forms). */
 const NEW_TODO_BODY_PRESETS = [
   { label: "Replenish", body: "Replenish" },
   { label: "Follow Up", body: "Follow up" },
@@ -49,8 +49,8 @@ interface TodoFormProps {
   /** Same as CallForm: list of establishments (id optional for type compatibility with EstablishmentWithDetails[]) */
   establishments: Array<{ id?: string; name: string }>;
   selectedEstablishmentId?: string;
-  householderId?: string;
-  householderName?: string;
+  contactId?: string;
+  contactName?: string;
   initialTodo?: {
     id: string;
     call_id?: string | null;
@@ -61,7 +61,7 @@ interface TodoFormProps {
     publisher_guest_name?: string | null;
     partner_guest_name?: string | null;
     establishment_id?: string | null;
-    householder_id?: string | null;
+    contact_id?: string | null;
     call_note?: string | null;
     call_visit_date?: string | null;
     call_publishers?: string[];
@@ -73,8 +73,8 @@ interface TodoFormProps {
 export function TodoForm({
   establishments,
   selectedEstablishmentId,
-  householderId,
-  householderName,
+  contactId,
+  contactName,
   initialTodo,
   onSaved,
   disableEstablishmentSelect = false,
@@ -82,14 +82,14 @@ export function TodoForm({
   const [estId, setEstId] = useState<string>(
     selectedEstablishmentId || (establishments[0]?.id as string) || "none"
   );
-  const [householderEstablishmentId, setHouseholderEstablishmentId] = useState<string | null>(null);
+  const [contactEstablishmentId, setContactEstablishmentId] = useState<string | null>(null);
   const [body, setBody] = useState(initialTodo?.body ?? "");
   const [deadlineDate, setDeadlineDate] = useState<Date | null>(
     initialTodo?.deadline_date ? new Date(initialTodo.deadline_date) : null
   );
   const [saving, setSaving] = useState(false);
   const usePublisherSidebar = useMediaQuery("(min-width: 768px)");
-  const bwiTodoFormScope = householderId ?? initialTodo?.id ?? selectedEstablishmentId ?? "new-todo";
+  const bwiTodoFormScope = contactId ?? initialTodo?.id ?? selectedEstablishmentId ?? "new-todo";
   const publisherPickerShade = useMemo(
     () => getStudyBibleDarkCardShade(`bwi-todoform-publishers:${bwiTodoFormScope}`),
     [bwiTodoFormScope]
@@ -111,27 +111,27 @@ export function TodoForm({
   });
 
   useEffect(() => {
-    if (householderId) {
-      const fetchHouseholderEstablishment = async () => {
+    if (contactId) {
+      const fetchContactEstablishment = async () => {
         try {
           const supabase = createSupabaseBrowserClient();
           await supabase.auth.getSession();
           const { data, error } = await supabase
             .from("householders")
             .select("establishment_id")
-            .eq("id", householderId)
+            .eq("id", contactId)
             .single();
           if (error) throw error;
-          setHouseholderEstablishmentId(data?.establishment_id ?? null);
+          setContactEstablishmentId(data?.establishment_id ?? null);
         } catch {
-          setHouseholderEstablishmentId(null);
+          setContactEstablishmentId(null);
         }
       };
-      fetchHouseholderEstablishment();
+      fetchContactEstablishment();
     } else {
-      setHouseholderEstablishmentId(null);
+      setContactEstablishmentId(null);
     }
-  }, [householderId]);
+  }, [contactId]);
 
   useEffect(() => {
     if (selectedEstablishmentId) {
@@ -142,8 +142,8 @@ export function TodoForm({
       setEstId(initialTodo.establishment_id);
       return;
     }
-    if (householderId && householderEstablishmentId) {
-      setEstId(householderEstablishmentId);
+    if (contactId && contactEstablishmentId) {
+      setEstId(contactEstablishmentId);
       return;
     }
     if (establishments.length > 0 && establishments[0]?.id) {
@@ -153,7 +153,7 @@ export function TodoForm({
     } else {
       setEstId("none");
     }
-  }, [selectedEstablishmentId, initialTodo?.establishment_id, householderEstablishmentId, householderId, establishments]);
+  }, [selectedEstablishmentId, initialTodo?.establishment_id, contactEstablishmentId, contactId, establishments]);
 
   useEffect(() => {
     if (!initialTodo) return;
@@ -270,7 +270,7 @@ export function TodoForm({
       } else {
         const todo = await addStandaloneTodo({
           establishment_id: establishmentId || null,
-          householder_id: householderId || null,
+          contact_id: contactId || null,
           body: trimmed,
           deadline_date: deadlineDate ? formatLocalDate(deadlineDate) : null,
           publisher_id: slot0?.type === "publisher" ? slot0.id : null,
@@ -499,11 +499,11 @@ export function TodoForm({
         </div>
       ) : null}
 
-      {householderId ? (
+      {contactId ? (
         <div className="grid gap-1">
-          <Label className={sidebarFormClasses.label}>Householder</Label>
+          <Label className={sidebarFormClasses.label}>Contact</Label>
           <div className={cn("rounded-md px-3 py-2", sidebarFormClasses.staticField)}>
-            {householderName || "Selected householder"}
+            {contactName || "Selected contact"}
           </div>
         </div>
       ) : (
@@ -629,7 +629,7 @@ export function TodoForm({
 
       <div className="grid gap-1">
         <Label className={sidebarFormClasses.label}>To-do</Label>
-        {!initialTodo?.id && !householderId ? (
+        {!initialTodo?.id && !contactId ? (
           <div
             className="mb-2 grid grid-cols-3 gap-2"
             role="group"

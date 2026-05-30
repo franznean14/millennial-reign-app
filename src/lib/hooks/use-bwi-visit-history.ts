@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { VisitRecord } from "@/lib/utils/visit-history";
+import { isContactVisitType } from "@/lib/db/contact-supabase";
 import { dedupeAndSortVisits } from "@/lib/utils/visit-history";
 import { getBwiVisitsPage, getRecentBwiVisits } from "@/lib/db/visit-history";
 import { formatStatusText } from "@/lib/utils/formatters";
@@ -30,10 +31,12 @@ interface VisitAddedBusPayload {
   id: string | number;
   visit_date?: string;
   establishment_id?: string;
-  householder_id?: string | null;
+  contact_id?: string | null;
   note?: string;
   publisher_id?: string;
   establishment?: { name?: string; status?: string };
+  contact?: { name?: string; status?: string };
+  /** @deprecated legacy bus payload */
   householder?: { name?: string; status?: string };
   publisher?: { first_name?: string; last_name?: string; avatar_url?: string | null };
   partner?: { first_name?: string; last_name?: string; avatar_url?: string | null };
@@ -63,7 +66,7 @@ export function useBwiVisitHistory({
     callDateTo: null,
     myUpdatesOnly: false,
     bwiOnly: false,
-    householderOnly: false
+    contactOnly: false
   });
 
   const loadInitialVisits = useCallback(
@@ -192,14 +195,14 @@ export function useBwiVisitHistory({
         if (visitData.visit_date) {
           const idStr = String(visitData.id);
           const newVisitRecord: VisitRecord = {
-            id: visitData.householder_id ? `hh-${idStr}` : `est-${idStr}`,
+            id: visitData.contact_id ? `hh-${idStr}` : `est-${idStr}`,
             visit_date: visitData.visit_date,
             establishment_name: visitData.establishment?.name,
-            householder_name: visitData.householder?.name,
-            householder_status: visitData.householder?.status,
-            visit_type: visitData.householder_id ? "householder" : "establishment",
+            contact_name: visitData.contact?.name ?? visitData.householder?.name,
+            contact_status: visitData.contact?.status ?? visitData.householder?.status,
+            visit_type: visitData.contact_id ? "contact" : "establishment",
             establishment_id: visitData.establishment_id,
-            householder_id: visitData.householder_id ?? undefined,
+            contact_id: visitData.contact_id ?? undefined,
             establishment_status: visitData.establishment?.status,
             notes: visitData.note,
             created_at: new Date().toISOString(),
@@ -236,7 +239,7 @@ export function useBwiVisitHistory({
       scheduleRevalidateBurst();
     };
 
-    const handleEstablishmentOrHouseholderUpdated = () => {
+    const handleEstablishmentOrContactUpdated = () => {
       scheduleRevalidateBurst();
     };
 
@@ -258,8 +261,8 @@ export function useBwiVisitHistory({
     businessEventBus.subscribe("visit-added", handleVisitAdded);
     businessEventBus.subscribe("visit-updated", handleVisitUpdated);
     businessEventBus.subscribe("visit-deleted", handleVisitDeleted);
-    businessEventBus.subscribe("establishment-updated", handleEstablishmentOrHouseholderUpdated);
-    businessEventBus.subscribe("householder-updated", handleEstablishmentOrHouseholderUpdated);
+    businessEventBus.subscribe("establishment-updated", handleEstablishmentOrContactUpdated);
+    businessEventBus.subscribe("contact-updated", handleEstablishmentOrContactUpdated);
 
     return () => {
       if (revalidateBurstTimerRef.current) {
@@ -270,8 +273,8 @@ export function useBwiVisitHistory({
       businessEventBus.unsubscribe("visit-added", handleVisitAdded);
       businessEventBus.unsubscribe("visit-updated", handleVisitUpdated);
       businessEventBus.unsubscribe("visit-deleted", handleVisitDeleted);
-      businessEventBus.unsubscribe("establishment-updated", handleEstablishmentOrHouseholderUpdated);
-      businessEventBus.unsubscribe("householder-updated", handleEstablishmentOrHouseholderUpdated);
+      businessEventBus.unsubscribe("establishment-updated", handleEstablishmentOrContactUpdated);
+      businessEventBus.unsubscribe("contact-updated", handleEstablishmentOrContactUpdated);
     };
   }, [enabled, scheduleRevalidateBurst, recentLimit]);
 
@@ -339,15 +342,15 @@ export function useBwiVisitHistory({
     if (filters.bwiOnly) {
       filtered = filtered.filter((visit) => visit.establishment_id != null);
     }
-    if (filters.householderOnly) {
-      // Personal contacts: householders that have a publisher_id (assigned to a publisher)
-      // This includes householders even if they also have an establishment_id
+    if (filters.contactOnly) {
+      // Personal contacts: contacts that have a publisher_id (assigned to a publisher)
+      // This includes contacts even if they also have an establishment_id
       filtered = filtered.filter((visit) => {
-        // Only householder visits can be personal contacts
-        if (visit.visit_type !== "householder") return false;
-        // Check if the householder has a publisher_id (is a personal contact)
+        // Only contact visits can be personal contacts
+        if (!isContactVisitType(visit.visit_type)) return false;
+        // Check if the contact has a publisher_id (is a personal contact)
         // Must be a truthy string value (not null, undefined, or empty string)
-        return Boolean(visit.householder_publisher_id);
+        return Boolean(visit.contact_publisher_id);
       });
     }
     const searchLower = filters.search.trim().toLowerCase();

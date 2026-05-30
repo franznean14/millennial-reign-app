@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type ReactElement, useCallback } from "re
 import { FormModal } from "@/components/shared/FormModal";
 import { FabMenu } from "@/components/shared/FabMenu";
 import { EstablishmentForm } from "@/components/business/EstablishmentForm";
-import { HouseholderForm } from "@/components/business/HouseholderForm";
+import { ContactForm } from "@/components/business/ContactForm";
 import { CallForm } from "@/components/business/CallForm";
 import { TodoForm } from "@/components/business/TodoForm";
 import { BulkTodoForm, BULK_TODO_TABLET_SHEET_MAX_REM, type BulkTodoTabletBulkSheetTier } from "@/components/business/BulkTodoForm";
@@ -24,13 +24,13 @@ import {
   Trash2,
   SquarePen,
 } from "lucide-react";
-import type { EstablishmentWithDetails, HouseholderWithDetails } from "@/lib/db/business";
+import type { EstablishmentWithDetails, ContactWithDetails } from "@/lib/db/business";
 import { useHomeTodoDetailsFabOptional } from "@/components/home/home-todo-details-fab-context";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 
-type BusinessTab = "establishments" | "householders" | "map";
+type BusinessTab = "establishments" | "contacts" | "map";
 type CongregationTab = "meetings" | "ministry" | "admin";
 
 type BulkTabletDockedFabAction = {
@@ -46,9 +46,9 @@ interface UnifiedFabProps {
   userId: string;
   // business
   establishments: EstablishmentWithDetails[];
-  householders: HouseholderWithDetails[];
+  contacts: ContactWithDetails[];
   selectedEstablishment: EstablishmentWithDetails | null;
-  selectedHouseholder: HouseholderWithDetails | null;
+  selectedContact: ContactWithDetails | null;
   selectedArea?: string;
   businessTab: BusinessTab;
   // congregation
@@ -56,16 +56,16 @@ interface UnifiedFabProps {
   congregationTab: CongregationTab;
   isElder: boolean;
   isAdmin: boolean;
-  congregationSelectedHouseholder: HouseholderWithDetails | null;
+  congregationSelectedContact: ContactWithDetails | null;
 }
 
 type FabActionKey =
   | "business-establishment"
-  | "business-householder"
+  | "business-contact"
   | "business-visit"
   | "business-todo"
   | "business-bulk-todos"
-  | "congregation-householder"
+  | "congregation-contact"
   | "congregation-user"
   | "congregation-visit"
   | "congregation-schedule"
@@ -77,16 +77,16 @@ export function UnifiedFab({
   currentSection,
   userId,
   establishments,
-  householders,
+  contacts,
   selectedEstablishment,
-  selectedHouseholder,
+  selectedContact,
   selectedArea,
   businessTab,
   congregationId,
   congregationTab,
   isElder,
   isAdmin,
-  congregationSelectedHouseholder
+  congregationSelectedContact
 }: UnifiedFabProps) {
   const [openKey, setOpenKey] = useState<FabActionKey>(null);
   const [bulkTodoKind, setBulkTodoKind] = useState<"new" | "edit" | "mixed">("new");
@@ -102,7 +102,7 @@ export function UnifiedFab({
     /** Home loads bulk to-dos via {@link open-business-bulk-todos} without fab override; use tablet sheet, not desktop dialog. */
     currentSection === "home";
   const stackBusinessLeftSheetAboveNestedDetails =
-    homeDetailsFab?.stackLeftFormAboveNestedDetails ?? (!!selectedEstablishment && !!selectedHouseholder);
+    homeDetailsFab?.stackLeftFormAboveNestedDetails ?? (!!selectedEstablishment && !!selectedContact);
 
   const isTabletUp = useMediaQuery("(min-width: 768px)");
   const [bulkTodoTabletTier, setBulkTodoTabletTier] = useState<BulkTodoTabletBulkSheetTier>(3);
@@ -161,19 +161,19 @@ export function UnifiedFab({
   }, []);
 
   const businessEstablishmentId =
-    selectedHouseholder?.establishment_id || selectedEstablishment?.id || undefined;
-  const isBusinessDetails = !!selectedEstablishment || !!selectedHouseholder;
-  const showExpandableButtons = !!selectedEstablishment && !selectedHouseholder;
-  const showEstablishmentForm = !selectedEstablishment && !selectedHouseholder && businessTab === "establishments";
-  const showHouseholderForm = !selectedEstablishment && !selectedHouseholder && businessTab === "householders";
-  const showCallForm = !!selectedEstablishment || !!selectedHouseholder;
+    selectedContact?.establishment_id || selectedEstablishment?.id || undefined;
+  const isBusinessDetails = !!selectedEstablishment || !!selectedContact;
+  const showExpandableButtons = !!selectedEstablishment && !selectedContact;
+  const showEstablishmentForm = !selectedEstablishment && !selectedContact && businessTab === "establishments";
+  const showContactForm = !selectedEstablishment && !selectedContact && businessTab === "contacts";
+  const showCallForm = !!selectedEstablishment || !!selectedContact;
 
   const fabEstablishmentsForForms: EstablishmentWithDetails[] | Array<{ id?: string; name: string }> =
     homeDetailsFab?.establishments ?? establishments;
   const fabSelectedEstId = homeDetailsFab?.selectedEstablishmentId ?? businessEstablishmentId;
-  const fabHouseholderId = homeDetailsFab?.householderId ?? selectedHouseholder?.id;
-  const fabHouseholderName = homeDetailsFab?.householderName ?? selectedHouseholder?.name;
-  const fabHouseholderStatus = homeDetailsFab?.householderStatus ?? selectedHouseholder?.status;
+  const fabContactId = homeDetailsFab?.contactId ?? selectedContact?.id;
+  const fabContactName = homeDetailsFab?.contactName ?? selectedContact?.name;
+  const fabContactStatus = homeDetailsFab?.contactStatus ?? selectedContact?.status;
   const fabLockEstablishment = showExpandableButtons || !!homeDetailsFab;
 
   const closeBusinessFabForm = () => {
@@ -184,7 +184,7 @@ export function UnifiedFab({
   const canManageCongregation = isElder || isAdmin;
   const isCongregationAdminTab = congregationTab === "admin" && isElder;
   const isCongregationMinistryTab = congregationTab === "ministry";
-  const isCongregationDetails = !!congregationSelectedHouseholder;
+  const isCongregationDetails = !!congregationSelectedContact;
 
   const actions = useMemo(() => {
     const items: { key: FabActionKey; label: string; icon: ReactElement; variant?: "default" | "outline" }[] = [];
@@ -194,15 +194,15 @@ export function UnifiedFab({
         items.push(
           { key: "business-visit", label: "New Call", icon: <FilePlus2 className="size-6" /> },
           { key: "business-todo", label: "New To-Do", icon: <ListTodo className="size-6" /> },
-          { key: "business-householder", label: "New Contact", icon: <UserPlus className="size-6" /> }
+          { key: "business-contact", label: "New Contact", icon: <UserPlus className="size-6" /> }
         );
       } else if (showEstablishmentForm) {
         items.push({ key: "business-establishment", label: "New Establishment", icon: <Building2 className="size-6" /> });
         if (isElder) {
           items.push({ key: "business-bulk-todos", label: "New To-Dos", icon: <ListTodo className="size-6" /> });
         }
-      } else if (showHouseholderForm) {
-        items.push({ key: "business-householder", label: "New Contact", icon: <UserPlus className="size-6" />, variant: "outline" });
+      } else if (showContactForm) {
+        items.push({ key: "business-contact", label: "New Contact", icon: <UserPlus className="size-6" />, variant: "outline" });
       } else if (showCallForm) {
         items.push(
           { key: "business-visit", label: "New Call", icon: <FilePlus2 className="size-6" /> },
@@ -217,7 +217,7 @@ export function UnifiedFab({
       } else if (isCongregationMinistryTab && isCongregationDetails) {
         items.push({ key: "congregation-visit", label: "New Call", icon: <FilePlus2 className="size-6" /> });
       } else if (isCongregationMinistryTab) {
-        items.push({ key: "congregation-householder", label: "Add Householder", icon: <UserPlus className="size-6" /> });
+        items.push({ key: "congregation-contact", label: "Add Contact", icon: <UserPlus className="size-6" /> });
       } else {
         items.push({ key: "congregation-user", label: "Add Publisher", icon: <UserPlus className="size-6" /> });
       }
@@ -242,7 +242,7 @@ export function UnifiedFab({
         );
         if (homeDetailsFab.showNewContact) {
           items.push({
-            key: "business-householder",
+            key: "business-contact",
             label: "New Contact",
             icon: <UserPlus className="size-6" />,
           });
@@ -265,7 +265,7 @@ export function UnifiedFab({
     isCongregationMinistryTab,
     showEstablishmentForm,
     showExpandableButtons,
-    showHouseholderForm,
+    showContactForm,
     showCallForm
   ]);
 
@@ -512,14 +512,14 @@ export function UnifiedFab({
       </FormModal>
 
       <FormModal
-        open={openKey === "business-householder"}
-        onOpenChange={(open) => setOpenKey(open ? "business-householder" : null)}
+        open={openKey === "business-contact"}
+        onOpenChange={(open) => setOpenKey(open ? "business-contact" : null)}
         title="New Contact"
         headerClassName={useBusinessLeftSheet ? undefined : "text-center"}
         desktopPresentation={useBusinessLeftSheet ? "left-sheet" : "auto"}
         leftSheetStackAboveNestedRight={stackBusinessLeftSheetAboveNestedDetails}
       >
-        <HouseholderForm
+        <ContactForm
           establishments={fabEstablishmentsForForms}
           selectedEstablishmentId={fabSelectedEstId}
           onSaved={closeBusinessFabForm}
@@ -538,9 +538,9 @@ export function UnifiedFab({
         <CallForm
           establishments={fabEstablishmentsForForms as EstablishmentWithDetails[]}
           selectedEstablishmentId={fabSelectedEstId}
-          householderId={fabHouseholderId}
-          householderName={fabHouseholderName}
-          householderStatus={fabHouseholderStatus}
+          contactId={fabContactId}
+          contactName={fabContactName}
+          contactStatus={fabContactStatus}
           onSaved={closeBusinessFabForm}
           disableEstablishmentSelect={fabLockEstablishment}
         />
@@ -558,8 +558,8 @@ export function UnifiedFab({
         <TodoForm
           establishments={fabEstablishmentsForForms as Array<{ id?: string; name: string }>}
           selectedEstablishmentId={fabSelectedEstId}
-          householderId={fabHouseholderId}
-          householderName={fabHouseholderName}
+          contactId={fabContactId}
+          contactName={fabContactName}
           onSaved={closeBusinessFabForm}
           disableEstablishmentSelect={fabLockEstablishment}
         />
@@ -601,7 +601,7 @@ export function UnifiedFab({
       >
         <BulkTodoForm
           establishments={establishments}
-          householders={householders}
+          contacts={contacts}
           publisherUserId={userId}
           onTabletBulkSheetTierChange={handleBulkTodoTabletTierChange}
           onDraftKindChange={setBulkTodoKind}
@@ -613,17 +613,17 @@ export function UnifiedFab({
       </FormModal>
 
       <FormModal
-        open={openKey === "congregation-householder"}
-        onOpenChange={(open) => setOpenKey(open ? "congregation-householder" : null)}
-        title="New Householder"
-        description="Add a personal householder with location"
+        open={openKey === "congregation-contact"}
+        onOpenChange={(open) => setOpenKey(open ? "congregation-contact" : null)}
+        title="New Contact"
+        description="Add a personal contact with location"
         desktopPresentation="left-sheet"
         className="md:max-h-[100lvh]"
         headerClassName="text-center"
         drawerContentClassName="!mt-10 min-h-[72dvh] max-h-[calc(100dvh-4px)]"
         bodyClassName="max-md:pb-[calc(max(env(safe-area-inset-bottom),0px)+112px)]"
       >
-        <HouseholderForm
+        <ContactForm
           establishments={[]}
           onSaved={() => setOpenKey(null)}
           context="congregation"
@@ -666,9 +666,9 @@ export function UnifiedFab({
           establishments={[]}
           selectedEstablishmentId="none"
           disableEstablishmentSelect
-          householderId={congregationSelectedHouseholder?.id}
-          householderName={congregationSelectedHouseholder?.name}
-          householderStatus={congregationSelectedHouseholder?.status}
+          contactId={congregationSelectedContact?.id}
+          contactName={congregationSelectedContact?.name}
+          contactStatus={congregationSelectedContact?.status}
           onSaved={() => setOpenKey(null)}
         />
       </FormModal>

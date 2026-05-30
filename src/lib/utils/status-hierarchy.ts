@@ -154,19 +154,19 @@ export const getStatusTitleColor = (status: string): string => {
 
 /**
  * Status token for {@link getStatusTitleColor} in business/section headers when viewing details.
- * Personal territory (publisher_id) overrides establishment status or householder status for the title color.
+ * Personal territory (publisher_id) overrides establishment status or contact status for the title color.
  */
 export function getBusinessDetailsHeaderTitleStatus(
-  selectedHouseholder: { publisher_id?: string | null; status: string } | null | undefined,
+  selectedContact: { publisher_id?: string | null; status: string } | null | undefined,
   selectedEstablishment: { publisher_id?: string | null; statuses?: string[] | null } | null | undefined,
   currentUserId: string | null | undefined
 ): string | undefined {
-  if (selectedHouseholder) {
-    if (selectedHouseholder.publisher_id) {
-      const owned = !!(currentUserId && selectedHouseholder.publisher_id === currentUserId);
+  if (selectedContact) {
+    if (selectedContact.publisher_id) {
+      const owned = !!(currentUserId && selectedContact.publisher_id === currentUserId);
       return owned ? "personal_territory" : "personal_territory_other";
     }
-    return selectedHouseholder.status;
+    return getBestContactStatus(resolveContactStatuses(selectedContact));
   }
   if (selectedEstablishment) {
     if (selectedEstablishment.publisher_id) {
@@ -203,7 +203,7 @@ export const getStatusTextColor = (status: string) => {
       return 'text-stone-400 border-stone-600/50';
     case 'personal_territory':
       return 'text-pink-500 border-pink-500/50';
-    // Householder statuses
+    // Contact statuses
     case 'potential':
       return 'text-cyan-500 border-cyan-500/50';
     case 'interested':
@@ -221,6 +221,106 @@ export const getStatusTextColor = (status: string) => {
       return 'text-gray-500 border-gray-500/50';
   }
 };
+
+/** Contact pipeline order (worst → best) for primary status when multiple are stored. */
+export const CONTACT_STATUS_HIERARCHY = [
+  "resigned",
+  "moved_branch",
+  "do_not_call",
+  "potential",
+  "interested",
+  "return_visit",
+  "bible_study",
+] as const;
+
+export const MUTUALLY_EXCLUSIVE_CONTACT_PIPELINE_STATUSES = [
+  "potential",
+  "interested",
+  "return_visit",
+  "bible_study",
+] as const;
+
+export const STACKABLE_CONTACT_STATUSES = ["do_not_call"] as const;
+
+export const TERMINAL_CONTACT_STATUSES = ["moved_branch", "resigned"] as const;
+
+const CONTACT_PIPELINE_SET = new Set<string>(MUTUALLY_EXCLUSIVE_CONTACT_PIPELINE_STATUSES);
+const CONTACT_STACKABLE_SET = new Set<string>(STACKABLE_CONTACT_STATUSES);
+const CONTACT_TERMINAL_SET = new Set<string>(TERMINAL_CONTACT_STATUSES);
+
+export function getBestContactStatus(statuses: string[]): string {
+  if (!statuses?.length) return "potential";
+  let bestStatus = statuses[0];
+  let bestIndex = CONTACT_STATUS_HIERARCHY.indexOf(bestStatus as (typeof CONTACT_STATUS_HIERARCHY)[number]);
+  if (bestIndex < 0) bestIndex = -1;
+  for (const status of statuses) {
+    const index = CONTACT_STATUS_HIERARCHY.indexOf(status as (typeof CONTACT_STATUS_HIERARCHY)[number]);
+    if (index > bestIndex) {
+      bestIndex = index;
+      bestStatus = status;
+    }
+  }
+  return bestStatus;
+}
+
+/** Union of legacy `status` and `statuses[]` so tabs/filters match list badges. */
+export function resolveContactStatuses(contact: {
+  status?: string | null;
+  statuses?: string[] | null;
+}): string[] {
+  const merged = new Set<string>();
+  if (contact.status) merged.add(contact.status);
+  contact.statuses?.forEach((s) => {
+    if (s) merged.add(s);
+  });
+  if (merged.size === 0) return ["potential"];
+  return Array.from(merged);
+}
+
+export function contactHasAnyStatus(
+  contact: { status: string; statuses?: string[] | null },
+  filterStatuses: string[]
+): boolean {
+  if (!filterStatuses.length) return true;
+  const present = new Set(resolveContactStatuses(contact));
+  return filterStatuses.some((s) => present.has(s));
+}
+
+export function normalizeContactStatusesForForm(statuses: string[]): string[] {
+  if (!statuses?.length) return ["potential"];
+  const terminal = statuses.filter((s) => CONTACT_TERMINAL_SET.has(s));
+  if (terminal.length) {
+    return terminal.length === 1 ? terminal : [getBestContactStatus(terminal)];
+  }
+  const stackable = statuses.filter((s) => CONTACT_STACKABLE_SET.has(s));
+  const pipeline = statuses.filter((s) => CONTACT_PIPELINE_SET.has(s));
+  const primaryPipeline =
+    pipeline.length === 0 ? [] : pipeline.length === 1 ? pipeline : [getBestContactStatus(pipeline)];
+  const out: string[] = [];
+  const push = (s: string) => {
+    if (!out.includes(s)) out.push(s);
+  };
+  primaryPipeline.forEach(push);
+  stackable.forEach(push);
+  return out.length ? out : ["potential"];
+}
+
+export function toggleContactStatusForForm(prev: string[], value: string, checked: boolean): string[] {
+  if (!checked) {
+    return prev.filter((s) => s !== value);
+  }
+  if (prev.includes(value)) return prev;
+  if (CONTACT_TERMINAL_SET.has(value)) {
+    return [value];
+  }
+  if (CONTACT_PIPELINE_SET.has(value)) {
+    return [
+      ...prev.filter((s) => !CONTACT_PIPELINE_SET.has(s) && !CONTACT_TERMINAL_SET.has(s)),
+      value,
+    ];
+  }
+  return [...prev.filter((s) => !CONTACT_TERMINAL_SET.has(s)), value];
+}
 
 /**
  * Details card surface when a record is personal territory / personal contact (publisher_id set).

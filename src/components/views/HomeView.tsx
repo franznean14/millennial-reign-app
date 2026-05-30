@@ -40,12 +40,12 @@ interface HomeViewProps {
   onVisitClick?: (visit: VisitRecord) => Promise<void>;
   onNavigateToCongregation?: () => void;
   onNavigateToBusinessWithStatus?: (
-    tab: "establishments" | "householders",
+    tab: "establishments" | "contacts",
     status: string,
     areas?: string | string[]
   ) => void;
   onNavigateToBusiness?: () => void;
-  onNavigateToTodoCall?: (params: { establishmentId?: string; householderId?: string }) => void;
+  onNavigateToTodoCall?: (params: { establishmentId?: string; contactId?: string }) => void;
   homeTab?: 'summary' | 'events';
   bwiAreaFilter: string[];
   onBwiAreaChange: (areas: string[]) => void;

@@ -17,31 +17,31 @@ import { useMediaQuery } from "@/hooks/use-media-query";
 import type {
   BusinessFiltersState,
   EstablishmentWithDetails,
-  HouseholderWithDetails,
+  ContactWithDetails,
   MyOpenTodoTargets,
   VisitWithUser
 } from "@/lib/db/business";
-import { filterHouseholdersWithMyOpenTodos } from "@/lib/utils/business-todo-filter";
+import { filterContactsWithMyOpenTodos } from "@/lib/utils/business-todo-filter";
 
-type BusinessTab = "establishments" | "householders" | "map";
+type BusinessTab = "establishments" | "contacts" | "map";
 type EstablishmentSelectionSource = "list" | "map";
 type MapViewState = { center: [number, number]; zoom: number };
-type BusinessEditSheet = "establishment" | "householder" | null;
+type BusinessEditSheet = "establishment" | "contact" | null;
 
 const EstablishmentList = dynamic(
   () => import("@/components/business/EstablishmentList").then((m) => m.EstablishmentList),
   { ssr: false }
 );
-const HouseholderList = dynamic(
-  () => import("@/components/business/HouseholderList").then((m) => m.HouseholderList),
+const ContactList = dynamic(
+  () => import("@/components/business/ContactList").then((m) => m.ContactList),
   { ssr: false }
 );
 const EstablishmentDetails = dynamic(
   () => import("@/components/business/EstablishmentDetails").then((m) => m.EstablishmentDetails),
   { ssr: false }
 );
-const HouseholderDetails = dynamic(
-  () => import("@/components/business/HouseholderDetails").then((m) => m.HouseholderDetails),
+const ContactDetails = dynamic(
+  () => import("@/components/business/ContactDetails").then((m) => m.ContactDetails),
   { ssr: false }
 );
 const EstablishmentMap = dynamic(
@@ -59,8 +59,8 @@ const EstablishmentForm = dynamic(
   () => import("@/components/business/EstablishmentForm").then((m) => m.EstablishmentForm),
   { ssr: false }
 );
-const HouseholderForm = dynamic(
-  () => import("@/components/business/HouseholderForm").then((m) => m.HouseholderForm),
+const ContactForm = dynamic(
+  () => import("@/components/business/ContactForm").then((m) => m.ContactForm),
   { ssr: false }
 );
 
@@ -76,44 +76,44 @@ export interface BusinessSectionProps {
   viewMode: "detailed" | "compact" | "table";
   setViewMode: Dispatch<SetStateAction<"detailed" | "compact" | "table">>;
   filteredEstablishments: EstablishmentWithDetails[];
-  filteredHouseholders: HouseholderWithDetails[];
+  filteredContacts: ContactWithDetails[];
   establishments: EstablishmentWithDetails[];
   selectedEstablishment: EstablishmentWithDetails | null;
   setSelectedEstablishment: Dispatch<SetStateAction<EstablishmentWithDetails | null>>;
   selectedEstablishmentDetails: {
     establishment: EstablishmentWithDetails;
     visits: VisitWithUser[];
-    householders: HouseholderWithDetails[];
+    contacts: ContactWithDetails[];
   } | null;
   establishmentDetailsLoading: boolean;
   setSelectedEstablishmentDetails: Dispatch<
     SetStateAction<{
       establishment: EstablishmentWithDetails;
       visits: VisitWithUser[];
-      householders: HouseholderWithDetails[];
+      contacts: ContactWithDetails[];
     } | null>
   >;
-  selectedHouseholder: HouseholderWithDetails | null;
-  setSelectedHouseholder: Dispatch<SetStateAction<HouseholderWithDetails | null>>;
-  selectedHouseholderDetails: {
-    householder: HouseholderWithDetails;
+  selectedContact: ContactWithDetails | null;
+  setSelectedContact: Dispatch<SetStateAction<ContactWithDetails | null>>;
+  selectedContactDetails: {
+    contact: ContactWithDetails;
     visits: VisitWithUser[];
     establishment?: { id: string; name: string } | null;
   } | null;
-  householderDetailsLoading: boolean;
-  setSelectedHouseholderDetails: Dispatch<
+  contactDetailsLoading: boolean;
+  setSelectedContactDetails: Dispatch<
     SetStateAction<{
-      householder: HouseholderWithDetails;
+      contact: ContactWithDetails;
       visits: VisitWithUser[];
       establishment?: { id: string; name: string } | null;
     } | null>
   >;
   loadEstablishmentDetails: (establishmentId: string) => void;
-  loadHouseholderDetails: (householderId: string) => void;
+  loadContactDetails: (contactId: string) => void;
   handleDeleteEstablishment: (establishment: EstablishmentWithDetails) => void | Promise<void>;
   handleArchiveEstablishment: (establishment: EstablishmentWithDetails) => void | Promise<void>;
-  handleDeleteHouseholder: (householder: HouseholderWithDetails) => void | Promise<void>;
-  handleArchiveHouseholder: (householder: HouseholderWithDetails) => void | Promise<void>;
+  handleDeleteContact: (contact: ContactWithDetails) => void | Promise<void>;
+  handleArchiveContact: (contact: ContactWithDetails) => void | Promise<void>;
   handleClearAllFilters: () => void;
   handleClearSearch: () => void;
   handleRemoveStatus: (status: string) => void;
@@ -142,24 +142,24 @@ export function BusinessSection({
   viewMode,
   setViewMode,
   filteredEstablishments,
-  filteredHouseholders,
+  filteredContacts,
   establishments,
   selectedEstablishment,
   setSelectedEstablishment,
   selectedEstablishmentDetails,
   establishmentDetailsLoading,
   setSelectedEstablishmentDetails,
-  selectedHouseholder,
-  setSelectedHouseholder,
-  selectedHouseholderDetails,
-  householderDetailsLoading,
-  setSelectedHouseholderDetails,
+  selectedContact,
+  setSelectedContact,
+  selectedContactDetails,
+  contactDetailsLoading,
+  setSelectedContactDetails,
   loadEstablishmentDetails,
-  loadHouseholderDetails,
+  loadContactDetails,
   handleDeleteEstablishment,
   handleArchiveEstablishment,
-  handleDeleteHouseholder,
-  handleArchiveHouseholder,
+  handleDeleteContact,
+  handleArchiveContact,
   handleClearAllFilters,
   handleClearSearch,
   handleRemoveStatus,
@@ -180,16 +180,18 @@ export function BusinessSection({
   const [mapViewState, setMapViewState] = useState<MapViewState | null>(null);
   const [businessEditSheet, setBusinessEditSheet] = useState<BusinessEditSheet>(null);
   const isTabletUp = useMediaQuery("(min-width: 768px)");
-  /** Tablet+ uses right edge sheets; phone map keeps the map visible and uses a bottom drawer. */
-  const useMobileMapBottomDetails = !isTabletUp && businessTab === "map";
-  const overlayMapDetails = isTabletUp || businessTab === "map";
+  /** Tablet+ uses right edge sheets; phone map/contacts keep the list visible and use a bottom details drawer. */
+  const useMobileBottomDetails = !isTabletUp && (businessTab === "map" || businessTab === "contacts");
+  /** Keep list/map visible under detail drawers (avoid full-page detail swap on phone). */
+  const overlayMapDetails =
+    isTabletUp || businessTab === "map" || businessTab === "contacts";
 
   const bwiBizScope = userId ?? "anon";
   const businessEstablishmentDetailShade = useMemo(
     () => getStudyBibleDarkCardShade(`bwi-business-est-detail:${bwiBizScope}`),
     [bwiBizScope]
   );
-  const businessHouseholderDetailShade = useMemo(
+  const businessContactDetailShade = useMemo(
     () => getStudyBibleDarkCardShade(`bwi-business-hh-detail:${bwiBizScope}`),
     [bwiBizScope]
   );
@@ -228,10 +230,10 @@ export function BusinessSection({
     []
   );
 
-  const visibleEstablishmentHouseholders = useCallback(
-    (householders: HouseholderWithDetails[]) => {
-      if (!filters.myTodosOnly) return householders;
-      return filterHouseholdersWithMyOpenTodos(householders, myOpenTodoTargets);
+  const visibleEstablishmentContacts = useCallback(
+    (contacts: ContactWithDetails[]) => {
+      if (!filters.myTodosOnly) return contacts;
+      return filterContactsWithMyOpenTodos(contacts, myOpenTodoTargets);
     },
     [filters.myTodosOnly, myOpenTodoTargets]
   );
@@ -280,17 +282,17 @@ export function BusinessSection({
     [currentSection, loadEstablishmentDetails, pushNavigation, setSelectedEstablishment, overlayMapDetails]
   );
 
-  const handleSelectHouseholder = useCallback(
-    (householder: HouseholderWithDetails) => {
-      setSelectedHouseholder(householder);
+  const handleSelectContact = useCallback(
+    (contact: ContactWithDetails) => {
+      setSelectedContact(contact);
       if (!overlayMapDetails) {
         pushNavigation(currentSection);
       }
-      if (householder.id) {
-        loadHouseholderDetails(householder.id);
+      if (contact.id) {
+        loadContactDetails(contact.id);
       }
     },
-    [currentSection, loadHouseholderDetails, pushNavigation, setSelectedHouseholder, overlayMapDetails]
+    [currentSection, loadContactDetails, pushNavigation, setSelectedContact, overlayMapDetails]
   );
 
   const navigateBack = useCallback(
@@ -323,22 +325,22 @@ export function BusinessSection({
 
   const closeEstablishmentSideDetails = useCallback(() => {
     setBusinessEditSheet(null);
-    setSelectedHouseholder(null);
-    setSelectedHouseholderDetails(null);
+    setSelectedContact(null);
+    setSelectedContactDetails(null);
     setSelectedEstablishment(null);
     setSelectedEstablishmentDetails(null);
   }, [
     setSelectedEstablishment,
     setSelectedEstablishmentDetails,
-    setSelectedHouseholder,
-    setSelectedHouseholderDetails,
+    setSelectedContact,
+    setSelectedContactDetails,
   ]);
 
-  const closeHouseholderSideDetails = useCallback(() => {
+  const closeContactSideDetails = useCallback(() => {
     setBusinessEditSheet(null);
-    setSelectedHouseholder(null);
-    setSelectedHouseholderDetails(null);
-  }, [setSelectedHouseholder, setSelectedHouseholderDetails]);
+    setSelectedContact(null);
+    setSelectedContactDetails(null);
+  }, [setSelectedContact, setSelectedContactDetails]);
 
   const handleEstablishmentEditSaved = useCallback(
     (updated?: Partial<EstablishmentWithDetails> & { id?: string }) => {
@@ -359,17 +361,17 @@ export function BusinessSection({
     [loadEstablishmentDetails, selectedEstablishment?.id, setSelectedEstablishment, updateEstablishment]
   );
 
-  const handleHouseholderEditSaved = useCallback(
-    (updated?: Partial<HouseholderWithDetails> & { id?: string }) => {
+  const handleContactEditSaved = useCallback(
+    (updated?: Partial<ContactWithDetails> & { id?: string }) => {
       setBusinessEditSheet(null);
       if (updated?.id) {
-        setSelectedHouseholder((prev) => {
+        setSelectedContact((prev) => {
           if (!prev || prev.id !== updated.id) return prev;
-          return { ...prev, ...updated, id: prev.id, name: updated.name ?? prev.name } as HouseholderWithDetails;
+          return { ...prev, ...updated, id: prev.id, name: updated.name ?? prev.name } as ContactWithDetails;
         });
-        loadHouseholderDetails(updated.id);
-      } else if (selectedHouseholder?.id) {
-        loadHouseholderDetails(selectedHouseholder.id);
+        loadContactDetails(updated.id);
+      } else if (selectedContact?.id) {
+        loadContactDetails(selectedContact.id);
       }
       if (selectedEstablishment?.id) {
         loadEstablishmentDetails(selectedEstablishment.id);
@@ -377,27 +379,27 @@ export function BusinessSection({
     },
     [
       loadEstablishmentDetails,
-      loadHouseholderDetails,
+      loadContactDetails,
       selectedEstablishment?.id,
-      selectedHouseholder?.id,
-      setSelectedHouseholder,
+      selectedContact?.id,
+      setSelectedContact,
     ]
   );
 
-  const renderHouseholderDetails = (options?: { stacked?: boolean }) => {
-    if (!selectedHouseholder) return null;
+  const renderContactDetails = (options?: { stacked?: boolean }) => {
+    if (!selectedContact) return null;
     return (
-      <HouseholderDetails
-        householder={selectedHouseholderDetails?.householder || selectedHouseholder}
-        visits={selectedHouseholderDetails?.visits || []}
-        establishment={selectedHouseholderDetails?.establishment || null}
+      <ContactDetails
+        contact={selectedContactDetails?.contact || selectedContact}
+        visits={selectedContactDetails?.visits || []}
+        establishment={selectedContactDetails?.establishment || null}
         establishments={
-          selectedHouseholderDetails?.establishment ? [selectedHouseholderDetails.establishment] : []
+          selectedContactDetails?.establishment ? [selectedContactDetails.establishment] : []
         }
-        isLoading={householderDetailsLoading}
-        onBackClick={closeHouseholderSideDetails}
+        isLoading={contactDetailsLoading}
+        onBackClick={closeContactSideDetails}
         publisherId={userId}
-        onRequestSummaryEdit={() => setBusinessEditSheet("householder")}
+        onRequestSummaryEdit={() => setBusinessEditSheet("contact")}
         preferLeftDetailPanel={isTabletUp}
         insideStackedContactPane={options?.stacked}
       />
@@ -410,18 +412,18 @@ export function BusinessSection({
       <EstablishmentDetails
         establishment={selectedEstablishmentDetails?.establishment ?? selectedEstablishment}
         visits={selectedEstablishmentDetails?.visits || []}
-        householders={visibleEstablishmentHouseholders(selectedEstablishmentDetails?.householders || [])}
+        contacts={visibleEstablishmentContacts(selectedEstablishmentDetails?.contacts || [])}
         isLoading={establishmentDetailsLoading}
         canManagePersonalTerritoryOwner={canManagePersonalTerritoryOwner}
         onBackClick={closeEstablishmentSideDetails}
         onRequestSummaryEdit={() => setBusinessEditSheet("establishment")}
         onEstablishmentUpdated={(est) => est?.id && updateEstablishment({ id: est.id!, ...est })}
-        onHouseholderClick={(hh) => {
-          setSelectedHouseholder(hh);
-          if (hh.id) loadHouseholderDetails(hh.id);
+        onContactClick={(hh) => {
+          setSelectedContact(hh);
+          if (hh.id) loadContactDetails(hh.id);
         }}
         preferLeftDetailPanel={isTabletUp}
-        insideStackedContactPane={!!selectedHouseholder && !!selectedEstablishment}
+        insideStackedContactPane={!!selectedContact && !!selectedEstablishment}
         publisherId={userId}
       />
     );
@@ -458,7 +460,7 @@ export function BusinessSection({
           transition={{ duration: 0.3, ease: "easeOut" }}
         >
           <AnimatePresence initial={false}>
-            {overlayMapDetails || (!selectedEstablishment && !selectedHouseholder) ? (
+            {overlayMapDetails || (!selectedEstablishment && !selectedContact) ? (
               businessTab === "establishments" ? (
                 <motion.div key="establishment-list" {...listMotion} className="w-full">
                   <EstablishmentList
@@ -482,15 +484,15 @@ export function BusinessSection({
                     onViewModeChange={setViewMode}
                   />
                 </motion.div>
-              ) : businessTab === "householders" ? (
-                <motion.div key="householder-list" {...listMotion} className="w-full">
-                  <HouseholderList
-                    householders={filteredHouseholders}
-                    onHouseholderClick={handleSelectHouseholder}
-                    onHouseholderDelete={handleDeleteHouseholder}
-                    onHouseholderArchive={handleArchiveHouseholder}
-                    myHouseholdersOnly={filters.myEstablishments}
-                    onMyHouseholdersChange={(checked) =>
+              ) : businessTab === "contacts" ? (
+                <motion.div key="contact-list" {...listMotion} className="w-full">
+                  <ContactList
+                    contacts={filteredContacts}
+                    onContactClick={handleSelectContact}
+                    onContactDelete={handleDeleteContact}
+                    onContactArchive={handleArchiveContact}
+                    myContactsOnly={filters.myEstablishments}
+                    onMyContactsChange={(checked) =>
                       setFilters((prev) => ({ ...prev, myEstablishments: checked }))
                     }
                     onOpenFilters={() => setFiltersModalOpen(true)}
@@ -526,29 +528,29 @@ export function BusinessSection({
                   />
                 </motion.div>
               )
-            ) : selectedHouseholder ? (
+            ) : selectedContact ? (
               <motion.div
-                key="householder-details"
-                {...(businessTab === "map" ? mapDetailsMotion : detailsMotion)}
+                key="contact-details"
+                {...detailsMotion}
                 className="w-full"
               >
-                <div className={getDetailsWrapperClass(businessTab === "map")}>
-                  <HouseholderDetails
-                    householder={selectedHouseholderDetails?.householder || selectedHouseholder}
-                    visits={selectedHouseholderDetails?.visits || []}
-                    establishment={selectedHouseholderDetails?.establishment || null}
+                <div className={getDetailsWrapperClass(false)}>
+                  <ContactDetails
+                    contact={selectedContactDetails?.contact || selectedContact}
+                    visits={selectedContactDetails?.visits || []}
+                    establishment={selectedContactDetails?.establishment || null}
                     establishments={
-                      selectedHouseholderDetails?.establishment ? [selectedHouseholderDetails.establishment] : []
+                      selectedContactDetails?.establishment ? [selectedContactDetails.establishment] : []
                     }
-                    isLoading={householderDetailsLoading}
+                    isLoading={contactDetailsLoading}
                     onBackClick={() => {
-                      setSelectedHouseholder(null);
-                      setSelectedHouseholderDetails(null);
+                      setSelectedContact(null);
+                      setSelectedContactDetails(null);
                       if (selectedEstablishment) {
                         // Came from establishment details → stay; view will show establishment details
                         return;
                       }
-                      navigateBack("business-householders");
+                      navigateBack("business-contacts");
                     }}
                   />
                 </div>
@@ -556,15 +558,15 @@ export function BusinessSection({
             ) : (
               <motion.div
                 key="establishment-details"
-                {...(businessTab === "map" ? mapDetailsMotion : detailsMotion)}
+                {...detailsMotion}
                 className="w-full"
               >
                 {selectedEstablishment && (
-                  <div className={getDetailsWrapperClass(businessTab === "map")}>
+                  <div className={getDetailsWrapperClass(false)}>
                     <EstablishmentDetails
                       establishment={selectedEstablishmentDetails?.establishment ?? selectedEstablishment}
                       visits={selectedEstablishmentDetails?.visits || []}
-                      householders={visibleEstablishmentHouseholders(selectedEstablishmentDetails?.householders || [])}
+                      contacts={visibleEstablishmentContacts(selectedEstablishmentDetails?.contacts || [])}
                       isLoading={establishmentDetailsLoading}
                       canManagePersonalTerritoryOwner={canManagePersonalTerritoryOwner}
                       onBackClick={() => {
@@ -573,12 +575,12 @@ export function BusinessSection({
                         navigateBack(selectedEstablishmentSource === "map" ? "business-map" : "business-establishments");
                       }}
                       onEstablishmentUpdated={(est) => est?.id && updateEstablishment({ id: est.id!, ...est })}
-                      onHouseholderClick={(hh) => {
-                        setSelectedHouseholder(hh);
-                        if (hh.id) loadHouseholderDetails(hh.id);
+                      onContactClick={(hh) => {
+                        setSelectedContact(hh);
+                        if (hh.id) loadContactDetails(hh.id);
                       }}
                       preferLeftDetailPanel={isTabletUp}
-                      insideStackedContactPane={!!selectedHouseholder && !!selectedEstablishment}
+                      insideStackedContactPane={!!selectedContact && !!selectedEstablishment}
                       publisherId={userId}
                     />
                   </div>
@@ -637,9 +639,9 @@ export function BusinessSection({
             </Drawer>
 
             <Drawer
-              open={!!selectedHouseholder && !selectedEstablishment}
+              open={!!selectedContact && !selectedEstablishment}
               onOpenChange={(open) => {
-                if (!open) closeHouseholderSideDetails();
+                if (!open) closeContactSideDetails();
               }}
               direction="right"
               modal
@@ -649,24 +651,24 @@ export function BusinessSection({
               <DrawerWideRightContent
                 className={cn(
                   "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
-                  businessHouseholderDetailShade
+                  businessContactDetailShade
                 )}
               >
                 <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
                   <DrawerTitle className="text-center text-xl font-extrabold tracking-tight">
-                    {selectedHouseholderDetails?.householder.name || selectedHouseholder?.name || "Contact Details"}
+                    {selectedContactDetails?.contact.name || selectedContact?.name || "Contact Details"}
                   </DrawerTitle>
                 </DrawerHeader>
                 <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
-                  {renderHouseholderDetails()}
+                  {renderContactDetails()}
                 </div>
               </DrawerWideRightContent>
             </Drawer>
 
             <Drawer
-              open={!!selectedHouseholder && !!selectedEstablishment}
+              open={!!selectedContact && !!selectedEstablishment}
               onOpenChange={(open) => {
-                if (!open) closeHouseholderSideDetails();
+                if (!open) closeContactSideDetails();
               }}
               direction="right"
               modal
@@ -683,18 +685,18 @@ export function BusinessSection({
                       variant="ghost"
                       size="icon"
                       className="absolute left-0 h-9 w-9 shrink-0"
-                      onClick={closeHouseholderSideDetails}
+                      onClick={closeContactSideDetails}
                       aria-label="Back to establishment"
                     >
                       <ChevronLeft className="h-5 w-5" />
                     </Button>
                     <DrawerTitle className="px-10 text-center text-xl font-extrabold tracking-tight">
-                      {selectedHouseholderDetails?.householder.name || selectedHouseholder?.name || "Contact Details"}
+                      {selectedContactDetails?.contact.name || selectedContact?.name || "Contact Details"}
                     </DrawerTitle>
                   </div>
                 </DrawerHeader>
                 <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
-                  {renderHouseholderDetails({ stacked: true })}
+                  {renderContactDetails({ stacked: true })}
                 </div>
               </DrawerWideRightContent>
             </Drawer>
@@ -709,12 +711,12 @@ export function BusinessSection({
               shouldScaleBackground={false}
             >
               <DrawerWideLeftContentTop
-                stackAboveStackedRightSheet={!!selectedHouseholder && !!selectedEstablishment}
+                stackAboveStackedRightSheet={!!selectedContact && !!selectedEstablishment}
                 className={cn("border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]", businessEntityEditShade)}
               >
                 <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
                   <DrawerTitle className="text-center text-lg font-bold">
-                    {businessEditSheet === "householder" ? "Edit Contact" : "Edit Establishment"}
+                    {businessEditSheet === "contact" ? "Edit Contact" : "Edit Establishment"}
                   </DrawerTitle>
                 </DrawerHeader>
                 <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
@@ -734,30 +736,33 @@ export function BusinessSection({
                       initialData={selectedEstablishmentDetails?.establishment ?? selectedEstablishment}
                       isEditing
                     />
-                  ) : businessEditSheet === "householder" && selectedHouseholder ? (
-                    <HouseholderForm
-                      key={selectedHouseholder.id}
+                  ) : businessEditSheet === "contact" && selectedContact ? (
+                    <ContactForm
+                      key={selectedContact.id}
                       establishments={selectedEstablishment ? [selectedEstablishment] : establishments}
-                      selectedEstablishmentId={selectedHouseholder.establishment_id ?? undefined}
+                      selectedEstablishmentId={selectedContact.establishment_id ?? undefined}
                       isEditing
                       initialData={{
-                        id: selectedHouseholder.id,
-                        establishment_id: selectedHouseholder.establishment_id || "",
-                        name: selectedHouseholder.name,
-                        status: selectedHouseholder.status as any,
-                        note: selectedHouseholder.note || null,
-                        lat: selectedHouseholder.lat ?? null,
-                        lng: selectedHouseholder.lng ?? null,
-                        publisher_id: selectedHouseholder.publisher_id ?? null,
+                        id: selectedContact.id,
+                        establishment_id: selectedContact.establishment_id || "",
+                        name: selectedContact.name,
+                        status: selectedContact.status as any,
+                        statuses:
+                          selectedContact.statuses ??
+                          (selectedContact.status ? [selectedContact.status] : []),
+                        note: selectedContact.note || null,
+                        lat: selectedContact.lat ?? null,
+                        lng: selectedContact.lng ?? null,
+                        publisher_id: selectedContact.publisher_id ?? null,
                       }}
-                      onSaved={handleHouseholderEditSaved}
+                      onSaved={handleContactEditSaved}
                       onDelete={async () => {
-                        await handleDeleteHouseholder(selectedHouseholder);
-                        closeHouseholderSideDetails();
+                        await handleDeleteContact(selectedContact);
+                        closeContactSideDetails();
                       }}
                       onArchive={async () => {
-                        await handleArchiveHouseholder(selectedHouseholder);
-                        closeHouseholderSideDetails();
+                        await handleArchiveContact(selectedContact);
+                        closeContactSideDetails();
                       }}
                       disableEstablishmentSelect={!!selectedEstablishment}
                       publisherId={userId ?? undefined}
@@ -769,7 +774,7 @@ export function BusinessSection({
           </>
         ) : null}
 
-        {useMobileMapBottomDetails ? (
+        {useMobileBottomDetails ? (
           <>
             <HomeMobileDetailsDrawer
               open={!!selectedEstablishment}
@@ -788,26 +793,26 @@ export function BusinessSection({
             </HomeMobileDetailsDrawer>
 
             <HomeMobileDetailsDrawer
-              open={!!selectedHouseholder && !selectedEstablishment}
+              open={!!selectedContact && !selectedEstablishment}
               onOpenChange={(open) => {
-                if (!open) closeHouseholderSideDetails();
+                if (!open) closeContactSideDetails();
               }}
               title={
-                selectedHouseholderDetails?.householder.name ||
-                selectedHouseholder?.name ||
+                selectedContactDetails?.contact.name ||
+                selectedContact?.name ||
                 "Contact Details"
               }
               bodyClassName="space-y-3"
-              contentClassName={businessHouseholderDetailShade}
+              contentClassName={businessContactDetailShade}
             >
-              {renderHouseholderDetails()}
+              {renderContactDetails()}
             </HomeMobileDetailsDrawer>
 
             <FormDrawerRoot
               nested
-              open={!!selectedHouseholder && !!selectedEstablishment}
+              open={!!selectedContact && !!selectedEstablishment}
               onOpenChange={(open) => {
-                if (!open) closeHouseholderSideDetails();
+                if (!open) closeContactSideDetails();
               }}
             >
               <FormDrawerContent
@@ -825,20 +830,20 @@ export function BusinessSection({
                       variant="ghost"
                       size="icon"
                       className="absolute left-0 h-9 w-9 shrink-0"
-                      onClick={closeHouseholderSideDetails}
+                      onClick={closeContactSideDetails}
                       aria-label="Back to establishment"
                     >
                       <ChevronLeft className="h-5 w-5" />
                     </Button>
                     <DrawerTitle className="px-10 text-center text-lg font-bold">
-                      {selectedHouseholderDetails?.householder.name ||
-                        selectedHouseholder?.name ||
+                      {selectedContactDetails?.contact.name ||
+                        selectedContact?.name ||
                         "Contact Details"}
                     </DrawerTitle>
                   </div>
                 </DrawerHeader>
                 <div className={cn("overflow-y-auto space-y-3 px-4 pt-2", drawerFormScrollPadClass)}>
-                  {renderHouseholderDetails({ stacked: true })}
+                  {renderContactDetails({ stacked: true })}
                 </div>
               </FormDrawerContent>
             </FormDrawerRoot>
@@ -848,7 +853,7 @@ export function BusinessSection({
               onOpenChange={(open) => {
                 if (!open) setBusinessEditSheet(null);
               }}
-              title={businessEditSheet === "householder" ? "Edit Contact" : "Edit Establishment"}
+              title={businessEditSheet === "contact" ? "Edit Contact" : "Edit Establishment"}
             >
               {businessEditSheet === "establishment" && selectedEstablishment ? (
                 <EstablishmentForm
@@ -866,30 +871,33 @@ export function BusinessSection({
                   initialData={selectedEstablishmentDetails?.establishment ?? selectedEstablishment}
                   isEditing
                 />
-              ) : businessEditSheet === "householder" && selectedHouseholder ? (
-                <HouseholderForm
-                  key={selectedHouseholder.id}
+              ) : businessEditSheet === "contact" && selectedContact ? (
+                <ContactForm
+                  key={selectedContact.id}
                   establishments={selectedEstablishment ? [selectedEstablishment] : establishments}
-                  selectedEstablishmentId={selectedHouseholder.establishment_id ?? undefined}
+                  selectedEstablishmentId={selectedContact.establishment_id ?? undefined}
                   isEditing
                   initialData={{
-                    id: selectedHouseholder.id,
-                    establishment_id: selectedHouseholder.establishment_id || "",
-                    name: selectedHouseholder.name,
-                    status: selectedHouseholder.status as any,
-                    note: selectedHouseholder.note || null,
-                    lat: selectedHouseholder.lat ?? null,
-                    lng: selectedHouseholder.lng ?? null,
-                    publisher_id: selectedHouseholder.publisher_id ?? null,
+                    id: selectedContact.id,
+                    establishment_id: selectedContact.establishment_id || "",
+                    name: selectedContact.name,
+                    status: selectedContact.status as any,
+                    statuses:
+                      selectedContact.statuses ??
+                      (selectedContact.status ? [selectedContact.status] : []),
+                    note: selectedContact.note || null,
+                    lat: selectedContact.lat ?? null,
+                    lng: selectedContact.lng ?? null,
+                    publisher_id: selectedContact.publisher_id ?? null,
                   }}
-                  onSaved={handleHouseholderEditSaved}
+                  onSaved={handleContactEditSaved}
                   onDelete={async () => {
-                    await handleDeleteHouseholder(selectedHouseholder);
-                    closeHouseholderSideDetails();
+                    await handleDeleteContact(selectedContact);
+                    closeContactSideDetails();
                   }}
                   onArchive={async () => {
-                    await handleArchiveHouseholder(selectedHouseholder);
-                    closeHouseholderSideDetails();
+                    await handleArchiveContact(selectedContact);
+                    closeContactSideDetails();
                   }}
                   disableEstablishmentSelect={!!selectedEstablishment}
                   publisherId={userId ?? undefined}

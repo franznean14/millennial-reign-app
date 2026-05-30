@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import dynamic from "next/dynamic";
 import type { Congregation } from "@/lib/db/congregations";
-import type { HouseholderWithDetails, VisitWithUser } from "@/lib/db/business";
+import type { ContactWithDetails, VisitWithUser } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { HomeMobileDetailsDrawer } from "@/components/home/HomeMobileDetailsDrawer";
@@ -28,7 +28,7 @@ const CongregationMembers = dynamic<CongregationMembersCardProps>(
   () => import("../congregation/CongregationMembers").then((m) => m.CongregationMembers),
   { ssr: false }
 );
-const HouseholderDetails = dynamic(() => import("../business/HouseholderDetails").then(m => m.HouseholderDetails), { ssr: false });
+const ContactDetails = dynamic(() => import("../business/ContactDetails").then(m => m.ContactDetails), { ssr: false });
 
 function formatDay(d: number | undefined) {
   const names = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -48,24 +48,24 @@ interface CongregationViewProps {
   onCongregationTabChange?: (tab: 'meetings' | 'ministry' | 'admin') => void;
   userId?: string | null;
   isElder?: boolean;
-  selectedHouseholder: HouseholderWithDetails | null;
-  selectedHouseholderDetails: {
-    householder: HouseholderWithDetails;
+  selectedContact: ContactWithDetails | null;
+  selectedContactDetails: {
+    contact: ContactWithDetails;
     visits: VisitWithUser[];
     establishment?: { id: string; name: string } | null;
   } | null;
-  householderDetailsLoading: boolean;
-  onSelectHouseholder: (householder: HouseholderWithDetails | null) => void;
-  onSelectHouseholderDetails: (details: {
-    householder: HouseholderWithDetails;
+  contactDetailsLoading: boolean;
+  onSelectContact: (contact: ContactWithDetails | null) => void;
+  onSelectContactDetails: (details: {
+    contact: ContactWithDetails;
     visits: VisitWithUser[];
     establishment?: { id: string; name: string } | null;
   } | null) => void;
-  onClearSelectedHouseholder: () => void;
-  loadHouseholderDetails: (householderId: string) => Promise<void>;
+  onClearSelectedContact: () => void;
+  loadContactDetails: (contactId: string) => Promise<void>;
 }
 
-export function CongregationView({ data, onEdit, canEdit, canManageCongregationUsers = false, initialTab = 'meetings', congregationTab: externalCongregationTab, onCongregationTabChange: externalOnCongregationTabChange, userId, isElder = false, selectedHouseholder, selectedHouseholderDetails, householderDetailsLoading, onSelectHouseholder, onSelectHouseholderDetails, onClearSelectedHouseholder, loadHouseholderDetails }: CongregationViewProps) {
+export function CongregationView({ data, onEdit, canEdit, canManageCongregationUsers = false, initialTab = 'meetings', congregationTab: externalCongregationTab, onCongregationTabChange: externalOnCongregationTabChange, userId, isElder = false, selectedContact, selectedContactDetails, contactDetailsLoading, onSelectContact, onSelectContactDetails, onClearSelectedContact, loadContactDetails }: CongregationViewProps) {
   const isMdUp = useMediaQuery("(min-width: 768px)");
   const [internalCongregationTab, setInternalCongregationTab] = useState<'meetings' | 'ministry' | 'admin'>(initialTab);
   
@@ -86,109 +86,109 @@ export function CongregationView({ data, onEdit, canEdit, canManageCongregationU
 
   useEffect(() => {
     if (congregationTab !== "ministry") {
-      onClearSelectedHouseholder();
+      onClearSelectedContact();
     }
-  }, [congregationTab, onClearSelectedHouseholder]);
+  }, [congregationTab, onClearSelectedContact]);
 
-  const selectedHouseholderRef = useRef<HouseholderWithDetails | null>(null);
-  const selectedHouseholderDetailsRef = useRef<{
-    householder: HouseholderWithDetails;
+  const selectedContactRef = useRef<ContactWithDetails | null>(null);
+  const selectedContactDetailsRef = useRef<{
+    contact: ContactWithDetails;
     visits: VisitWithUser[];
     establishment?: { id: string; name: string } | null;
   } | null>(null);
-  const onSelectHouseholderRef = useRef(onSelectHouseholder);
-  const onSelectHouseholderDetailsRef = useRef(onSelectHouseholderDetails);
+  const onSelectContactRef = useRef(onSelectContact);
+  const onSelectContactDetailsRef = useRef(onSelectContactDetails);
 
   useEffect(() => {
-    selectedHouseholderRef.current = selectedHouseholder;
-  }, [selectedHouseholder]);
+    selectedContactRef.current = selectedContact;
+  }, [selectedContact]);
 
   useEffect(() => {
-    selectedHouseholderDetailsRef.current = selectedHouseholderDetails;
-  }, [selectedHouseholderDetails]);
+    selectedContactDetailsRef.current = selectedContactDetails;
+  }, [selectedContactDetails]);
 
   useEffect(() => {
-    onSelectHouseholderRef.current = onSelectHouseholder;
-  }, [onSelectHouseholder]);
+    onSelectContactRef.current = onSelectContact;
+  }, [onSelectContact]);
 
   useEffect(() => {
-    onSelectHouseholderDetailsRef.current = onSelectHouseholderDetails;
-  }, [onSelectHouseholderDetails]);
+    onSelectContactDetailsRef.current = onSelectContactDetails;
+  }, [onSelectContactDetails]);
 
   useEffect(() => {
-    const handleHouseholderUpdated = (updated: Partial<HouseholderWithDetails> & { id?: string }) => {
+    const handleContactUpdated = (updated: Partial<ContactWithDetails> & { id?: string }) => {
       if (!updated?.id) return;
-      const currentHouseholder = selectedHouseholderRef.current;
-      if (currentHouseholder?.id === updated.id) {
-        onSelectHouseholderRef.current({ ...currentHouseholder, ...updated });
+      const currentContact = selectedContactRef.current;
+      if (currentContact?.id === updated.id) {
+        onSelectContactRef.current({ ...currentContact, ...updated });
       }
-      const currentDetails = selectedHouseholderDetailsRef.current;
-      if (currentDetails?.householder?.id === updated.id) {
-        onSelectHouseholderDetailsRef.current({
+      const currentDetails = selectedContactDetailsRef.current;
+      if (currentDetails?.contact?.id === updated.id) {
+        onSelectContactDetailsRef.current({
           ...currentDetails,
-          householder: { ...currentDetails.householder, ...updated }
+          contact: { ...currentDetails.contact, ...updated }
         });
       }
     };
 
     const handleVisitAdded = (visit: any) => {
-      const currentDetails = selectedHouseholderDetailsRef.current;
-      if (!currentDetails?.householder?.id || currentDetails.householder.id !== visit.householder_id) return;
+      const currentDetails = selectedContactDetailsRef.current;
+      if (!currentDetails?.contact?.id || currentDetails.contact.id !== visit.contact_id) return;
       const existing = currentDetails.visits.find((v) => v.id === visit.id);
       if (existing) return;
-      onSelectHouseholderDetailsRef.current({
+      onSelectContactDetailsRef.current({
         ...currentDetails,
         visits: [visit, ...currentDetails.visits]
       });
     };
 
     const handleVisitUpdated = (visit: any) => {
-      const currentDetails = selectedHouseholderDetailsRef.current;
-      if (!currentDetails?.householder?.id || currentDetails.householder.id !== visit.householder_id) return;
-      onSelectHouseholderDetailsRef.current({
+      const currentDetails = selectedContactDetailsRef.current;
+      if (!currentDetails?.contact?.id || currentDetails.contact.id !== visit.contact_id) return;
+      onSelectContactDetailsRef.current({
         ...currentDetails,
         visits: currentDetails.visits.map((v) => (v.id === visit.id ? { ...v, ...visit } : v))
       });
     };
 
-    businessEventBus.subscribe("householder-updated", handleHouseholderUpdated);
+    businessEventBus.subscribe("contact-updated", handleContactUpdated);
     businessEventBus.subscribe("visit-added", handleVisitAdded);
     businessEventBus.subscribe("visit-updated", handleVisitUpdated);
     return () => {
-      businessEventBus.unsubscribe("householder-updated", handleHouseholderUpdated);
+      businessEventBus.unsubscribe("contact-updated", handleContactUpdated);
       businessEventBus.unsubscribe("visit-added", handleVisitAdded);
       businessEventBus.unsubscribe("visit-updated", handleVisitUpdated);
     };
   }, []);
 
-  const handleContactOpen = useCallback(async (householder: HouseholderWithDetails) => {
-    if (!householder?.id) return;
-    onSelectHouseholder(householder);
+  const handleContactOpen = useCallback(async (contact: ContactWithDetails) => {
+    if (!contact?.id) return;
+    onSelectContact(contact);
     try {
-      await loadHouseholderDetails(householder.id);
+      await loadContactDetails(contact.id);
     } catch (error) {
-      console.error("Failed to load householder details:", error);
+      console.error("Failed to load contact details:", error);
     }
-  }, [loadHouseholderDetails, onSelectHouseholder]);
+  }, [loadContactDetails, onSelectContact]);
 
   const ministryContactDetailsTitle =
-    selectedHouseholderDetails?.householder?.name ?? selectedHouseholder?.name ?? "Contact Details";
+    selectedContactDetails?.contact?.name ?? selectedContact?.name ?? "Contact Details";
 
   const ministryContactDetailsBody =
-    selectedHouseholder ? (
-      <HouseholderDetails
-        householder={selectedHouseholderDetails?.householder || selectedHouseholder}
-        visits={selectedHouseholderDetails?.visits || []}
-        establishment={selectedHouseholderDetails?.establishment || null}
+    selectedContact ? (
+      <ContactDetails
+        contact={selectedContactDetails?.contact || selectedContact}
+        visits={selectedContactDetails?.visits || []}
+        establishment={selectedContactDetails?.establishment || null}
         establishments={
-          selectedHouseholderDetails?.establishment ? [selectedHouseholderDetails.establishment] : []
+          selectedContactDetails?.establishment ? [selectedContactDetails.establishment] : []
         }
         context="congregation"
         showEstablishment={false}
-        publisherId={(selectedHouseholderDetails?.householder || selectedHouseholder).publisher_id ?? null}
-        isLoading={householderDetailsLoading}
+        publisherId={(selectedContactDetails?.contact || selectedContact).publisher_id ?? null}
+        isLoading={contactDetailsLoading}
         preferLeftDetailPanel
-        onBackClick={() => onClearSelectedHouseholder()}
+        onBackClick={() => onClearSelectedContact()}
       />
     ) : null;
 
@@ -224,9 +224,9 @@ export function CongregationView({ data, onEdit, canEdit, canManageCongregationU
           {/* Mobile: same bottom details sheet as Home (calls / to-dos). Tablet+: right edge drawer. */}
           {isMdUp ? (
             <Drawer
-              open={Boolean(selectedHouseholder)}
+              open={Boolean(selectedContact)}
               onOpenChange={(open) => {
-                if (!open) onClearSelectedHouseholder();
+                if (!open) onClearSelectedContact();
               }}
               direction="right"
               modal
@@ -252,9 +252,9 @@ export function CongregationView({ data, onEdit, canEdit, canManageCongregationU
             </Drawer>
           ) : (
             <HomeMobileDetailsDrawer
-              open={Boolean(selectedHouseholder)}
+              open={Boolean(selectedContact)}
               onOpenChange={(open) => {
-                if (!open) onClearSelectedHouseholder();
+                if (!open) onClearSelectedContact();
               }}
               stackAboveParentSheet
               title={ministryContactDetailsTitle}

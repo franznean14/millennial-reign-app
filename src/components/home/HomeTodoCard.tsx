@@ -27,9 +27,9 @@ import {
   getCongregationCompletedCallTodos,
   getEstablishmentOpenCallTodos,
   getEstablishmentCompletedCallTodos,
-  getHouseholderOpenCallTodos,
-  getHouseholderCompletedCallTodos,
-  getHouseholderDetails,
+  getContactOpenCallTodos,
+  getContactCompletedCallTodos,
+  getContactDetails,
   getBwiParticipants,
   getEstablishmentDetails,
   updateCallTodo,
@@ -37,8 +37,8 @@ import {
   type MyOpenCallTodoItem,
   type EstablishmentWithDetails,
   type VisitWithUser,
-  type HouseholderWithDetails,
-  type HouseholderStatus,
+  type ContactWithDetails,
+  type ContactStatus,
   isEstablishmentTodoMissingLocation,
 } from "@/lib/db/business";
 import { getProfile } from "@/lib/db/profiles";
@@ -46,13 +46,13 @@ import { canAssignCongregationOpenTodos } from "@/lib/app/nav-permissions-cache"
 import { cacheGet, cacheSet, cacheDelete } from "@/lib/offline/store";
 import {
   establishmentDetailsCacheKey,
-  householderDetailsCacheKey,
+  contactDetailsCacheKey,
   resolveEstablishmentDetailsSnapshot,
-  resolveHouseholderDetailsSnapshot,
+  resolveContactDetailsSnapshot,
   warmEstablishmentDetailsInMemory,
-  warmHouseholderDetailsInMemory,
+  warmContactDetailsInMemory,
   type EstablishmentDetailsSnapshot,
-  type HouseholderDetailsSnapshot,
+  type ContactDetailsSnapshot,
 } from "@/lib/db/entity-details-cache";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { FilterControls, type FilterBadge } from "@/components/shared/FilterControls";
@@ -96,8 +96,8 @@ import { ContactsSection } from "@/components/business/ContactsSection";
 import { TodoForm } from "@/components/business/TodoForm";
 import { EstablishmentForm } from "@/components/business/EstablishmentForm";
 import { EstablishmentSummaryFields } from "@/components/business/EstablishmentSummaryFields";
-import { HouseholderSummaryFields } from "@/components/business/HouseholderSummaryFields";
-import { HouseholderForm } from "@/components/business/HouseholderForm";
+import { ContactSummaryFields } from "@/components/business/ContactSummaryFields";
+import { ContactForm } from "@/components/business/ContactForm";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { studyBibleDarkClasses, getStudyBibleDarkCardShade, getStudyBibleHomeCardShade } from "@/lib/theme/study-bible-dark";
 import { HomeMobileDetailsDrawer } from "@/components/home/HomeMobileDetailsDrawer";
@@ -143,8 +143,8 @@ type TodoEditorContext = {
   initialTodo: TodoEditorItem;
   establishments: Array<{ id?: string; name: string }>;
   selectedEstablishmentId?: string;
-  householderId?: string;
-  householderName?: string;
+  contactId?: string;
+  contactName?: string;
   disableEstablishmentSelect?: boolean;
 };
 
@@ -255,7 +255,7 @@ function visitFiltersEqual(a: VisitFilters, b: VisitFilters): boolean {
     a.search === b.search &&
     a.myUpdatesOnly === b.myUpdatesOnly &&
     a.bwiOnly === b.bwiOnly &&
-    a.householderOnly === b.householderOnly &&
+    a.contactOnly === b.contactOnly &&
     a.callDateFrom === b.callDateFrom &&
     a.callDateTo === b.callDateTo &&
     stringArraysEqual(a.statuses, b.statuses) &&
@@ -275,10 +275,10 @@ function mergeVisitFiltersFromHydrated(prev: VisitFilters, hydrated: VisitFilter
     myUpdatesOnly:
       typeof hydrated.myUpdatesOnly === "boolean" ? hydrated.myUpdatesOnly : prev.myUpdatesOnly,
     bwiOnly: typeof hydrated.bwiOnly === "boolean" ? hydrated.bwiOnly : prev.bwiOnly,
-    householderOnly:
-      typeof hydrated.householderOnly === "boolean"
-        ? hydrated.householderOnly
-        : prev.householderOnly,
+    contactOnly:
+      typeof hydrated.contactOnly === "boolean"
+        ? hydrated.contactOnly
+        : prev.contactOnly,
     callDateFrom:
       hydrated.callDateFrom === null || typeof hydrated.callDateFrom === "string"
         ? hydrated.callDateFrom
@@ -428,7 +428,7 @@ function matchesMyTodosFilter(todo: MyOpenCallTodoItem, userId: string): boolean
   return isMine || isUnassignedTodoItem(todo);
 }
 
-function getHouseholderStatusColorClass(status: string) {
+function getContactStatusColorClass(status: string) {
   switch (status) {
     case "potential":
       return "text-cyan-600 border-cyan-200 bg-cyan-50 dark:text-cyan-400 dark:border-cyan-800 dark:bg-cyan-950";
@@ -448,7 +448,7 @@ function getHouseholderStatusColorClass(status: string) {
   }
 }
 
-function getHouseholderCardColor(status: string) {
+function getContactCardColor(status: string) {
   switch (status) {
     case "potential":
       return "border-cyan-500/50 bg-cyan-500/5";
@@ -471,14 +471,14 @@ function getHouseholderCardColor(status: string) {
 interface HomeTodoCardProps {
   userId?: string;
   establishmentId?: string;
-  householderId?: string;
+  contactId?: string;
   prefillScopeKey?: string;
   prefillOpenTodos?: MyOpenCallTodoItem[];
   prefillCompletedTodos?: MyOpenCallTodoItem[];
   onTodoTap?: (todo: MyOpenCallTodoItem) => void;
   onNavigateToTodoCall?: (params: {
     establishmentId?: string;
-    householderId?: string;
+    contactId?: string;
   }) => void;
   /** When true (home to-do details companion), open scoped to-do list in a left sheet on tablet+ with a single column. */
   preferLeftCompanionDrawer?: boolean;
@@ -503,7 +503,7 @@ interface HomeTodoCardProps {
 export function HomeTodoCard({
   userId,
   establishmentId,
-  householderId,
+  contactId,
   prefillScopeKey,
   prefillOpenTodos,
   prefillCompletedTodos,
@@ -545,7 +545,7 @@ export function HomeTodoCard({
     callDateTo: null,
     myUpdatesOnly: true,
     bwiOnly: false,
-    householderOnly: false,
+    contactOnly: false,
   });
   const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [isSearchActive, setIsSearchActive] = useState(false);
@@ -567,13 +567,13 @@ export function HomeTodoCard({
   const [todoDetailsDrawerOpen, setTodoDetailsDrawerOpen] = useState(false);
   const [selectedTodoForDetails, setSelectedTodoForDetails] = useState<MyOpenCallTodoItem | null>(null);
   const [selectedTodoDetails, setSelectedTodoDetails] = useState<EstablishmentDetailsSnapshot | null>(null);
-  const [selectedHouseholderDetails, setSelectedHouseholderDetails] =
-    useState<HouseholderDetailsSnapshot | null>(null);
+  const [selectedContactDetails, setSelectedContactDetails] =
+    useState<ContactDetailsSnapshot | null>(null);
   const [isLoadingTodoDetails, setIsLoadingTodoDetails] = useState(false);
   const [contactDetailsSubdrawerOpen, setContactDetailsSubdrawerOpen] = useState(false);
   const [selectedContactFromEstablishment, setSelectedContactFromEstablishment] =
-    useState<HouseholderWithDetails | null>(null);
-  const [contactSubdrawerDetails, setContactSubdrawerDetails] = useState<HouseholderDetailsSnapshot | null>(null);
+    useState<ContactWithDetails | null>(null);
+  const [contactSubdrawerDetails, setContactSubdrawerDetails] = useState<ContactDetailsSnapshot | null>(null);
   const [isLoadingContactSubdrawerDetails, setIsLoadingContactSubdrawerDetails] = useState(false);
   const [todoEditorContext, setTodoEditorContext] = useState<TodoEditorContext | null>(null);
   const [todoEditorUseLeftPanel, setTodoEditorUseLeftPanel] = useState(false);
@@ -594,7 +594,7 @@ export function HomeTodoCard({
       : `s${Math.random().toString(36).slice(2)}`
   );
   const establishmentDetailsCacheRef = useRef(new Map<string, EstablishmentDetailsSnapshot>());
-  const householderDetailsCacheRef = useRef(new Map<string, HouseholderDetailsSnapshot>());
+  const contactDetailsCacheRef = useRef(new Map<string, ContactDetailsSnapshot>());
   const realtimeTodoReloadDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
   const isMobile = useMobile();
@@ -604,15 +604,15 @@ export function HomeTodoCard({
   // (same as status/area/search) so the card preview and drawer stay in sync when toggling.
   const scopeKey = establishmentId
     ? `establishment:${establishmentId}`
-    : householderId
-      ? `householder:${householderId}`
+    : contactId
+      ? `contact:${contactId}`
       : userId
         ? `user:${userId}:all`
         : null;
   const filterScopeKey = establishmentId
     ? `establishment:${establishmentId}`
-    : householderId
-      ? `householder:${householderId}`
+    : contactId
+      ? `contact:${contactId}`
       : userId
         ? `user:${userId}`
         : null;
@@ -725,8 +725,8 @@ export function HomeTodoCard({
     };
     const openQuery = establishmentId
       ? getEstablishmentOpenCallTodos(establishmentId, 50)
-      : householderId
-        ? getHouseholderOpenCallTodos(householderId, 50)
+      : contactId
+        ? getContactOpenCallTodos(contactId, 50)
         : userId
           ? Promise.all([
               getMyOpenCallTodos(userId, 120),
@@ -735,8 +735,8 @@ export function HomeTodoCard({
           : Promise.resolve<MyOpenCallTodoItem[]>([]);
     const completedQuery = establishmentId
       ? getEstablishmentCompletedCallTodos(establishmentId, 50)
-      : householderId
-        ? getHouseholderCompletedCallTodos(householderId, 50)
+      : contactId
+        ? getContactCompletedCallTodos(contactId, 50)
         : userId
           ? Promise.all([
               getMyCompletedCallTodos(userId, 80),
@@ -762,7 +762,7 @@ export function HomeTodoCard({
           }
         }
       });
-  }, [scopeKey, establishmentId, householderId, userId]);
+  }, [scopeKey, establishmentId, contactId, userId]);
 
   const scheduleRealtimeTodoReload = useCallback(() => {
     if (realtimeTodoReloadDebounceRef.current) clearTimeout(realtimeTodoReloadDebounceRef.current);
@@ -777,7 +777,7 @@ export function HomeTodoCard({
       setTodoRealtimeCongregationId(null);
       return;
     }
-    if (establishmentId || householderId) {
+    if (establishmentId || contactId) {
       setTodoRealtimeCongregationId(null);
       return;
     }
@@ -788,7 +788,7 @@ export function HomeTodoCard({
     return () => {
       cancelled = true;
     };
-  }, [userId, detailsBridgeOnly, establishmentId, householderId]);
+  }, [userId, detailsBridgeOnly, establishmentId, contactId]);
 
   useEffect(() => {
     if (userId) {
@@ -1017,13 +1017,13 @@ export function HomeTodoCard({
     let cancelled = false;
 
     void (async () => {
-      const householderId = selectedTodoForDetails?.householder_id;
-      if (householderId) {
-        const fallbackStub: HouseholderDetailsSnapshot = {
-          householder: {
-            id: householderId,
+      const contactId = selectedTodoForDetails?.contact_id;
+      if (contactId) {
+        const fallbackStub: ContactDetailsSnapshot = {
+          contact: {
+            id: contactId,
             name: selectedTodoForDetails?.context_name ?? "Contact",
-            status: (selectedTodoForDetails?.context_status as HouseholderWithDetails["status"]) ?? "potential",
+            status: (selectedTodoForDetails?.context_status as ContactWithDetails["status"]) ?? "potential",
             note: null,
             establishment_id: selectedTodoForDetails?.establishment_id ?? null,
             establishment_name: selectedTodoForDetails?.context_establishment_name ?? null,
@@ -1042,32 +1042,32 @@ export function HomeTodoCard({
             : null,
         };
 
-        const { snapshot, hadWarmCache } = await resolveHouseholderDetailsSnapshot(
-          householderId,
-          householderDetailsCacheRef.current,
+        const { snapshot, hadWarmCache } = await resolveContactDetailsSnapshot(
+          contactId,
+          contactDetailsCacheRef.current,
           fallbackStub
         );
         if (cancelled) return;
 
-        setSelectedHouseholderDetails(snapshot);
+        setSelectedContactDetails(snapshot);
         setSelectedTodoDetails(null);
         setIsLoadingTodoDetails(!hadWarmCache);
 
         try {
-          const result = await getHouseholderDetails(householderId);
+          const result = await getContactDetails(contactId);
           if (cancelled) return;
           const nextSnapshot = result
             ? {
-                householder: result.householder,
+                contact: result.contact,
                 visits: result.visits,
                 establishment: result.establishment,
               }
             : null;
           if (nextSnapshot) {
-            householderDetailsCacheRef.current.set(householderId, nextSnapshot);
-            setSelectedHouseholderDetails(nextSnapshot);
+            contactDetailsCacheRef.current.set(contactId, nextSnapshot);
+            setSelectedContactDetails(nextSnapshot);
           } else if (!hadWarmCache) {
-            setSelectedHouseholderDetails(null);
+            setSelectedContactDetails(null);
           }
         } finally {
           if (!cancelled) setIsLoadingTodoDetails(false);
@@ -1095,7 +1095,7 @@ export function HomeTodoCard({
           lng: null,
         },
         visits: [],
-        householders: [],
+        contacts: [],
       };
 
       const { snapshot, hadWarmCache } = await resolveEstablishmentDetailsSnapshot(
@@ -1106,7 +1106,7 @@ export function HomeTodoCard({
       if (cancelled) return;
 
       setSelectedTodoDetails(snapshot);
-      setSelectedHouseholderDetails(null);
+      setSelectedContactDetails(null);
       setIsLoadingTodoDetails(!hadWarmCache);
 
       try {
@@ -1116,7 +1116,7 @@ export function HomeTodoCard({
           ? {
               establishment: result.establishment,
               visits: result.visits,
-              householders: result.householders,
+              contacts: result.contacts,
             }
           : null;
         if (nextSnapshot) {
@@ -1133,18 +1133,18 @@ export function HomeTodoCard({
     return () => {
       cancelled = true;
     };
-  }, [todoDetailsDrawerOpen, selectedTodoForDetails?.establishment_id, selectedTodoForDetails?.householder_id, selectedTodoForDetails?.context_name, selectedTodoForDetails?.context_status, selectedTodoForDetails?.context_area, selectedTodoForDetails?.context_establishment_status, selectedTodoForDetails?.context_establishment_name]);
+  }, [todoDetailsDrawerOpen, selectedTodoForDetails?.establishment_id, selectedTodoForDetails?.contact_id, selectedTodoForDetails?.context_name, selectedTodoForDetails?.context_status, selectedTodoForDetails?.context_area, selectedTodoForDetails?.context_establishment_status, selectedTodoForDetails?.context_establishment_name]);
 
   useEffect(() => {
     if (!contactDetailsSubdrawerOpen) return;
-    const householderId = selectedContactFromEstablishment?.id;
-    if (!householderId) return;
+    const contactId = selectedContactFromEstablishment?.id;
+    if (!contactId) return;
 
     let cancelled = false;
 
     void (async () => {
-      const fallbackStub: HouseholderDetailsSnapshot = {
-        householder: selectedContactFromEstablishment,
+      const fallbackStub: ContactDetailsSnapshot = {
+        contact: selectedContactFromEstablishment,
         visits: [],
         establishment: selectedContactFromEstablishment.establishment_id
           ? {
@@ -1155,9 +1155,9 @@ export function HomeTodoCard({
           : null,
       };
 
-      const { snapshot, hadWarmCache } = await resolveHouseholderDetailsSnapshot(
-        householderId,
-        householderDetailsCacheRef.current,
+      const { snapshot, hadWarmCache } = await resolveContactDetailsSnapshot(
+        contactId,
+        contactDetailsCacheRef.current,
         fallbackStub
       );
       if (cancelled) return;
@@ -1166,14 +1166,14 @@ export function HomeTodoCard({
       setIsLoadingContactSubdrawerDetails(!hadWarmCache);
 
       try {
-        const result = await getHouseholderDetails(householderId);
+        const result = await getContactDetails(contactId);
         if (cancelled || !result) return;
-        const nextSnapshot: HouseholderDetailsSnapshot = {
-          householder: result.householder,
+        const nextSnapshot: ContactDetailsSnapshot = {
+          contact: result.contact,
           visits: result.visits,
           establishment: result.establishment,
         };
-        householderDetailsCacheRef.current.set(householderId, nextSnapshot);
+        contactDetailsCacheRef.current.set(contactId, nextSnapshot);
         setContactSubdrawerDetails(nextSnapshot);
       } finally {
         if (!cancelled) setIsLoadingContactSubdrawerDetails(false);
@@ -1199,7 +1199,7 @@ export function HomeTodoCard({
 
   /** Todos matching search, due date, scope toggles — used to populate Status/Areas/Assignees chips (excludes chip filters themselves). */
   const todosForFilterChipOptions = useMemo(() => {
-    if (!userId || establishmentId || householderId) {
+    if (!userId || establishmentId || contactId) {
       return allTodos;
     }
     return allTodos.filter((todo) => {
@@ -1215,10 +1215,10 @@ export function HomeTodoCard({
           return false;
         }
       }
-      if (filters.bwiOnly && (!todo.establishment_id || !!todo.householder_id)) {
+      if (filters.bwiOnly && (!todo.establishment_id || !!todo.contact_id)) {
         return false;
       }
-      if (filters.householderOnly && !todo.householder_id) {
+      if (filters.contactOnly && !todo.contact_id) {
         return false;
       }
       if (filters.myUpdatesOnly && userId) {
@@ -1230,11 +1230,11 @@ export function HomeTodoCard({
     allTodos,
     userId,
     establishmentId,
-    householderId,
+    contactId,
     searchValue,
     dueDateFilter,
     filters.bwiOnly,
-    filters.householderOnly,
+    filters.contactOnly,
     filters.myUpdatesOnly,
   ]);
 
@@ -1283,7 +1283,7 @@ export function HomeTodoCard({
 
   // When a due date is set, drop chip selections that no longer exist for that date (after todos are loaded).
   useEffect(() => {
-    if (!userId || establishmentId || householderId) return;
+    if (!userId || establishmentId || contactId) return;
     if (!dueDateFilter || allTodos.length === 0) return;
     const validStatus = new Set(statusOptions.map((o) => o.value));
     const validArea = new Set(areaOptions.map((o) => o.value));
@@ -1309,7 +1309,7 @@ export function HomeTodoCard({
   }, [
     userId,
     establishmentId,
-    householderId,
+    contactId,
     dueDateFilter,
     allTodos.length,
     statusOptions,
@@ -1367,9 +1367,9 @@ export function HomeTodoCard({
     if (establishmentId) {
       todoFilter = `establishment_id=eq.${establishmentId}`;
       callsFilterStr = `establishment_id=eq.${establishmentId}`;
-    } else if (householderId) {
-      todoFilter = `householder_id=eq.${householderId}`;
-      callsFilterStr = `householder_id=eq.${householderId}`;
+    } else if (contactId) {
+      todoFilter = `householder_id=eq.${contactId}`;
+      callsFilterStr = `householder_id=eq.${contactId}`;
     } else if (todoRealtimeCongregationId) {
       todoFilter = `congregation_id=eq.${todoRealtimeCongregationId}`;
       callsFilterStr = `congregation_id=eq.${todoRealtimeCongregationId}`;
@@ -1409,7 +1409,7 @@ export function HomeTodoCard({
     scopeKey,
     detailsBridgeOnly,
     establishmentId,
-    householderId,
+    contactId,
     todoRealtimeCongregationId,
     scheduleRealtimeTodoReload,
   ]);
@@ -1421,7 +1421,7 @@ export function HomeTodoCard({
       const detail = (event as CustomEvent<TodoMutationEventDetail | undefined>).detail;
       const matchesScope = (todo: Partial<MyOpenCallTodoItem> & { id: string }) => {
         if (establishmentId) return todo.establishment_id === establishmentId;
-        if (householderId) return todo.householder_id === householderId;
+        if (contactId) return todo.contact_id === contactId;
         if (!userId) return false;
         if (filters.myUpdatesOnly) {
           return matchesMyTodosFilter(todo as MyOpenCallTodoItem, userId);
@@ -1455,7 +1455,7 @@ export function HomeTodoCard({
     return () => {
       window.removeEventListener("business-todos-mutated", handleTodosMutated);
     };
-  }, [loadTodos, establishmentId, householderId, userId, filters.myUpdatesOnly, detailsBridgeOnly]);
+  }, [loadTodos, establishmentId, contactId, userId, filters.myUpdatesOnly, detailsBridgeOnly]);
 
   const handleMarkDone = (todo: MyOpenCallTodoItem, checked: boolean) => {
     // Optimistic update: move todo immediately, then revert on failure
@@ -1526,11 +1526,11 @@ export function HomeTodoCard({
   const handleTodoTap = (todo: MyOpenCallTodoItem) => {
     const primeScopedTodoCaches = (targetTodo: MyOpenCallTodoItem) => {
       const now = Date.now();
-      if (targetTodo.householder_id) {
-        const targetHouseholderId = targetTodo.householder_id;
-        const scopedOpen = openTodos.filter((item) => item.householder_id === targetHouseholderId);
-        const scopedCompleted = completedTodos.filter((item) => item.householder_id === targetHouseholderId);
-        const scopedKey = `householder:${targetHouseholderId}`;
+      if (targetTodo.contact_id) {
+        const targetContactId = targetTodo.contact_id;
+        const scopedOpen = openTodos.filter((item) => item.contact_id === targetContactId);
+        const scopedCompleted = completedTodos.filter((item) => item.contact_id === targetContactId);
+        const scopedKey = `contact:${targetContactId}`;
         cacheSet(TODOS_CACHE_KEY(scopedKey), { open: scopedOpen, completed: scopedCompleted });
         writeLocalTodosCache(scopedKey, scopedOpen, scopedCompleted, now);
         return;
@@ -1547,8 +1547,8 @@ export function HomeTodoCard({
     const shouldOpenTodoContextDetails =
       userId &&
       !establishmentId &&
-      !householderId &&
-      (!!todo.establishment_id || !!todo.householder_id) &&
+      !contactId &&
+      (!!todo.establishment_id || !!todo.contact_id) &&
       !onTodoTap;
     if (shouldOpenTodoContextDetails) {
       primeScopedTodoCaches(todo);
@@ -1562,8 +1562,8 @@ export function HomeTodoCard({
       return;
     }
     if (!onNavigateToTodoCall) return;
-    if (todo.householder_id) {
-      onNavigateToTodoCall({ householderId: todo.householder_id });
+    if (todo.contact_id) {
+      onNavigateToTodoCall({ contactId: todo.contact_id });
     } else if (todo.establishment_id) {
       onNavigateToTodoCall({ establishmentId: todo.establishment_id });
     }
@@ -1573,7 +1573,7 @@ export function HomeTodoCard({
   const applyFilters = useCallback(
     (items: MyOpenCallTodoItem[]): MyOpenCallTodoItem[] => {
       // Only apply filters/search/BWI/contacts for the main home card (user scope)
-      if (!userId || establishmentId || householderId) return items;
+      if (!userId || establishmentId || contactId) return items;
 
       return items.filter((todo) => {
         // Search (body + context name)
@@ -1618,10 +1618,10 @@ export function HomeTodoCard({
         }
 
         // Establishments Only / Contacts Only
-        if (filters.bwiOnly && (!todo.establishment_id || !!todo.householder_id)) {
+        if (filters.bwiOnly && (!todo.establishment_id || !!todo.contact_id)) {
           return false;
         }
-        if (filters.householderOnly && !todo.householder_id) {
+        if (filters.contactOnly && !todo.contact_id) {
           return false;
         }
 
@@ -1633,7 +1633,7 @@ export function HomeTodoCard({
         return true;
       });
     },
-    [userId, establishmentId, householderId, filters, searchValue, dueDateFilter]
+    [userId, establishmentId, contactId, filters, searchValue, dueDateFilter]
   );
 
   const filteredOpenTodos = useMemo(
@@ -1645,7 +1645,7 @@ export function HomeTodoCard({
     [applyFilters, completedTodos]
   );
   useEffect(() => {
-    if (!drawerOpen || !isMobile || !userId || establishmentId || householderId) return;
+    if (!drawerOpen || !isMobile || !userId || establishmentId || contactId) return;
     const todosForPrefetch = [...filteredOpenTodos, ...filteredCompletedTodos];
     const establishmentIds = Array.from(
       new Set(
@@ -1654,18 +1654,18 @@ export function HomeTodoCard({
           .filter((id): id is string => !!id)
       )
     ).slice(0, 10);
-    const householderIds = Array.from(
+    const contactIds = Array.from(
       new Set(
         todosForPrefetch
-          .map((todo) => todo.householder_id)
+          .map((todo) => todo.contact_id)
           .filter((id): id is string => !!id)
       )
     ).slice(0, 10);
-    if (establishmentIds.length === 0 && householderIds.length === 0) return;
+    if (establishmentIds.length === 0 && contactIds.length === 0) return;
 
     Promise.all([
       ...establishmentIds.map((id) => warmEstablishmentDetailsInMemory(id, establishmentDetailsCacheRef.current)),
-      ...householderIds.map((id) => warmHouseholderDetailsInMemory(id, householderDetailsCacheRef.current)),
+      ...contactIds.map((id) => warmContactDetailsInMemory(id, contactDetailsCacheRef.current)),
     ]).catch(() => {
       // no-op; background prefetch only
     });
@@ -1674,13 +1674,13 @@ export function HomeTodoCard({
     isMobile,
     userId,
     establishmentId,
-    householderId,
+    contactId,
     filteredOpenTodos,
     filteredCompletedTodos,
   ]);
 
   useEffect(() => {
-    if (!isMobile || !userId || establishmentId || householderId) return;
+    if (!isMobile || !userId || establishmentId || contactId) return;
     const targets = [...openTodos, ...completedTodos];
     if (targets.length === 0) return;
 
@@ -1688,8 +1688,8 @@ export function HomeTodoCard({
     const establishmentIds = Array.from(
       new Set(targets.map((todo) => todo.establishment_id).filter((id): id is string => !!id))
     ).slice(0, 30);
-    const householderIds = Array.from(
-      new Set(targets.map((todo) => todo.householder_id).filter((id): id is string => !!id))
+    const contactIds = Array.from(
+      new Set(targets.map((todo) => todo.contact_id).filter((id): id is string => !!id))
     ).slice(0, 30);
 
     establishmentIds.forEach((id) => {
@@ -1700,17 +1700,17 @@ export function HomeTodoCard({
       writeLocalTodosCache(scopedKey, scopedOpen, scopedCompleted, now);
     });
 
-    householderIds.forEach((id) => {
-      const scopedOpen = openTodos.filter((item) => item.householder_id === id);
-      const scopedCompleted = completedTodos.filter((item) => item.householder_id === id);
-      const scopedKey = `householder:${id}`;
+    contactIds.forEach((id) => {
+      const scopedOpen = openTodos.filter((item) => item.contact_id === id);
+      const scopedCompleted = completedTodos.filter((item) => item.contact_id === id);
+      const scopedKey = `contact:${id}`;
       cacheSet(TODOS_CACHE_KEY(scopedKey), { open: scopedOpen, completed: scopedCompleted });
       writeLocalTodosCache(scopedKey, scopedOpen, scopedCompleted, now);
     });
 
     Promise.all([
       ...establishmentIds.map((id) => warmEstablishmentDetailsInMemory(id, establishmentDetailsCacheRef.current)),
-      ...householderIds.map((id) => warmHouseholderDetailsInMemory(id, householderDetailsCacheRef.current)),
+      ...contactIds.map((id) => warmContactDetailsInMemory(id, contactDetailsCacheRef.current)),
     ]).catch(() => {
       // prewarm only
     });
@@ -1718,7 +1718,7 @@ export function HomeTodoCard({
     isMobile,
     userId,
     establishmentId,
-    householderId,
+    contactId,
     openTodos,
     completedTodos,
   ]);
@@ -1824,24 +1824,24 @@ export function HomeTodoCard({
     const allKnownTodos = [...openTodos, ...completedTodos];
 
     const prefilledRows = chosen.map((todo, index) => {
-      let resolvedHouseholderId = todo.householder_id ?? null;
+      let resolvedContactId = todo.contact_id ?? null;
       let resolvedEstablishmentId = todo.establishment_id ?? null;
 
       // Fallback #1: infer from same call context already loaded in memory.
-      if (!resolvedHouseholderId && !resolvedEstablishmentId && todo.call_id) {
+      if (!resolvedContactId && !resolvedEstablishmentId && todo.call_id) {
         const callMatch = allKnownTodos.find(
           (item) =>
             item.call_id === todo.call_id &&
-            (item.householder_id || item.establishment_id)
+            (item.contact_id || item.establishment_id)
         );
-        resolvedHouseholderId = callMatch?.householder_id ?? null;
+        resolvedContactId = callMatch?.contact_id ?? null;
         resolvedEstablishmentId = callMatch?.establishment_id ?? null;
       }
 
       // Fallback #2: infer from matching context labels/status/area when call_id is absent.
-      if (!resolvedHouseholderId && !resolvedEstablishmentId) {
+      if (!resolvedContactId && !resolvedEstablishmentId) {
         const contextMatch = allKnownTodos.find((item) => {
-          if (!item.householder_id && !item.establishment_id) return false;
+          if (!item.contact_id && !item.establishment_id) return false;
           return (
             (item.context_name ?? "") === (todo.context_name ?? "") &&
             (item.context_establishment_name ?? "") === (todo.context_establishment_name ?? "") &&
@@ -1849,18 +1849,18 @@ export function HomeTodoCard({
             (item.context_area ?? "") === (todo.context_area ?? "")
           );
         });
-        resolvedHouseholderId = contextMatch?.householder_id ?? null;
+        resolvedContactId = contextMatch?.contact_id ?? null;
         resolvedEstablishmentId = contextMatch?.establishment_id ?? null;
       }
 
       // Fallback #3: when already scoped, use current scope target.
-      if (!resolvedHouseholderId && !resolvedEstablishmentId) {
-        if (householderId) resolvedHouseholderId = householderId;
+      if (!resolvedContactId && !resolvedEstablishmentId) {
+        if (contactId) resolvedContactId = contactId;
         else if (establishmentId) resolvedEstablishmentId = establishmentId;
       }
 
-      const targetKey = resolvedHouseholderId
-        ? `householder:${resolvedHouseholderId}`
+      const targetKey = resolvedContactId
+        ? `contact:${resolvedContactId}`
         : resolvedEstablishmentId
           ? `establishment:${resolvedEstablishmentId}`
           : "none";
@@ -1903,7 +1903,7 @@ export function HomeTodoCard({
     } catch {}
 
     applyBulkEditRows(prefilledRows, "overwrite");
-  }, [selectedTodoIds, selectableTodos, applyBulkEditRows, openTodos, completedTodos, householderId, establishmentId]);
+  }, [selectedTodoIds, selectableTodos, applyBulkEditRows, openTodos, completedTodos, contactId, establishmentId]);
 
   const filteredAssignedOpenTodos = useMemo(
     () => filteredOpenTodos.filter(isTodoAssigned),
@@ -1913,17 +1913,17 @@ export function HomeTodoCard({
     () => filteredOpenTodos.filter((todo) => !isTodoAssigned(todo)),
     [filteredOpenTodos, isTodoAssigned]
   );
-  const showSplitOpenHeaderBadges = Boolean(userId && !establishmentId && !householderId);
+  const showSplitOpenHeaderBadges = Boolean(userId && !establishmentId && !contactId);
   /** Match drawer section order (assigned, then unassigned) so the home card preview aligns with the full list. */
   const cardPreviewOpenTodos = useMemo(() => {
-    if (userId && !establishmentId && !householderId) {
+    if (userId && !establishmentId && !contactId) {
       return [...filteredAssignedOpenTodos, ...filteredUnassignedOpenTodos];
     }
     return filteredOpenTodos;
   }, [
     userId,
     establishmentId,
-    householderId,
+    contactId,
     filteredOpenTodos,
     filteredAssignedOpenTodos,
     filteredUnassignedOpenTodos,
@@ -2001,12 +2001,12 @@ export function HomeTodoCard({
     </div>
   );
 
-  const showAssigneeAvatars = Boolean(userId || establishmentId || householderId);
+  const showAssigneeAvatars = Boolean(userId || establishmentId || contactId);
   const showOtherPublisherDecorations = Boolean(
-    userId && !establishmentId && !householderId && !filters.myUpdatesOnly
+    userId && !establishmentId && !contactId && !filters.myUpdatesOnly
   );
   const prefersCompanionLeftTodoDrawer = Boolean(
-    preferLeftCompanionDrawer && isTodoDetailsSideLayout && (!!establishmentId || !!householderId)
+    preferLeftCompanionDrawer && isTodoDetailsSideLayout && (!!establishmentId || !!contactId)
   );
   const useSingleColumnTodoDrawerBody = prefersCompanionLeftTodoDrawer;
   const emptyText = userId
@@ -2015,7 +2015,7 @@ export function HomeTodoCard({
   const emptyDrawerText = userId
     ? "No to-dos from your calls"
     : "No to-dos for this call history";
-  const isHouseholderDetail = Boolean(selectedTodoForDetails?.householder_id);
+  const isContactDetail = Boolean(selectedTodoForDetails?.contact_id);
   const selectedEstablishmentDetails = selectedTodoDetails?.establishment ?? null;
   const detailPrimaryStatus = selectedEstablishmentDetails
     ? getBestStatus(selectedEstablishmentDetails.statuses || [])
@@ -2023,34 +2023,34 @@ export function HomeTodoCard({
   const detailSurfaceClass = selectedEstablishmentDetails
     ? getStatusColor(detailPrimaryStatus)
     : "";
-  const selectedHouseholder = selectedHouseholderDetails?.householder ?? null;
-  const selectedHouseholderEstablishment = selectedHouseholderDetails?.establishment ?? null;
-  const householderSurfaceClass = selectedHouseholder
-    ? (selectedHouseholder.publisher_id
+  const selectedContact = selectedContactDetails?.contact ?? null;
+  const selectedContactEstablishment = selectedContactDetails?.establishment ?? null;
+  const contactSurfaceClass = selectedContact
+    ? (selectedContact.publisher_id
         ? "border-emerald-500/45 bg-emerald-500/8"
-        : getHouseholderCardColor(selectedHouseholder.status))
+        : getContactCardColor(selectedContact.status))
     : "";
-  const householderArea =
-    selectedHouseholderEstablishment?.area?.trim() ?? "";
-  const householderNote = selectedHouseholder?.note?.trim() ?? "";
-  const householderEstablishmentName =
-    selectedHouseholderEstablishment?.name?.trim() ||
-    selectedHouseholder?.establishment_name?.trim() ||
+  const contactArea =
+    selectedContactEstablishment?.area?.trim() ?? "";
+  const contactNote = selectedContact?.note?.trim() ?? "";
+  const contactEstablishmentName =
+    selectedContactEstablishment?.name?.trim() ||
+    selectedContact?.establishment_name?.trim() ||
     "";
-  const householderEstablishmentStatus = getBestStatus(
-    selectedHouseholderEstablishment?.statuses ??
+  const contactEstablishmentStatus = getBestStatus(
+    selectedContactEstablishment?.statuses ??
       (selectedTodoForDetails?.context_establishment_status
         ? [selectedTodoForDetails.context_establishment_status]
         : [])
   );
   const selectedDetailVisits = useMemo(
     () =>
-      [...(isHouseholderDetail ? selectedHouseholderDetails?.visits ?? [] : selectedTodoDetails?.visits ?? [])].sort(
+      [...(isContactDetail ? selectedContactDetails?.visits ?? [] : selectedTodoDetails?.visits ?? [])].sort(
         (a, b) => new Date(b.visit_date).getTime() - new Date(a.visit_date).getTime()
       ),
-    [isHouseholderDetail, selectedHouseholderDetails?.visits, selectedTodoDetails?.visits]
+    [isContactDetail, selectedContactDetails?.visits, selectedTodoDetails?.visits]
   );
-  const selectedDetailHouseholders = selectedTodoDetails?.householders ?? [];
+  const selectedDetailContacts = selectedTodoDetails?.contacts ?? [];
   const establishmentPrefillOpenTodos = useMemo(
     () =>
       selectedEstablishmentDetails?.id
@@ -2065,35 +2065,35 @@ export function HomeTodoCard({
         : [],
     [completedTodos, selectedEstablishmentDetails?.id]
   );
-  const householderPrefillOpenTodos = useMemo(
+  const contactPrefillOpenTodos = useMemo(
     () =>
-      selectedHouseholder?.id
-        ? openTodos.filter((todo) => todo.householder_id === selectedHouseholder.id)
+      selectedContact?.id
+        ? openTodos.filter((todo) => todo.contact_id === selectedContact.id)
         : [],
-    [openTodos, selectedHouseholder?.id]
+    [openTodos, selectedContact?.id]
   );
-  const householderPrefillCompletedTodos = useMemo(
+  const contactPrefillCompletedTodos = useMemo(
     () =>
-      selectedHouseholder?.id
-        ? completedTodos.filter((todo) => todo.householder_id === selectedHouseholder.id)
+      selectedContact?.id
+        ? completedTodos.filter((todo) => todo.contact_id === selectedContact.id)
         : [],
-    [completedTodos, selectedHouseholder?.id]
+    [completedTodos, selectedContact?.id]
   );
-  const contactSubdrawerHouseholder = contactSubdrawerDetails?.householder ?? selectedContactFromEstablishment;
+  const contactSubdrawerContact = contactSubdrawerDetails?.contact ?? selectedContactFromEstablishment;
   const contactSubdrawerEstablishment = contactSubdrawerDetails?.establishment ?? null;
   const contactSubdrawerPrefillOpenTodos = useMemo(
     () =>
-      contactSubdrawerHouseholder?.id
-        ? openTodos.filter((todo) => todo.householder_id === contactSubdrawerHouseholder.id)
+      contactSubdrawerContact?.id
+        ? openTodos.filter((todo) => todo.contact_id === contactSubdrawerContact.id)
         : [],
-    [openTodos, contactSubdrawerHouseholder?.id]
+    [openTodos, contactSubdrawerContact?.id]
   );
   const contactSubdrawerPrefillCompletedTodos = useMemo(
     () =>
-      contactSubdrawerHouseholder?.id
-        ? completedTodos.filter((todo) => todo.householder_id === contactSubdrawerHouseholder.id)
+      contactSubdrawerContact?.id
+        ? completedTodos.filter((todo) => todo.contact_id === contactSubdrawerContact.id)
         : [],
-    [completedTodos, contactSubdrawerHouseholder?.id]
+    [completedTodos, contactSubdrawerContact?.id]
   );
   const contactSubdrawerVisits = useMemo(
     () =>
@@ -2102,32 +2102,32 @@ export function HomeTodoCard({
       ),
     [contactSubdrawerDetails?.visits]
   );
-  const contactSubdrawerSurfaceClass = contactSubdrawerHouseholder
-    ? (contactSubdrawerHouseholder.publisher_id
+  const contactSubdrawerSurfaceClass = contactSubdrawerContact
+    ? (contactSubdrawerContact.publisher_id
         ? "border-emerald-500/45 bg-emerald-500/8"
-        : getHouseholderCardColor(contactSubdrawerHouseholder.status))
+        : getContactCardColor(contactSubdrawerContact.status))
     : "";
   const contactSubdrawerArea = contactSubdrawerEstablishment?.area?.trim() ?? "";
-  const contactSubdrawerNote = contactSubdrawerHouseholder?.note?.trim() ?? "";
+  const contactSubdrawerNote = contactSubdrawerContact?.note?.trim() ?? "";
   const contactSubdrawerEstablishmentName =
     contactSubdrawerEstablishment?.name?.trim() ||
-    contactSubdrawerHouseholder?.establishment_name?.trim() ||
+    contactSubdrawerContact?.establishment_name?.trim() ||
     "";
   const contactSubdrawerEstablishmentStatus = getBestStatus(
     contactSubdrawerEstablishment?.statuses ?? []
   );
-  const openContactDetailsSubdrawer = useCallback((householder: HouseholderWithDetails) => {
-    const cached = householderDetailsCacheRef.current.get(householder.id);
+  const openContactDetailsSubdrawer = useCallback((contact: ContactWithDetails) => {
+    const cached = contactDetailsCacheRef.current.get(contact.id);
     if (cached) {
       setContactSubdrawerDetails(cached);
     } else {
       setContactSubdrawerDetails({
-        householder,
+        contact,
         visits: [],
-        establishment: householder.establishment_id
+        establishment: contact.establishment_id
           ? {
-              id: householder.establishment_id,
-              name: householder.establishment_name ?? "",
+              id: contact.establishment_id,
+              name: contact.establishment_name ?? "",
               area: null,
               statuses: null,
             }
@@ -2135,15 +2135,15 @@ export function HomeTodoCard({
       });
     }
 
-    // Prime scoped to-do snapshot so nested householder card opens from local cache instantly.
+    // Prime scoped to-do snapshot so nested contact card opens from local cache instantly.
     const now = Date.now();
-    const scopedOpen = openTodos.filter((item) => item.householder_id === householder.id);
-    const scopedCompleted = completedTodos.filter((item) => item.householder_id === householder.id);
-    const scopedKey = `householder:${householder.id}`;
+    const scopedOpen = openTodos.filter((item) => item.contact_id === contact.id);
+    const scopedCompleted = completedTodos.filter((item) => item.contact_id === contact.id);
+    const scopedKey = `contact:${contact.id}`;
     cacheSet(TODOS_CACHE_KEY(scopedKey), { open: scopedOpen, completed: scopedCompleted });
     writeLocalTodosCache(scopedKey, scopedOpen, scopedCompleted, now);
 
-    setSelectedContactFromEstablishment(householder);
+    setSelectedContactFromEstablishment(contact);
     setContactSubdrawerEntityEditOpen(false);
     setContactDetailsSubdrawerOpen(true);
   }, [openTodos, completedTodos]);
@@ -2160,8 +2160,8 @@ export function HomeTodoCard({
       options: {
         establishments: Array<{ id?: string; name: string }>;
         selectedEstablishmentId?: string;
-        householderId?: string;
-        householderName?: string;
+        contactId?: string;
+        contactName?: string;
         disableEstablishmentSelect?: boolean;
       }
     ) => {
@@ -2187,8 +2187,8 @@ export function HomeTodoCard({
         },
         establishments: options.establishments,
         selectedEstablishmentId: options.selectedEstablishmentId,
-        householderId: options.householderId,
-        householderName: options.householderName,
+        contactId: options.contactId,
+        contactName: options.contactName,
         disableEstablishmentSelect: options.disableEstablishmentSelect,
       });
     },
@@ -2212,13 +2212,13 @@ export function HomeTodoCard({
       initialTodo: todo,
       establishments,
       selectedEstablishmentId: todo.establishment_id ?? undefined,
-      householderId: todo.householder_id ?? undefined,
-      householderName: todo.householder_id ? todo.context_name ?? undefined : undefined,
-      disableEstablishmentSelect: Boolean(establishmentId || householderId || todo.householder_id),
+      contactId: todo.contact_id ?? undefined,
+      contactName: todo.contact_id ? todo.context_name ?? undefined : undefined,
+      disableEstablishmentSelect: Boolean(establishmentId || contactId || todo.contact_id),
     });
   }, [
     establishmentId,
-    householderId,
+    contactId,
     isTodoDetailsSideLayout,
     preferLeftCompanionDrawer,
   ]);
@@ -2258,7 +2258,7 @@ export function HomeTodoCard({
   );
 
   const showAssignInHomeTodoDrawer = Boolean(
-    canAssignOpenTodos && !establishmentId && !householderId
+    canAssignOpenTodos && !establishmentId && !contactId
   );
 
   const renderHomeDrawerOpenTodoActions = useCallback(
@@ -2308,26 +2308,26 @@ export function HomeTodoCard({
       rowIndex={index}
       layoutId={`${layoutScopeId}-card-${todo.id}`}
       layoutTransition={todoLayoutTransition}
-      hideHouseholderNameBadge={!!householderId}
-      hideHouseholderEstablishmentBadge={!!householderId}
+      hideContactNameBadge={!!contactId}
+      hideContactEstablishmentBadge={!!contactId}
       listTier={listTier}
       headerAction={isUnassignedTodoItem(todo) ? renderOpenTodoTakeButton(todo) : undefined}
     />
   );
 
   useEffect(() => {
-    if (!todoDetailsDrawerOpen || isHouseholderDetail) return;
-    if (selectedDetailHouseholders.length === 0) return;
+    if (!todoDetailsDrawerOpen || isContactDetail) return;
+    if (selectedDetailContacts.length === 0) return;
 
     Promise.all(
-      selectedDetailHouseholders.slice(0, 20).map((householder) => {
-        if (!householder.id) return Promise.resolve();
-        return warmHouseholderDetailsInMemory(householder.id, householderDetailsCacheRef.current);
+      selectedDetailContacts.slice(0, 20).map((contact) => {
+        if (!contact.id) return Promise.resolve();
+        return warmContactDetailsInMemory(contact.id, contactDetailsCacheRef.current);
       })
     ).catch(() => {
       // prewarm only
     });
-  }, [todoDetailsDrawerOpen, isHouseholderDetail, selectedDetailHouseholders]);
+  }, [todoDetailsDrawerOpen, isContactDetail, selectedDetailContacts]);
 
   const handleTodoDetailsDrawerChange = useCallback(
     (open: boolean) => {
@@ -2335,7 +2335,7 @@ export function HomeTodoCard({
       if (!open) {
         setSelectedTodoForDetails(null);
         setSelectedTodoDetails(null);
-        setSelectedHouseholderDetails(null);
+        setSelectedContactDetails(null);
         setSelectedContactFromEstablishment(null);
         setContactDetailsSubdrawerOpen(false);
         setDetailsEntityEditOpen(false);
@@ -2362,7 +2362,7 @@ export function HomeTodoCard({
       setTodoDetailsDrawerOpen(false);
       setSelectedTodoForDetails(null);
       setSelectedTodoDetails(null);
-      setSelectedHouseholderDetails(null);
+      setSelectedContactDetails(null);
       setSelectedContactFromEstablishment(null);
       setContactDetailsSubdrawerOpen(false);
       setDetailsEntityEditOpen(false);
@@ -2389,19 +2389,19 @@ export function HomeTodoCard({
   ]);
 
   const refreshTodoDetailEntity = useCallback(async () => {
-    const hhTarget = selectedTodoForDetails?.householder_id;
+    const hhTarget = selectedTodoForDetails?.contact_id;
     const estTarget = selectedTodoForDetails?.establishment_id;
     if (hhTarget) {
-      await cacheDelete(householderDetailsCacheKey(hhTarget));
-      const result = await getHouseholderDetails(hhTarget);
+      await cacheDelete(contactDetailsCacheKey(hhTarget));
+      const result = await getContactDetails(hhTarget);
       if (result) {
-        const snap: HouseholderDetailsSnapshot = {
-          householder: result.householder,
+        const snap: ContactDetailsSnapshot = {
+          contact: result.contact,
           visits: result.visits,
           establishment: result.establishment,
         };
-        householderDetailsCacheRef.current.set(hhTarget, snap);
-        setSelectedHouseholderDetails(snap);
+        contactDetailsCacheRef.current.set(hhTarget, snap);
+        setSelectedContactDetails(snap);
       }
     } else if (estTarget) {
       await cacheDelete(establishmentDetailsCacheKey(estTarget));
@@ -2410,30 +2410,30 @@ export function HomeTodoCard({
         const snap: EstablishmentDetailsSnapshot = {
           establishment: result.establishment,
           visits: result.visits,
-          householders: result.householders,
+          contacts: result.contacts,
         };
         establishmentDetailsCacheRef.current.set(estTarget, snap);
         setSelectedTodoDetails(snap);
       }
     }
     loadTodos({ useCache: false, forceNetwork: true, trustFreshLocalCache: false });
-  }, [selectedTodoForDetails?.householder_id, selectedTodoForDetails?.establishment_id, loadTodos]);
+  }, [selectedTodoForDetails?.contact_id, selectedTodoForDetails?.establishment_id, loadTodos]);
 
   const refreshAfterContactSubdrawerEdit = useCallback(async () => {
-    const hhId = contactSubdrawerHouseholder?.id;
+    const hhId = contactSubdrawerContact?.id;
     if (hhId) {
-      await cacheDelete(householderDetailsCacheKey(hhId));
-      const result = await getHouseholderDetails(hhId);
+      await cacheDelete(contactDetailsCacheKey(hhId));
+      const result = await getContactDetails(hhId);
       if (result) {
-        const snap: HouseholderDetailsSnapshot = {
-          householder: result.householder,
+        const snap: ContactDetailsSnapshot = {
+          contact: result.contact,
           visits: result.visits,
           establishment: result.establishment,
         };
-        householderDetailsCacheRef.current.set(hhId, snap);
+        contactDetailsCacheRef.current.set(hhId, snap);
         setContactSubdrawerDetails(snap);
         setSelectedContactFromEstablishment((prev) =>
-          prev?.id === hhId ? { ...prev, ...result.householder } : prev
+          prev?.id === hhId ? { ...prev, ...result.contact } : prev
         );
       }
     }
@@ -2444,7 +2444,7 @@ export function HomeTodoCard({
     } catch {
       /* ignore */
     }
-  }, [contactSubdrawerHouseholder?.id, refreshTodoDetailEntity]);
+  }, [contactSubdrawerContact?.id, refreshTodoDetailEntity]);
 
   const broadcastTodosAndBusinessRefresh = useCallback(() => {
     try {
@@ -2473,12 +2473,12 @@ export function HomeTodoCard({
   const homeTodoDetailsFabSurface = useMemo<"estMain" | "hhMain" | "contactSub" | null>(() => {
     if (contactDetailsSubdrawerOpen) return "contactSub";
     if (!todoDetailsDrawerOpen || !selectedTodoForDetails) return null;
-    return isHouseholderDetail ? "hhMain" : "estMain";
+    return isContactDetail ? "hhMain" : "estMain";
   }, [
     contactDetailsSubdrawerOpen,
     todoDetailsDrawerOpen,
     selectedTodoForDetails,
-    isHouseholderDetail,
+    isContactDetail,
   ]);
 
   const homeTodoDetailsFabFormConfig = useMemo(() => {
@@ -2492,22 +2492,22 @@ export function HomeTodoCard({
     }
     if (homeTodoDetailsFabSurface === "hhMain") {
       const estId =
-        selectedHouseholderEstablishment?.id ??
-        selectedHouseholder?.establishment_id ??
+        selectedContactEstablishment?.id ??
+        selectedContact?.establishment_id ??
         selectedTodoForDetails?.establishment_id ??
         undefined;
       const estName =
-        selectedHouseholderEstablishment?.name?.trim() ||
-        selectedHouseholder?.establishment_name?.trim() ||
+        selectedContactEstablishment?.name?.trim() ||
+        selectedContact?.establishment_name?.trim() ||
         selectedTodoForDetails?.context_establishment_name?.trim() ||
         (estId ? "Establishment" : "");
-      if (!selectedHouseholder?.id || !estId || !estName) return null;
+      if (!selectedContact?.id || !estId || !estName) return null;
       return {
         establishments: [{ id: estId, name: estName }],
         selectedEstablishmentId: estId,
-        householderId: selectedHouseholder.id,
-        householderName: selectedHouseholder.name,
-        householderStatus: selectedHouseholder.status,
+        contactId: selectedContact.id,
+        contactName: selectedContact.name,
+        contactStatus: selectedContact.status,
       };
     }
     const est =
@@ -2515,40 +2515,40 @@ export function HomeTodoCard({
         ? { id: contactSubdrawerEstablishment.id, name: contactSubdrawerEstablishment.name }
         : selectedEstablishmentDetails?.id != null
           ? { id: selectedEstablishmentDetails.id, name: selectedEstablishmentDetails.name }
-          : contactSubdrawerHouseholder?.establishment_id
+          : contactSubdrawerContact?.establishment_id
             ? {
-                id: contactSubdrawerHouseholder.establishment_id,
-                name: contactSubdrawerHouseholder.establishment_name?.trim() || "Establishment",
+                id: contactSubdrawerContact.establishment_id,
+                name: contactSubdrawerContact.establishment_name?.trim() || "Establishment",
               }
             : null;
-    const hh = contactSubdrawerHouseholder;
+    const hh = contactSubdrawerContact;
     if (!est?.id || !est.name?.trim() || !hh?.id) return null;
     return {
       establishments: [{ id: est.id, name: est.name }],
       selectedEstablishmentId: est.id,
-      householderId: hh.id,
-      householderName: hh.name,
-      householderStatus: hh.status,
+      contactId: hh.id,
+      contactName: hh.name,
+      contactStatus: hh.status,
     };
   }, [
     homeTodoDetailsFabSurface,
     selectedEstablishmentDetails?.id,
     selectedEstablishmentDetails?.name,
-    selectedHouseholderEstablishment?.id,
-    selectedHouseholderEstablishment?.name,
-    selectedHouseholder?.id,
-    selectedHouseholder?.establishment_id,
-    selectedHouseholder?.establishment_name,
-    selectedHouseholder?.name,
-    selectedHouseholder?.status,
+    selectedContactEstablishment?.id,
+    selectedContactEstablishment?.name,
+    selectedContact?.id,
+    selectedContact?.establishment_id,
+    selectedContact?.establishment_name,
+    selectedContact?.name,
+    selectedContact?.status,
     selectedTodoForDetails?.establishment_id,
     selectedTodoForDetails?.context_establishment_name,
     contactSubdrawerEstablishment,
-    contactSubdrawerHouseholder,
+    contactSubdrawerContact,
   ]);
 
   const afterHomeTodoDetailsQuickCreateSaved = useCallback(async () => {
-    if (contactDetailsSubdrawerOpen && contactSubdrawerHouseholder?.id) {
+    if (contactDetailsSubdrawerOpen && contactSubdrawerContact?.id) {
       await refreshAfterContactSubdrawerEdit();
     } else {
       await refreshTodoDetailEntity();
@@ -2556,7 +2556,7 @@ export function HomeTodoCard({
     }
   }, [
     contactDetailsSubdrawerOpen,
-    contactSubdrawerHouseholder?.id,
+    contactSubdrawerContact?.id,
     refreshAfterContactSubdrawerEdit,
     refreshTodoDetailEntity,
     broadcastTodosAndBusinessRefresh,
@@ -2570,7 +2570,7 @@ export function HomeTodoCard({
     fabBridgeLayout === "xlAndUp" ? ("xlAndUp" as const) : ("belowXl" as const);
   const setHideHomeFab = homeTodoDetailsFabCtx?.setHideHomeFab;
 
-  const isMainHomeTodoWidget = Boolean(userId && establishmentId == null && householderId == null);
+  const isMainHomeTodoWidget = Boolean(userId && establishmentId == null && contactId == null);
   const fabBridgeActiveForViewport =
     isMainHomeTodoWidget &&
     fabBridgeLayout != null &&
@@ -2594,9 +2594,9 @@ export function HomeTodoCard({
           name: e.name,
         })),
         selectedEstablishmentId: homeTodoDetailsFabFormConfig.selectedEstablishmentId,
-        householderId: homeTodoDetailsFabFormConfig.householderId,
-        householderName: homeTodoDetailsFabFormConfig.householderName,
-        householderStatus: homeTodoDetailsFabFormConfig.householderStatus,
+        contactId: homeTodoDetailsFabFormConfig.contactId,
+        contactName: homeTodoDetailsFabFormConfig.contactName,
+        contactStatus: homeTodoDetailsFabFormConfig.contactStatus,
         onAfterSave: afterHomeTodoDetailsQuickCreateSaved,
         stackLeftFormAboveNestedDetails: contactDetailsSubdrawerOpen && isTodoDetailsSideLayout,
       });
@@ -2690,33 +2690,33 @@ export function HomeTodoCard({
     };
   }, [confirmBulkEdit, fabBridgeActiveForViewport, openBulkEditPrompt]);
 
-  const canDetailSummaryEdit = isHouseholderDetail
-    ? !!selectedHouseholder?.id
+  const canDetailSummaryEdit = isContactDetail
+    ? !!selectedContact?.id
     : !!selectedEstablishmentDetails?.id;
 
   const openEntityEditorFromDetailsSidebar = useCallback(() => {
-    const hasTarget = isHouseholderDetail
-      ? !!selectedHouseholder?.id
+    const hasTarget = isContactDetail
+      ? !!selectedContact?.id
       : !!selectedEstablishmentDetails?.id;
     if (!hasTarget) return;
     setContactSubdrawerEntityEditOpen(false);
     setDetailsEntityEditOpen(true);
-  }, [isHouseholderDetail, selectedHouseholder?.id, selectedEstablishmentDetails?.id]);
+  }, [isContactDetail, selectedContact?.id, selectedEstablishmentDetails?.id]);
 
-  const canContactSubdrawerSummaryEdit = !!contactSubdrawerHouseholder?.id;
+  const canContactSubdrawerSummaryEdit = !!contactSubdrawerContact?.id;
 
   const openContactSubdrawerEntityEditor = useCallback(() => {
-    if (!contactSubdrawerHouseholder?.id) return;
+    if (!contactSubdrawerContact?.id) return;
     setDetailsEntityEditOpen(false);
     setContactSubdrawerEntityEditOpen(true);
-  }, [contactSubdrawerHouseholder?.id]);
+  }, [contactSubdrawerContact?.id]);
 
   const renderTodoDetailsBody = () => (
     <>
-      {isLoadingTodoDetails && !selectedTodoDetails && !selectedHouseholderDetails ? (
+      {isLoadingTodoDetails && !selectedTodoDetails && !selectedContactDetails ? (
         <div className="rounded-lg border p-4 text-sm text-muted-foreground">Loading details...</div>
       ) : (
-        isHouseholderDetail ? (
+        isContactDetail ? (
           <div
             className={cn(
               canDetailSummaryEdit &&
@@ -2736,42 +2736,42 @@ export function HomeTodoCard({
                 : undefined
             }
             aria-label={
-              canDetailSummaryEdit ? `Edit ${selectedHouseholder?.name ?? "contact"}` : undefined
+              canDetailSummaryEdit ? `Edit ${selectedContact?.name ?? "contact"}` : undefined
             }
           >
             <Card
               className={cn(
                 "w-full",
-                householderSurfaceClass,
+                contactSurfaceClass,
                 canDetailSummaryEdit && "hover:opacity-95 transition-opacity"
               )}
             >
             <CardHeader className="flex flex-row items-center justify-between gap-2">
               <div className="flex w-full min-w-0 flex-1 flex-wrap items-center gap-2 pr-1">
-                {selectedHouseholder?.status?.trim() ? (
+                {selectedContact?.status?.trim() ? (
                   <Badge
                     variant="outline"
                     className={cn(
                       "flex-shrink-0 capitalize",
-                      getHouseholderStatusColorClass(selectedHouseholder.status)
+                      getContactStatusColorClass(selectedContact.status)
                     )}
                   >
-                    {formatStatusText(selectedHouseholder.status)}
+                    {formatStatusText(selectedContact.status)}
                   </Badge>
                 ) : null}
-                {householderEstablishmentName ? (
+                {contactEstablishmentName ? (
                   <Badge
                     variant="outline"
-                    className={cn("flex-shrink-0", getStatusTextColor(householderEstablishmentStatus))}
+                    className={cn("flex-shrink-0", getStatusTextColor(contactEstablishmentStatus))}
                   >
-                    {householderEstablishmentName}
+                    {contactEstablishmentName}
                   </Badge>
                 ) : null}
               </div>
-              {selectedHouseholder?.lat != null && selectedHouseholder?.lng != null ? (
+              {selectedContact?.lat != null && selectedContact?.lng != null ? (
                 <a
                   className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-primary/60 bg-primary/10 text-primary shadow-sm transition-all hover:bg-primary/20 hover:border-primary hover:scale-[1.03] active:scale-100"
-                  href={`https://www.google.com/maps/dir/?api=1&destination=${selectedHouseholder.lat},${selectedHouseholder.lng}`}
+                  href={`https://www.google.com/maps/dir/?api=1&destination=${selectedContact.lat},${selectedContact.lng}`}
                   target="_blank"
                   rel="noreferrer"
                   aria-label="Open directions"
@@ -2784,7 +2784,7 @@ export function HomeTodoCard({
               ) : null}
             </CardHeader>
             <CardContent className="space-y-4">
-              <HouseholderSummaryFields area={householderArea} note={householderNote} />
+              <ContactSummaryFields area={contactArea} note={contactNote} />
             </CardContent>
           </Card>
           </div>
@@ -2873,28 +2873,28 @@ export function HomeTodoCard({
         )
       )}
 
-      {isHouseholderDetail && selectedHouseholder?.id ? (
+      {isContactDetail && selectedContact?.id ? (
         <HomeTodoCard
-          householderId={selectedHouseholder.id}
+          contactId={selectedContact.id}
           userId={effectiveUserId ?? undefined}
-          prefillScopeKey={`householder:${selectedHouseholder.id}`}
-          prefillOpenTodos={householderPrefillOpenTodos}
-          prefillCompletedTodos={householderPrefillCompletedTodos}
+          prefillScopeKey={`contact:${selectedContact.id}`}
+          prefillOpenTodos={contactPrefillOpenTodos}
+          prefillCompletedTodos={contactPrefillCompletedTodos}
           preferLeftCompanionDrawer
           onTodoTap={(todo) =>
             openTodoEditorFromDetails(todo, selectedDetailVisits, {
-              establishments: selectedHouseholderEstablishment
-                ? [{ id: selectedHouseholderEstablishment.id, name: selectedHouseholderEstablishment.name }]
+              establishments: selectedContactEstablishment
+                ? [{ id: selectedContactEstablishment.id, name: selectedContactEstablishment.name }]
                 : [],
-              selectedEstablishmentId: selectedHouseholderEstablishment?.id,
-              householderId: selectedHouseholder.id,
-              householderName: selectedHouseholder.name,
+              selectedEstablishmentId: selectedContactEstablishment?.id,
+              contactId: selectedContact.id,
+              contactName: selectedContact.name,
               disableEstablishmentSelect: true,
             })
           }
         />
       ) : null}
-      {!isHouseholderDetail && selectedEstablishmentDetails?.id ? (
+      {!isContactDetail && selectedEstablishmentDetails?.id ? (
         <HomeTodoCard
           establishmentId={selectedEstablishmentDetails.id}
           userId={effectiveUserId ?? undefined}
@@ -2915,40 +2915,40 @@ export function HomeTodoCard({
       {selectedDetailVisits.length > 0 ? (
         <CallSection
           visits={selectedDetailVisits}
-          isHouseholderContext={isHouseholderDetail}
+          isContactContext={isContactDetail}
           establishments={
-            isHouseholderDetail
-              ? (selectedHouseholderEstablishment
-                  ? [selectedHouseholderEstablishment]
+            isContactDetail
+              ? (selectedContactEstablishment
+                  ? [selectedContactEstablishment]
                   : [])
               : (selectedEstablishmentDetails
                   ? [{ id: selectedEstablishmentDetails.id ?? "", name: selectedEstablishmentDetails.name }]
                   : [])
           }
           selectedEstablishmentId={
-            isHouseholderDetail
-              ? selectedHouseholderEstablishment?.id
+            isContactDetail
+              ? selectedContactEstablishment?.id
               : selectedEstablishmentDetails?.id
           }
-          householderId={isHouseholderDetail ? selectedHouseholder?.id : undefined}
-          householderName={isHouseholderDetail ? selectedHouseholder?.name : undefined}
-          householderStatus={isHouseholderDetail ? selectedHouseholder?.status : undefined}
+          contactId={isContactDetail ? selectedContact?.id : undefined}
+          contactName={isContactDetail ? selectedContact?.name : undefined}
+          contactStatus={isContactDetail ? selectedContact?.status : undefined}
           isLoading={false}
           onVisitUpdated={() => {
             void refreshTodoDetailEntity().then(() => broadcastTodosAndBusinessRefresh());
           }}
           preferLeftDetailPanel={isTodoDetailsSideLayout}
           insideStackedContactPane={
-            Boolean(!isHouseholderDetail && contactDetailsSubdrawerOpen && isTodoDetailsSideLayout)
+            Boolean(!isContactDetail && contactDetailsSubdrawerOpen && isTodoDetailsSideLayout)
           }
         />
       ) : null}
 
-      {!isHouseholderDetail && selectedEstablishmentDetails?.id ? (
+      {!isContactDetail && selectedEstablishmentDetails?.id ? (
         <ContactsSection
           establishmentId={selectedEstablishmentDetails.id}
-          householders={selectedDetailHouseholders}
-          onHouseholderClick={openContactDetailsSubdrawer}
+          contacts={selectedDetailContacts}
+          onContactClick={openContactDetailsSubdrawer}
           preferLeftDetailPanel={isTodoDetailsSideLayout}
           insideStackedContactPane={Boolean(contactDetailsSubdrawerOpen && isTodoDetailsSideLayout)}
           isLoading={false}
@@ -2959,7 +2959,7 @@ export function HomeTodoCard({
 
   const renderTodoDrawerBody = () => (
     <>
-      {userId && !establishmentId && !householderId && (
+      {userId && !establishmentId && !contactId && (
         <div className="mb-4 w-full overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           <div className="w-max min-w-full flex justify-center">
             <FilterControls
@@ -2996,25 +2996,25 @@ export function HomeTodoCard({
               setFilters((prev) => ({
                 ...prev,
                 bwiOnly: true,
-                householderOnly: false,
+                contactOnly: false,
               }))
             }
             onBwiClear={() =>
               setFilters((prev) => ({ ...prev, bwiOnly: false }))
             }
-            householderActive={filters.householderOnly}
-            householderLabel="Contacts Only"
-            onHouseholderActivate={() =>
+            contactActive={filters.contactOnly}
+            contactLabel="Contacts Only"
+            onContactActivate={() =>
               setFilters((prev) => ({
                 ...prev,
-                householderOnly: true,
+                contactOnly: true,
                 bwiOnly: false,
               }))
             }
-            onHouseholderClear={() =>
+            onContactClear={() =>
               setFilters((prev) => ({
                 ...prev,
-                householderOnly: false,
+                contactOnly: false,
               }))
             }
             filterBadges={filterBadges}
@@ -3087,8 +3087,8 @@ export function HomeTodoCard({
                     layoutId={`${layoutScopeId}-drawer-${todo.id}`}
                     layoutTransition={todoLayoutTransition}
                     clampBody={false}
-                    hideHouseholderNameBadge={!!householderId}
-                    hideHouseholderEstablishmentBadge={!!householderId}
+                    hideContactNameBadge={!!contactId}
+                    hideContactEstablishmentBadge={!!contactId}
                   />
                 ))}
               </ul>
@@ -3126,8 +3126,8 @@ export function HomeTodoCard({
                     layoutId={`${layoutScopeId}-drawer-${todo.id}`}
                     layoutTransition={todoLayoutTransition}
                     clampBody={false}
-                    hideHouseholderNameBadge={!!householderId}
-                    hideHouseholderEstablishmentBadge={!!householderId}
+                    hideContactNameBadge={!!contactId}
+                    hideContactEstablishmentBadge={!!contactId}
                     headerAction={renderHomeDrawerOpenTodoActions(todo)}
                   />
                 ))}
@@ -3166,8 +3166,8 @@ export function HomeTodoCard({
                     layoutId={`${layoutScopeId}-drawer-${todo.id}`}
                     layoutTransition={todoLayoutTransition}
                     clampBody={false}
-                    hideHouseholderNameBadge={!!householderId}
-                    hideHouseholderEstablishmentBadge={!!householderId}
+                    hideContactNameBadge={!!contactId}
+                    hideContactEstablishmentBadge={!!contactId}
                   />
                 ))}
               </ul>
@@ -3208,8 +3208,8 @@ export function HomeTodoCard({
                         layoutId={`${layoutScopeId}-drawer-md-to-${todo.id}`}
                         layoutTransition={todoLayoutTransition}
                         clampBody={false}
-                        hideHouseholderNameBadge={!!householderId}
-                        hideHouseholderEstablishmentBadge={!!householderId}
+                        hideContactNameBadge={!!contactId}
+                        hideContactEstablishmentBadge={!!contactId}
                       />
                     ))}
                   </ul>
@@ -3241,8 +3241,8 @@ export function HomeTodoCard({
                         layoutId={`${layoutScopeId}-drawer-md-open-${todo.id}`}
                         layoutTransition={todoLayoutTransition}
                         clampBody={false}
-                        hideHouseholderNameBadge={!!householderId}
-                        hideHouseholderEstablishmentBadge={!!householderId}
+                        hideContactNameBadge={!!contactId}
+                        hideContactEstablishmentBadge={!!contactId}
                         headerAction={renderHomeDrawerOpenTodoActions(todo)}
                       />
                     ))}
@@ -3275,8 +3275,8 @@ export function HomeTodoCard({
                         layoutId={`${layoutScopeId}-drawer-md-done-${todo.id}`}
                         layoutTransition={todoLayoutTransition}
                         clampBody={false}
-                        hideHouseholderNameBadge={!!householderId}
-                        hideHouseholderEstablishmentBadge={!!householderId}
+                        hideContactNameBadge={!!contactId}
+                        hideContactEstablishmentBadge={!!contactId}
                       />
                     ))}
                   </ul>
@@ -3293,11 +3293,11 @@ export function HomeTodoCard({
 
   const renderContactSubdrawerBody = () => (
     <>
-      {isLoadingContactSubdrawerDetails && !contactSubdrawerHouseholder ? (
+      {isLoadingContactSubdrawerDetails && !contactSubdrawerContact ? (
         <div className="rounded-lg border p-4 text-sm text-muted-foreground">Loading details...</div>
       ) : null}
 
-      {contactSubdrawerHouseholder ? (
+      {contactSubdrawerContact ? (
         <div
           className={cn(
             canContactSubdrawerSummaryEdit &&
@@ -3318,7 +3318,7 @@ export function HomeTodoCard({
           }
           aria-label={
             canContactSubdrawerSummaryEdit
-              ? `Edit ${contactSubdrawerHouseholder.name ?? "contact"}`
+              ? `Edit ${contactSubdrawerContact.name ?? "contact"}`
               : undefined
           }
         >
@@ -3331,15 +3331,15 @@ export function HomeTodoCard({
           >
           <CardHeader className="flex flex-row items-center justify-between gap-2">
             <div className="flex w-full min-w-0 flex-1 flex-wrap items-center gap-2 pr-1">
-              {contactSubdrawerHouseholder.status?.trim() ? (
+              {contactSubdrawerContact.status?.trim() ? (
                 <Badge
                   variant="outline"
                   className={cn(
                     "flex-shrink-0 capitalize",
-                    getHouseholderStatusColorClass(contactSubdrawerHouseholder.status)
+                    getContactStatusColorClass(contactSubdrawerContact.status)
                   )}
                 >
-                  {formatStatusText(contactSubdrawerHouseholder.status)}
+                  {formatStatusText(contactSubdrawerContact.status)}
                 </Badge>
               ) : null}
               {contactSubdrawerEstablishmentName ? (
@@ -3354,10 +3354,10 @@ export function HomeTodoCard({
                 </Badge>
               ) : null}
             </div>
-            {contactSubdrawerHouseholder.lat != null && contactSubdrawerHouseholder.lng != null ? (
+            {contactSubdrawerContact.lat != null && contactSubdrawerContact.lng != null ? (
               <a
                 className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-primary/60 bg-primary/10 text-primary shadow-sm transition-all hover:bg-primary/20 hover:border-primary hover:scale-[1.03] active:scale-100"
-                href={`https://www.google.com/maps/dir/?api=1&destination=${contactSubdrawerHouseholder.lat},${contactSubdrawerHouseholder.lng}`}
+                href={`https://www.google.com/maps/dir/?api=1&destination=${contactSubdrawerContact.lat},${contactSubdrawerContact.lng}`}
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Open directions"
@@ -3370,17 +3370,17 @@ export function HomeTodoCard({
             ) : null}
           </CardHeader>
           <CardContent className="space-y-4">
-            <HouseholderSummaryFields area={contactSubdrawerArea} note={contactSubdrawerNote} />
+            <ContactSummaryFields area={contactSubdrawerArea} note={contactSubdrawerNote} />
           </CardContent>
         </Card>
         </div>
       ) : null}
 
-      {contactSubdrawerHouseholder?.id ? (
+      {contactSubdrawerContact?.id ? (
         <HomeTodoCard
-          householderId={contactSubdrawerHouseholder.id}
+          contactId={contactSubdrawerContact.id}
           userId={effectiveUserId ?? undefined}
-          prefillScopeKey={`householder:${contactSubdrawerHouseholder.id}`}
+          prefillScopeKey={`contact:${contactSubdrawerContact.id}`}
           prefillOpenTodos={contactSubdrawerPrefillOpenTodos}
           prefillCompletedTodos={contactSubdrawerPrefillCompletedTodos}
           preferLeftCompanionDrawer
@@ -3390,8 +3390,8 @@ export function HomeTodoCard({
                 ? [{ id: contactSubdrawerEstablishment.id, name: contactSubdrawerEstablishment.name }]
                 : [],
               selectedEstablishmentId: contactSubdrawerEstablishment?.id,
-              householderId: contactSubdrawerHouseholder.id,
-              householderName: contactSubdrawerHouseholder.name,
+              contactId: contactSubdrawerContact.id,
+              contactName: contactSubdrawerContact.name,
               disableEstablishmentSelect: true,
             })
           }
@@ -3401,12 +3401,12 @@ export function HomeTodoCard({
       {contactSubdrawerVisits.length > 0 ? (
         <CallSection
           visits={contactSubdrawerVisits}
-          isHouseholderContext
+          isContactContext
           establishments={contactSubdrawerEstablishment ? [contactSubdrawerEstablishment] : []}
           selectedEstablishmentId={contactSubdrawerEstablishment?.id}
-          householderId={contactSubdrawerHouseholder?.id}
-          householderName={contactSubdrawerHouseholder?.name}
-          householderStatus={contactSubdrawerHouseholder?.status}
+          contactId={contactSubdrawerContact?.id}
+          contactName={contactSubdrawerContact?.name}
+          contactStatus={contactSubdrawerContact?.status}
           isLoading={false}
           onVisitUpdated={() => {
             void refreshAfterContactSubdrawerEdit();
@@ -3419,13 +3419,13 @@ export function HomeTodoCard({
   );
 
   const entityEditDrawerTitle =
-    contactSubdrawerEntityEditOpen || isHouseholderDetail ? "Edit Contact" : "Edit Establishment";
+    contactSubdrawerEntityEditOpen || isContactDetail ? "Edit Contact" : "Edit Establishment";
 
   const entityEditForms = (
     <>
-      {contactSubdrawerEntityEditOpen && contactSubdrawerHouseholder?.id ? (
-        <HouseholderForm
-          key={contactSubdrawerHouseholder.id}
+      {contactSubdrawerEntityEditOpen && contactSubdrawerContact?.id ? (
+        <ContactForm
+          key={contactSubdrawerContact.id}
           establishments={
             contactSubdrawerEstablishment?.id
               ? [contactSubdrawerEstablishment as { id: string; name: string }]
@@ -3434,14 +3434,14 @@ export function HomeTodoCard({
           selectedEstablishmentId={contactSubdrawerEstablishment?.id ?? undefined}
           isEditing
           initialData={{
-            id: contactSubdrawerHouseholder.id,
-            establishment_id: contactSubdrawerHouseholder.establishment_id ?? null,
-            name: contactSubdrawerHouseholder.name,
-            status: (contactSubdrawerHouseholder.status as HouseholderStatus) ?? "potential",
-            note: contactSubdrawerHouseholder.note ?? null,
-            lat: contactSubdrawerHouseholder.lat ?? null,
-            lng: contactSubdrawerHouseholder.lng ?? null,
-            publisher_id: contactSubdrawerHouseholder.publisher_id ?? null,
+            id: contactSubdrawerContact.id,
+            establishment_id: contactSubdrawerContact.establishment_id ?? null,
+            name: contactSubdrawerContact.name,
+            status: (contactSubdrawerContact.status as ContactStatus) ?? "potential",
+            note: contactSubdrawerContact.note ?? null,
+            lat: contactSubdrawerContact.lat ?? null,
+            lng: contactSubdrawerContact.lng ?? null,
+            publisher_id: contactSubdrawerContact.publisher_id ?? null,
           }}
           disableEstablishmentSelect={!!contactSubdrawerEstablishment?.id}
           onSaved={() => {
@@ -3449,27 +3449,27 @@ export function HomeTodoCard({
             void refreshAfterContactSubdrawerEdit();
           }}
         />
-      ) : isHouseholderDetail && selectedHouseholder?.id ? (
-        <HouseholderForm
-          key={selectedHouseholder.id}
+      ) : isContactDetail && selectedContact?.id ? (
+        <ContactForm
+          key={selectedContact.id}
           establishments={
-            selectedHouseholderEstablishment?.id
-              ? [selectedHouseholderEstablishment as { id: string; name: string }]
+            selectedContactEstablishment?.id
+              ? [selectedContactEstablishment as { id: string; name: string }]
               : []
           }
-          selectedEstablishmentId={selectedHouseholderEstablishment?.id ?? undefined}
+          selectedEstablishmentId={selectedContactEstablishment?.id ?? undefined}
           isEditing
           initialData={{
-            id: selectedHouseholder.id,
-            establishment_id: selectedHouseholder.establishment_id ?? null,
-            name: selectedHouseholder.name,
-            status: (selectedHouseholder.status as HouseholderStatus) ?? "potential",
-            note: selectedHouseholder.note ?? null,
-            lat: selectedHouseholder.lat ?? null,
-            lng: selectedHouseholder.lng ?? null,
-            publisher_id: selectedHouseholder.publisher_id ?? null,
+            id: selectedContact.id,
+            establishment_id: selectedContact.establishment_id ?? null,
+            name: selectedContact.name,
+            status: (selectedContact.status as ContactStatus) ?? "potential",
+            note: selectedContact.note ?? null,
+            lat: selectedContact.lat ?? null,
+            lng: selectedContact.lng ?? null,
+            publisher_id: selectedContact.publisher_id ?? null,
           }}
-          disableEstablishmentSelect={!!selectedHouseholderEstablishment?.id}
+          disableEstablishmentSelect={!!selectedContactEstablishment?.id}
           onSaved={() => {
             setDetailsEntityEditOpen(false);
             void refreshTodoDetailEntity().then(() => broadcastTodosAndBusinessRefresh());
@@ -3505,8 +3505,8 @@ export function HomeTodoCard({
           className={cn("border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]", todoDetailsSheetPanelClass)}
         >
           <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
-            <DrawerTitle className="text-center text-xl font-extrabold tracking-tight">{isHouseholderDetail
-                ? (selectedHouseholder?.name || selectedTodoForDetails?.context_name || "Contact Details")
+            <DrawerTitle className="text-center text-xl font-extrabold tracking-tight">{isContactDetail
+                ? (selectedContact?.name || selectedTodoForDetails?.context_name || "Contact Details")
                 : (selectedEstablishmentDetails?.name || selectedTodoForDetails?.context_name || "Establishment Details")}</DrawerTitle>
           </DrawerHeader>
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3">
@@ -3520,8 +3520,8 @@ export function HomeTodoCard({
         onOpenChange={handleTodoDetailsDrawerChange}
         contentClassName={todoDetailsSheetPanelClass}
         title={
-          isHouseholderDetail
-            ? (selectedHouseholder?.name || selectedTodoForDetails?.context_name || "Contact Details")
+          isContactDetail
+            ? (selectedContact?.name || selectedTodoForDetails?.context_name || "Contact Details")
             : (selectedEstablishmentDetails?.name || selectedTodoForDetails?.context_name || "Establishment Details")
         }
         bodyClassName="space-y-3"
@@ -3562,7 +3562,7 @@ export function HomeTodoCard({
                   <ChevronLeft className="h-5 w-5" />
                 </Button>
                 <DrawerTitle className="px-10 text-center text-xl font-extrabold tracking-tight">
-                  {contactSubdrawerHouseholder?.name || "Contact Details"}
+                  {contactSubdrawerContact?.name || "Contact Details"}
                 </DrawerTitle>
               </div>
             </DrawerHeader>
@@ -3581,7 +3581,7 @@ export function HomeTodoCard({
             }
           }}
           contentClassName={todoContactSheetPanelClass}
-          title={contactSubdrawerHouseholder?.name || "Contact Details"}
+          title={contactSubdrawerContact?.name || "Contact Details"}
           bodyClassName="space-y-3"
         >
           {renderContactSubdrawerBody()}
@@ -3655,8 +3655,8 @@ export function HomeTodoCard({
                 establishments={todoEditorContext.establishments}
                 selectedEstablishmentId={todoEditorContext.selectedEstablishmentId}
                 initialTodo={todoEditorContext.initialTodo}
-                householderId={todoEditorContext.householderId}
-                householderName={todoEditorContext.householderName}
+                contactId={todoEditorContext.contactId}
+                contactName={todoEditorContext.contactName}
                 disableEstablishmentSelect={todoEditorContext.disableEstablishmentSelect}
                 onSaved={() => {
                   setTodoEditorContext(null);
@@ -3684,8 +3684,8 @@ export function HomeTodoCard({
             establishments={todoEditorContext.establishments}
             selectedEstablishmentId={todoEditorContext.selectedEstablishmentId}
             initialTodo={todoEditorContext.initialTodo}
-            householderId={todoEditorContext.householderId}
-            householderName={todoEditorContext.householderName}
+            contactId={todoEditorContext.contactId}
+            contactName={todoEditorContext.contactName}
             disableEstablishmentSelect={todoEditorContext.disableEstablishmentSelect}
             onSaved={() => {
               setTodoEditorContext(null);
@@ -3783,8 +3783,8 @@ export function HomeTodoCard({
                         rowIndex={index}
                         layoutId={`${layoutScopeId}-card-${todo.id}`}
                         layoutTransition={todoLayoutTransition}
-                        hideHouseholderNameBadge={!!householderId}
-                        hideHouseholderEstablishmentBadge={!!householderId}
+                        hideContactNameBadge={!!contactId}
+                        hideContactEstablishmentBadge={!!contactId}
                       />
                     ))}
                   </ul>
@@ -4246,9 +4246,9 @@ function BulkEditTodoListItem({
   participantsReady: boolean;
   onCheckedChange: (checked: boolean) => void;
 }) {
-  const householderStatus = todo.context_status || "for_scouting";
+  const contactStatus = todo.context_status || "for_scouting";
   const establishmentStatus = todo.context_establishment_status || "for_scouting";
-  const isHouseholder = !!todo.householder_id;
+  const isContact = !!todo.contact_id;
   const assigneeSlots = getTodoAssigneeSlots(todo);
   const areaLabel = todo.context_area?.trim() ?? "";
   const displayDate = todo.deadline_date;
@@ -4271,10 +4271,10 @@ function BulkEditTodoListItem({
             <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
               {todo.context_name ? (
                 <>
-                  {isHouseholder ? (
+                  {isContact ? (
                     <span className="inline-flex items-center gap-1 min-w-0 max-w-[72%] shrink">
                       <VisitStatusBadge
-                        status={householderStatus}
+                        status={contactStatus}
                         label={truncateLabel(todo.context_name, 28)}
                         className="truncate max-w-full whitespace-nowrap"
                       />
@@ -4291,7 +4291,7 @@ function BulkEditTodoListItem({
                       ) : null}
                     </span>
                   )}
-                  {isHouseholder && todo.context_establishment_name ? (
+                  {isContact && todo.context_establishment_name ? (
                     <VisitStatusBadge
                       status={establishmentStatus}
                       label={truncateLabel(todo.context_establishment_name, 24)}
@@ -4354,8 +4354,8 @@ function TodoRow({
   layoutTransition,
   rowIndex,
   clampBody = true,
-  hideHouseholderNameBadge = false,
-  hideHouseholderEstablishmentBadge = false,
+  hideContactNameBadge = false,
+  hideContactEstablishmentBadge = false,
   headerAction,
   listTier,
 }: {
@@ -4372,27 +4372,27 @@ function TodoRow({
   layoutTransition?: { type: "spring"; stiffness: number; damping: number };
   rowIndex?: number;
   clampBody?: boolean;
-  hideHouseholderNameBadge?: boolean;
-  hideHouseholderEstablishmentBadge?: boolean;
+  hideContactNameBadge?: boolean;
+  hideContactEstablishmentBadge?: boolean;
   headerAction?: ReactNode;
   /** Home card preview: shows Open badge on unassigned pool rows only. */
   listTier?: "assigned" | "unassigned";
 }) {
-  const canNavigate = !!onTap && (!!todo.call_id || !!todo.establishment_id || !!todo.householder_id);
-  const householderStatus = todo.context_status || "for_scouting";
+  const canNavigate = !!onTap && (!!todo.call_id || !!todo.establishment_id || !!todo.contact_id);
+  const contactStatus = todo.context_status || "for_scouting";
   const establishmentStatus = todo.context_establishment_status || "for_scouting";
   const isDone = !!todo.is_done;
   const displayDate = todo.deadline_date;
-  const isHouseholder = !!todo.householder_id;
+  const isContact = !!todo.contact_id;
   const isEvenRow = typeof rowIndex === "number" && rowIndex % 2 === 1;
   const isMine = !currentUserId || todo.publisher_id === currentUserId || todo.partner_id === currentUserId;
   const hasOtherPublisherHighlight = highlightOtherPublishers && !isMine;
   const ageBorderClass = isDone ? "" : getTodoAgeBorderClass(displayDate, hasOtherPublisherHighlight);
   const assigneeSlots = getTodoAssigneeSlots(todo);
   const areaLabel = todo.context_area?.trim() ?? "";
-  const hasNameBadge = isHouseholder ? !hideHouseholderNameBadge && !!todo.context_name : !!todo.context_name;
+  const hasNameBadge = isContact ? !hideContactNameBadge && !!todo.context_name : !!todo.context_name;
   const hasEstablishmentBadge =
-    isHouseholder && !!todo.context_establishment_name && !hideHouseholderEstablishmentBadge;
+    isContact && !!todo.context_establishment_name && !hideContactEstablishmentBadge;
   const hasVisibleBadges = hasNameBadge || hasEstablishmentBadge;
   const showListTierBadge = listTier === "unassigned";
   const collapseHeaderRow = !hasVisibleBadges && !headerAction && !showListTierBadge;
@@ -4440,11 +4440,11 @@ function TodoRow({
               ) : null}
               {todo.context_name ? (
                 <>
-                  {isHouseholder ? (
-                    hideHouseholderNameBadge ? null : (
+                  {isContact ? (
+                    hideContactNameBadge ? null : (
                       <span className="inline-flex items-center gap-1 min-w-0 max-w-[72%] shrink">
                         <VisitStatusBadge
-                          status={householderStatus}
+                          status={contactStatus}
                           label={truncateLabel(todo.context_name, 28)}
                           className={cn("truncate max-w-full whitespace-nowrap", isDone && "opacity-70")}
                         />
@@ -4462,7 +4462,7 @@ function TodoRow({
                       ) : null}
                     </span>
                   )}
-                  {isHouseholder && todo.context_establishment_name && !hideHouseholderEstablishmentBadge ? (
+                  {isContact && todo.context_establishment_name && !hideContactEstablishmentBadge ? (
                     <VisitStatusBadge
                       status={establishmentStatus}
                       label={truncateLabel(todo.context_establishment_name, 24)}

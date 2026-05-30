@@ -5,38 +5,40 @@ import {
   calculateDistance,
   type BusinessFiltersState,
   type EstablishmentWithDetails,
-  type HouseholderWithDetails,
+  type ContactWithDetails,
   type MyOpenTodoTargets,
 } from "@/lib/db/business";
+import { CONTACT_STATUS_DISPLAY_ORDER } from "@/lib/utils/contact-status-tabs";
+import { contactHasAnyStatus, resolveContactStatuses } from "@/lib/utils/status-hierarchy";
 import {
-  computeEstablishmentIdsFromTodoHouseholders,
+  computeEstablishmentIdsFromTodoContacts,
   establishmentMatchesMyOpenTodos,
 } from "@/lib/utils/business-todo-filter";
 
 interface UseBusinessFilterOptionsProps {
   establishments: EstablishmentWithDetails[];
-  householders: HouseholderWithDetails[];
+  contacts: ContactWithDetails[];
   filters: BusinessFiltersState;
   userVisitedEstablishments: Set<string>;
-  businessTab: "establishments" | "householders" | "map";
+  businessTab: "establishments" | "contacts" | "map";
   myOpenTodoTargets?: MyOpenTodoTargets;
 }
 
 export function useBusinessFilterOptions({
   establishments,
-  householders,
+  contacts,
   filters,
   userVisitedEstablishments,
   businessTab,
   myOpenTodoTargets,
 }: UseBusinessFilterOptionsProps) {
-  const establishmentIdsFromTodoHouseholders = useMemo(
+  const establishmentIdsFromTodoContacts = useMemo(
     () =>
-      computeEstablishmentIdsFromTodoHouseholders(
-        householders,
-        myOpenTodoTargets?.householderIds ?? new Set()
+      computeEstablishmentIdsFromTodoContacts(
+        contacts,
+        myOpenTodoTargets?.contactIds ?? new Set()
       ),
-    [householders, myOpenTodoTargets]
+    [contacts, myOpenTodoTargets]
   );
 
   const getFilteredEstablishmentsExcluding = useCallback(
@@ -116,7 +118,7 @@ export function useBusinessFilterOptions({
             !establishmentMatchesMyOpenTodos(
               establishment,
               myOpenTodoTargets,
-              establishmentIdsFromTodoHouseholders
+              establishmentIdsFromTodoContacts
             )
           ) {
             return false;
@@ -131,7 +133,7 @@ export function useBusinessFilterOptions({
       filters,
       userVisitedEstablishments,
       myOpenTodoTargets,
-      establishmentIdsFromTodoHouseholders,
+      establishmentIdsFromTodoContacts,
     ]
   );
 
@@ -188,18 +190,18 @@ export function useBusinessFilterOptions({
         }));
     }
 
-    // Householder tab – build options from householder statuses
-    const allHouseholderStatuses = new Set<string>();
+    // Contact tab – build options from contact statuses
+    const allContactStatuses = new Set<string>();
 
     // Preserve any active filters
-    filters.statuses.forEach((status) => allHouseholderStatuses.add(status));
-    (filters.excludedStatuses ?? []).forEach((status) => allHouseholderStatuses.add(status));
+    filters.statuses.forEach((status) => allContactStatuses.add(status));
+    (filters.excludedStatuses ?? []).forEach((status) => allContactStatuses.add(status));
 
     // Collect statuses from the visible data set
-    householders.forEach((householder) => {
-      if (householder.status) {
-        allHouseholderStatuses.add(householder.status);
-      }
+    contacts.forEach((contact) => {
+      resolveContactStatuses(contact).forEach((status) => {
+        allContactStatuses.add(status);
+      });
     });
 
     const statusMap: Record<string, string> = {
@@ -212,21 +214,11 @@ export function useBusinessFilterOptions({
       resigned: "Resigned"
     };
 
-    const orderedHouseholderStatuses = [
-      "bible_study",
-      "return_visit",
-      "interested",
-      "potential",
-      "do_not_call",
-      "moved_branch",
-      "resigned",
-    ];
-
-    const availableStatuses = new Set(allHouseholderStatuses);
-    return orderedHouseholderStatuses
+    const availableStatuses = new Set(allContactStatuses);
+    return CONTACT_STATUS_DISPLAY_ORDER
       .filter((status) => availableStatuses.has(status))
       .map((status) => ({ value: status, label: statusMap[status] }));
-  }, [getFilteredEstablishmentsExcluding, businessTab, filters.statuses, filters.excludedStatuses, householders]);
+  }, [getFilteredEstablishmentsExcluding, businessTab, filters.statuses, filters.excludedStatuses, contacts]);
 
   const dynamicAreaOptions = useMemo(() => {
     const areaSet = new Set<string>();
@@ -238,34 +230,37 @@ export function useBusinessFilterOptions({
       }
     });
 
-    if (businessTab === "householders") {
-      // For householders, derive areas from householders that match the
+    if (businessTab === "contacts") {
+      // For contacts, derive areas from contacts that match the
       // current filters EXCEPT the area filter itself.
       const establishmentsById = new Map(establishments.map((e) => [e.id, e] as const));
 
-      const filteredHouseholders = householders.filter((householder) => {
+      const filteredContacts = contacts.filter((contact) => {
         // Apply text search
         if (filters.search && filters.search.trim() !== "") {
           const searchTerm = filters.search.toLowerCase().trim();
-          if (!householder.name.toLowerCase().includes(searchTerm)) {
+          if (!contact.name.toLowerCase().includes(searchTerm)) {
             return false;
           }
         }
 
         // Apply status filter
-        if (filters.statuses.length > 0 && !filters.statuses.includes(householder.status)) {
+        if (filters.statuses.length > 0 && !contactHasAnyStatus(contact, filters.statuses)) {
           return false;
         }
 
-        if ((filters.excludedStatuses?.length ?? 0) > 0 && (filters.excludedStatuses ?? []).includes(householder.status)) {
+        if (
+          (filters.excludedStatuses?.length ?? 0) > 0 &&
+          contactHasAnyStatus(contact, filters.excludedStatuses ?? [])
+        ) {
           return false;
         }
 
         // Apply near-me filter based on parent establishment location
         if (filters.nearMe) {
           if (!filters.userLocation) return false;
-          if (!householder.establishment_id) return false;
-          const parent = establishmentsById.get(householder.establishment_id);
+          if (!contact.establishment_id) return false;
+          const parent = establishmentsById.get(contact.establishment_id);
           if (!parent || parent.lat == null || parent.lng == null) return false;
           const distanceKm = calculateDistance(
             filters.userLocation[0],
@@ -279,9 +274,9 @@ export function useBusinessFilterOptions({
         return true;
       });
 
-      filteredHouseholders.forEach((householder) => {
-        if (!householder.establishment_id) return;
-        const parent = establishmentsById.get(householder.establishment_id);
+      filteredContacts.forEach((contact) => {
+        if (!contact.establishment_id) return;
+        const parent = establishmentsById.get(contact.establishment_id);
         if (parent && typeof parent.area === "string" && parent.area.trim() !== "") {
           areaSet.add(parent.area);
         }
@@ -299,7 +294,7 @@ export function useBusinessFilterOptions({
     return Array.from(areaSet)
       .sort()
       .map((area) => ({ value: area || "", label: area || "" }));
-  }, [businessTab, establishments, householders, getFilteredEstablishmentsExcluding, filters.areas, filters.excludedStatuses, filters.statuses]);
+  }, [businessTab, establishments, contacts, getFilteredEstablishmentsExcluding, filters.areas, filters.excludedStatuses, filters.statuses]);
 
   const dynamicFloorOptions = useMemo(() => {
     const filtered = getFilteredEstablishmentsExcluding("floors");

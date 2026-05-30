@@ -1,6 +1,6 @@
 import { cn } from "@/lib/utils";
 
-interface HouseholderSummaryFieldsProps {
+interface ContactSummaryFieldsProps {
   /** Establishment area when linked (BWI contacts). */
   area?: string | null;
   note?: string | null;
@@ -9,13 +9,13 @@ interface HouseholderSummaryFieldsProps {
   className?: string;
 }
 
-/** Fluid two-column grid for contact/householder summary cards (drawers, details panels). */
-export function HouseholderSummaryFields({
+/** Fluid two-column grid for contact/contact summary cards (drawers, details panels). */
+export function ContactSummaryFields({
   area,
   note,
   showArea = true,
   className,
-}: HouseholderSummaryFieldsProps) {
+}: ContactSummaryFieldsProps) {
   const areaText = showArea ? area?.trim() ?? "" : "";
   const noteText = note?.trim() ?? "";
 
@@ -40,8 +40,8 @@ export function HouseholderSummaryFields({
   );
 }
 
-/** Loading placeholder matching {@link HouseholderSummaryFields} two-column layout. */
-export function HouseholderSummaryFieldsSkeleton({
+/** Loading placeholder matching {@link ContactSummaryFields} two-column layout. */
+export function ContactSummaryFieldsSkeleton({
   showArea = true,
   className,
 }: {

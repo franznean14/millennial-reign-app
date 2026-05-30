@@ -34,7 +34,7 @@ export function AppSidebar() {
 
   const businessSubsections = [
     { id: 'business-establishments', label: "Establishments", icon: Building2 },
-    { id: 'business-householders', label: "Contacts", icon: Users },
+    { id: 'business-contacts', label: "Contacts", icon: Users },
     { id: 'business-map', label: "Map", icon: MapPin },
   ];
 

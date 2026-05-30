@@ -5,7 +5,7 @@ import { getMyOpenTodoTargets, type MyOpenTodoTargets } from "@/lib/db/business"
 
 const EMPTY_TARGETS: MyOpenTodoTargets = {
   establishmentIds: new Set(),
-  householderIds: new Set(),
+  contactIds: new Set(),
   openPoolEstablishmentIds: new Set(),
 };
 

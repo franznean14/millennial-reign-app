@@ -18,6 +18,8 @@ Use **`src/lib/theme/study-bible-dark.ts`** as the single source of truth. Do no
 | Foreground | `#fffaff` | Primary text |
 | Muted / secondary text | `#ded6e7`, `#cfc5db` | Labels, descriptions |
 | Purple accent | `#563985` | Sparingly (legacy accent) |
+| **Light primary chrome** | `#6b5196` | FAB/menu (`fabMenuPrimary`), phone bottom nav (`navBar`), **data table headers** (`tableHeader`) |
+| Light primary hover | `#5c4685` | FAB hover; table/nav header borders (`border-[#5c4685]/40`) |
 
 ## `studyBibleDarkClasses` (semantic Tailwind bundles)
 
@@ -29,6 +31,8 @@ Import `studyBibleDarkClasses` and pick by **purpose** — keeps cards and list 
 - **`header`** / **`callsHeader`** — interactive header bars (use sparingly; prefer flat panel + shade).
 - **`muted`** / **`subtle`** / **`callsMuted`** — secondary copy on dark surfaces.
 - **`divider`** — horizontal rules when a divider is intentional.
+- **`tableHeader`** / **`tableHeaderRow`** / **`tableHeaderSortButton*`** — fixed list/table column headers. Light mode header fill **`#6b5196`** (aligned with **`fabMenuPrimary`**); body rows use **`tableBody`** + per-row **`getStudyBibleDarkCardShade`**. See **`.cursor/rules/mobile-table-bwi-design.mdc`**.
+- **`navBar`** — phone bottom nav; light mode also **`#6b5196`**.
 
 Prefer these over one-off `dark:bg-[#…]` on cards unless matching an existing sibling component.
 

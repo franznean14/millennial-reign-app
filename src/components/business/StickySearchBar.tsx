@@ -14,7 +14,7 @@ interface StickySearchBarProps {
   onFiltersChange: (filters: BusinessFiltersState) => void;
   onClearSearch: () => void;
   isVisible: boolean;
-  businessTab: 'establishments' | 'householders' | 'map';
+  businessTab: 'establishments' | 'contacts' | 'map';
 }
 
 export function StickySearchBar({
@@ -90,7 +90,7 @@ export function StickySearchBar({
           >
             <div className="relative">
               <Input
-                placeholder={shouldExpand ? (businessTab === 'establishments' ? "Search establishments..." : businessTab === 'householders' ? "Search householders..." : "Search locations...") : "Search"}
+                placeholder={shouldExpand ? (businessTab === 'establishments' ? "Search establishments..." : businessTab === 'contacts' ? "Search contacts..." : "Search locations...") : "Search"}
                 value={filters.search}
                 onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
                 onFocus={() => setIsFocused(true)}

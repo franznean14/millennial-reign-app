@@ -120,8 +120,8 @@ export function AppChrome({ children }: AppChromeProps) {
                   className={cn(
                     "flex h-full min-h-0 flex-1 flex-col items-center justify-start gap-0.5 pt-2 pb-1 text-[11px] leading-tight transition-colors",
                     isActive
-                      ? "text-primary dark:text-[#fffaff]"
-                      : "text-muted-foreground dark:text-[#ded6e7]/70"
+                      ? "text-white dark:text-[#fffaff]"
+                      : "text-white/70 dark:text-[#ded6e7]/70"
                   )}
                 >
                   <Icon className={`h-5 w-5 shrink-0 ${isActive ? "" : "opacity-70"}`} fill={isActive ? "currentColor" : "none"} />

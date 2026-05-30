@@ -11,7 +11,7 @@ import { MapPinned, Calendar, UserPlus, Minus, Plus, X } from "lucide-react";
 import { FormModal } from "@/components/shared/FormModal";
 import { toast } from "@/components/ui/sonner";
 import { deleteEstablishment, archiveEstablishment, updateEstablishmentPublisherId } from "@/lib/db/business";
-import { type EstablishmentWithDetails, type VisitWithUser, type HouseholderWithDetails, type MyOpenCallTodoItem } from "@/lib/db/business";
+import { type EstablishmentWithDetails, type VisitWithUser, type ContactWithDetails, type MyOpenCallTodoItem } from "@/lib/db/business";
 import { cn } from "@/lib/utils";
 import { formatStatusText } from "@/lib/utils/formatters";
 import {
@@ -45,10 +45,10 @@ import { HomeTodoCard } from "@/components/home/HomeTodoCard";
 interface EstablishmentDetailsProps {
   establishment: EstablishmentWithDetails;
   visits: VisitWithUser[];
-  householders: HouseholderWithDetails[];
+  contacts: ContactWithDetails[];
   onBackClick: () => void;
   onEstablishmentUpdated?: (establishment: EstablishmentWithDetails) => void;
-  onHouseholderClick?: (householder: HouseholderWithDetails) => void;
+  onContactClick?: (contact: ContactWithDetails) => void;
   /** When set (e.g. home calls / to-do tablet stack), summary edit opens the parent left sheet instead of FormModal. */
   onRequestSummaryEdit?: () => void;
   /** Tablet+: visit list + edit to-do use left sheets (not centered modals) while nested in a right details drawer. */
@@ -68,8 +68,8 @@ type TodoEditorItem = MyOpenCallTodoItem & {
 
 type TerritoryOwnerSlot = { type: "publisher"; id: string };
 
-// Helper function for householder status color coding
-const getHouseholderStatusColorClass = (status: string) => {
+// Helper function for contact status color coding
+const getContactStatusColorClass = (status: string) => {
   switch (status) {
     case 'potential':
       return 'text-cyan-600 border-cyan-200 bg-cyan-50 dark:text-cyan-400 dark:border-cyan-800 dark:bg-cyan-950';
@@ -92,10 +92,10 @@ const getHouseholderStatusColorClass = (status: string) => {
 export function EstablishmentDetails({ 
   establishment, 
   visits, 
-  householders, 
+  contacts, 
   onBackClick,
   onEstablishmentUpdated,
-  onHouseholderClick,
+  onContactClick,
   onRequestSummaryEdit,
   preferLeftDetailPanel = false,
   insideStackedContactPane = false,
@@ -813,7 +813,7 @@ export function EstablishmentDetails({
       <motion.div className="w-full" layout transition={{ duration: 0.2, ease: "easeOut" }}>
         <CallSection 
           visits={visits} 
-          isHouseholderContext={false}
+          isContactContext={false}
           establishments={[{ id: establishment.id, name: establishment.name }]}
           selectedEstablishmentId={establishment.id}
           isLoading={isLoading}
@@ -829,9 +829,9 @@ export function EstablishmentDetails({
       <motion.div className="w-full" layout transition={{ duration: 0.2, ease: "easeOut" }}>
         <ContactsSection
           establishmentId={establishment.id ?? ""}
-          householders={householders}
+          contacts={contacts}
           isLoading={isLoading}
-          onHouseholderClick={onHouseholderClick}
+          onContactClick={onContactClick}
           preferLeftDetailPanel={preferLeftDetailPanel}
           insideStackedContactPane={insideStackedContactPane}
         />

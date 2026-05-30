@@ -5,6 +5,7 @@ import { cacheGet, cacheSet, cacheDelete } from "@/lib/offline/store";
 import { buildVisitRecords, dedupeAndSortVisits, takeTopVisits, type VisitRecord } from "@/lib/utils/visit-history";
 import type { VisitWithUser } from "@/lib/db/business";
 import { getBestStatus } from "@/lib/utils/status-hierarchy";
+import { CONTACT_FK_COLUMN } from "@/lib/db/contact-supabase";
 
 type VisitQueryResult = {
   id: string;
@@ -19,7 +20,7 @@ type VisitQueryResult = {
   publisher_guest_name?: string | null;
   partner_guest_name?: string | null;
   business_establishments?: { name?: string | null; statuses?: string[] | null; area?: string | null } | null;
-  householders?: {
+  contacts?: {
     name?: string | null;
     status?: string | null;
     establishment_id?: string | null;
@@ -45,7 +46,7 @@ type EstablishmentRef = {
   area?: string | null;
 };
 
-type HouseholderRef = {
+type ContactRef = {
   id?: string | null;
   name?: string | null;
   status?: string | null;
@@ -62,11 +63,12 @@ type VisitWithUserRaw = {
   partner_id?: string | null;
   publisher_guest_name?: string | null;
   partner_guest_name?: string | null;
+  contact_id?: string | null;
   householder_id?: string | null;
   establishment_id?: string | null;
   publisher?: ProfileRef | ProfileRef[] | null;
   partner?: ProfileRef | ProfileRef[] | null;
-  householder?: HouseholderRef | HouseholderRef[] | null;
+  contact?: ContactRef | ContactRef[] | null;
   establishment?: EstablishmentRef | EstablishmentRef[] | null;
 };
 
@@ -94,7 +96,7 @@ async function fetchEstablishmentVisits(limit: number, offset: number) {
         partner:profiles!calls_partner_id_fkey(first_name, last_name, avatar_url)
       `
     )
-    .is("householder_id", null)
+    .is(CONTACT_FK_COLUMN, null)
     .not("establishment_id", "is", null)
     .order("visit_date", { ascending: false })
     .order("created_at", { ascending: false })
@@ -104,7 +106,7 @@ async function fetchEstablishmentVisits(limit: number, offset: number) {
   return (data || []) as unknown as VisitQueryResult[];
 }
 
-async function fetchHouseholderVisits(limit: number, offset: number) {
+async function fetchContactVisits(limit: number, offset: number) {
   const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase
     .from("calls")
@@ -115,18 +117,18 @@ async function fetchHouseholderVisits(limit: number, offset: number) {
         note,
         created_at,
         establishment_id,
-        householder_id,
+        contact_id:${CONTACT_FK_COLUMN},
         publisher_id,
         partner_id,
         publisher_guest_name,
         partner_guest_name,
-        householders(name, status, establishment_id, publisher_id, business_establishments(name, statuses, area)),
+        contacts(name, status, establishment_id, publisher_id, business_establishments(name, statuses, area)),
         business_establishments(name, statuses, area),
         publisher:profiles!calls_publisher_id_fkey(first_name, last_name, avatar_url),
         partner:profiles!calls_partner_id_fkey(first_name, last_name, avatar_url)
       `
     )
-    .not("householder_id", "is", null)
+    .not(CONTACT_FK_COLUMN, "is", null)
     .order("visit_date", { ascending: false })
     .order("created_at", { ascending: false })
     .range(offset, offset + limit - 1);
@@ -153,12 +155,12 @@ export async function getRecentBwiVisits(limit = 5, forceRefresh = false): Promi
     return cached?.visits ?? [];
   }
 
-  const [establishmentVisits, householderVisits] = await Promise.all([
+  const [establishmentVisits, contactVisits] = await Promise.all([
     fetchEstablishmentVisits(limit, 0),
-    fetchHouseholderVisits(limit, 0)
+    fetchContactVisits(limit, 0)
   ]);
 
-  const combined = buildVisitRecords(establishmentVisits, householderVisits);
+  const combined = buildVisitRecords(establishmentVisits, contactVisits);
   const recent = takeTopVisits(combined, limit);
 
   await cacheSet(cacheKey, { visits: recent, timestamp: new Date().toISOString() });
@@ -199,12 +201,12 @@ export async function getBwiVisitsPage({
     return cached?.visits ?? [];
   }
 
-  const [establishmentVisits, householderVisits] = await Promise.all([
+  const [establishmentVisits, contactVisits] = await Promise.all([
     fetchEstablishmentVisits(pageSize, offset),
-    fetchHouseholderVisits(pageSize, offset)
+    fetchContactVisits(pageSize, offset)
   ]);
 
-  const combined = buildVisitRecords(establishmentVisits, householderVisits);
+  const combined = buildVisitRecords(establishmentVisits, contactVisits);
   const sorted = dedupeAndSortVisits(combined);
 
   if (offset === 0) {
@@ -225,13 +227,13 @@ function normalizeProfileRef(value: ProfileRef | ProfileRef[] | null | undefined
   };
 }
 
-function normalizeHouseholderRef(value: HouseholderRef | HouseholderRef[] | null | undefined): VisitWithUser["householder"] {
-  const householder = Array.isArray(value) ? value[0] : value;
-  if (!householder?.id) return null;
+function normalizeContactRef(value: ContactRef | ContactRef[] | null | undefined): VisitWithUser["contact"] {
+  const contact = Array.isArray(value) ? value[0] : value;
+  if (!contact?.id) return null;
   return {
-    id: householder.id,
-    name: householder.name ?? "Contact",
-    status: householder.status ?? "potential",
+    id: contact.id,
+    name: contact.name ?? "Contact",
+    status: contact.status ?? "potential",
   };
 }
 
@@ -248,7 +250,7 @@ function normalizeEstablishmentRef(value: EstablishmentRef | EstablishmentRef[] 
 function normalizeVisitWithUser(visit: VisitWithUserRaw): VisitWithUser {
   const publisher = normalizeProfileRef(visit.publisher);
   const partner = normalizeProfileRef(visit.partner);
-  const householder = normalizeHouseholderRef(visit.householder);
+  const contact = normalizeContactRef(visit.contact);
   const establishment = normalizeEstablishmentRef(visit.establishment);
 
   return {
@@ -259,11 +261,11 @@ function normalizeVisitWithUser(visit: VisitWithUserRaw): VisitWithUser {
     partner_id: visit.partner_id ?? partner?.id ?? null,
     publisher_guest_name: visit.publisher_guest_name ?? null,
     partner_guest_name: visit.partner_guest_name ?? null,
-    householder_id: visit.householder_id ?? null,
+    contact_id: visit.contact_id ?? visit.householder_id ?? null,
     establishment_id: visit.establishment_id ?? null,
     publisher,
     partner,
-    householder,
+    contact,
     establishment,
   };
 }
@@ -281,11 +283,11 @@ export async function getEstablishmentVisitsWithUsers(establishmentId: string): 
         partner_id,
         publisher_guest_name,
         partner_guest_name,
-        householder_id,
+        contact_id:${CONTACT_FK_COLUMN},
         establishment_id,
         publisher:profiles!calls_publisher_id_fkey(id, first_name, last_name, avatar_url),
         partner:profiles!calls_partner_id_fkey(id, first_name, last_name, avatar_url),
-        householder:householders!calls_householder_id_fkey(id, name, status)
+        contact:householders!calls_householder_id_fkey(id, name, status)
       `
     )
     .eq("establishment_id", establishmentId)
@@ -295,7 +297,7 @@ export async function getEstablishmentVisitsWithUsers(establishmentId: string): 
   return (data as VisitWithUserRaw[] | null)?.map(normalizeVisitWithUser) || [];
 }
 
-export async function getHouseholderVisitsWithUsers(householderId: string): Promise<VisitWithUser[]> {
+export async function getContactVisitsWithUsers(contactId: string): Promise<VisitWithUser[]> {
   const supabase = createSupabaseBrowserClient();
   const { data, error } = await supabase
     .from("calls")
@@ -309,14 +311,14 @@ export async function getHouseholderVisitsWithUsers(householderId: string): Prom
         publisher_guest_name,
         partner_guest_name,
         establishment_id,
-        householder_id,
+        contact_id:${CONTACT_FK_COLUMN},
         publisher:profiles!calls_publisher_id_fkey(id, first_name, last_name, avatar_url),
         partner:profiles!calls_partner_id_fkey(id, first_name, last_name, avatar_url),
-        householder:householders!calls_householder_id_fkey(id, name, status),
+        contact:householders!calls_householder_id_fkey(id, name, status),
         establishment:business_establishments!calls_establishment_id_fkey(id, name, statuses)
       `
     )
-    .eq("householder_id", householderId)
+    .eq(CONTACT_FK_COLUMN, contactId)
     .order("visit_date", { ascending: false });
 
   if (error) throw error;

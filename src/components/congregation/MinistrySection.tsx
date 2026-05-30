@@ -9,14 +9,18 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { Congregation } from "@/lib/db/congregations";
 import { listEventSchedules, readCachedEventSchedules, type EventSchedule } from "@/lib/db/eventSchedules";
 import { formatEventLocationSummaryForDisplay } from "@/lib/utils/event-location-display";
-import {
-  listHouseholders,
-  type HouseholderStatus,
-  type HouseholderWithDetails,
-} from "@/lib/db/business";
+import { listContacts, type ContactWithDetails } from "@/lib/db/business";
 import { formatTimeLabel, isEventOccurringToday } from "@/lib/utils/recurrence";
-import { formatStatusText } from "@/lib/utils/formatters";
-import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
+import {
+  CONTACTS_ALL_TAB,
+  buildContactStatusTabValues,
+  collectPresentContactStatuses,
+  contactMatchesStatusTab,
+  formatContactStatusLabel,
+  formatContactStatusTabLabel,
+} from "@/lib/utils/contact-status-tabs";
+import { getBestContactStatus, getStatusTextColor, resolveContactStatuses } from "@/lib/utils/status-hierarchy";
+import { CONG_BWI_BADGE_CLASS } from "@/lib/utils/congregation-member-roles";
 import { cn } from "@/lib/utils";
 import { FormModal } from "@/components/shared/FormModal";
 import { EventScheduleFormSheet } from "@/components/congregation/EventScheduleFormSheet";
@@ -28,6 +32,12 @@ import {
   studyBibleDarkClasses,
   studyBibleSectionToggle,
 } from "@/lib/theme/study-bible-dark";
+import { mobileDataTableClasses } from "@/lib/theme/mobile-data-table";
+import { MobileDataTableSortTh } from "@/components/shared/MobileDataTableSortTh";
+import {
+  usePersistedTableSort,
+  type TableSortDir,
+} from "@/lib/hooks/use-persisted-table-sort";
 import {
   Drawer,
   DrawerDescription,
@@ -42,22 +52,24 @@ const ministryAssignmentsCardShade = getStudyBibleCongregationCardShade("ministr
 const ministrySchedulesPanelShade = getStudyBibleDarkCardShade("cong-ministry-schedules:v1");
 const ministryContactsPanelShade = getStudyBibleDarkCardShade("cong-ministry-contacts:v1");
 
-const MINISTRY_CONTACT_STATUS_ORDER: HouseholderStatus[] = [
-  "bible_study",
-  "return_visit",
-  "interested",
-  "potential",
-  "do_not_call",
-  "moved_branch",
-  "resigned",
-];
+const MINISTRY_CONTACT_H2H_BADGE_CLASS =
+  "border-sky-600/45 bg-sky-500/15 text-sky-900 dark:border-sky-400/45 dark:bg-sky-500/15 dark:text-sky-100";
 
-const CONTACTS_ALL_TAB = "All";
+type MinistryContactsTableSortKey = "name" | "status";
+const MINISTRY_CONTACTS_TABLE_SORT_KEYS = ["name", "status"] as const satisfies readonly MinistryContactsTableSortKey[];
+const MINISTRY_CONTACTS_TABLE_DEFAULT_DIRS: Record<MinistryContactsTableSortKey, TableSortDir> = {
+  name: "asc",
+  status: "asc",
+};
+
+function getMinistryContactSourceKind(contact: ContactWithDetails): "bwi" | "h2h" {
+  return contact.establishment_id ? "bwi" : "h2h";
+}
 
 interface MinistrySectionProps {
   congregationData: Congregation;
   userId?: string | null;
-  onContactClick?: (householder: HouseholderWithDetails) => void;
+  onContactClick?: (contact: ContactWithDetails) => void;
   canEdit?: boolean;
 }
 
@@ -67,7 +79,7 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
   const [todayEvents, setTodayEvents] = useState<EventSchedule[]>([]);
   const [allMinistryEvents, setAllMinistryEvents] = useState<EventSchedule[]>([]);
   const [loading, setLoading] = useState(true);
-  const [bibleStudents, setBibleStudents] = useState<HouseholderWithDetails[]>([]);
+  const [bibleStudents, setBibleStudents] = useState<ContactWithDetails[]>([]);
   const [bibleStudentsLoading, setBibleStudentsLoading] = useState(false);
   const [contactsDrawerOpen, setContactsDrawerOpen] = useState(false);
   const [activeContactStatus, setActiveContactStatus] = useState<string>(CONTACTS_ALL_TAB);
@@ -79,8 +91,8 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
   const isMdUp = useMediaQuery("(min-width: 768px)");
 
   const openContactDetails = useCallback(
-    (householder: HouseholderWithDetails) => {
-      onContactClick?.(householder);
+    (contact: ContactWithDetails) => {
+      onContactClick?.(contact);
     },
     [onContactClick]
   );
@@ -128,9 +140,9 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
 
     try {
       setBibleStudentsLoading(true);
-      const householders = await listHouseholders();
-      const owned = householders.filter(
-        (householder) => householder.publisher_id && householder.publisher_id === userId
+      const contacts = await listContacts();
+      const owned = contacts.filter(
+        (contact) => contact.publisher_id && contact.publisher_id === userId
       );
       
       // Sort by most visited (visit_count = number of calls rows)
@@ -160,24 +172,24 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
     loadBibleStudents();
   }, [loadBibleStudents]);
 
-  // Subscribe to householder events for optimistic updates
+  // Subscribe to contact events for optimistic updates
   useEffect(() => {
     if (!userId) return;
 
-    const handleHouseholderAdded = (householder: HouseholderWithDetails) => {
+    const handleContactAdded = (contact: ContactWithDetails) => {
       // Only add if it belongs to the current user
-      if (householder.publisher_id === userId) {
+      if (contact.publisher_id === userId) {
         setBibleStudents((prev) => {
           // Check if already exists (avoid duplicates)
-          const exists = prev.some((h) => h.id === householder.id);
+          const exists = prev.some((h) => h.id === contact.id);
           if (exists) return prev;
           // Add to the beginning of the list
-          return [householder, ...prev];
+          return [contact, ...prev];
         });
       }
     };
 
-    const handleHouseholderUpdated = (updated: Partial<HouseholderWithDetails> & { id?: string; publisher_id?: string | null }) => {
+    const handleContactUpdated = (updated: Partial<ContactWithDetails> & { id?: string; publisher_id?: string | null }) => {
       if (!updated.id) return;
       
       setBibleStudents((prev) => {
@@ -188,9 +200,9 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
           // Not in list currently
           if (belongsToUser && updated.name) {
             // Belongs to user now and we have enough data, add it
-            // The event should contain the full householder data
-            const newHouseholder = updated as HouseholderWithDetails;
-            return [newHouseholder, ...prev];
+            // The event should contain the full contact data
+            const newContact = updated as ContactWithDetails;
+            return [newContact, ...prev];
           }
           return prev;
         }
@@ -199,7 +211,7 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
         if (belongsToUser) {
           // Still belongs to user, update it
           const updatedList = [...prev];
-          updatedList[index] = { ...updatedList[index], ...updated } as HouseholderWithDetails;
+          updatedList[index] = { ...updatedList[index], ...updated } as ContactWithDetails;
           return updatedList;
         } else {
           // No longer belongs to user, remove it
@@ -208,70 +220,64 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
       });
     };
 
-    const handleHouseholderDeleted = (deleted: { id?: string }) => {
+    const handleContactDeleted = (deleted: { id?: string }) => {
       if (!deleted.id) return;
       setBibleStudents((prev) => prev.filter((h) => h.id !== deleted.id));
     };
 
-    businessEventBus.subscribe('householder-added', handleHouseholderAdded);
-    businessEventBus.subscribe('householder-updated', handleHouseholderUpdated);
-    businessEventBus.subscribe('householder-deleted', handleHouseholderDeleted);
+    businessEventBus.subscribe('contact-added', handleContactAdded);
+    businessEventBus.subscribe('contact-updated', handleContactUpdated);
+    businessEventBus.subscribe('contact-deleted', handleContactDeleted);
 
     return () => {
-      businessEventBus.unsubscribe('householder-added', handleHouseholderAdded);
-      businessEventBus.unsubscribe('householder-updated', handleHouseholderUpdated);
-      businessEventBus.unsubscribe('householder-deleted', handleHouseholderDeleted);
+      businessEventBus.unsubscribe('contact-added', handleContactAdded);
+      businessEventBus.unsubscribe('contact-updated', handleContactUpdated);
+      businessEventBus.unsubscribe('contact-deleted', handleContactDeleted);
     };
   }, [userId]);
 
-  const formatBibleStudentStatus = (status?: string | null) => {
-    if (!status) return "";
-    if (status === "bible_study") return "Bible Student";
-    return formatStatusText(status);
-  };
-
-  const contactsByStatus = useMemo(() => {
-    const groups = new Map<string, HouseholderWithDetails[]>();
-    for (const householder of bibleStudents) {
-      const status = householder.status || "potential";
-      const bucket = groups.get(status) ?? [];
-      bucket.push(householder);
-      groups.set(status, bucket);
-    }
-    const ordered = MINISTRY_CONTACT_STATUS_ORDER.filter((status) => groups.has(status)).map((status) => ({
-      status,
-      label: formatBibleStudentStatus(status),
-      contacts: groups.get(status)!,
-    }));
-    const extras = Array.from(groups.keys()).filter(
-      (status) => !MINISTRY_CONTACT_STATUS_ORDER.includes(status as HouseholderStatus)
-    );
-    for (const status of extras) {
-      ordered.push({
-        status: status as HouseholderStatus,
-        label: formatBibleStudentStatus(status),
-        contacts: groups.get(status)!,
-      });
-    }
-    return ordered;
-  }, [bibleStudents]);
-
   const statusTabValues = useMemo(
-    () => [CONTACTS_ALL_TAB, ...contactsByStatus.map((section) => section.status)],
-    [contactsByStatus]
+    () => buildContactStatusTabValues(collectPresentContactStatuses(bibleStudents)),
+    [bibleStudents]
   );
 
   const filteredContacts = useMemo(() => {
     if (activeContactStatus === CONTACTS_ALL_TAB) return bibleStudents;
-    return bibleStudents.filter(
-      (householder) => (householder.status || "potential") === activeContactStatus
-    );
+    return bibleStudents.filter((contact) => contactMatchesStatusTab(contact, activeContactStatus));
   }, [bibleStudents, activeContactStatus]);
+
+  const { sort: ministryContactsTableSort, toggleColumn: toggleMinistryContactsTableSort } =
+    usePersistedTableSort<MinistryContactsTableSortKey>({
+      storageKey: "cong-ministry-contacts-table-sort",
+      allowedColumns: MINISTRY_CONTACTS_TABLE_SORT_KEYS,
+      defaultColumn: "name",
+      defaultDirs: MINISTRY_CONTACTS_TABLE_DEFAULT_DIRS,
+    });
+
+  const sortedContactsForTable = useMemo(() => {
+    const list = [...filteredContacts];
+    const mult = ministryContactsTableSort.dir === "asc" ? 1 : -1;
+    const cmpStr = (a: string, b: string) => mult * a.localeCompare(b, undefined, { sensitivity: "base" });
+    list.sort((ca, cb) => {
+      let cmp = 0;
+      if (ministryContactsTableSort.column === "name") {
+        cmp = cmpStr((ca.name || "").toLowerCase(), (cb.name || "").toLowerCase());
+      } else {
+        cmp = cmpStr(
+          formatContactStatusLabel(ca.status ?? "").toLowerCase(),
+          formatContactStatusLabel(cb.status ?? "").toLowerCase()
+        );
+      }
+      if (cmp !== 0) return cmp;
+      return (ca.name || "").localeCompare(cb.name || "", undefined, { sensitivity: "base" });
+    });
+    return list;
+  }, [filteredContacts, ministryContactsTableSort.column, ministryContactsTableSort.dir]);
 
   useEffect(() => {
     if (!contactsDrawerOpen || activeContactStatus === CONTACTS_ALL_TAB) return;
-    const hasActiveTab = bibleStudents.some(
-      (householder) => (householder.status || "potential") === activeContactStatus
+    const hasActiveTab = bibleStudents.some((contact) =>
+      contactMatchesStatusTab(contact, activeContactStatus)
     );
     if (!hasActiveTab) setActiveContactStatus(CONTACTS_ALL_TAB);
   }, [contactsDrawerOpen, activeContactStatus, bibleStudents]);
@@ -371,7 +377,7 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
               className={cn(studyBibleSectionToggle.group, studyBibleSectionToggle.scrollableTabGroup)}
             >
               {statusTabValues.map((tab) => {
-                const label = tab === CONTACTS_ALL_TAB ? "All" : formatBibleStudentStatus(tab);
+                const label = formatContactStatusTabLabel(tab);
                 return (
                   <ToggleGroupItem
                     key={tab}
@@ -392,54 +398,52 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
 
       <div
         className={cn(
-          "flex w-full min-h-0 flex-1 flex-col overflow-hidden overscroll-none rounded-xl border text-[#1a1820] dark:border-[#1c1921] dark:text-[#fffaff]",
-          studyBibleDarkClasses.divider,
-          ministryContactsPanelShade
+          mobileDataTableClasses.shell,
+          "min-h-0 flex-1 text-[#1a1820] dark:text-[#fffaff]"
         )}
       >
-        <div
-          className={cn(
-            "flex-shrink-0 border-b",
-            studyBibleDarkClasses.divider,
-            studyBibleDarkClasses.cardBarHeader,
-            ministryContactsPanelShade,
-            "dark:border-[#1c1921] dark:bg-[#181714]"
-          )}
-        >
+        <div className={mobileDataTableClasses.header}>
           <table className="w-full table-fixed text-sm">
             <thead>
-              <tr className={cn("border-b", studyBibleDarkClasses.divider)}>
-                <th
-                  className={cn(
-                    "w-[65%] px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide",
-                    studyBibleDarkClasses.muted
-                  )}
-                >
-                  Name
-                </th>
-                <th
-                  className={cn(
-                    "w-[35%] px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide",
-                    studyBibleDarkClasses.muted
-                  )}
-                >
-                  Status
-                </th>
+              <tr className={mobileDataTableClasses.headerRow}>
+                <MobileDataTableSortTh
+                  label="Name"
+                  sortKey="name"
+                  sort={ministryContactsTableSort}
+                  onToggle={toggleMinistryContactsTableSort}
+                  className="w-[65%] p-0 align-bottom"
+                />
+                <MobileDataTableSortTh
+                  label="Status"
+                  sortKey="status"
+                  sort={ministryContactsTableSort}
+                  onToggle={toggleMinistryContactsTableSort}
+                  className="w-[35%] p-0 align-bottom"
+                />
               </tr>
             </thead>
           </table>
         </div>
 
         <div
-          className={cn("no-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-none", ministryContactsPanelShade)}
-          style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
+          className={cn(
+            mobileDataTableClasses.bodyScroll,
+            "pb-[calc(max(env(safe-area-inset-bottom),0px)+28px)]"
+          )}
+          style={mobileDataTableClasses.bodyScrollStyle}
         >
           <table className="w-full table-fixed text-sm">
             <tbody>
               {bibleStudentsLoading ? (
                 <>
                   {[1, 2, 3, 4, 5].map((i) => (
-                    <tr key={i} className={cn("border-b", studyBibleDarkClasses.divider)}>
+                    <tr
+                      key={i}
+                      className={cn(
+                        "border-b bg-[#fffaff] dark:border-[#3a3342] dark:bg-[#30283c]/55",
+                        studyBibleDarkClasses.divider
+                      )}
+                    >
                       <td className="min-w-0 w-[65%] p-3">
                         <div className="flex min-w-0 items-center gap-3">
                           <div className="h-7 w-7 animate-pulse rounded-full bg-muted/60 blur-[2px]" />
@@ -467,48 +471,65 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
                   </td>
                 </tr>
               ) : (
-                filteredContacts.map((householder) => {
-                  const initials = householder.name
+                sortedContactsForTable.map((contact) => {
+                  const initials = contact.name
                     .split(" ")
                     .filter(Boolean)
                     .slice(0, 2)
                     .map((part) => part[0]?.toUpperCase())
                     .join("");
+                  const contactSource = getMinistryContactSourceKind(contact);
+                  const primaryStatus = getBestContactStatus(resolveContactStatuses(contact));
 
                   return (
                     <tr
-                      key={householder.id}
-                      className={cn(
-                        "cursor-pointer border-b transition-colors dark:border-[#1c1921] dark:hover:bg-[#2a2534]/85",
-                        studyBibleDarkClasses.divider,
-                        studyBibleDarkClasses.cardHover
-                      )}
-                      onClick={() => openContactDetails(householder)}
+                      key={contact.id}
+                      className={mobileDataTableClasses.row(String(contact.id))}
+                      onClick={() => openContactDetails(contact)}
                     >
-                      <td className="min-w-0 w-[65%] p-3">
+                      <td className={cn(mobileDataTableClasses.cell, "w-[65%]")}>
                         <div className="flex min-w-0 items-center gap-3">
-                          <Avatar className="h-7 w-7 border border-[#d4c8e4] dark:border-[#5a5068]/50">
-                            <AvatarFallback className="text-[10px] font-semibold text-[#1a1820] dark:bg-[#30283c] dark:text-[#fffaff]">
+                          <Avatar className="h-7 w-7 shrink-0 border border-[#d4c8e4] dark:border-[#5a5068]/50">
+                            <AvatarFallback className="text-[10px] font-semibold text-[#1a1820] dark:bg-[#3b3348] dark:text-[#fffaff]">
                               {initials || "BS"}
                             </AvatarFallback>
                           </Avatar>
-                          <span className="truncate text-[#1a1820] dark:text-[#fffaff]">{householder.name}</span>
-                        </div>
-                      </td>
-                      <td className="w-[35%] p-3 align-top">
-                        {householder.status ? (
-                          <div className="flex flex-wrap justify-end gap-1">
+                          <div className="flex min-w-0 flex-1 items-center gap-2">
+                            <span className="truncate font-medium text-[#1a1820] dark:text-[#fffaff]">
+                              {contact.name}
+                            </span>
                             <Badge
                               variant="outline"
                               className={cn(
-                                "h-4 border px-1.5 py-0 text-[10px] font-medium leading-none",
-                                getStatusTextColor(householder.status)
+                                mobileDataTableClasses.statusBadge,
+                                "shrink-0",
+                                contactSource === "bwi"
+                                  ? CONG_BWI_BADGE_CLASS
+                                  : MINISTRY_CONTACT_H2H_BADGE_CLASS
                               )}
+                              title={
+                                contactSource === "bwi"
+                                  ? "Business Witnessing contact"
+                                  : "House-to-house contact"
+                              }
                             >
-                              {formatBibleStudentStatus(householder.status)}
+                              {contactSource === "bwi" ? "BWI" : "H2H"}
                             </Badge>
                           </div>
-                        ) : null}
+                        </div>
+                      </td>
+                      <td className={cn(mobileDataTableClasses.cell, "w-[35%] align-top")}>
+                        <div className="flex flex-wrap justify-end gap-1">
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              mobileDataTableClasses.statusBadge,
+                              getStatusTextColor(primaryStatus)
+                            )}
+                          >
+                            {formatContactStatusLabel(primaryStatus)}
+                          </Badge>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -845,28 +866,29 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
             </div>
           ) : (
             <div className="space-y-2 px-4 py-2">
-              {bibleStudents.slice(0, 3).map((householder) => {
-                const initials = householder.name
+              {bibleStudents.slice(0, 3).map((contact) => {
+                const initials = contact.name
                   .split(" ")
                   .filter(Boolean)
                   .slice(0, 2)
                   .map((part) => part[0]?.toUpperCase())
                   .join("");
+                const primaryStatus = getBestContactStatus(resolveContactStatuses(contact));
 
                 return (
                   <div
-                    key={householder.id}
+                    key={contact.id}
                     className={cn(
                       "cursor-pointer rounded-lg px-3 py-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#80778e] focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:hover:bg-[#2a2534]/85 dark:focus-visible:ring-offset-[#181714]",
                       studyBibleDarkClasses.cardHover
                     )}
                     role="button"
                     tabIndex={0}
-                    onClick={() => openContactDetails(householder)}
+                    onClick={() => openContactDetails(contact)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") {
                         event.preventDefault();
-                        openContactDetails(householder);
+                        openContactDetails(contact);
                       }
                     }}
                   >
@@ -878,38 +900,36 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
                       </Avatar>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-3">
-                          <p className="truncate text-sm font-medium text-foreground dark:text-[#fffaff]">{householder.name}</p>
-                          {householder.status && (
-                            <Badge
-                              variant="outline"
-                              className={cn(
-                                "h-5 px-2 py-0.5 text-xs leading-none",
-                                getStatusTextColor(householder.status)
-                              )}
-                            >
-                              {formatBibleStudentStatus(householder.status)}
-                            </Badge>
-                          )}
+                          <p className="truncate text-sm font-medium text-foreground dark:text-[#fffaff]">{contact.name}</p>
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "h-5 px-2 py-0.5 text-xs leading-none",
+                              getStatusTextColor(primaryStatus)
+                            )}
+                          >
+                            {formatContactStatusLabel(primaryStatus)}
+                          </Badge>
                         </div>
                         <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground dark:text-[#ded6e7]/75">
                           {(() => {
                             // If has establishment_id, show building icon
-                            if (householder.establishment_id) {
+                            if (contact.establishment_id) {
                               return (
                                 <>
                                   <Building2 className="h-3 w-3" />
                                   <span className="truncate">
-                                    {householder.establishment_name || "Establishment"}
+                                    {contact.establishment_name || "Establishment"}
                                   </span>
                                 </>
                               );
                             }
-                            // If has GPS data, show map icon with "Householder" label
-                            if (householder.lat != null && householder.lng != null) {
+                            // If has GPS data, show map icon with Contact label
+                            if (contact.lat != null && contact.lng != null) {
                               return (
                                 <>
                                   <MapIcon className="h-3 w-3" />
-                                  <span className="truncate">Householder</span>
+                                  <span className="truncate">Contact</span>
                                 </>
                               );
                             }

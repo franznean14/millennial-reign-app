@@ -15,7 +15,7 @@ interface CongregationTabToggleProps {
   isElder?: boolean;
   isDetailsView?: boolean;
   detailsName?: string;
-  /** Householder status; used to color-code the title */
+  /** Contact status; used to color-code the title */
   detailsStatus?: string;
   onBackClick?: () => void;
   onEditClick?: () => void;

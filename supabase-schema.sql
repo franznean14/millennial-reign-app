@@ -434,6 +434,7 @@ CREATE TABLE IF NOT EXISTS public.householders (
   publisher_id uuid REFERENCES public.profiles(id),
   name text NOT NULL,
   status public.householder_status_t NOT NULL DEFAULT 'interested',
+  statuses public.householder_status_t[] NOT NULL DEFAULT ARRAY['interested']::public.householder_status_t[],
   note text,
   lat numeric(9,6),
   lng numeric(11,8),
@@ -1932,7 +1933,28 @@ GRANT EXECUTE ON FUNCTION public.search_user_by_username_or_email(text) TO authe
 -- Business Functions
 -- ==============================================
 
--- Function to delete householder (bypasses RLS)
+-- Function to delete contact (bypasses RLS). Legacy name: delete_householder.
+CREATE OR REPLACE FUNCTION public.delete_contact(
+  contact_id uuid,
+  deleted_by_user uuid
+)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  UPDATE public.householders
+  SET
+    is_deleted = true,
+    deleted_at = now(),
+    deleted_by = deleted_by_user
+  WHERE id = contact_id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.delete_contact(uuid, uuid) TO authenticated;
+
 CREATE OR REPLACE FUNCTION public.delete_householder(
   householder_id uuid,
   deleted_by_user uuid
@@ -1943,16 +1965,17 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 BEGIN
-  UPDATE public.householders
-  SET 
-    is_deleted = true,
-    deleted_at = now(),
-    deleted_by = deleted_by_user
-  WHERE id = householder_id;
+  PERFORM public.delete_contact(householder_id, deleted_by_user);
 END;
 $$;
 
 GRANT EXECUTE ON FUNCTION public.delete_householder(uuid, uuid) TO authenticated;
+
+CREATE OR REPLACE VIEW public.contacts AS
+  SELECT * FROM public.householders;
+
+COMMENT ON VIEW public.contacts IS
+  'Alias view for householders (contacts). Use table householders for writes.';
 
 CREATE OR REPLACE FUNCTION public.add_bible_study_with_visit(
   p_visit_date date,

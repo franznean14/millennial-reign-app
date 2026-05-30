@@ -34,7 +34,7 @@ export interface VisitFilters {
   callDateTo: string | null;
   myUpdatesOnly: boolean;
   bwiOnly: boolean;
-  householderOnly: boolean;
+  contactOnly: boolean;
 }
 
 export interface VisitAssigneeFilterOption {

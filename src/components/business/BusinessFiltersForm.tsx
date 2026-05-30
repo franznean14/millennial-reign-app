@@ -15,7 +15,7 @@ interface BusinessFiltersFormProps {
   onFiltersChange: (filters: BusinessFiltersState) => void;
   onClearFilters: () => void;
   hasActiveFilters: boolean;
-  scope: "establishments" | "householders" | "map";
+  scope: "establishments" | "contacts" | "map";
   statusOptions: Array<{ value: string; label: string }>;
   areaOptions: Array<{ value: string; label: string }>;
   floorOptions: Array<{ value: string; label: string }>;
@@ -159,7 +159,7 @@ export function BusinessFiltersForm({
           </div>
         </div>
 
-        {scope !== "householders" && (
+        {scope !== "contacts" && (
           <div className="space-y-2">
             <Label className="text-muted-foreground dark:text-[#ded6e7]">Floors</Label>
             <div className="flex flex-wrap gap-2">

@@ -1,0 +1,51 @@
+---
+description: Mobile data tables match BWI establishments/contacts table design (light + dark)
+globs: src/components/**/*.tsx
+alwaysApply: false
+---
+
+# Mobile data tables (BWI design)
+
+On **viewports below `768px`**, list-style data in drawers and section panels should use the same table chrome as **BWI** `EstablishmentList` / `ContactList` `renderTableView` (purple header matching FAB, hashed zebra rows, outlined status chips, sortable headers where applicable).
+
+Reference implementations:
+
+- `src/components/business/EstablishmentList.tsx` — `renderTableView`
+- `src/components/business/ContactList.tsx` — `renderTableView`
+
+Shared tokens and helpers:
+
+- `src/lib/theme/mobile-data-table.ts` — `mobileDataTableClasses` (shell, header, body, row, cell, status badge)
+- `src/lib/theme/study-bible-dark.ts` — `tableHeader`, `tableHeaderRow`, `tableHeaderSortButton*`, `tableBody`
+- `src/components/shared/MobileDataTableSortTh.tsx` — sortable column headers (chevrons, touch targets; uses `tableHeaderSort*` tokens)
+- Status chips: `getStatusTextColor` / establishment helpers from `src/lib/utils/status-hierarchy.ts` — never ad-hoc status colors
+
+## Required structure
+
+1. **Shell** — `mobileDataTableClasses.shell` (rounded border, `studyBibleDarkClasses.card`).
+2. **Fixed header** — `mobileDataTableClasses.header` (`studyBibleDarkClasses.tableHeader`) + `tableHeaderRow`. **Light mode:** background **`#6b5196`** (same as `fabMenuPrimary` / phone bottom nav); label text **white** / **white/90**. **Dark mode:** `#30283c` header, `#ded6e7` labels — unchanged.
+3. **Sortable columns** — `MobileDataTableSortTh` + `usePersistedTableSort`; sort buttons use `tableHeaderSortButton` / `tableHeaderSortButtonActive` / `tableHeaderSortChevronActive` (never `text-foreground` or `studyBibleDarkClasses.muted` on the header row).
+4. **Scroll body** — `mobileDataTableClasses.bodyScroll` with `mobileDataTableClasses.bodyScrollStyle`; do not paint the whole panel with one card shade (rows need per-row contrast).
+5. **Rows** — `mobileDataTableClasses.row(String(id))` (uses `getStudyBibleDarkCardShade` for light + dark zebra).
+6. **Cells** — `mobileDataTableClasses.cell`; status column uses `Badge variant="outline"` + `mobileDataTableClasses.statusBadge` + hierarchy helpers.
+
+## Drawer / scroll padding
+
+- End padding for bottom nav: `pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]` on the scroll region when FAB/nav overlaps (see `ios-viewport-safe-area.mdc`).
+- Form drawers with inputs: follow `FormModal` / `form-drawer-phone.ts` — do not duplicate nav padding while the keyboard is open.
+
+## Do not
+
+- Use `cardBarHeader` or a single `getStudyBibleDarkCardShade` on the entire table (flattens zebra contrast).
+- Use uppercase-only header labels; BWI headers use **font-medium** body size.
+- Use light-mode lavender header fills (`#e4deea`, `bg-card`) — headers must use **`studyBibleDarkClasses.tableHeader`**.
+- Put **`studyBibleDarkClasses.muted`** on the header row (too low contrast on `#6b5196`).
+- Hardcode flat `bg-[#fffaff]` / `dark:bg-[#30283c]/55` on every row.
+- Change **tablet+ (`md:`)** table layouts unless the task explicitly targets tablet; mobile-first guardrails still apply.
+
+## When adding a new mobile table
+
+- [ ] Import `mobileDataTableClasses` and reuse BWI structure.
+- [ ] Per-row shade key = stable id (not array index).
+- [ ] Status badges from `status-hierarchy` helpers.
+- [ ] Optional: persist sort via `usePersistedTableSort` with a scoped `storageKey`.

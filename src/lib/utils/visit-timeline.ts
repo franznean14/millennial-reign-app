@@ -25,7 +25,7 @@ export function getTimelineDotSize() {
   return "w-3 h-3";
 }
 
-export function getVisitTypeDotColor(type: "establishment" | "householder") {
+export function getVisitTypeDotColor(type: "establishment" | "contact" | "householder") {
   return type === "establishment" ? "bg-blue-500" : "bg-green-500";
 }
 

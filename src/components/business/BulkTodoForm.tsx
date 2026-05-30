@@ -33,7 +33,7 @@ import {
   updateCallTodo,
   updateTodoForBulkEdit,
   type EstablishmentWithDetails,
-  type HouseholderWithDetails,
+  type ContactWithDetails,
   type MyOpenCallTodoItem,
   establishmentHasMapLocation,
 } from "@/lib/db/business";
@@ -43,6 +43,11 @@ import { formatStatusText } from "@/lib/utils/formatters";
 import { VisitStatusBadge } from "@/components/visit/VisitStatusBadge";
 import { FilterControls, type FilterBadge } from "@/components/shared/FilterControls";
 import { VisitFiltersForm, type VisitFilters, type VisitFilterOption } from "@/components/visit/VisitFiltersForm";
+import { CONTACT_FK_COLUMN } from "@/lib/db/contact-supabase";
+
+function isContactTargetType(targetType: string): boolean {
+  return targetType === "contact" || isContactTargetType(targetType);
+}
 import { buildFilterBadges } from "@/lib/utils/filter-badges";
 import { useMobile } from "@/lib/hooks/use-mobile";
 import { useMediaQuery } from "@/hooks/use-media-query";
@@ -73,7 +78,7 @@ export type BulkTodoTabletBulkSheetTier = 1 | 2 | 3;
 
 interface BulkTodoFormProps {
   establishments: EstablishmentWithDetails[];
-  householders: HouseholderWithDetails[];
+  contacts: ContactWithDetails[];
   onSaved: () => void;
   onDraftKindChange?: (kind: "new" | "edit" | "mixed") => void;
   /**
@@ -96,8 +101,8 @@ type TargetLatestInsight = {
   atMs: number;
   text: string;
   avatars: PersonAvatar[];
-  householderName?: string | null;
-  householderStatus?: string | null;
+  contactName?: string | null;
+  contactStatus?: string | null;
   dateValue?: string | null;
   source: "call" | "todo";
 };
@@ -109,8 +114,8 @@ type PendingTodoDisplay = {
   createdAtMs: number;
   publisherId: string | null;
   partnerId: string | null;
-  householderName?: string | null;
-  householderStatus?: string | null;
+  contactName?: string | null;
+  contactStatus?: string | null;
 };
 
 type TargetOption = {
@@ -175,7 +180,7 @@ const DEFAULT_TARGET_PICKER_FILTERS: VisitFilters = {
   callDateTo: null,
   myUpdatesOnly: false,
   bwiOnly: false,
-  householderOnly: false,
+  contactOnly: false,
 };
 
 const createDraftRow = (): BulkTodoDraftRow => ({
@@ -336,7 +341,7 @@ const getStatusDotColorClass = (status: string): string => {
   }
 };
 
-const getHouseholderStatusBadgeClass = (status: string) => {
+const getContactStatusBadgeClass = (status: string) => {
   switch (status) {
     case "potential":
       return "text-cyan-600 border-cyan-200 bg-cyan-50 dark:text-cyan-400 dark:border-cyan-800 dark:bg-cyan-950";
@@ -358,7 +363,7 @@ const getHouseholderStatusBadgeClass = (status: string) => {
 
 export function BulkTodoForm({
   establishments,
-  householders,
+  contacts,
   onSaved,
   onDraftKindChange,
   onTabletBulkSheetTierChange,
@@ -494,12 +499,12 @@ export function BulkTodoForm({
         const migratedRows: BulkTodoDraftRow[] = parsed.rows.map((rawRow) => {
           const legacyTargetType = rawRow.targetType as "establishment" | "householder" | undefined;
           const legacyEstablishmentId = typeof rawRow.establishmentId === "string" ? rawRow.establishmentId : "none";
-          const legacyHouseholderId = typeof rawRow.householderId === "string" ? rawRow.householderId : "none";
+          const legacyContactId = typeof rawRow.contactId === "string" ? rawRow.contactId : "none";
           const targetKey =
             typeof rawRow.targetKey === "string"
               ? rawRow.targetKey
-              : legacyTargetType === "householder" && legacyHouseholderId !== "none"
-                ? `householder:${legacyHouseholderId}`
+              : legacyTargetType === "householder" && legacyContactId !== "none"
+                ? `contact:${legacyContactId}`
                 : legacyEstablishmentId !== "none"
                   ? `establishment:${legacyEstablishmentId}`
                   : "none";
@@ -572,7 +577,7 @@ export function BulkTodoForm({
             callDateTo: typeof rawFilters.callDateTo === "string" ? rawFilters.callDateTo : null,
             myUpdatesOnly: false,
             bwiOnly: !!rawFilters.bwiOnly,
-            householderOnly: !!rawFilters.householderOnly,
+            contactOnly: !!rawFilters.contactOnly,
           };
         });
         setTargetFiltersByRow(nextFiltersByRow);
@@ -659,21 +664,21 @@ export function BulkTodoForm({
     };
   }, []);
 
-  const householdersById = useMemo(() => {
-    const map = new Map<string, HouseholderWithDetails>();
-    householders.forEach((hh) => {
+  const contactsById = useMemo(() => {
+    const map = new Map<string, ContactWithDetails>();
+    contacts.forEach((hh) => {
       if (hh.id) map.set(hh.id, hh);
     });
     return map;
-  }, [householders]);
+  }, [contacts]);
 
   const sortedEstablishments = useMemo(
     () => [...establishments].sort((a, b) => (a.name || "").localeCompare(b.name || "")),
     [establishments]
   );
-  const sortedHouseholders = useMemo(
-    () => [...householders].sort((a, b) => (a.name || "").localeCompare(b.name || "")),
-    [householders]
+  const sortedContacts = useMemo(
+    () => [...contacts].sort((a, b) => (a.name || "").localeCompare(b.name || "")),
+    [contacts]
   );
   const establishmentById = useMemo(() => {
     const map = new Map<string, EstablishmentWithDetails>();
@@ -683,13 +688,13 @@ export function BulkTodoForm({
     return map;
   }, [establishments]);
 
-  const householderById = useMemo(() => {
-    const map = new Map<string, HouseholderWithDetails>();
-    householders.forEach((householder) => {
-      if (householder.id) map.set(householder.id, householder);
+  const contactById = useMemo(() => {
+    const map = new Map<string, ContactWithDetails>();
+    contacts.forEach((contact) => {
+      if (contact.id) map.set(contact.id, contact);
     });
     return map;
-  }, [householders]);
+  }, [contacts]);
 
   const buildSyntheticTodoForTargetDetails = useCallback(
     (option: TargetOption): MyOpenCallTodoItem => {
@@ -703,7 +708,7 @@ export function BulkTodoForm({
           body: "",
           is_done: false,
           establishment_id: id,
-          householder_id: null,
+          contact_id: null,
           context_name: option.label,
           context_status: primary,
           context_establishment_status: primary,
@@ -713,8 +718,8 @@ export function BulkTodoForm({
             : undefined,
         };
       }
-      const hhId = option.key.slice("householder:".length);
-      const hh = householderById.get(hhId);
+      const hhId = option.key.slice("contact:".length);
+      const hh = contactById.get(hhId);
       const estId = hh?.establishment_id ?? null;
       const est = estId ? establishmentById.get(estId) : undefined;
       return {
@@ -722,7 +727,7 @@ export function BulkTodoForm({
         body: "",
         is_done: false,
         establishment_id: estId,
-        householder_id: hhId,
+        contact_id: hhId,
         context_name: option.label,
         context_status: hh?.status ?? option.status ?? null,
         context_establishment_name: hh?.establishment_name?.trim() || option.subtitle || null,
@@ -730,7 +735,7 @@ export function BulkTodoForm({
         context_area: est?.area?.trim() ?? null,
       };
     },
-    [establishmentById, householderById]
+    [establishmentById, contactById]
   );
 
   const openBulkTargetDetails = useCallback(
@@ -759,9 +764,9 @@ export function BulkTodoForm({
           searchText: `${est.name}`.toLowerCase(),
         };
       }
-      if (targetKey.startsWith("householder:")) {
-        const id = targetKey.slice("householder:".length);
-        const hh = householdersById.get(id);
+      if (targetKey.startsWith("contact:")) {
+        const id = targetKey.slice("contact:".length);
+        const hh = contactsById.get(id);
         if (!hh?.id) return null;
         return {
           key: targetKey,
@@ -775,7 +780,7 @@ export function BulkTodoForm({
       }
       return null;
     },
-    [establishmentById, householdersById]
+    [establishmentById, contactsById]
   );
 
   const openBulkDetailsForDraftRow = useCallback(
@@ -882,11 +887,11 @@ export function BulkTodoForm({
             return chosen.map((person) => getPersonDisplayName(person)).join(" ");
           })()}`.toLowerCase(),
         })),
-      ...sortedHouseholders.map((householder) => {
-        const parentName = householder.establishment_name || "";
-        const targetKey = `householder:${householder.id}`;
+      ...sortedContacts.map((contact) => {
+        const parentName = contact.establishment_name || "";
+        const targetKey = `contact:${contact.id}`;
         const insight = latestInsightByTarget[targetKey];
-        const fallbackAvatars = (householder.top_visitors || []).slice(0, 2).map((visitor) => ({
+        const fallbackAvatars = (contact.top_visitors || []).slice(0, 2).map((visitor) => ({
           id: visitor.user_id,
           first_name: visitor.first_name,
           last_name: visitor.last_name,
@@ -898,18 +903,18 @@ export function BulkTodoForm({
           .filter((name, index, arr) => name.length > 0 && arr.indexOf(name) === index)
           .slice(0, 2);
         return {
-          key: `householder:${householder.id}`,
-          label: householder.name,
+          key: `contact:${contact.id}`,
+          label: contact.name,
           typeLabel: "Contact" as const,
           subtitle: parentName,
-          status: householder.status || undefined,
+          status: contact.status || undefined,
           avatars: chosenAvatars,
           latestDateValue: insight?.dateValue ?? null,
           latestSource: insight?.source,
           latestText: insight?.text || "",
           latestActors: insight?.avatars?.slice(0, 2) || [],
           latestActorNames,
-          searchText: `${householder.name} ${parentName} householder contact ${insight?.source || ""} ${insight?.text || ""} ${latestActorNames.join(" ")}`.toLowerCase(),
+          searchText: `${contact.name} ${parentName} contact ${insight?.source || ""} ${insight?.text || ""} ${latestActorNames.join(" ")}`.toLowerCase(),
         };
       }),
     ].sort((a, b) => {
@@ -920,7 +925,7 @@ export function BulkTodoForm({
       if (byStatus !== 0) return byStatus;
       return a.label.localeCompare(b.label);
     }),
-    [sortedEstablishments, sortedHouseholders, latestInsightByTarget]
+    [sortedEstablishments, sortedContacts, latestInsightByTarget]
   );
 
   const targetStatusOptions = useMemo<VisitFilterOption[]>(
@@ -963,7 +968,7 @@ export function BulkTodoForm({
         .filter((establishment): establishment is EstablishmentWithDetails & { id: string } => !!establishment.id)
         .filter((establishment) => {
           if (establishment.publisher_id) return false;
-          if (filters.householderOnly) return false;
+          if (filters.contactOnly) return false;
           const status = getBestStatus(establishment.statuses || []);
           if (filters.statuses.length > 0 && (!status || !filters.statuses.includes(status))) return false;
           const area = (establishment.area || "").trim();
@@ -976,22 +981,22 @@ export function BulkTodoForm({
         })
         .map((establishment) => `establishment:${establishment.id}`);
 
-      const householderKeys = sortedHouseholders
-        .filter((householder): householder is HouseholderWithDetails & { id: string } => !!householder.id)
-        .filter((householder) => {
+      const contactKeys = sortedContacts
+        .filter((contact): contact is ContactWithDetails & { id: string } => !!contact.id)
+        .filter((contact) => {
           if (filters.bwiOnly) return false;
-          const status = householder.status || undefined;
+          const status = contact.status || undefined;
           if (filters.statuses.length > 0 && (!status || !filters.statuses.includes(status))) return false;
           if (filters.areas.length > 0) return false;
           if (term) {
-            const searchText = `${householder.name} ${householder.establishment_name || ""} householder contact`.toLowerCase();
+            const searchText = `${contact.name} ${contact.establishment_name || ""} contact`.toLowerCase();
             if (!searchText.includes(term)) return false;
           }
           return true;
         })
-        .map((householder) => `householder:${householder.id}`);
+        .map((contact) => `contact:${contact.id}`);
 
-      return Array.from(new Set([...establishmentKeys, ...householderKeys])).slice(0, 180);
+      return Array.from(new Set([...establishmentKeys, ...contactKeys])).slice(0, 180);
     }
 
     // When picker is closed, keep insight loading lightweight: only selected draft targets.
@@ -1008,7 +1013,7 @@ export function BulkTodoForm({
     targetFiltersByRow,
     targetSearchByRow,
     sortedEstablishments,
-    sortedHouseholders,
+    sortedContacts,
   ]);
 
   const rowsByBulkTodoLane = useMemo(() => {
@@ -1052,12 +1057,12 @@ export function BulkTodoForm({
       .filter((key) => key.startsWith("establishment:"))
       .map((key) => key.slice("establishment:".length))
       .filter((id) => id.length > 0);
-    const householderIds = insightTargetKeys
-      .filter((key) => key.startsWith("householder:"))
-      .map((key) => key.slice("householder:".length))
+    const contactIds = insightTargetKeys
+      .filter((key) => key.startsWith("contact:"))
+      .map((key) => key.slice("contact:".length))
       .filter((id) => id.length > 0);
 
-    if (establishmentIds.length === 0 && householderIds.length === 0) {
+    if (establishmentIds.length === 0 && contactIds.length === 0) {
       setLatestInsightByTarget({});
       setPendingTodosByTarget({});
       return;
@@ -1109,87 +1114,87 @@ export function BulkTodoForm({
           ? supabase
               .from("calls")
               .select(
-                "id, establishment_id, householder_id, note, visit_date, created_at, publisher_guest_name, partner_guest_name, publisher:profiles!calls_publisher_id_fkey(id, first_name, last_name, avatar_url), partner:profiles!calls_partner_id_fkey(id, first_name, last_name, avatar_url)"
+                "id, establishment_id, contact_id:householder_id, note, visit_date, created_at, publisher_guest_name, partner_guest_name, publisher:profiles!calls_publisher_id_fkey(id, first_name, last_name, avatar_url), partner:profiles!calls_partner_id_fkey(id, first_name, last_name, avatar_url)"
               )
               .in("establishment_id", establishmentIds)
           : Promise.resolve({ data: [], error: null } as any);
-        const callByHouseholderPromise = householderIds.length
+        const callByContactPromise = contactIds.length
           ? supabase
               .from("calls")
               .select(
-                "id, establishment_id, householder_id, note, visit_date, created_at, publisher_guest_name, partner_guest_name, publisher:profiles!calls_publisher_id_fkey(id, first_name, last_name, avatar_url), partner:profiles!calls_partner_id_fkey(id, first_name, last_name, avatar_url)"
+                "id, establishment_id, contact_id:householder_id, note, visit_date, created_at, publisher_guest_name, partner_guest_name, publisher:profiles!calls_publisher_id_fkey(id, first_name, last_name, avatar_url), partner:profiles!calls_partner_id_fkey(id, first_name, last_name, avatar_url)"
               )
-              .in("householder_id", householderIds)
+              .in(CONTACT_FK_COLUMN, contactIds)
           : Promise.resolve({ data: [], error: null } as any);
         const doneTodoByEstablishmentPromise = establishmentIds.length
           ? supabase
               .from("call_todos")
               .select(
-                "id, call_id, establishment_id, householder_id, body, created_at, publisher_id, partner_id, publisher_guest_name, partner_guest_name, call:calls!call_todos_call_id_fkey(establishment_id, householder_id, publisher_id, partner_id)"
+                "id, call_id, establishment_id, contact_id:householder_id, body, created_at, publisher_id, partner_id, publisher_guest_name, partner_guest_name, call:calls!call_todos_call_id_fkey(establishment_id, householder_id, publisher_id, partner_id)"
               )
               .eq("is_done", true)
               .in("establishment_id", establishmentIds)
           : Promise.resolve({ data: [], error: null } as any);
-        const doneTodoByHouseholderPromise = householderIds.length
+        const doneTodoByContactPromise = contactIds.length
           ? supabase
               .from("call_todos")
               .select(
-                "id, call_id, establishment_id, householder_id, body, created_at, publisher_id, partner_id, publisher_guest_name, partner_guest_name, call:calls!call_todos_call_id_fkey(establishment_id, householder_id, publisher_id, partner_id)"
+                "id, call_id, establishment_id, contact_id:householder_id, body, created_at, publisher_id, partner_id, publisher_guest_name, partner_guest_name, call:calls!call_todos_call_id_fkey(establishment_id, householder_id, publisher_id, partner_id)"
               )
               .eq("is_done", true)
-              .in("householder_id", householderIds)
+              .in(CONTACT_FK_COLUMN, contactIds)
           : Promise.resolve({ data: [], error: null } as any);
         const openTodoByEstablishmentPromise = establishmentIds.length
           ? supabase
               .from("call_todos")
               .select(
-                "id, call_id, establishment_id, householder_id, body, created_at, deadline_date, publisher_id, partner_id, call:calls!call_todos_call_id_fkey(establishment_id, householder_id, publisher_id, partner_id)"
+                "id, call_id, establishment_id, contact_id:householder_id, body, created_at, deadline_date, publisher_id, partner_id, call:calls!call_todos_call_id_fkey(establishment_id, householder_id, publisher_id, partner_id)"
               )
               .eq("is_done", false)
               .in("establishment_id", establishmentIds)
           : Promise.resolve({ data: [], error: null } as any);
-        const openTodoByHouseholderPromise = householderIds.length
+        const openTodoByContactPromise = contactIds.length
           ? supabase
               .from("call_todos")
               .select(
-                "id, call_id, establishment_id, householder_id, body, created_at, deadline_date, publisher_id, partner_id, call:calls!call_todos_call_id_fkey(establishment_id, householder_id, publisher_id, partner_id)"
+                "id, call_id, establishment_id, contact_id:householder_id, body, created_at, deadline_date, publisher_id, partner_id, call:calls!call_todos_call_id_fkey(establishment_id, householder_id, publisher_id, partner_id)"
               )
               .eq("is_done", false)
-              .in("householder_id", householderIds)
+              .in(CONTACT_FK_COLUMN, contactIds)
           : Promise.resolve({ data: [], error: null } as any);
 
         const [
           { data: callByEstablishment, error: callByEstablishmentError },
-          { data: callByHouseholder, error: callByHouseholderError },
+          { data: callByContact, error: callByContactError },
           { data: doneTodoByEstablishment, error: doneTodoByEstablishmentError },
-          { data: doneTodoByHouseholder, error: doneTodoByHouseholderError },
+          { data: doneTodoByContact, error: doneTodoByContactError },
           { data: openTodoByEstablishment, error: openTodoByEstablishmentError },
-          { data: openTodoByHouseholder, error: openTodoByHouseholderError },
+          { data: openTodoByContact, error: openTodoByContactError },
         ] = await Promise.all([
           callByEstablishmentPromise,
-          callByHouseholderPromise,
+          callByContactPromise,
           doneTodoByEstablishmentPromise,
-          doneTodoByHouseholderPromise,
+          doneTodoByContactPromise,
           openTodoByEstablishmentPromise,
-          openTodoByHouseholderPromise,
+          openTodoByContactPromise,
         ]);
         if (callByEstablishmentError) {
           console.warn("[BulkTodoForm] callByEstablishment query failed:", callByEstablishmentError);
         }
-        if (callByHouseholderError) {
-          console.warn("[BulkTodoForm] callByHouseholder query failed:", callByHouseholderError);
+        if (callByContactError) {
+          console.warn("[BulkTodoForm] callByContact query failed:", callByContactError);
         }
         if (doneTodoByEstablishmentError) {
           console.warn("[BulkTodoForm] doneTodoByEstablishment query failed:", doneTodoByEstablishmentError);
         }
-        if (doneTodoByHouseholderError) {
-          console.warn("[BulkTodoForm] doneTodoByHouseholder query failed:", doneTodoByHouseholderError);
+        if (doneTodoByContactError) {
+          console.warn("[BulkTodoForm] doneTodoByContact query failed:", doneTodoByContactError);
         }
         if (openTodoByEstablishmentError) {
           console.warn("[BulkTodoForm] openTodoByEstablishment query failed:", openTodoByEstablishmentError);
         }
-        if (openTodoByHouseholderError) {
-          console.warn("[BulkTodoForm] openTodoByHouseholder query failed:", openTodoByHouseholderError);
+        if (openTodoByContactError) {
+          console.warn("[BulkTodoForm] openTodoByContact query failed:", openTodoByContactError);
         }
 
         const insights: Record<string, TargetLatestInsight> = {};
@@ -1201,7 +1206,7 @@ export function BulkTodoForm({
         };
 
         const callsById = new Map<string, any>();
-        [...(callByEstablishment || []), ...(callByHouseholder || [])].forEach((row: any) => {
+        [...(callByEstablishment || []), ...(callByContact || [])].forEach((row: any) => {
           if (row?.id) callsById.set(row.id, row);
         });
         Array.from(callsById.values()).forEach((row: any) => {
@@ -1215,31 +1220,31 @@ export function BulkTodoForm({
             guestNameToInsightAvatar(row.partner_guest_name)
           );
           const noteText = typeof row.note === "string" && row.note.trim() ? row.note.trim() : "Visit update";
-          const householderName =
-            row.householder_id && householdersById.get(row.householder_id)?.name
-              ? householdersById.get(row.householder_id)?.name
+          const contactName =
+            row.contact_id && contactsById.get(row.contact_id)?.name
+              ? contactsById.get(row.contact_id)?.name
               : null;
-          const householderStatus =
-            row.householder_id && householdersById.get(row.householder_id)?.status
-              ? householdersById.get(row.householder_id)?.status
+          const contactStatus =
+            row.contact_id && contactsById.get(row.contact_id)?.status
+              ? contactsById.get(row.contact_id)?.status
               : null;
           const dateValue = row.visit_date || row.created_at || null;
           if (row.establishment_id) {
-            upsertInsight(`establishment:${row.establishment_id}`, { atMs, text: noteText, avatars, householderName, householderStatus, dateValue, source: "call" });
+            upsertInsight(`establishment:${row.establishment_id}`, { atMs, text: noteText, avatars, contactName, contactStatus, dateValue, source: "call" });
           }
-          if (row.householder_id) {
-            upsertInsight(`householder:${row.householder_id}`, { atMs, text: noteText, avatars, householderName, householderStatus, dateValue, source: "call" });
+          if (row.contact_id) {
+            upsertInsight(`contact:${row.contact_id}`, { atMs, text: noteText, avatars, contactName, contactStatus, dateValue, source: "call" });
           }
         });
 
         const doneTodosById = new Map<string, any>();
-        [...(doneTodoByEstablishment || []), ...(doneTodoByHouseholder || [])].forEach((row: any) => {
+        [...(doneTodoByEstablishment || []), ...(doneTodoByContact || [])].forEach((row: any) => {
           if (row?.id) doneTodosById.set(row.id, row);
         });
         Array.from(doneTodosById.values()).forEach((row: any) => {
           const callMeta = Array.isArray(row.call) ? row.call[0] : row.call;
           const effectiveEstablishmentId = row.establishment_id || callMeta?.establishment_id || null;
-          const effectiveHouseholderId = row.householder_id || callMeta?.householder_id || null;
+          const effectiveContactId = row.contact_id || callMeta?.contact_id || null;
           const atMs = toMs(row.created_at);
           const text = typeof row.body === "string" && row.body.trim() ? row.body.trim() : "Completed to-do";
           const pubId = row.publisher_id || callMeta?.publisher_id || null;
@@ -1250,20 +1255,20 @@ export function BulkTodoForm({
             guestNameToInsightAvatar(row.publisher_guest_name),
             guestNameToInsightAvatar(row.partner_guest_name)
           );
-          const householderName =
-            effectiveHouseholderId && householdersById.get(effectiveHouseholderId)?.name
-              ? householdersById.get(effectiveHouseholderId)?.name
+          const contactName =
+            effectiveContactId && contactsById.get(effectiveContactId)?.name
+              ? contactsById.get(effectiveContactId)?.name
               : null;
-          const householderStatus =
-            effectiveHouseholderId && householdersById.get(effectiveHouseholderId)?.status
-              ? householdersById.get(effectiveHouseholderId)?.status
+          const contactStatus =
+            effectiveContactId && contactsById.get(effectiveContactId)?.status
+              ? contactsById.get(effectiveContactId)?.status
               : null;
           const dateValue = row.deadline_date || row.created_at || null;
           if (effectiveEstablishmentId) {
-            upsertInsight(`establishment:${effectiveEstablishmentId}`, { atMs, text, avatars, householderName, householderStatus, dateValue, source: "todo" });
+            upsertInsight(`establishment:${effectiveEstablishmentId}`, { atMs, text, avatars, contactName, contactStatus, dateValue, source: "todo" });
           }
-          if (effectiveHouseholderId) {
-            upsertInsight(`householder:${effectiveHouseholderId}`, { atMs, text, avatars, householderName, householderStatus, dateValue, source: "todo" });
+          if (effectiveContactId) {
+            upsertInsight(`contact:${effectiveContactId}`, { atMs, text, avatars, contactName, contactStatus, dateValue, source: "todo" });
           }
         });
 
@@ -1275,13 +1280,13 @@ export function BulkTodoForm({
         };
 
         const openTodosById = new Map<string, any>();
-        [...(openTodoByEstablishment || []), ...(openTodoByHouseholder || [])].forEach((row: any) => {
+        [...(openTodoByEstablishment || []), ...(openTodoByContact || [])].forEach((row: any) => {
           if (row?.id) openTodosById.set(row.id, row);
         });
         Array.from(openTodosById.values()).forEach((row: any) => {
           const callMeta = Array.isArray(row.call) ? row.call[0] : row.call;
           const effectiveEstablishmentId = row.establishment_id || callMeta?.establishment_id || null;
-          const effectiveHouseholderId = row.householder_id || callMeta?.householder_id || null;
+          const effectiveContactId = row.contact_id || callMeta?.contact_id || null;
           const atMs = toMs(row.created_at);
           const pendingItem: PendingTodoDisplay = {
             id: row.id,
@@ -1290,20 +1295,20 @@ export function BulkTodoForm({
             createdAtMs: atMs,
             publisherId: row.publisher_id || callMeta?.publisher_id || null,
             partnerId: row.partner_id || callMeta?.partner_id || null,
-            householderName:
-              effectiveHouseholderId && householdersById.get(effectiveHouseholderId)?.name
-                ? householdersById.get(effectiveHouseholderId)?.name
+            contactName:
+              effectiveContactId && contactsById.get(effectiveContactId)?.name
+                ? contactsById.get(effectiveContactId)?.name
                 : null,
-            householderStatus:
-              effectiveHouseholderId && householdersById.get(effectiveHouseholderId)?.status
-                ? householdersById.get(effectiveHouseholderId)?.status
+            contactStatus:
+              effectiveContactId && contactsById.get(effectiveContactId)?.status
+                ? contactsById.get(effectiveContactId)?.status
                 : null,
           };
           if (effectiveEstablishmentId) {
             pushPending(`establishment:${effectiveEstablishmentId}`, pendingItem);
           }
-          if (effectiveHouseholderId) {
-            pushPending(`householder:${effectiveHouseholderId}`, pendingItem);
+          if (effectiveContactId) {
+            pushPending(`contact:${effectiveContactId}`, pendingItem);
           }
         });
 
@@ -1337,7 +1342,7 @@ export function BulkTodoForm({
     return () => {
       cancelled = true;
     };
-  }, [insightTargetKeys, participantsById, householdersById, insightRefreshKey]);
+  }, [insightTargetKeys, participantsById, contactsById, insightRefreshKey]);
 
   const updateRow = (id: string, updates: Partial<BulkTodoDraftRow>) => {
     setRows((prev) => prev.map((row) => (row.id === id ? { ...row, ...updates } : row)));
@@ -1516,7 +1521,7 @@ export function BulkTodoForm({
 
     return targetOptions.filter((option) => {
       if (filters.bwiOnly && !option.key.startsWith("establishment:")) return false;
-      if (filters.householderOnly && !option.key.startsWith("householder:")) return false;
+      if (filters.contactOnly && !option.key.startsWith("contact:")) return false;
 
       if (filters.statuses.length > 0) {
         if (!option.status || !filters.statuses.includes(option.status)) return false;
@@ -1540,8 +1545,8 @@ export function BulkTodoForm({
     if (targetType === "establishment") {
       return establishmentById.get(targetId)?.name || fallback;
     }
-    const householder = householdersById.get(targetId);
-    return householder?.name || fallback;
+    const contact = contactsById.get(targetId);
+    return contact?.name || fallback;
   };
 
   const getRowHeaderStatuses = (row: BulkTodoDraftRow): string[] => {
@@ -1557,9 +1562,9 @@ export function BulkTodoForm({
         (a, b) => getStatusPriority(a) - getStatusPriority(b)
       );
     }
-    const householder = householdersById.get(targetId);
-    if (!householder?.status) return [];
-    return [householder.status];
+    const contact = contactsById.get(targetId);
+    if (!contact?.status) return [];
+    return [contact.status];
   };
 
   const isBulkAddModeActive = (rowId: string) => !!targetBulkAddModeByRow[rowId];
@@ -1668,23 +1673,23 @@ export function BulkTodoForm({
               updateTargetPickerFilters(row.id, (prev) => ({
                 ...prev,
                 bwiOnly: true,
-                householderOnly: false,
+                contactOnly: false,
               }))
             }
             onBwiClear={() =>
               updateTargetPickerFilters(row.id, (prev) => ({ ...prev, bwiOnly: false }))
             }
-            householderActive={!!(targetFiltersByRow[row.id] ?? DEFAULT_TARGET_PICKER_FILTERS).householderOnly}
-            householderLabel="Contacts Only"
-            onHouseholderActivate={() =>
+            contactActive={!!(targetFiltersByRow[row.id] ?? DEFAULT_TARGET_PICKER_FILTERS).contactOnly}
+            contactLabel="Contacts Only"
+            onContactActivate={() =>
               updateTargetPickerFilters(row.id, (prev) => ({
                 ...prev,
-                householderOnly: true,
+                contactOnly: true,
                 bwiOnly: false,
               }))
             }
-            onHouseholderClear={() =>
-              updateTargetPickerFilters(row.id, (prev) => ({ ...prev, householderOnly: false }))
+            onContactClear={() =>
+              updateTargetPickerFilters(row.id, (prev) => ({ ...prev, contactOnly: false }))
             }
             filterBadges={getTargetFilterBadgesForRow(row.id)}
             onOpenFilters={() => {
@@ -2206,7 +2211,7 @@ export function BulkTodoForm({
     setSubmittingRowId(row.id);
     try {
       const [targetType, targetId] = row.targetKey.split(":");
-      const selectedHouseholder = targetType === "householder" ? householdersById.get(targetId) : undefined;
+      const selectedContact = isContactTargetType(targetType) ? contactsById.get(targetId) : undefined;
       const selectedEstablishment = targetType === "establishment" ? establishmentById.get(targetId) : undefined;
       const slot0 = row.slots[0] ?? "";
       const slot1 = row.slots[1] ?? "";
@@ -2217,16 +2222,16 @@ export function BulkTodoForm({
       const establishment_id =
         targetType === "establishment"
           ? targetId || null
-          : selectedHouseholder?.establishment_id ?? null;
-      const householder_id =
-        targetType === "householder" ? targetId || null : null;
+          : selectedContact?.establishment_id ?? null;
+      const contact_id =
+        isContactTargetType(targetType) ? targetId || null : null;
       const optimisticContextName =
         targetType === "establishment"
           ? selectedEstablishment?.name ?? null
-          : selectedHouseholder?.name ?? null;
+          : selectedContact?.name ?? null;
       const optimisticContextEstablishmentName =
-        targetType === "householder"
-          ? selectedHouseholder?.establishment_name ?? null
+        isContactTargetType(targetType)
+          ? selectedContact?.establishment_name ?? null
           : null;
       const optimisticContextStatus =
         targetType === "establishment"
@@ -2235,11 +2240,11 @@ export function BulkTodoForm({
                   ? "personal_territory"
                   : getBestStatus(selectedEstablishment.statuses || []))
               : null)
-          : selectedHouseholder?.status ?? null;
+          : selectedContact?.status ?? null;
       const optimisticContextEstablishmentStatus =
-        targetType === "householder" && selectedHouseholder?.establishment_id
+        isContactTargetType(targetType) && selectedContact?.establishment_id
           ? (() => {
-              const est = establishmentById.get(selectedHouseholder.establishment_id);
+              const est = establishmentById.get(selectedContact.establishment_id);
               return est
                 ? (est.publisher_id
                     ? "personal_territory"
@@ -2250,14 +2255,14 @@ export function BulkTodoForm({
       const optimisticContextArea =
         targetType === "establishment"
           ? selectedEstablishment?.area ?? null
-          : selectedHouseholder?.establishment_id
-            ? establishmentById.get(selectedHouseholder.establishment_id)?.area ?? null
+          : selectedContact?.establishment_id
+            ? establishmentById.get(selectedContact.establishment_id)?.area ?? null
             : null;
 
       if (row.sourceTodoId) {
         const ok = await updateTodoForBulkEdit(row.sourceTodoId, {
           establishment_id,
-          householder_id,
+          contact_id,
           body: row.body.trim(),
           deadline_date: row.dueDate ?? null,
           publisher_id: publisherId,
@@ -2281,7 +2286,7 @@ export function BulkTodoForm({
                   id: row.sourceTodoId,
                   call_id: row.sourceCallId ?? null,
                   establishment_id,
-                  householder_id,
+                  contact_id,
                   body: row.body.trim(),
                   is_done: false,
                   publisher_id: publisherId,
@@ -2302,7 +2307,7 @@ export function BulkTodoForm({
       } else {
         const created = await addStandaloneTodo({
           establishment_id,
-          householder_id,
+          contact_id,
           body: row.body.trim(),
           deadline_date: row.dueDate ?? null,
           publisher_id: publisherId,
@@ -2325,7 +2330,7 @@ export function BulkTodoForm({
                   id: created.id,
                   call_id: null,
                   establishment_id,
-                  householder_id,
+                  contact_id,
                   body: row.body.trim(),
                   is_done: false,
                   publisher_id: publisherId,
@@ -2434,7 +2439,7 @@ export function BulkTodoForm({
           row,
           run: async (): Promise<OpResult> => {
             const [targetType, targetId] = row.targetKey.split(":");
-            const selectedHouseholder = targetType === "householder" ? householdersById.get(targetId) : undefined;
+            const selectedContact = isContactTargetType(targetType) ? contactsById.get(targetId) : undefined;
             const slot0 = row.slots[0] ?? "";
             const slot1 = row.slots[1] ?? "";
             const publisherId = slot0 && !isGuestSlotToken(slot0) ? slot0 : null;
@@ -2445,9 +2450,9 @@ export function BulkTodoForm({
               establishment_id:
                 targetType === "establishment"
                   ? targetId || null
-                  : selectedHouseholder?.establishment_id ?? null,
-              householder_id:
-                targetType === "householder" ? targetId || null : null,
+                  : selectedContact?.establishment_id ?? null,
+              contact_id:
+                isContactTargetType(targetType) ? targetId || null : null,
               body: row.body.trim(),
               deadline_date: row.dueDate ?? null,
               publisher_id: publisherId,
@@ -2463,7 +2468,7 @@ export function BulkTodoForm({
           row,
           run: async (): Promise<OpResult> => {
             const [targetType, targetId] = row.targetKey.split(":");
-            const selectedHouseholder = targetType === "householder" ? householdersById.get(targetId) : undefined;
+            const selectedContact = isContactTargetType(targetType) ? contactsById.get(targetId) : undefined;
             const slot0 = row.slots[0] ?? "";
             const slot1 = row.slots[1] ?? "";
             const publisherId = slot0 && !isGuestSlotToken(slot0) ? slot0 : null;
@@ -2474,9 +2479,9 @@ export function BulkTodoForm({
               establishment_id:
                 targetType === "establishment"
                   ? targetId || null
-                  : selectedHouseholder?.establishment_id ?? null,
-              householder_id:
-                targetType === "householder" ? targetId || null : null,
+                  : selectedContact?.establishment_id ?? null,
+              contact_id:
+                isContactTargetType(targetType) ? targetId || null : null,
               body: row.body.trim(),
               deadline_date: row.dueDate ?? null,
               publisher_id: publisherId,
@@ -2726,9 +2731,9 @@ export function BulkTodoForm({
         <div className="flex items-center gap-1.5 min-w-0">
           {(() => {
             const [targetType, targetId] = row.targetKey.split(":");
-            const householder = targetType === "householder" ? householdersById.get(targetId) : null;
+            const contact = isContactTargetType(targetType) ? contactsById.get(targetId) : null;
             const linkedEstablishment =
-              householder?.establishment_id ? establishmentById.get(householder.establishment_id) : null;
+              contact?.establishment_id ? establishmentById.get(contact.establishment_id) : null;
             const establishmentStatus = linkedEstablishment
               ? (linkedEstablishment.publisher_id
                   ? "personal_territory"
@@ -2736,7 +2741,7 @@ export function BulkTodoForm({
               : "for_scouting";
             const headerStatuses = getRowHeaderStatuses(row);
             const statusSummary = headerStatuses.map((s) => formatStatusText(s)).join(", ");
-            const showStatusRow = headerStatuses.length > 0 || !!householder?.establishment_name;
+            const showStatusRow = headerStatuses.length > 0 || !!contact?.establishment_name;
 
             return (
               <>
@@ -2763,15 +2768,15 @@ export function BulkTodoForm({
                   <span className="sr-only">{statusSummary}</span>
                 </span>
               ) : null}
-              {householder?.establishment_name ? (
+              {contact?.establishment_name ? (
                 <span
                   className={cn(
                     "text-[10px] font-medium max-w-[160px] truncate",
                     getStatusTitleColor(establishmentStatus)
                   )}
-                  title={householder.establishment_name}
+                  title={contact.establishment_name}
                 >
-                  {householder.establishment_name}
+                  {contact.establishment_name}
                 </span>
               ) : null}
             </div>
@@ -3265,15 +3270,15 @@ export function BulkTodoForm({
                   </div>
                 ) : null}
                 <span>{label}</span>
-                {row.targetKey.startsWith("establishment:") && insight.householderName ? (
+                {row.targetKey.startsWith("establishment:") && insight.contactName ? (
                   <Badge
                     variant="outline"
                     className={cn(
                       "h-5 px-1.5 text-[10px] capitalize",
-                      getHouseholderStatusBadgeClass(insight.householderStatus || "")
+                      getContactStatusBadgeClass(insight.contactStatus || "")
                     )}
                   >
-                    {insight.householderName}
+                    {insight.contactName}
                   </Badge>
                 ) : null}
                 <span className="min-w-0 break-words">{insight.text}</span>
@@ -3304,7 +3309,7 @@ export function BulkTodoForm({
                   .filter((value, idx, arr) => arr.indexOf(value) === idx)
                   .slice(0, 2);
                 const showContactBadgeOnEstablishment =
-                  row.targetKey.startsWith("establishment:") && !!pendingTodo.householderName;
+                  row.targetKey.startsWith("establishment:") && !!pendingTodo.contactName;
                 return (
                   <li
                     key={`${row.id}-pending-${pendingTodo.id}`}
@@ -3347,10 +3352,10 @@ export function BulkTodoForm({
                             variant="outline"
                             className={cn(
                               "h-5 px-1.5 text-[10px] capitalize shrink-0",
-                              getHouseholderStatusBadgeClass(pendingTodo.householderStatus || "")
+                              getContactStatusBadgeClass(pendingTodo.contactStatus || "")
                             )}
                           >
-                            {pendingTodo.householderName}
+                            {pendingTodo.contactName}
                           </Badge>
                         ) : null}
                         <span className="line-clamp-2 text-foreground/90 break-words">{pendingTodo.body || "No to-do text."}</span>

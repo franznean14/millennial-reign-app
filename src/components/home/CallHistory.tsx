@@ -8,6 +8,7 @@ import { Building2, ChevronLeft, ChevronRight, DoorOpen, ListTodo, UserRound } f
 import { motion, AnimatePresence } from "motion/react";
 import { getTimelineLineStyle } from "@/lib/utils/visit-timeline";
 import type { VisitRecord } from "@/lib/utils/visit-history";
+import { isContactVisitType } from "@/lib/db/contact-supabase";
 import { useBwiVisitHistory } from "@/lib/hooks/use-bwi-visit-history";
 import { VisitTimelineRow } from "@/components/visit/VisitTimelineRow";
 import { FilterControls } from "@/components/shared/FilterControls";
@@ -21,11 +22,11 @@ import { getVisitSearchText } from "@/lib/utils/visit-history-ui";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   getEstablishmentDetails,
-  getHouseholderDetails,
+  getContactDetails,
   getMyCompletedCallTodos,
   type EstablishmentWithDetails,
-  type HouseholderWithDetails,
-  type HouseholderStatus,
+  type ContactWithDetails,
+  type ContactStatus,
   type MyOpenCallTodoItem,
   type VisitWithUser,
   isEstablishmentTodoMissingLocation,
@@ -37,11 +38,11 @@ import NumberFlow from "@number-flow/react";
 import { cacheGet, cacheSet, cacheDelete } from "@/lib/offline/store";
 import {
   establishmentDetailsCacheKey,
-  householderDetailsCacheKey,
+  contactDetailsCacheKey,
   resolveEstablishmentDetailsSnapshot,
-  resolveHouseholderDetailsSnapshot,
+  resolveContactDetailsSnapshot,
 } from "@/lib/db/entity-details-cache";
-import { getSharedEstablishmentsAndHouseholders } from "@/lib/business/bwi-lists-coordinator";
+import { getSharedEstablishmentsAndContacts } from "@/lib/business/bwi-lists-coordinator";
 import { businessEventBus, type BusinessEventType } from "@/lib/events/business-events";
 import {
   Drawer,
@@ -55,9 +56,9 @@ import {
 import { FormDrawerRoot, FormDrawerContent } from "@/components/shared/FormDrawerPhone";
 import { drawerFormScrollPadClass, drawerFormScrollPad112Class } from "@/lib/theme/form-drawer-phone";
 import { EstablishmentForm } from "@/components/business/EstablishmentForm";
-import { HouseholderForm } from "@/components/business/HouseholderForm";
+import { ContactForm } from "@/components/business/ContactForm";
 import { EstablishmentDetails } from "@/components/business/EstablishmentDetails";
-import { HouseholderDetails } from "@/components/business/HouseholderDetails";
+import { ContactDetails } from "@/components/business/ContactDetails";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useHomeTodoDetailsFabOptional } from "@/components/home/home-todo-details-fab-context";
 import {
@@ -75,7 +76,7 @@ interface CallHistoryProps {
   userId: string;
   onVisitClick?: (visit: VisitRecord) => void;
   onNavigateToBusinessWithStatus?: (
-    tab: "establishments" | "householders",
+    tab: "establishments" | "contacts",
     status: string,
     areas?: string | string[]
   ) => void;
@@ -94,11 +95,11 @@ type CallsStreamItem =
 type CallsEstablishmentSnapshot = {
   establishment: EstablishmentWithDetails;
   visits: VisitWithUser[];
-  householders: HouseholderWithDetails[];
+  contacts: ContactWithDetails[];
 };
 
-type CallsHouseholderSnapshot = {
-  householder: HouseholderWithDetails;
+type CallsContactSnapshot = {
+  contact: ContactWithDetails;
   visits: VisitWithUser[];
   establishment?: { id: string; name: string; area?: string | null; statuses?: string[] | null } | null;
 };
@@ -106,16 +107,16 @@ type CallsHouseholderSnapshot = {
 function callsStreamItemIsEstablishmentColumn(item: CallsStreamItem): boolean {
   if (item.kind === "visit") return item.visit.visit_type === "establishment";
   if (item.kind === "todo") {
-    if (item.todo.householder_id) return false;
+    if (item.todo.contact_id) return false;
     return Boolean(item.todo.establishment_id);
   }
   return false;
 }
 
 function callsStreamItemIsContactColumn(item: CallsStreamItem): boolean {
-  if (item.kind === "visit") return item.visit.visit_type === "householder";
+  if (item.kind === "visit") return isContactVisitType(item.visit.visit_type);
   if (item.kind === "todo") {
-    if (item.todo.householder_id) return true;
+    if (item.todo.contact_id) return true;
     return !item.todo.establishment_id;
   }
   return false;
@@ -221,26 +222,23 @@ export function CallHistory({
   const bwiPointerDownTabRef = useRef<"bwi" | "visit-history">("bwi");
   const [bwiLabelFlash, setBwiLabelFlash] = useState(true);
   const [bwiEstablishments, setBwiEstablishments] = useState<EstablishmentWithDetails[]>([]);
-  const [bwiHouseholders, setBwiHouseholders] = useState<HouseholderWithDetails[]>([]);
+  const [bwiContacts, setBwiContacts] = useState<ContactWithDetails[]>([]);
   const [callTodos, setCallTodos] = useState<MyOpenCallTodoItem[]>([]);
   const [callsDetailsDrawerOpen, setCallsDetailsDrawerOpen] = useState(false);
   const [selectedCallsEstablishmentDetails, setSelectedCallsEstablishmentDetails] =
     useState<CallsEstablishmentSnapshot | null>(null);
-  const [selectedCallsHouseholderDetails, setSelectedCallsHouseholderDetails] =
-    useState<CallsHouseholderSnapshot | null>(null);
+  const [selectedCallsContactDetails, setSelectedCallsContactDetails] =
+    useState<CallsContactSnapshot | null>(null);
   const [isLoadingCallsDetails, setIsLoadingCallsDetails] = useState(false);
   const [callsContactSubdrawerOpen, setCallsContactSubdrawerOpen] = useState(false);
-  const [selectedCallsContactDetails, setSelectedCallsContactDetails] =
-    useState<CallsHouseholderSnapshot | null>(null);
   const [isLoadingCallsContactDetails, setIsLoadingCallsContactDetails] = useState(false);
   const [callsDetailsEntityEditOpen, setCallsDetailsEntityEditOpen] = useState(false);
   const [callsContactSubdrawerEntityEditOpen, setCallsContactSubdrawerEntityEditOpen] =
     useState(false);
   const callsEstablishmentCacheRef = useRef(new Map<string, CallsEstablishmentSnapshot>());
-  const callsHouseholderCacheRef = useRef(new Map<string, CallsHouseholderSnapshot>());
-  const selectedCallsHouseholderDetailsRef = useRef<CallsHouseholderSnapshot | null>(null);
+  const callsContactCacheRef = useRef(new Map<string, CallsContactSnapshot>());
+  const selectedCallsContactDetailsRef = useRef<CallsContactSnapshot | null>(null);
   const selectedCallsEstablishmentDetailsRef = useRef<CallsEstablishmentSnapshot | null>(null);
-  const selectedCallsContactDetailsRef = useRef<CallsHouseholderSnapshot | null>(null);
   const callsContactSubdrawerOpenRef = useRef(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const hasFocusedRef = useRef(false);
@@ -357,7 +355,7 @@ export function CallHistory({
       filterBadges.length > 0 ||
       filters.myUpdatesOnly ||
       filters.bwiOnly ||
-      filters.householderOnly ||
+      filters.contactOnly ||
       filters.callDateFrom != null ||
       filters.callDateTo != null ||
       localSearchValue.trim().length > 0,
@@ -365,7 +363,7 @@ export function CallHistory({
       filterBadges,
       filters.myUpdatesOnly,
       filters.bwiOnly,
-      filters.householderOnly,
+      filters.contactOnly,
       filters.callDateFrom,
       filters.callDateTo,
       localSearchValue,
@@ -414,22 +412,22 @@ export function CallHistory({
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [bwiEstablishments]);
 
-  // Filter BWI data by selected areas (establishments by area; householders by their establishment's area)
+  // Filter BWI data by selected areas (establishments by area; contacts by their establishment's area)
   // Compare trimmed areas so "Tresmavica Building" matches "Tresmavica Building " from DB.
-  const { filteredByAreaEstablishments, filteredByAreaHouseholders } = useMemo(() => {
+  const { filteredByAreaEstablishments, filteredByAreaContacts } = useMemo(() => {
     if (bwiAreaFilter.length === 0) {
-      return { filteredByAreaEstablishments: bwiEstablishments, filteredByAreaHouseholders: bwiHouseholders };
+      return { filteredByAreaEstablishments: bwiEstablishments, filteredByAreaContacts: bwiContacts };
     }
     const selectedAreas = new Set(bwiAreaFilter.map((area) => area.trim()).filter(Boolean));
     const inArea = (e: EstablishmentWithDetails) => selectedAreas.has((e.area?.trim() ?? ""));
     const estIdsInArea = new Set(bwiEstablishments.filter(inArea).map((e) => e.id));
     return {
       filteredByAreaEstablishments: bwiEstablishments.filter(inArea),
-      filteredByAreaHouseholders: bwiHouseholders.filter((hh) =>
+      filteredByAreaContacts: bwiContacts.filter((hh) =>
         hh.establishment_id ? estIdsInArea.has(hh.establishment_id) : false
       ),
     };
-  }, [bwiEstablishments, bwiHouseholders, bwiAreaFilter]);
+  }, [bwiEstablishments, bwiContacts, bwiAreaFilter]);
 
   const handleBwiPointerDown = () => {
     bwiPointerDownTabRef.current = activeTabRef.current;
@@ -450,7 +448,7 @@ export function CallHistory({
         ? bwiAreaFilter[0]
         : `${bwiAreaFilter.length} Areas`;
 
-  // BWI summary (establishment + householder counts) must not be tied to the "All" / "Calls" tab.
+  // BWI summary (establishment + contact counts) must not be tied to the "All" / "Calls" tab.
   // Previously, switching to "Calls" before the fetch finished aborted the in-flight request (cleanup set
   // isMounted=false), so counts and hh-derived stats stayed at zero until something triggered a refetch.
   useEffect(() => {
@@ -463,13 +461,13 @@ export function CallHistory({
       const cacheKey = `bwi-summary-data:${userId}`;
       const cached = await cacheGet<{
         establishments?: EstablishmentWithDetails[];
-        householders?: HouseholderWithDetails[];
+        contacts?: ContactWithDetails[];
       }>(cacheKey);
 
-      if (cached?.establishments || cached?.householders) {
+      if (cached?.establishments || cached?.contacts) {
         if (!cancelled) {
           setBwiEstablishments(cached.establishments || []);
-          setBwiHouseholders((cached.householders || []).filter((hh) => !!hh.establishment_id));
+          setBwiContacts((cached.contacts || []).filter((hh) => !!hh.establishment_id));
         }
       }
 
@@ -478,11 +476,11 @@ export function CallHistory({
       }
 
       try {
-        const [establishments, householders] = await getSharedEstablishmentsAndHouseholders();
+        const [establishments, contacts] = await getSharedEstablishmentsAndContacts();
         if (cancelled) return;
         setBwiEstablishments(establishments);
-        setBwiHouseholders(householders.filter((hh) => !!hh.establishment_id));
-        await cacheSet(cacheKey, { establishments, householders });
+        setBwiContacts(contacts.filter((hh) => !!hh.establishment_id));
+        await cacheSet(cacheKey, { establishments, contacts });
       } catch (error) {
         console.error("Error loading BWI summary data:", error);
       }
@@ -500,10 +498,10 @@ export function CallHistory({
     const refetchEvents: BusinessEventType[] = [
       "establishment-added",
       "establishment-updated",
-      "householder-added",
-      "householder-updated",
-      "householder-deleted",
-      "householder-archived",
+      "contact-added",
+      "contact-updated",
+      "contact-deleted",
+      "contact-archived",
       "visit-added",
       "visit-updated",
       "visit-deleted",
@@ -547,14 +545,14 @@ export function CallHistory({
     return counts;
   }, [filteredByAreaEstablishments]);
 
-  const householderStatusCounts = useMemo(() => {
+  const contactStatusCounts = useMemo(() => {
     const counts = {
       bible_study: 0,
       return_visit: 0,
       interested: 0,
       potential: 0
     };
-    filteredByAreaHouseholders.forEach((hh) => {
+    filteredByAreaContacts.forEach((hh) => {
       switch (hh.status) {
         case "bible_study":
           counts.bible_study += 1;
@@ -573,7 +571,7 @@ export function CallHistory({
       }
     });
     return counts;
-  }, [filteredByAreaHouseholders]);
+  }, [filteredByAreaContacts]);
 
   // Helper to extract just the text color class
   const getStatusTextColorClass = (status: string) => {
@@ -603,7 +601,7 @@ export function CallHistory({
   };
 
 
-  const navigateWithBwiArea = (tab: "establishments" | "householders", status: string) => {
+  const navigateWithBwiArea = (tab: "establishments" | "contacts", status: string) => {
     if (!onNavigateToBusinessWithStatus) return;
     const selectedAreas = bwiAreaFilter.map((area) => area.trim()).filter(Boolean);
     onNavigateToBusinessWithStatus(tab, status, selectedAreas.length > 0 ? selectedAreas : undefined);
@@ -677,7 +675,7 @@ export function CallHistory({
         if (!isMine) return false;
       }
       if (filters.bwiOnly && !todo.establishment_id) return false;
-      if (filters.householderOnly && !todo.householder_id) return false;
+      if (filters.contactOnly && !todo.contact_id) return false;
       return true;
     });
   }, [callTodos, filters, localSearchValue, userId]);
@@ -735,13 +733,13 @@ export function CallHistory({
     [buildCallsStreamItems.drawer]
   );
   const callsDetailsSheetTitle = useMemo(() => {
-    const hh = selectedCallsHouseholderDetails?.householder?.name?.trim();
-    if (hh) return hh;
+    const contactName = selectedCallsContactDetails?.contact?.name?.trim();
+    if (contactName) return contactName;
     const est = selectedCallsEstablishmentDetails?.establishment?.name?.trim();
     if (est) return est;
     return "Details";
   }, [
-    selectedCallsHouseholderDetails?.householder?.name,
+    selectedCallsContactDetails?.contact?.name,
     selectedCallsEstablishmentDetails?.establishment?.name,
   ]);
 
@@ -756,20 +754,20 @@ export function CallHistory({
           todo: MyOpenCallTodoItem;
         }
   ) {
-    const householderId =
-      target.kind === "visit" ? target.visit.householder_id : target.todo.householder_id;
+    const contactId =
+      target.kind === "visit" ? target.visit.contact_id : target.todo.contact_id;
     const establishmentId =
       target.kind === "visit" ? target.visit.establishment_id : target.todo.establishment_id;
 
-    if (householderId) {
+    if (contactId) {
       const fallbackName =
         target.kind === "visit"
-          ? target.visit.householder_name ?? "Contact"
+          ? target.visit.contact_name ?? "Contact"
           : target.todo.context_name ?? "Contact";
       const fallbackStatus =
         target.kind === "visit"
-          ? (target.visit.householder_status as HouseholderWithDetails["status"] | undefined) ?? "potential"
-          : (target.todo.context_status as HouseholderWithDetails["status"] | undefined) ?? "potential";
+          ? (target.visit.contact_status as ContactWithDetails["status"] | undefined) ?? "potential"
+          : (target.todo.context_status as ContactWithDetails["status"] | undefined) ?? "potential";
       const fallbackEstablishmentName =
         target.kind === "visit"
           ? target.visit.establishment_name ?? null
@@ -779,9 +777,9 @@ export function CallHistory({
           ? target.visit.establishment_status ?? null
           : target.todo.context_establishment_status ?? null;
 
-      const fallbackStub: CallsHouseholderSnapshot = {
-        householder: {
-          id: householderId,
+      const fallbackStub: CallsContactSnapshot = {
+        contact: {
+          id: contactId,
           name: fallbackName,
           status: fallbackStatus,
           note: null,
@@ -802,27 +800,27 @@ export function CallHistory({
           : null,
       };
 
-      const { snapshot, hadWarmCache } = await resolveHouseholderDetailsSnapshot(
-        householderId,
-        callsHouseholderCacheRef.current,
+      const { snapshot, hadWarmCache } = await resolveContactDetailsSnapshot(
+        contactId,
+        callsContactCacheRef.current,
         fallbackStub
       );
 
-      setSelectedCallsHouseholderDetails(snapshot);
+      setSelectedCallsContactDetails(snapshot);
       setSelectedCallsEstablishmentDetails(null);
       setCallsDetailsDrawerOpen(true);
       setIsLoadingCallsDetails(!hadWarmCache);
 
       try {
-        const details = await getHouseholderDetails(householderId);
+        const details = await getContactDetails(contactId);
         if (!details) return;
-        const nextSnapshot: CallsHouseholderSnapshot = {
-          householder: details.householder,
+        const nextSnapshot: CallsContactSnapshot = {
+          contact: details.contact,
           visits: details.visits,
           establishment: details.establishment,
         };
-        callsHouseholderCacheRef.current.set(householderId, nextSnapshot);
-        setSelectedCallsHouseholderDetails(nextSnapshot);
+        callsContactCacheRef.current.set(contactId, nextSnapshot);
+        setSelectedCallsContactDetails(nextSnapshot);
       } finally {
         setIsLoadingCallsDetails(false);
       }
@@ -858,7 +856,7 @@ export function CallHistory({
           lng: null,
         },
         visits: [],
-        householders: [],
+        contacts: [],
       };
 
       const { snapshot, hadWarmCache } = await resolveEstablishmentDetailsSnapshot(
@@ -868,7 +866,7 @@ export function CallHistory({
       );
 
       setSelectedCallsEstablishmentDetails(snapshot);
-      setSelectedCallsHouseholderDetails(null);
+      setSelectedCallsContactDetails(null);
       setCallsDetailsDrawerOpen(true);
       setIsLoadingCallsDetails(!hadWarmCache);
 
@@ -878,7 +876,7 @@ export function CallHistory({
         const nextSnapshot: CallsEstablishmentSnapshot = {
           establishment: details.establishment,
           visits: details.visits,
-          householders: details.householders,
+          contacts: details.contacts,
         };
         callsEstablishmentCacheRef.current.set(establishmentId, nextSnapshot);
         setSelectedCallsEstablishmentDetails(nextSnapshot);
@@ -893,28 +891,28 @@ export function CallHistory({
     }
   }
 
-  async function openCallsContactSubdrawer(householder: HouseholderWithDetails) {
-    const householderId = householder.id;
-    if (!householderId) return;
+  async function openCallsContactSubdrawer(contact: ContactWithDetails) {
+    const contactId = contact.id;
+    if (!contactId) return;
 
     const establishment =
       selectedCallsEstablishmentDetails?.establishment &&
-      selectedCallsEstablishmentDetails.establishment.id === householder.establishment_id
+      selectedCallsEstablishmentDetails.establishment.id === contact.establishment_id
         ? selectedCallsEstablishmentDetails.establishment
         : null;
     const fallbackEstablishmentName =
-      establishment?.name ?? householder.establishment_name ?? null;
+      establishment?.name ?? contact.establishment_name ?? null;
     const fallbackStatuses =
       establishment?.statuses && establishment.statuses.length > 0
         ? establishment.statuses
         : null;
 
-    const fallbackStub: CallsHouseholderSnapshot = {
-      householder,
+    const fallbackStub: CallsContactSnapshot = {
+      contact,
       visits: [],
-      establishment: householder.establishment_id
+      establishment: contact.establishment_id
         ? {
-            id: householder.establishment_id,
+            id: contact.establishment_id,
             name: fallbackEstablishmentName ?? "",
             area: establishment?.area ?? null,
             statuses: fallbackStatuses,
@@ -922,9 +920,9 @@ export function CallHistory({
         : null,
     };
 
-    const { snapshot, hadWarmCache } = await resolveHouseholderDetailsSnapshot(
-      householderId,
-      callsHouseholderCacheRef.current,
+    const { snapshot, hadWarmCache } = await resolveContactDetailsSnapshot(
+      contactId,
+      callsContactCacheRef.current,
       fallbackStub
     );
 
@@ -933,14 +931,14 @@ export function CallHistory({
     setIsLoadingCallsContactDetails(!hadWarmCache);
 
     try {
-      const details = await getHouseholderDetails(householderId);
+      const details = await getContactDetails(contactId);
       if (!details) return;
-      const nextSnapshot: CallsHouseholderSnapshot = {
-        householder: details.householder,
+      const nextSnapshot: CallsContactSnapshot = {
+        contact: details.contact,
         visits: details.visits,
         establishment: details.establishment,
       };
-      callsHouseholderCacheRef.current.set(householderId, nextSnapshot);
+      callsContactCacheRef.current.set(contactId, nextSnapshot);
       setSelectedCallsContactDetails(nextSnapshot);
     } finally {
       setIsLoadingCallsContactDetails(false);
@@ -954,14 +952,12 @@ export function CallHistory({
   }, []);
 
   useLayoutEffect(() => {
-    selectedCallsHouseholderDetailsRef.current = selectedCallsHouseholderDetails;
-    selectedCallsEstablishmentDetailsRef.current = selectedCallsEstablishmentDetails;
     selectedCallsContactDetailsRef.current = selectedCallsContactDetails;
+    selectedCallsEstablishmentDetailsRef.current = selectedCallsEstablishmentDetails;
     callsContactSubdrawerOpenRef.current = callsContactSubdrawerOpen;
   }, [
-    selectedCallsHouseholderDetails,
-    selectedCallsEstablishmentDetails,
     selectedCallsContactDetails,
+    selectedCallsEstablishmentDetails,
     callsContactSubdrawerOpen,
   ]);
 
@@ -975,19 +971,19 @@ export function CallHistory({
   }, []);
 
   async function refreshCallsMainDetailAfterSave() {
-    const hhId = selectedCallsHouseholderDetailsRef.current?.householder.id;
+    const hhId = selectedCallsContactDetailsRef.current?.contact.id;
     const estId = selectedCallsEstablishmentDetailsRef.current?.establishment.id;
     if (hhId) {
-      await cacheDelete(householderDetailsCacheKey(hhId));
-      const result = await getHouseholderDetails(hhId);
+      await cacheDelete(contactDetailsCacheKey(hhId));
+      const result = await getContactDetails(hhId);
       if (result) {
-        const snap: CallsHouseholderSnapshot = {
-          householder: result.householder,
+        const snap: CallsContactSnapshot = {
+          contact: result.contact,
           visits: result.visits,
           establishment: result.establishment,
         };
-        callsHouseholderCacheRef.current.set(hhId, snap);
-        setSelectedCallsHouseholderDetails(snap);
+        callsContactCacheRef.current.set(hhId, snap);
+        setSelectedCallsContactDetails(snap);
       }
     } else if (estId) {
       await cacheDelete(establishmentDetailsCacheKey(estId));
@@ -996,7 +992,7 @@ export function CallHistory({
         const snap: CallsEstablishmentSnapshot = {
           establishment: result.establishment,
           visits: result.visits,
-          householders: result.householders,
+          contacts: result.contacts,
         };
         callsEstablishmentCacheRef.current.set(estId, snap);
         setSelectedCallsEstablishmentDetails(snap);
@@ -1006,18 +1002,18 @@ export function CallHistory({
   }
 
   async function refreshCallsContactSubdrawerAfterSave() {
-    const hhId = selectedCallsContactDetailsRef.current?.householder.id;
+    const hhId = selectedCallsContactDetailsRef.current?.contact.id;
     const parentEstId = selectedCallsEstablishmentDetailsRef.current?.establishment.id;
     if (hhId) {
-      await cacheDelete(householderDetailsCacheKey(hhId));
-      const result = await getHouseholderDetails(hhId);
+      await cacheDelete(contactDetailsCacheKey(hhId));
+      const result = await getContactDetails(hhId);
       if (result) {
-        const snap: CallsHouseholderSnapshot = {
-          householder: result.householder,
+        const snap: CallsContactSnapshot = {
+          contact: result.contact,
           visits: result.visits,
           establishment: result.establishment,
         };
-        callsHouseholderCacheRef.current.set(hhId, snap);
+        callsContactCacheRef.current.set(hhId, snap);
         setSelectedCallsContactDetails(snap);
       }
     }
@@ -1028,7 +1024,7 @@ export function CallHistory({
         const snap: CallsEstablishmentSnapshot = {
           establishment: estResult.establishment,
           visits: estResult.visits,
-          householders: estResult.householders,
+          contacts: estResult.contacts,
         };
         callsEstablishmentCacheRef.current.set(parentEstId, snap);
         setSelectedCallsEstablishmentDetails(snap);
@@ -1051,13 +1047,13 @@ export function CallHistory({
     if (callsContactSubdrawerOpen) return "contactSub";
     if (!callsDetailsDrawerOpen) return null;
     if (selectedCallsEstablishmentDetails) return "estMain";
-    if (selectedCallsHouseholderDetails) return "hhMain";
+    if (selectedCallsContactDetails) return "hhMain";
     return null;
   }, [
     callsContactSubdrawerOpen,
     callsDetailsDrawerOpen,
     selectedCallsEstablishmentDetails,
-    selectedCallsHouseholderDetails,
+    selectedCallsContactDetails,
   ]);
 
   const callsDetailsFabFormConfig = useMemo(() => {
@@ -1071,18 +1067,18 @@ export function CallHistory({
       };
     }
     if (callsDetailsFabSurface === "hhMain") {
-      const hh = selectedCallsHouseholderDetails?.householder;
-      const est = selectedCallsHouseholderDetails?.establishment;
+      const hh = selectedCallsContactDetails?.contact;
+      const est = selectedCallsContactDetails?.establishment;
       if (!hh?.id || !est?.id || !est.name?.trim()) return null;
       return {
         establishments: [{ id: est.id, name: est.name }],
         selectedEstablishmentId: est.id,
-        householderId: hh.id,
-        householderName: hh.name,
-        householderStatus: hh.status,
+        contactId: hh.id,
+        contactName: hh.name,
+        contactStatus: hh.status,
       };
     }
-    const hh = selectedCallsContactDetails?.householder;
+    const hh = selectedCallsContactDetails?.contact;
     const estFromContact = selectedCallsContactDetails?.establishment;
     const est =
       estFromContact?.id && estFromContact.name
@@ -1097,14 +1093,14 @@ export function CallHistory({
     return {
       establishments: [{ id: est.id, name: est.name }],
       selectedEstablishmentId: est.id,
-      householderId: hh.id,
-      householderName: hh.name,
-      householderStatus: hh.status,
+      contactId: hh.id,
+      contactName: hh.name,
+      contactStatus: hh.status,
     };
   }, [
     callsDetailsFabSurface,
     selectedCallsEstablishmentDetails,
-    selectedCallsHouseholderDetails,
+    selectedCallsContactDetails,
     selectedCallsContactDetails,
   ]);
 
@@ -1132,13 +1128,13 @@ export function CallHistory({
           name: e.name,
         })),
         selectedEstablishmentId: callsDetailsFabFormConfig.selectedEstablishmentId,
-        householderId: callsDetailsFabFormConfig.householderId,
-        householderName: callsDetailsFabFormConfig.householderName,
-        householderStatus: callsDetailsFabFormConfig.householderStatus,
+        contactId: callsDetailsFabFormConfig.contactId,
+        contactName: callsDetailsFabFormConfig.contactName,
+        contactStatus: callsDetailsFabFormConfig.contactStatus,
         onAfterSave: async () => {
           if (
             callsContactSubdrawerOpenRef.current &&
-            selectedCallsContactDetailsRef.current?.householder.id
+            selectedCallsContactDetailsRef.current?.contact.id
           ) {
             await refreshCallsContactSubdrawerAfterSave();
           } else {
@@ -1191,15 +1187,15 @@ export function CallHistory({
   ]);
 
   const renderCallsMainDetailsBody = () => {
-    if (selectedCallsHouseholderDetails) {
+    if (selectedCallsContactDetails) {
       return (
-        <HouseholderDetails
-          householder={selectedCallsHouseholderDetails.householder}
-          visits={selectedCallsHouseholderDetails.visits}
-          establishment={selectedCallsHouseholderDetails.establishment ?? null}
+        <ContactDetails
+          contact={selectedCallsContactDetails.contact}
+          visits={selectedCallsContactDetails.visits}
+          establishment={selectedCallsContactDetails.establishment ?? null}
           establishments={
-            selectedCallsHouseholderDetails.establishment
-              ? [selectedCallsHouseholderDetails.establishment]
+            selectedCallsContactDetails.establishment
+              ? [selectedCallsContactDetails.establishment]
               : []
           }
           isLoading={isLoadingCallsDetails}
@@ -1216,10 +1212,10 @@ export function CallHistory({
         <EstablishmentDetails
           establishment={selectedCallsEstablishmentDetails.establishment}
           visits={selectedCallsEstablishmentDetails.visits}
-          householders={selectedCallsEstablishmentDetails.householders}
+          contacts={selectedCallsEstablishmentDetails.contacts}
           isLoading={isLoadingCallsDetails}
           onBackClick={() => setCallsDetailsDrawerOpen(false)}
-          onHouseholderClick={openCallsContactSubdrawer}
+          onContactClick={openCallsContactSubdrawer}
           onRequestSummaryEdit={
             callsDrawerTabletLayout ? openCallsMainSummaryEditor : undefined
           }
@@ -1234,8 +1230,8 @@ export function CallHistory({
   const renderCallsContactSubdrawerBody = () => {
     if (!selectedCallsContactDetails) return null;
     return (
-      <HouseholderDetails
-        householder={selectedCallsContactDetails.householder}
+      <ContactDetails
+        contact={selectedCallsContactDetails.contact}
         visits={selectedCallsContactDetails.visits}
         establishment={selectedCallsContactDetails.establishment ?? null}
         establishments={
@@ -1257,15 +1253,15 @@ export function CallHistory({
   const renderVisitRow = (item: CallsStreamItem, index: number, total: number, isDrawer: boolean) => {
     if (item.kind === "todo") {
       const todo = item.todo;
-      const isHouseholderTodo = !!todo.householder_id;
+      const isContactTodo = !!todo.contact_id;
       const primaryLabel =
         todo.context_name ||
-        (isHouseholderTodo ? "Contact To-Do" : "Establishment To-Do");
-      const primaryStatus = isHouseholderTodo
+        (isContactTodo ? "Contact To-Do" : "Establishment To-Do");
+      const primaryStatus = isContactTodo
         ? todo.context_status || "potential"
         : todo.context_establishment_status || todo.context_status || "for_scouting";
       const hasEstablishmentBadge =
-        isHouseholderTodo && Boolean(todo.context_establishment_name);
+        isContactTodo && Boolean(todo.context_establishment_name);
       const areaLabel = todo.context_area?.trim() ?? "";
       const displayDate = getTodoDisplayDate(todo);
       const publisherOption = todo.publisher_id ? assigneeById.get(todo.publisher_id) : undefined;
@@ -1377,14 +1373,14 @@ export function CallHistory({
       );
     }
     const visit = item.visit;
-    const isHouseholderVisit = visit.visit_type === "householder";
-    const primaryLabel = (isHouseholderVisit ? visit.householder_name : visit.establishment_name) || "Unknown";
-    const primaryStatus = isHouseholderVisit
-      ? visit.householder_status || "potential"
+    const isContactVisit = isContactVisitType(visit.visit_type);
+    const primaryLabel = (isContactVisit ? visit.contact_name : visit.establishment_name) || "Unknown";
+    const primaryStatus = isContactVisit
+      ? visit.contact_status || "potential"
       : visit.establishment_status || "for_scouting";
 
     const hasEstablishmentBadge =
-      visit.visit_type === "householder" && Boolean(visit.establishment_name);
+      isContactVisitType(visit.visit_type) && Boolean(visit.establishment_name);
     const areaLabel = visit.establishment_area?.trim() ?? "";
 
     return (
@@ -1405,7 +1401,7 @@ export function CallHistory({
               getSelectedStatusColor(primaryStatus)
             )}
           >
-            {isHouseholderVisit ? (
+            {isContactVisit ? (
               <UserRound className="h-3.5 w-3.5" aria-hidden />
             ) : (
               <Building2 className="h-3.5 w-3.5" aria-hidden />
@@ -1602,7 +1598,7 @@ export function CallHistory({
         const nextVisits = applyFilter(prev.visits);
         return nextVisits.length === prev.visits.length ? prev : { ...prev, visits: nextVisits };
       });
-      setSelectedCallsHouseholderDetails((prev) => {
+      setSelectedCallsContactDetails((prev) => {
         if (!prev) return prev;
         const nextVisits = applyFilter(prev.visits);
         return nextVisits.length === prev.visits.length ? prev : { ...prev, visits: nextVisits };
@@ -1619,10 +1615,10 @@ export function CallHistory({
           callsEstablishmentCacheRef.current.set(key, { ...snap, visits: nextVisits });
         }
       });
-      callsHouseholderCacheRef.current.forEach((snap, key) => {
+      callsContactCacheRef.current.forEach((snap, key) => {
         const nextVisits = applyFilter(snap.visits);
         if (nextVisits.length !== snap.visits.length) {
-          callsHouseholderCacheRef.current.set(key, { ...snap, visits: nextVisits });
+          callsContactCacheRef.current.set(key, { ...snap, visits: nextVisits });
         }
       });
     };
@@ -1634,7 +1630,7 @@ export function CallHistory({
       setSelectedCallsEstablishmentDetails((prev) =>
         prev ? { ...prev, visits: merge(prev.visits) } : prev
       );
-      setSelectedCallsHouseholderDetails((prev) =>
+      setSelectedCallsContactDetails((prev) =>
         prev ? { ...prev, visits: merge(prev.visits) } : prev
       );
       setSelectedCallsContactDetails((prev) =>
@@ -1644,8 +1640,8 @@ export function CallHistory({
       callsEstablishmentCacheRef.current.forEach((snap, key) => {
         callsEstablishmentCacheRef.current.set(key, { ...snap, visits: merge(snap.visits) });
       });
-      callsHouseholderCacheRef.current.forEach((snap, key) => {
-        callsHouseholderCacheRef.current.set(key, { ...snap, visits: merge(snap.visits) });
+      callsContactCacheRef.current.forEach((snap, key) => {
+        callsContactCacheRef.current.set(key, { ...snap, visits: merge(snap.visits) });
       });
     };
 
@@ -1708,44 +1704,44 @@ export function CallHistory({
         </div>
       </div>
 
-      {/* Householder Status Section */}
+      {/* Contact Status Section */}
       <div className={cn("pt-4 border-t pb-0", studyBibleDarkClasses.divider)}>
-        <div className={cn("text-xs text-muted-foreground mb-4", presentation === "summary" && "text-center", studyBibleDarkClasses.muted)}>Householder</div>
+        <div className={cn("text-xs text-muted-foreground mb-4", presentation === "summary" && "text-center", studyBibleDarkClasses.muted)}>Contacts</div>
 
         <div className={cn("grid grid-cols-2 gap-4", presentation === "summary" ? "items-center text-center" : "items-end")}>
           <BwiStatusCell
-            onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "bible_study") : undefined}
+            onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("contacts", "bible_study") : undefined}
             className={presentation === "summary" ? "text-center" : undefined}
           >
             <div className={cn(presentation === "summary" ? "text-5xl font-bold leading-tight" : "text-5xl font-semibold leading-tight", getStatusTextColorClass("bible_study"))}>
-              <NumberFlow value={householderStatusCounts.bible_study} locales="en-US" format={{ useGrouping: false }} />
+              <NumberFlow value={contactStatusCounts.bible_study} locales="en-US" format={{ useGrouping: false }} />
             </div>
             <div className={cn("mt-1 text-sm opacity-80 dark:opacity-100", studyBibleDarkClasses.muted)}>Bible Study</div>
           </BwiStatusCell>
           <BwiStatusCell
-            onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "return_visit") : undefined}
+            onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("contacts", "return_visit") : undefined}
             className={presentation === "summary" ? "text-center" : undefined}
           >
             <div className={cn(presentation === "summary" ? "text-5xl font-bold leading-tight" : "text-2xl font-semibold", getStatusTextColorClass("return_visit"))}>
-              <NumberFlow value={householderStatusCounts.return_visit} locales="en-US" format={{ useGrouping: false }} />
+              <NumberFlow value={contactStatusCounts.return_visit} locales="en-US" format={{ useGrouping: false }} />
             </div>
             <div className={cn("text-sm opacity-80 mt-0.5 dark:opacity-100", studyBibleDarkClasses.muted)}>Return Visit</div>
           </BwiStatusCell>
           <BwiStatusCell
-            onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "interested") : undefined}
+            onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("contacts", "interested") : undefined}
             className={presentation === "summary" ? "text-center" : undefined}
           >
             <div className={cn(presentation === "summary" ? "text-5xl font-bold leading-tight" : "text-2xl font-semibold", getStatusTextColorClass("interested"))}>
-              <NumberFlow value={householderStatusCounts.interested} locales="en-US" format={{ useGrouping: false }} />
+              <NumberFlow value={contactStatusCounts.interested} locales="en-US" format={{ useGrouping: false }} />
             </div>
             <div className={cn("text-sm opacity-80 mt-0.5 dark:opacity-100", studyBibleDarkClasses.muted)}>Interested</div>
           </BwiStatusCell>
           <BwiStatusCell
-            onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("householders", "potential") : undefined}
+            onClick={onNavigateToBusinessWithStatus ? () => navigateWithBwiArea("contacts", "potential") : undefined}
             className={presentation === "summary" ? "text-center" : undefined}
           >
             <div className={cn(presentation === "summary" ? "text-5xl font-bold leading-tight" : "text-2xl font-semibold", getStatusTextColorClass("potential"))}>
-              <NumberFlow value={householderStatusCounts.potential} locales="en-US" format={{ useGrouping: false }} />
+              <NumberFlow value={contactStatusCounts.potential} locales="en-US" format={{ useGrouping: false }} />
             </div>
             <div className={cn("text-sm opacity-80 mt-0.5 dark:opacity-100", studyBibleDarkClasses.muted)}>Potential</div>
           </BwiStatusCell>
@@ -1918,7 +1914,7 @@ export function CallHistory({
             if (callsDetailsDrawerOpen) {
               setCallsDetailsDrawerOpen(false);
               setSelectedCallsEstablishmentDetails(null);
-              setSelectedCallsHouseholderDetails(null);
+              setSelectedCallsContactDetails(null);
               setCallsContactSubdrawerOpen(false);
               setSelectedCallsContactDetails(null);
               setCallsDetailsEntityEditOpen(false);
@@ -1994,15 +1990,15 @@ export function CallHistory({
                 bwiActive={filters.bwiOnly}
                 bwiLabel="BWI Only"
                 onBwiActivate={() =>
-                  setFilters((prev) => ({ ...prev, bwiOnly: true, householderOnly: false }))
+                  setFilters((prev) => ({ ...prev, bwiOnly: true, contactOnly: false }))
                 }
                 onBwiClear={() => setFilters((prev) => ({ ...prev, bwiOnly: false }))}
-                householderActive={filters.householderOnly}
-                householderLabel="Personal Contacts Only"
-                onHouseholderActivate={() =>
-                  setFilters((prev) => ({ ...prev, householderOnly: true, bwiOnly: false }))
+                contactActive={filters.contactOnly}
+                contactLabel="Personal Contacts Only"
+                onContactActivate={() =>
+                  setFilters((prev) => ({ ...prev, contactOnly: true, bwiOnly: false }))
                 }
-                onHouseholderClear={() => setFilters((prev) => ({ ...prev, householderOnly: false }))}
+                onContactClear={() => setFilters((prev) => ({ ...prev, contactOnly: false }))}
                 filterBadges={filterBadges}
                 onOpenFilters={() => setShowFiltersDrawer(true)}
                 onClearFilters={clearFilters}
@@ -2151,7 +2147,7 @@ export function CallHistory({
             setCallsDetailsDrawerOpen(open);
             if (!open) {
               setSelectedCallsEstablishmentDetails(null);
-              setSelectedCallsHouseholderDetails(null);
+              setSelectedCallsContactDetails(null);
               setCallsContactSubdrawerOpen(false);
               setSelectedCallsContactDetails(null);
               setCallsDetailsEntityEditOpen(false);
@@ -2184,7 +2180,7 @@ export function CallHistory({
             setCallsDetailsDrawerOpen(open);
             if (!open) {
               setSelectedCallsEstablishmentDetails(null);
-              setSelectedCallsHouseholderDetails(null);
+              setSelectedCallsContactDetails(null);
               setCallsContactSubdrawerOpen(false);
               setSelectedCallsContactDetails(null);
               setCallsDetailsEntityEditOpen(false);
@@ -2236,7 +2232,7 @@ export function CallHistory({
                   <ChevronLeft className="h-5 w-5" />
                 </Button>
                 <DrawerTitle className="px-10 text-center text-xl font-extrabold tracking-tight">
-                  {selectedCallsContactDetails?.householder.name ?? "Contact Details"}
+                  {selectedCallsContactDetails?.contact.name ?? "Contact Details"}
                 </DrawerTitle>
               </div>
             </DrawerHeader>
@@ -2255,7 +2251,7 @@ export function CallHistory({
               setCallsContactSubdrawerEntityEditOpen(false);
             }
           }}
-          title={selectedCallsContactDetails?.householder.name?.trim() || "Contact Details"}
+          title={selectedCallsContactDetails?.contact.name?.trim() || "Contact Details"}
           contentClassName={cn(
             "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
             callsContactSubdrawerPanelClass
@@ -2290,15 +2286,15 @@ export function CallHistory({
               <DrawerTitle className="text-center text-lg font-bold">
                 {callsContactSubdrawerEntityEditOpen
                   ? "Edit Contact"
-                  : selectedCallsHouseholderDetails
+                  : selectedCallsContactDetails
                     ? "Edit Contact"
                     : "Edit Establishment"}
               </DrawerTitle>
             </DrawerHeader>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
-              {callsContactSubdrawerEntityEditOpen && selectedCallsContactDetails?.householder.id ? (
-                <HouseholderForm
-                  key={selectedCallsContactDetails.householder.id}
+              {callsContactSubdrawerEntityEditOpen && selectedCallsContactDetails?.contact.id ? (
+                <ContactForm
+                  key={selectedCallsContactDetails.contact.id}
                   establishments={
                     selectedCallsContactDetails.establishment?.id
                       ? [selectedCallsContactDetails.establishment as { id: string; name: string }]
@@ -2307,15 +2303,15 @@ export function CallHistory({
                   selectedEstablishmentId={selectedCallsContactDetails.establishment?.id ?? undefined}
                   isEditing
                   initialData={{
-                    id: selectedCallsContactDetails.householder.id,
-                    establishment_id: selectedCallsContactDetails.householder.establishment_id ?? null,
-                    name: selectedCallsContactDetails.householder.name,
+                    id: selectedCallsContactDetails.contact.id,
+                    establishment_id: selectedCallsContactDetails.contact.establishment_id ?? null,
+                    name: selectedCallsContactDetails.contact.name,
                     status:
-                      (selectedCallsContactDetails.householder.status as HouseholderStatus) ?? "potential",
-                    note: selectedCallsContactDetails.householder.note ?? null,
-                    lat: selectedCallsContactDetails.householder.lat ?? null,
-                    lng: selectedCallsContactDetails.householder.lng ?? null,
-                    publisher_id: selectedCallsContactDetails.householder.publisher_id ?? null,
+                      (selectedCallsContactDetails.contact.status as ContactStatus) ?? "potential",
+                    note: selectedCallsContactDetails.contact.note ?? null,
+                    lat: selectedCallsContactDetails.contact.lat ?? null,
+                    lng: selectedCallsContactDetails.contact.lng ?? null,
+                    publisher_id: selectedCallsContactDetails.contact.publisher_id ?? null,
                   }}
                   disableEstablishmentSelect={!!selectedCallsContactDetails.establishment?.id}
                   onSaved={() => {
@@ -2323,28 +2319,28 @@ export function CallHistory({
                     void refreshCallsContactSubdrawerAfterSave();
                   }}
                 />
-              ) : selectedCallsHouseholderDetails?.householder.id ? (
-                <HouseholderForm
-                  key={selectedCallsHouseholderDetails.householder.id}
+              ) : selectedCallsContactDetails?.contact.id ? (
+                <ContactForm
+                  key={selectedCallsContactDetails.contact.id}
                   establishments={
-                    selectedCallsHouseholderDetails.establishment?.id
-                      ? [selectedCallsHouseholderDetails.establishment as { id: string; name: string }]
+                    selectedCallsContactDetails.establishment?.id
+                      ? [selectedCallsContactDetails.establishment as { id: string; name: string }]
                       : []
                   }
-                  selectedEstablishmentId={selectedCallsHouseholderDetails.establishment?.id ?? undefined}
+                  selectedEstablishmentId={selectedCallsContactDetails.establishment?.id ?? undefined}
                   isEditing
                   initialData={{
-                    id: selectedCallsHouseholderDetails.householder.id,
-                    establishment_id: selectedCallsHouseholderDetails.householder.establishment_id ?? null,
-                    name: selectedCallsHouseholderDetails.householder.name,
+                    id: selectedCallsContactDetails.contact.id,
+                    establishment_id: selectedCallsContactDetails.contact.establishment_id ?? null,
+                    name: selectedCallsContactDetails.contact.name,
                     status:
-                      (selectedCallsHouseholderDetails.householder.status as HouseholderStatus) ?? "potential",
-                    note: selectedCallsHouseholderDetails.householder.note ?? null,
-                    lat: selectedCallsHouseholderDetails.householder.lat ?? null,
-                    lng: selectedCallsHouseholderDetails.householder.lng ?? null,
-                    publisher_id: selectedCallsHouseholderDetails.householder.publisher_id ?? null,
+                      (selectedCallsContactDetails.contact.status as ContactStatus) ?? "potential",
+                    note: selectedCallsContactDetails.contact.note ?? null,
+                    lat: selectedCallsContactDetails.contact.lat ?? null,
+                    lng: selectedCallsContactDetails.contact.lng ?? null,
+                    publisher_id: selectedCallsContactDetails.contact.publisher_id ?? null,
                   }}
-                  disableEstablishmentSelect={!!selectedCallsHouseholderDetails.establishment?.id}
+                  disableEstablishmentSelect={!!selectedCallsContactDetails.establishment?.id}
                   onSaved={() => {
                     setCallsDetailsEntityEditOpen(false);
                     void refreshCallsMainDetailAfterSave();

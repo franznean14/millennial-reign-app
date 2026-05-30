@@ -27,12 +27,12 @@ import { getStudyBibleDarkCardShade } from "@/lib/theme/study-bible-dark";
 
 interface CallSectionProps {
   visits: VisitWithUser[];
-  isHouseholderContext?: boolean;
+  isContactContext?: boolean;
   establishments?: Array<{ id?: string; name: string }>;
   selectedEstablishmentId?: string;
-  householderId?: string;
-  householderName?: string;
-  householderStatus?: string;
+  contactId?: string;
+  contactName?: string;
+  contactStatus?: string;
   onVisitUpdated?: () => void;
   isLoading?: boolean;
   /** On tablet+, open full calls list in a left sheet (single column) instead of centered dialog / bottom sheet. */
@@ -46,12 +46,12 @@ interface CallSectionProps {
 
 export function CallSection({
   visits,
-  isHouseholderContext = false,
+  isContactContext = false,
   establishments = [],
   selectedEstablishmentId,
-  householderId,
-  householderName,
-  householderStatus,
+  contactId,
+  contactName,
+  contactStatus,
   onVisitUpdated,
   isLoading = false,
   preferLeftDetailPanel = false,
@@ -62,7 +62,7 @@ export function CallSection({
   const isMdUp = useMediaQuery("(min-width: 768px)");
   const useLeftPanel = Boolean(preferLeftDetailPanel && isMdUp);
   const elevatedLeftPanels = Boolean(useLeftPanel && insideStackedContactPane);
-  const callSectionScope = householderId ?? selectedEstablishmentId ?? "anon";
+  const callSectionScope = contactId ?? selectedEstablishmentId ?? "anon";
   const callsListPaneShade = useMemo(
     () => getStudyBibleDarkCardShade(`bwi-callsection-list:${callSectionScope}`),
     [callSectionScope]
@@ -95,8 +95,8 @@ export function CallSection({
         dot={
           <div
             className={`relative ${dotSizeClass} rounded-full flex-shrink-0 border-2 ${
-              visit.householder_id
-                ? getStatusDotColor(visit.householder?.status || "potential")
+              visit.contact_id
+                ? getStatusDotColor(visit.contact?.status || "potential")
                 : getStatusDotColor(visit.establishment?.status || "for_scouting")
             }`}
             style={{ zIndex: 1 }}
@@ -118,10 +118,10 @@ export function CallSection({
         <VisitRowContent
           title={formatVisitDateShort(visit.visit_date)}
           titleBadge={
-            visit.householder_id && visit.householder?.name && !isHouseholderContext ? (
+            visit.contact_id && visit.contact?.name && !isContactContext ? (
               <VisitStatusBadge
-                status={visit.householder.status || "potential"}
-                label={visit.householder.name}
+                status={visit.contact.status || "potential"}
+                label={visit.contact.name}
               />
             ) : undefined
           }
@@ -192,10 +192,10 @@ export function CallSection({
         establishments={establishments}
         selectedEstablishmentId={selectedEstablishmentId}
         initialVisit={editVisit}
-        householderId={householderId}
-        householderName={householderName}
-        householderStatus={householderStatus}
-        disableEstablishmentSelect={!!selectedEstablishmentId || !!householderId}
+        contactId={contactId}
+        contactName={contactName}
+        contactStatus={contactStatus}
+        disableEstablishmentSelect={!!selectedEstablishmentId || !!contactId}
         onSaved={() => {
           setEditVisit(null);
           onVisitUpdated?.();

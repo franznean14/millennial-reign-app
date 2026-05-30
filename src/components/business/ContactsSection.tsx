@@ -4,7 +4,7 @@ import React, { useMemo, useState } from "react";
 import { BookOpen, ChevronRight } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { type HouseholderWithDetails } from "@/lib/db/business";
+import { type ContactWithDetails } from "@/lib/db/business";
 import { formatStatusText } from "@/lib/utils/formatters";
 import { FormDrawerRoot, FormDrawerContent } from "@/components/shared/FormDrawerPhone";
 import { drawerFormScrollPadClass } from "@/lib/theme/form-drawer-phone";
@@ -21,8 +21,8 @@ import { getStudyBibleDarkCardShade } from "@/lib/theme/study-bible-dark";
 
 const CONTACTS_PREVIEW_MAX = 5;
 
-/** Matches EstablishmentDetails / HomeTodoCard badge styling for householder status. */
-function getHouseholderStatusColorClass(status: string) {
+/** Matches EstablishmentDetails / HomeTodoCard badge styling for contact status. */
+function getContactStatusColorClass(status: string) {
   switch (status) {
     case "potential":
       return "text-cyan-600 border-cyan-200 bg-cyan-50 dark:text-cyan-400 dark:border-cyan-800 dark:bg-cyan-950";
@@ -42,14 +42,14 @@ function getHouseholderStatusColorClass(status: string) {
   }
 }
 
-function dedupeHouseholders(rows: HouseholderWithDetails[]) {
+function dedupeContacts(rows: ContactWithDetails[]) {
   return rows.filter((h, i, self) => i === self.findIndex((x) => x.id === h.id));
 }
 
 interface ContactsSectionProps {
-  householders: HouseholderWithDetails[];
+  contacts: ContactWithDetails[];
   establishmentId: string;
-  onHouseholderClick?: (householder: HouseholderWithDetails) => void;
+  onContactClick?: (contact: ContactWithDetails) => void;
   isLoading?: boolean;
   /** Tablet+: full contacts list opens in a left sheet (same pattern as {@link CallSection}). */
   preferLeftDetailPanel?: boolean;
@@ -60,9 +60,9 @@ interface ContactsSectionProps {
 }
 
 export function ContactsSection({
-  householders,
+  contacts,
   establishmentId,
-  onHouseholderClick,
+  onContactClick,
   isLoading = false,
   preferLeftDetailPanel = false,
   insideStackedContactPane = false,
@@ -71,10 +71,10 @@ export function ContactsSection({
   const isMdUp = useMediaQuery("(min-width: 768px)");
   const useLeftPanel = Boolean(preferLeftDetailPanel && isMdUp);
 
-  const uniqueHouseholders = useMemo(() => dedupeHouseholders(householders), [householders]);
-  const previewHouseholders = useMemo(
-    () => uniqueHouseholders.slice(0, CONTACTS_PREVIEW_MAX),
-    [uniqueHouseholders]
+  const uniqueContacts = useMemo(() => dedupeContacts(contacts), [contacts]);
+  const previewContacts = useMemo(
+    () => uniqueContacts.slice(0, CONTACTS_PREVIEW_MAX),
+    [uniqueContacts]
   );
 
   const contactsListPaneShade = useMemo(
@@ -83,10 +83,10 @@ export function ContactsSection({
   );
 
   const renderContactRow = (
-    householder: HouseholderWithDetails,
+    contact: ContactWithDetails,
     opts: { variant: "preview" | "drawer" }
   ) => {
-    const initials = householder.name
+    const initials = contact.name
       .split(" ")
       .filter(Boolean)
       .slice(0, 2)
@@ -97,7 +97,7 @@ export function ContactsSection({
 
     return (
       <button
-        key={`${opts.variant}-${householder.id}`}
+        key={`${opts.variant}-${contact.id}`}
         type="button"
         className={cn(
           "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors",
@@ -109,7 +109,7 @@ export function ContactsSection({
           // Mobile bottom sheet: close the list so contact details read cleanly.
           // Tablet left sheet: keep the contacts sidebar open beside establishment + contact detail stack.
           if (opts.variant === "drawer" && !useLeftPanel) setDrawerOpen(false);
-          onHouseholderClick?.(householder);
+          onContactClick?.(contact);
         }}
       >
         <Avatar className="h-9 w-9 shrink-0">
@@ -117,19 +117,19 @@ export function ContactsSection({
         </Avatar>
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-3">
-            <p className="truncate text-sm font-medium">{householder.name}</p>
+            <p className="truncate text-sm font-medium">{contact.name}</p>
             <Badge
               variant="outline"
               className={cn(
                 "h-5 px-2 py-0.5 text-xs leading-none",
-                getHouseholderStatusColorClass(householder.status)
+                getContactStatusColorClass(contact.status)
               )}
             >
-              {formatStatusText(householder.status)}
+              {formatStatusText(contact.status)}
             </Badge>
           </div>
-          {householder.note ? (
-            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{householder.note}</p>
+          {contact.note ? (
+            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{contact.note}</p>
           ) : null}
         </div>
       </button>
@@ -159,7 +159,7 @@ export function ContactsSection({
             </div>
           ))}
         </div>
-      ) : uniqueHouseholders.length === 0 ? (
+      ) : uniqueContacts.length === 0 ? (
         <div className="px-4 py-8 text-center text-muted-foreground">
           <BookOpen className="mx-auto mb-4 h-12 w-12 opacity-50" />
           <p>No contacts yet</p>
@@ -167,7 +167,7 @@ export function ContactsSection({
         </div>
       ) : (
         <div className="space-y-2">
-          {uniqueHouseholders.map((h) => renderContactRow(h, { variant: "drawer" }))}
+          {uniqueContacts.map((h) => renderContactRow(h, { variant: "drawer" }))}
         </div>
       )}
     </div>
@@ -182,7 +182,7 @@ export function ContactsSection({
       >
         <BookOpen className="h-5 w-5 shrink-0" />
         <span className="min-w-0 flex-1">
-          Contacts{uniqueHouseholders.length ? ` (${uniqueHouseholders.length})` : ""}
+          Contacts{uniqueContacts.length ? ` (${uniqueContacts.length})` : ""}
         </span>
         <ChevronRight className="h-4 w-4 shrink-0 opacity-80" />
       </button>
@@ -202,7 +202,7 @@ export function ContactsSection({
             </div>
           ))}
         </div>
-      ) : previewHouseholders.length === 0 ? (
+      ) : previewContacts.length === 0 ? (
         <div className="text-center text-muted-foreground">
           <BookOpen className="mx-auto mb-4 h-12 w-12 opacity-50" />
           <p>No contacts yet</p>
@@ -210,7 +210,7 @@ export function ContactsSection({
         </div>
       ) : (
         <div className="space-y-2">
-          {previewHouseholders.map((h) => renderContactRow(h, { variant: "preview" }))}
+          {previewContacts.map((h) => renderContactRow(h, { variant: "preview" }))}
         </div>
       )}
 

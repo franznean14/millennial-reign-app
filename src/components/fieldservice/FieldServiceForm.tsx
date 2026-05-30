@@ -10,7 +10,7 @@ import { getDailyRecord, listDailyByMonth, upsertDailyRecord, isDailyEmpty, dele
 import { useMobile } from "@/lib/hooks/use-mobile";
 import { motion } from "framer-motion";
 import { NumberFlowInput } from "@/components/ui/number-flow-input";
-import { getPersonalContactHouseholders, listEstablishments } from "@/lib/db/business";
+import { getPersonalContacts, listEstablishments } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { outboxEnqueue } from "@/lib/offline/store";
@@ -68,7 +68,7 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
   const [editVisit, setEditVisit] = useState<{
     id: string;
     establishment_id?: string | null;
-    householder_id?: string | null;
+    contact_id?: string | null;
     note?: string | null;
     publisher_id?: string | null;
     partner_id?: string | null;
@@ -282,9 +282,9 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
     return study.startsWith("visit:");
   };
 
-  // Helper to check if a study entry is a householder ID (legacy support)
-  const isHouseholderId = (study: string): boolean => {
-    return study.startsWith("householder:");
+  // Helper to check if a study entry is a contact ID (legacy support)
+  const isContactId = (study: string): boolean => {
+    return study.startsWith("contact:");
   };
 
   // Helper to get visit ID from study entry
@@ -295,18 +295,18 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
     return null;
   };
 
-  // Helper to get householder ID from study entry (legacy support)
-  const getHouseholderId = (study: string): string | null => {
-    if (isHouseholderId(study)) {
-      return study.replace("householder:", "");
+  // Helper to get contact ID from study entry (legacy support)
+  const getContactId = (study: string): string | null => {
+    if (isContactId(study)) {
+      return study.replace("contact:", "");
     }
     return null;
   };
 
-  // State to cache visit-to-householder name mappings
+  // State to cache visit-to-contact name mappings
   const [visitNamesCache, setVisitNamesCache] = useState<Map<string, string>>(new Map());
-  // State to cache visit-to-householder ID mappings (for filtering)
-  const [visitHouseholderIdCache, setVisitHouseholderIdCache] = useState<Map<string, string>>(new Map());
+  // State to cache visit-to-contact ID mappings (for filtering)
+  const [visitContactIdCache, setVisitContactIdCache] = useState<Map<string, string>>(new Map());
   // Track which visit IDs are currently loading
   const [loadingVisitIds, setLoadingVisitIds] = useState<Set<string>>(new Set());
 
@@ -331,23 +331,23 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
       if (isOffline && missingIds.length > 0) {
         const { cacheGet } = await import("@/lib/offline/store");
         const newCache = new Map(visitNamesCache);
-        const newHouseholderIdCache = new Map(visitHouseholderIdCache);
+        const newContactIdCache = new Map(visitContactIdCache);
         
         for (const visitId of missingIds) {
           // Try to load from visit name cache
           const cachedName = await cacheGet<string>(`visit:${visitId}:name`);
-          const cachedHouseholderId = await cacheGet<string>(`visit:${visitId}:householder_id`);
+          const cachedContactId = await cacheGet<string>(`visit:${visitId}:householder_id`);
           
           if (cachedName) {
             newCache.set(visitId, cachedName);
           }
-          if (cachedHouseholderId) {
-            newHouseholderIdCache.set(visitId, cachedHouseholderId);
+          if (cachedContactId) {
+            newContactIdCache.set(visitId, cachedContactId);
           }
         }
         
         setVisitNamesCache(newCache);
-        setVisitHouseholderIdCache(newHouseholderIdCache);
+        setVisitContactIdCache(newContactIdCache);
         setLoadingVisitIds(new Set());
         return;
       }
@@ -377,21 +377,21 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
 
         const { cacheSet } = await import("@/lib/offline/store");
         const newCache = new Map(visitNamesCache);
-        const newHouseholderIdCache = new Map(visitHouseholderIdCache);
+        const newContactIdCache = new Map(visitContactIdCache);
         visits?.forEach((visit: any) => {
-          if (visit.householders && visit.householders.name) {
-            newCache.set(visit.id, visit.householders.name);
+          if (visit.contacts && visit.contacts.name) {
+            newCache.set(visit.id, visit.contacts.name);
             // Cache for offline access
-            cacheSet(`visit:${visit.id}:name`, visit.householders.name);
+            cacheSet(`visit:${visit.id}:name`, visit.contacts.name);
           }
-          if (visit.householder_id) {
-            newHouseholderIdCache.set(visit.id, visit.householder_id);
+          if (visit.contact_id) {
+            newContactIdCache.set(visit.id, visit.contact_id);
             // Cache for offline access
-            cacheSet(`visit:${visit.id}:householder_id`, visit.householder_id);
+            cacheSet(`visit:${visit.id}:householder_id`, visit.contact_id);
           }
         });
         setVisitNamesCache(newCache);
-        setVisitHouseholderIdCache(newHouseholderIdCache);
+        setVisitContactIdCache(newContactIdCache);
         
         // Clear loading state for successfully loaded visits
         setLoadingVisitIds(prev => {
@@ -443,10 +443,10 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
       return null;
     }
 
-    // Legacy support for householder ID
-    const householderId = getHouseholderId(study);
-    if (householderId) {
-      const contact = personalContacts.find(c => c.id === householderId);
+    // Legacy support for contact ID
+    const contactId = getContactId(study);
+    if (contactId) {
+      const contact = personalContacts.find(c => c.id === contactId);
       return contact ? contact.name : study;
     }
 
@@ -456,33 +456,33 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
 
   const addStudy = async (
     nameOrId: string,
-    isHouseholderIdParam: boolean = false,
-    householderNameParam?: string
+    isContactIdParam: boolean = false,
+    contactNameParam?: string
   ) => {
     const trimmed = nameOrId.trim();
     if (!trimmed) return;
     
-    let householderId: string | null = null;
-    let householderName: string = householderNameParam?.trim() || trimmed;
+    let contactId: string | null = null;
+    let contactName: string = contactNameParam?.trim() || trimmed;
 
-    if (isHouseholderIdParam && !householderNameParam) {
+    if (isContactIdParam && !contactNameParam) {
       const contact = personalContacts.find(c => c.id === trimmed);
-      if (contact?.name) householderName = contact.name;
+      if (contact?.name) contactName = contact.name;
     }
     
     // OPTIMISTIC UI UPDATE: Add temporary placeholder immediately for instant feedback
-    const tempPlaceholder = `temp:${householderName}`;
+    const tempPlaceholder = `temp:${contactName}`;
     
     // Check if already exists before adding
     const currentStudies = studiesRef.current;
     if (currentStudies.includes(tempPlaceholder)) return;
     if (currentStudies.some(s => {
       const visitId = getVisitId(s);
-      const hhId = getHouseholderId(s);
-      if (isHouseholderIdParam && hhId === trimmed) return true;
+      const hhId = getContactId(s);
+      if (isContactIdParam && hhId === trimmed) return true;
       if (visitId) {
-        const visitHouseholderId = visitHouseholderIdCache.get(visitId);
-        if (visitHouseholderId === trimmed) return true;
+        const visitContactId = visitContactIdCache.get(visitId);
+        if (visitContactId === trimmed) return true;
       }
       return false;
     })) return;
@@ -493,11 +493,11 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
       if (s.includes(tempPlaceholder)) return s;
       if (s.some(existing => {
         const visitId = getVisitId(existing);
-        const hhId = getHouseholderId(existing);
-        if (isHouseholderIdParam && hhId === trimmed) return true;
+        const hhId = getContactId(existing);
+        if (isContactIdParam && hhId === trimmed) return true;
         if (visitId) {
-          const visitHouseholderId = visitHouseholderIdCache.get(visitId);
-          if (visitHouseholderId === trimmed) return true;
+          const visitContactId = visitContactIdCache.get(visitId);
+          if (visitContactId === trimmed) return true;
         }
         return false;
       })) return s;
@@ -508,27 +508,27 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
     
     // Now do async operations in the background
     try {
-      if (isHouseholderIdParam) {
-        // It's already a householder ID from the dropdown
-        householderId = trimmed;
-        // Get the householder name from personal contacts
+      if (isContactIdParam) {
+        // It's already a contact ID from the dropdown
+        contactId = trimmed;
+        // Get the contact name from personal contacts
         const contact = personalContacts.find(c => c.id === trimmed);
         if (contact) {
-          householderName = contact.name;
+          contactName = contact.name;
         } else {
           // Need to fetch the name
-          const { listHouseholders } = await import("@/lib/db/business");
-          const allHouseholders = await listHouseholders();
-          const householder = allHouseholders.find(h => h.id === trimmed);
-          if (householder) {
-            householderName = householder.name;
+          const { listContacts } = await import("@/lib/db/business");
+          const allContacts = await listContacts();
+          const contact = allContacts.find(h => h.id === trimmed);
+          if (contact) {
+            contactName = contact.name;
           }
         }
       } else {
-        // It's a custom name - create a householder automatically
+        // It's a custom name - create a contact automatically
         try {
-          const { upsertHouseholder } = await import("@/lib/db/business");
-          const newHouseholder = await upsertHouseholder({
+          const { upsertContact } = await import("@/lib/db/business");
+          const newContact = await upsertContact({
             name: trimmed,
             status: "bible_study",
             publisher_id: userId,
@@ -538,13 +538,13 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
             lng: null
           });
           
-          if (newHouseholder && newHouseholder.id) {
-            householderId = newHouseholder.id;
-            householderName = newHouseholder.name;
+          if (newContact && newContact.id) {
+            contactId = newContact.id;
+            contactName = newContact.name;
             // Refresh personal contacts to include the new one
-            const contacts = await getPersonalContactHouseholders(userId);
+            const contacts = await getPersonalContacts(userId);
             setPersonalContacts(contacts);
-            toast.success(`Created householder: ${trimmed}`);
+            toast.success(`Created contact: ${trimmed}`);
           } else {
             // Fallback to plain text if creation fails
             // Replace temp placeholder with plain text
@@ -557,11 +557,11 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
             pendingAddsRef.current.add(trimmed);
             persistPendingForDate(dateRef.current);
             setDirty(true);
-            toast.error("Failed to create householder. Using name only.");
+            toast.error("Failed to create contact. Using name only.");
             return;
           }
         } catch (error: any) {
-          console.error('Error creating householder:', error);
+          console.error('Error creating contact:', error);
           // Replace temp placeholder with plain text
           setStudies((s) => {
             const filtered = s.filter(entry => entry !== tempPlaceholder);
@@ -572,45 +572,45 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
           pendingAddsRef.current.add(trimmed);
           persistPendingForDate(dateRef.current);
           setDirty(true);
-          toast.error(error?.message || "Failed to create householder. Using name only.");
+          toast.error(error?.message || "Failed to create contact. Using name only.");
           return;
         }
       }
       
-      // If we have a householder ID, create a visit entry, then replace temp placeholder with visit:ID
-      if (householderId) {
+      // If we have a contact ID, create a visit entry, then replace temp placeholder with visit:ID
+      if (contactId) {
         try {
-          const { upsertHouseholder, listHouseholders } = await import("@/lib/db/business");
+          const { upsertContact, listContacts } = await import("@/lib/db/business");
           
-          // Get the householder to check current status
-          const allHouseholders = await listHouseholders();
-          const householder = allHouseholders.find(h => h.id === householderId);
+          // Get the contact to check current status
+          const allContacts = await listContacts();
+          const contact = allContacts.find(h => h.id === contactId);
           
-          if (!householder) {
+          if (!contact) {
             // Remove temp placeholder on error
             setStudies((s) => s.filter(entry => entry !== tempPlaceholder));
-            toast.error("Householder not found");
+            toast.error("Contact not found");
             return;
           }
 
-          let updatedHouseholder = householder;
+          let updatedContact = contact;
           
           // Update status to bible_study if not already
-          if (householder.status !== "bible_study") {
-            const updated = await upsertHouseholder({
-              id: householder.id,
-              name: householder.name,
+          if (contact.status !== "bible_study") {
+            const updated = await upsertContact({
+              id: contact.id,
+              name: contact.name,
               status: "bible_study",
-              publisher_id: householder.publisher_id,
-              note: householder.note,
-              establishment_id: householder.establishment_id,
-              lat: householder.lat,
-              lng: householder.lng
+              publisher_id: contact.publisher_id,
+              note: contact.note,
+              establishment_id: contact.establishment_id,
+              lat: contact.lat,
+              lng: contact.lng
             });
             
             if (updated) {
-              updatedHouseholder = {
-                ...householder,
+              updatedContact = {
+                ...contact,
                 status: "bible_study"
               };
             }
@@ -632,8 +632,8 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
               type: "add_bible_study_with_visit",
               payload: {
                 p_visit_date: date,
-                p_householder_id: householderId,
-                p_establishment_id: householder.establishment_id ?? null,
+                p_householder_id: contactId,
+                p_establishment_id: contact.establishment_id ?? null,
                 p_note: BIBLE_STUDY_CALL_NOTE,
                 p_visit_id: visitId
               }
@@ -644,14 +644,14 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
             await supabase.auth.getSession();
             const { data, error } = await supabase.rpc("add_bible_study_with_visit", {
               p_visit_date: date,
-              p_householder_id: householderId,
-              p_establishment_id: householder.establishment_id ?? null,
+              p_householder_id: contactId,
+              p_establishment_id: contact.establishment_id ?? null,
               p_note: BIBLE_STUDY_CALL_NOTE,
               p_visit_id: null
             });
 
             if (error || !data || data.length === 0) {
-              console.error('Failed to create visit entry via RPC:', { error, householderId, userId, date });
+              console.error('Failed to create visit entry via RPC:', { error, contactId, userId, date });
               // Remove temp placeholder on error
               setStudies((s) => s.filter(entry => entry !== tempPlaceholder));
               toast.error("Failed to create visit entry");
@@ -699,15 +699,15 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
           pendingAddsRef.current.add(studyEntry);
           persistPendingForDate(dateRef.current);
           
-          // Load the visit name and householder ID into cache immediately
+          // Load the visit name and contact ID into cache immediately
           setVisitNamesCache(prev => {
             const newCache = new Map(prev);
-            newCache.set(visitId, householder.name);
+            newCache.set(visitId, contact.name);
             return newCache;
           });
-          setVisitHouseholderIdCache(prev => {
+          setVisitContactIdCache(prev => {
             const newCache = new Map(prev);
-            newCache.set(visitId, householderId as string);
+            newCache.set(visitId, contactId as string);
             return newCache;
           });
           
@@ -715,16 +715,16 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
           try {
             const visitEvent = {
               id: visitId,
-              establishment_id: householder.establishment_id ?? null,
-              householder_id: householderId,
+              establishment_id: contact.establishment_id ?? null,
+              householder_id: contactId,
               note: BIBLE_STUDY_CALL_NOTE,
               publisher_id: userId,
               partner_id: null,
               visit_date: date
             };
-            window.dispatchEvent(new CustomEvent('visit-added', { detail: { householderId, date, visitId } }));
+            window.dispatchEvent(new CustomEvent('visit-added', { detail: { contactId, date, visitId } }));
             businessEventBus.emit('visit-added', visitEvent);
-            businessEventBus.emit('householder-updated', updatedHouseholder);
+            businessEventBus.emit('contact-updated', updatedContact);
           } catch {}
           
           // Mark as dirty to trigger save
@@ -846,11 +846,11 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
     return Array.from({ length: 12 }, (_, i) => start + i);
   }, [view]);
 
-  // Load personal contact householders
+  // Load personal contact contacts
   useEffect(() => {
     const loadPersonalContacts = async () => {
       try {
-        const contacts = await getPersonalContactHouseholders(userId);
+        const contacts = await getPersonalContacts(userId);
         setPersonalContacts(contacts);
       } catch (error) {
         console.error('Error loading personal contacts:', error);
@@ -956,14 +956,14 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
         <CallForm
           establishments={establishments}
           initialVisit={editVisit}
-          householderId={editVisit.householder_id || undefined}
-          householderName={visitNamesCache.get(editVisitId) || undefined}
+          contactId={editVisit.contact_id || undefined}
+          contactName={visitNamesCache.get(editVisitId) || undefined}
           onSaved={() => {
             setEditVisitId(null);
             // Refresh the studies to get updated visit data
             load(date);
           }}
-          disableEstablishmentSelect={!!editVisit.householder_id}
+          disableEstablishmentSelect={!!editVisit.contact_id}
         />
       </div>
     );
@@ -1256,7 +1256,7 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
                       contact.name.toLowerCase().includes(bibleStudiesInputValue.toLowerCase())
                     )
                     .filter(contact => {
-                      // Check if contact is already added (by visit ID or householder ID)
+                      // Check if contact is already added (by visit ID or contact ID)
                       // Also check temporary placeholders
                       return !studies.some(s => {
                         // Skip temporary placeholders in this check (they're being processed)
@@ -1266,17 +1266,17 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
                         }
                         
                         const visitId = getVisitId(s);
-                        const hhId = getHouseholderId(s);
+                        const hhId = getContactId(s);
                         
-                        // Check legacy householder ID format
+                        // Check legacy contact ID format
                         if (hhId === contact.id) {
                           return true;
                         }
                         
                         // Check if this contact is linked to any visit in the studies list
                         if (visitId) {
-                          const visitHouseholderId = visitHouseholderIdCache.get(visitId);
-                          if (visitHouseholderId === contact.id) {
+                          const visitContactId = visitContactIdCache.get(visitId);
+                          if (visitContactId === contact.id) {
                             return true;
                           }
                         }
@@ -1307,7 +1307,7 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
                     !bibleStudiesInputValue || 
                     contact.name.toLowerCase().includes(bibleStudiesInputValue.toLowerCase())
                   ).filter(contact => 
-                    !studies.some(s => getHouseholderId(s) === contact.id)
+                    !studies.some(s => getContactId(s) === contact.id)
                   ).length === 0 && (
                     <div className="text-xs text-muted-foreground px-2 py-2 text-center">
                       No available contacts

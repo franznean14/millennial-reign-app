@@ -2,14 +2,15 @@
 
 import { useCallback } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import type { EstablishmentWithDetails, HouseholderWithDetails } from "@/lib/db/business";
+import type { EstablishmentWithDetails, ContactWithDetails } from "@/lib/db/business";
 import type { VisitRecord } from "@/lib/utils/visit-history";
 import { HomeView } from "@/components/views/HomeView";
 import { SectionShell } from "@/components/shared/SectionShell";
 import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 import { cn } from "@/lib/utils";
+import { isContactVisitType } from "@/lib/db/contact-supabase";
 
-type BusinessTab = "establishments" | "householders" | "map";
+type BusinessTab = "establishments" | "contacts" | "map";
 type HomeTab = "summary" | "events";
 
 interface HomeSectionProps {
@@ -20,7 +21,7 @@ interface HomeSectionProps {
   onBwiAreaChange: (areas: string[]) => void;
   onNavigateToCongregation: () => void;
   onNavigateToBusinessWithStatus?: (
-    tab: "establishments" | "householders",
+    tab: "establishments" | "contacts",
     status: string,
     areas?: string | string[]
   ) => void;
@@ -31,9 +32,9 @@ interface HomeSectionProps {
   pushNavigation: (section: string) => void;
   setBusinessTab: (tab: BusinessTab) => void;
   setSelectedEstablishment: (establishment: EstablishmentWithDetails | null) => void;
-  setSelectedHouseholder: (householder: HouseholderWithDetails | null) => void;
+  setSelectedContact: (contact: ContactWithDetails | null) => void;
   loadEstablishmentDetails: (establishmentId: string) => void;
-  loadHouseholderDetails: (householderId: string) => void;
+  loadContactDetails: (contactId: string) => void;
 }
 
 export function HomeSection({
@@ -50,28 +51,28 @@ export function HomeSection({
   pushNavigation,
   setBusinessTab,
   setSelectedEstablishment,
-  setSelectedHouseholder,
+  setSelectedContact,
   loadEstablishmentDetails,
-  loadHouseholderDetails
+  loadContactDetails
 }: HomeSectionProps) {
   const handleNavigateToTodoCall = useCallback(
-    async (params: { establishmentId?: string; householderId?: string }) => {
+    async (params: { establishmentId?: string; contactId?: string }) => {
       if (params.establishmentId) {
         setBusinessTab("establishments");
         pushNavigation(currentSection);
         await loadEstablishmentDetails(params.establishmentId);
         onSectionChange("business");
-      } else if (params.householderId) {
-        setBusinessTab("householders");
+      } else if (params.contactId) {
+        setBusinessTab("contacts");
         pushNavigation(currentSection);
-        await loadHouseholderDetails(params.householderId);
+        await loadContactDetails(params.contactId);
         onSectionChange("business");
       }
     },
     [
       currentSection,
       loadEstablishmentDetails,
-      loadHouseholderDetails,
+      loadContactDetails,
       onSectionChange,
       pushNavigation,
       setBusinessTab,
@@ -108,47 +109,47 @@ export function HomeSection({
         } catch (error) {
           console.error("Error loading establishment:", error);
         }
-      } else if (visit.visit_type === "householder" && visit.householder_id) {
+      } else if (isContactVisitType(visit.visit_type) && visit.contact_id) {
         try {
           const supabase = createSupabaseBrowserClient();
-          const { data: householder, error } = await supabase
+          const { data: contact, error } = await supabase
             .from("householders")
             .select(
               "id, name, status, note, establishment_id, publisher_id, lat, lng, created_at"
             )
-            .eq("id", visit.householder_id)
+            .eq("id", visit.contact_id)
             .maybeSingle();
 
-          if (householder && !error) {
-            // Allow navigation to householder details regardless of establishment_id
-            // Personal contacts (householders with publisher_id) may not have an establishment_id
-            setSelectedHouseholder(householder);
-            setBusinessTab("householders");
+          if (contact && !error) {
+            // Allow navigation to contact details regardless of establishment_id
+            // Personal contacts (contacts with publisher_id) may not have an establishment_id
+            setSelectedContact(contact);
+            setBusinessTab("contacts");
             pushNavigation(currentSection);
-            loadHouseholderDetails(householder.id);
+            loadContactDetails(contact.id);
             setTimeout(() => {
               onSectionChange("business");
             }, 100);
           } else if (error) {
-            console.error("Error loading householder:", error);
+            console.error("Error loading contact:", error);
           } else {
-            alert("Householder not found. It may have been deleted.");
+            alert("Contact not found. It may have been deleted.");
             return;
           }
         } catch (error) {
-          console.error("Error loading householder:", error);
+          console.error("Error loading contact:", error);
         }
       }
     },
     [
       currentSection,
       loadEstablishmentDetails,
-      loadHouseholderDetails,
+      loadContactDetails,
       onSectionChange,
       pushNavigation,
       setBusinessTab,
       setSelectedEstablishment,
-      setSelectedHouseholder
+      setSelectedContact
     ]
   );
 

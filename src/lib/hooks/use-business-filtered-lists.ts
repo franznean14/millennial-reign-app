@@ -5,42 +5,43 @@ import {
   calculateDistance,
   type BusinessFiltersState,
   type EstablishmentWithDetails,
-  type HouseholderWithDetails,
+  type ContactWithDetails,
   type MyOpenTodoTargets,
 } from "@/lib/db/business";
 import {
-  computeEstablishmentIdsFromTodoHouseholders,
+  computeEstablishmentIdsFromTodoContacts,
   establishmentMatchesMyOpenTodos,
 } from "@/lib/utils/business-todo-filter";
+import { contactHasAnyStatus } from "@/lib/utils/status-hierarchy";
 
 interface UseBusinessFilteredListsOptions {
   establishments: EstablishmentWithDetails[];
-  householders: HouseholderWithDetails[];
+  contacts: ContactWithDetails[];
   filtersEstablishments: BusinessFiltersState;
-  filtersHouseholders: BusinessFiltersState;
+  filtersContacts: BusinessFiltersState;
   userVisitedEstablishments: Set<string>;
-  userVisitedHouseholders: Set<string>;
+  userVisitedContacts: Set<string>;
   userId?: string | null;
   myOpenTodoTargets?: MyOpenTodoTargets;
 }
 
 export function useBusinessFilteredLists({
   establishments,
-  householders,
+  contacts,
   filtersEstablishments,
-  filtersHouseholders,
+  filtersContacts,
   userVisitedEstablishments,
-  userVisitedHouseholders,
+  userVisitedContacts,
   userId,
   myOpenTodoTargets,
 }: UseBusinessFilteredListsOptions) {
-  const establishmentIdsFromTodoHouseholders = useMemo(
+  const establishmentIdsFromTodoContacts = useMemo(
     () =>
-      computeEstablishmentIdsFromTodoHouseholders(
-        householders,
-        myOpenTodoTargets?.householderIds ?? new Set()
+      computeEstablishmentIdsFromTodoContacts(
+        contacts,
+        myOpenTodoTargets?.contactIds ?? new Set()
       ),
-    [householders, myOpenTodoTargets]
+    [contacts, myOpenTodoTargets]
   );
 
   const filteredEstablishments = useMemo(() => {
@@ -110,7 +111,7 @@ export function useBusinessFilteredLists({
           !establishmentMatchesMyOpenTodos(
             establishment,
             myOpenTodoTargets,
-            establishmentIdsFromTodoHouseholders
+            establishmentIdsFromTodoContacts
           )
         ) {
           return false;
@@ -225,43 +226,46 @@ export function useBusinessFilteredLists({
     userVisitedEstablishments,
     userId,
     myOpenTodoTargets,
-    establishmentIdsFromTodoHouseholders,
+    establishmentIdsFromTodoContacts,
   ]);
 
-  const filteredHouseholders = useMemo(() => {
-    const filters = filtersHouseholders;
+  const filteredContacts = useMemo(() => {
+    const filters = filtersContacts;
     const establishmentsById = new Map(establishments.map((e) => [e.id, e] as const));
 
-    const base = householders.filter((householder) => {
-      if (filters.search && !householder.name.toLowerCase().includes(filters.search.toLowerCase())) {
+    const base = contacts.filter((contact) => {
+      if (filters.search && !contact.name.toLowerCase().includes(filters.search.toLowerCase())) {
         return false;
       }
 
-      if (filters.statuses.length > 0 && !filters.statuses.includes(householder.status)) {
+      if (filters.statuses.length > 0 && !contactHasAnyStatus(contact, filters.statuses)) {
         return false;
       }
 
-      if ((filters.excludedStatuses?.length ?? 0) > 0 && (filters.excludedStatuses ?? []).includes(householder.status)) {
+      if (
+        (filters.excludedStatuses?.length ?? 0) > 0 &&
+        contactHasAnyStatus(contact, filters.excludedStatuses ?? [])
+      ) {
         return false;
       }
 
-      // Area filter for householders is derived from the parent establishment's area
+      // Area filter for contacts is derived from the parent establishment's area
       if (filters.areas.length > 0) {
-        if (!householder.establishment_id) return false;
-        const parent = establishmentsById.get(householder.establishment_id);
+        if (!contact.establishment_id) return false;
+        const parent = establishmentsById.get(contact.establishment_id);
         if (!parent || !parent.area || !filters.areas.includes(parent.area)) {
           return false;
         }
       }
 
       if (filters.myEstablishments) {
-        const visitedByUser = householder.id ? userVisitedHouseholders.has(householder.id) : false;
+        const visitedByUser = contact.id ? userVisitedContacts.has(contact.id) : false;
         if (!visitedByUser) return false;
       }
 
       if (filters.nearMe) {
         if (!filters.userLocation) return false;
-        const parent = householder.establishment_id ? establishmentsById.get(householder.establishment_id) : undefined;
+        const parent = contact.establishment_id ? establishmentsById.get(contact.establishment_id) : undefined;
         if (!parent || parent.lat == null || parent.lng == null) return false;
         const distanceKm = calculateDistance(
           filters.userLocation[0],
@@ -305,7 +309,7 @@ export function useBusinessFilteredLists({
 
     if (filters.nearMe && filters.userLocation) {
       const [userLat, userLng] = filters.userLocation;
-      const distanceOf = (h: HouseholderWithDetails) => {
+      const distanceOf = (h: ContactWithDetails) => {
         const parent = h.establishment_id ? establishmentsById.get(h.establishment_id) : undefined;
         if (!parent || parent.lat == null || parent.lng == null) return Number.POSITIVE_INFINITY;
         return calculateDistance(userLat, userLng, parent.lat, parent.lng);
@@ -357,8 +361,8 @@ export function useBusinessFilteredLists({
             
             // Second priority: visited by user
             if (aIsOwned === bIsOwned) {
-              const aIsVisited = a.id ? userVisitedHouseholders.has(a.id) : false;
-              const bIsVisited = b.id ? userVisitedHouseholders.has(b.id) : false;
+              const aIsVisited = a.id ? userVisitedContacts.has(a.id) : false;
+              const bIsVisited = b.id ? userVisitedContacts.has(b.id) : false;
               if (aIsVisited && !bIsVisited) return -1;
               if (!aIsVisited && bIsVisited) return 1;
               
@@ -388,7 +392,7 @@ export function useBusinessFilteredLists({
     }
 
     return sorted;
-  }, [establishments, householders, filtersHouseholders, userVisitedHouseholders, userId]);
+  }, [establishments, contacts, filtersContacts, userVisitedContacts, userId]);
 
-  return { filteredEstablishments, filteredHouseholders };
+  return { filteredEstablishments, filteredContacts };
 }

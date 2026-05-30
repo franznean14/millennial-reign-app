@@ -9,13 +9,13 @@ import { AnimatePresence, motion } from "motion/react";
 import { studyBibleSectionToggle } from "@/lib/theme/study-bible-dark";
 
 interface BusinessTabToggleProps {
-  value: 'establishments' | 'householders' | 'map';
-  onValueChange: (value: 'establishments' | 'householders' | 'map') => void;
+  value: 'establishments' | 'contacts' | 'map';
+  onValueChange: (value: 'establishments' | 'contacts' | 'map') => void;
   onClearStatusFilters: () => void;
   className?: string;
   isDetailsView?: boolean;
   detailsName?: string;
-  /** Status for householder or establishment; used to color-code the title */
+  /** Status for contact or establishment; used to color-code the title */
   detailsStatus?: string;
   onBackClick?: () => void;
   onEditClick?: () => void;
@@ -86,7 +86,7 @@ export function BusinessTabToggle({
               value={value}
               onValueChange={(newValue) => {
                 if (newValue) {
-                  onValueChange(newValue as 'establishments' | 'householders' | 'map');
+                  onValueChange(newValue as 'establishments' | 'contacts' | 'map');
                 }
               }}
               className={studyBibleSectionToggle.group}
@@ -99,7 +99,7 @@ export function BusinessTabToggle({
                 <span className="text-[10px] font-medium text-center">Establishments</span>
               </ToggleGroupItem>
               <ToggleGroupItem
-                value="householders"
+                value="contacts"
                 className={cn(studyBibleSectionToggle.item, studyBibleSectionToggle.itemIcon)}
               >
                 <Users className="h-4 w-4 flex-shrink-0" />

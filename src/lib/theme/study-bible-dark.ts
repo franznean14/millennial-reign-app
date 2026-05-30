@@ -99,9 +99,17 @@ export const studyBibleDarkClasses = {
   drawerPanel:
     "border-[#e2dde8] bg-[#e8e2ef] text-[#1a1820] dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]",
   drawerHeader: "bg-[#e4deea] dark:bg-[#181714]",
-  tableHeader: "border-[#e2dde8] bg-[#e4deea] dark:border-[#1c1921] dark:bg-[#30283c]",
+  /** Fixed data-table header — light mode matches {@link fabMenuPrimary} (#6b5196). */
+  tableHeader:
+    "border-[#5c4685]/40 bg-[#6b5196] text-white dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff]",
+  tableHeaderRow: "border-b border-[#5c4685]/40 text-white/90 dark:border-[#1c1921] dark:text-[#ded6e7]",
+  tableHeaderSortButton:
+    "hover:bg-white/15 active:bg-white/25 dark:hover:bg-[#3b3348]/60 dark:active:bg-[#3b3348]",
+  tableHeaderSortButtonActive: "text-white dark:text-[#fffaff]",
+  tableHeaderSortChevronActive: "text-white dark:text-[#80778e]",
   tableBody: "bg-[#f5f4f7] dark:bg-[#24231f]",
-  navBar: "border-[#e2dde8] bg-[#ece8f2] dark:border-[#1c1921] dark:bg-[#2a2534]",
+  /** Phone bottom nav — light mode matches {@link fabMenuPrimary} fill (#6b5196). */
+  navBar: "border-[#5c4685]/40 bg-[#6b5196] dark:border-[#1c1921] dark:bg-[#2a2534]",
   toggleShell: "border-[#e2dde8] bg-[#e4deea] dark:border-[#1c1921] dark:bg-[#2a2534]",
   toggleItem:
     "border border-transparent ring-0 data-[state=on]:ring-0 focus-visible:ring-0 text-[#6d6880] hover:bg-[#ded6e7] hover:border-transparent data-[state=on]:!border-[#6b5196] data-[state=on]:!bg-[#6b5196] data-[state=on]:!text-white dark:text-[#ded6e7] dark:hover:bg-[#3b3348] dark:hover:border-transparent dark:data-[state=on]:!border-[#80778e] dark:data-[state=on]:!bg-[#80778e] dark:data-[state=on]:!text-white",

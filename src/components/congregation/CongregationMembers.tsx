@@ -31,9 +31,22 @@ import {
   studyBibleDarkClasses,
   studyBibleSectionToggle,
 } from "@/lib/theme/study-bible-dark";
+import { mobileDataTableClasses } from "@/lib/theme/mobile-data-table";
+import { MobileDataTableSortTh } from "@/components/shared/MobileDataTableSortTh";
+import {
+  usePersistedTableSort,
+  type TableSortDir,
+} from "@/lib/hooks/use-persisted-table-sort";
 
 const membersCardShade = getStudyBibleCongregationCardShade("members");
 const membersDirectoryShade = getStudyBibleDarkCardShade("cong-members-directory:v1");
+
+type MembersTableSortKey = "name" | "role";
+const MEMBERS_TABLE_SORT_KEYS = ["name", "role"] as const satisfies readonly MembersTableSortKey[];
+const MEMBERS_TABLE_DEFAULT_DIRS: Record<MembersTableSortKey, TableSortDir> = {
+  name: "asc",
+  role: "asc",
+};
 
 const GUEST_MEMBERS_TAB = "__cong_guest_members__";
 
@@ -231,6 +244,35 @@ export function CongregationMembers({
             )
           : members.filter((m) => (m.group_name || "No Group") === activeGroup);
 
+  const { sort: membersTableSort, toggleColumn: toggleMembersTableSort } =
+    usePersistedTableSort<MembersTableSortKey>({
+      storageKey: "cong-members-table-sort",
+      allowedColumns: MEMBERS_TABLE_SORT_KEYS,
+      defaultColumn: "name",
+      defaultDirs: MEMBERS_TABLE_DEFAULT_DIRS,
+    });
+
+  const sortedMembersForTable = useMemo(() => {
+    const list = [...filteredMembers];
+    const mult = membersTableSort.dir === "asc" ? 1 : -1;
+    const cmpStr = (a: string, b: string) => mult * a.localeCompare(b, undefined, { sensitivity: "base" });
+    list.sort((ma, mb) => {
+      let cmp = 0;
+      const nameA = `${ma.first_name ?? ""} ${ma.last_name ?? ""}`.trim().toLowerCase();
+      const nameB = `${mb.first_name ?? ""} ${mb.last_name ?? ""}`.trim().toLowerCase();
+      if (membersTableSort.column === "name") {
+        cmp = cmpStr(nameA, nameB);
+      } else {
+        const roleA = getPrimaryRoleDisplay(ma.privileges)?.label ?? "";
+        const roleB = getPrimaryRoleDisplay(mb.privileges)?.label ?? "";
+        cmp = cmpStr(roleA.toLowerCase(), roleB.toLowerCase());
+      }
+      if (cmp !== 0) return cmp;
+      return nameA.localeCompare(nameB, undefined, { sensitivity: "base" });
+    });
+    return list;
+  }, [filteredMembers, membersTableSort.column, membersTableSort.dir]);
+
   const previewMembers = (() => {
     if (members.length === 0) return [];
     const me = currentUserId ? members.find((m) => m.id === currentUserId) : undefined;
@@ -346,52 +388,44 @@ export function CongregationMembers({
 
       <div
         className={cn(
-          "flex w-full flex-col overflow-hidden overscroll-none rounded-xl border text-[#1a1820] dark:border-[#1c1921] dark:text-[#fffaff]",
-          studyBibleDarkClasses.divider,
-          membersDirectoryShade,
+          mobileDataTableClasses.shell,
+          "text-[#1a1820] dark:text-[#fffaff]",
           isMdUp ? "min-h-0 flex-1" : "h-[calc(70vh)]"
         )}
       >
-        <div
-          className={cn(
-            "flex-shrink-0 border-b",
-            studyBibleDarkClasses.divider,
-            studyBibleDarkClasses.cardBarHeader,
-            membersDirectoryShade,
-            "dark:border-[#1c1921] dark:bg-[#30283c]"
-          )}
-        >
+        <div className={mobileDataTableClasses.header}>
           <table className="w-full table-fixed text-sm">
             <thead>
-              <tr className={cn("border-b", studyBibleDarkClasses.divider)}>
-                <th
-                  className={cn(
-                    "w-[70%] px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide",
-                    studyBibleDarkClasses.muted
-                  )}
-                >
-                  Name
-                </th>
-                <th
-                  className={cn(
-                    "w-[30%] px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide",
-                    studyBibleDarkClasses.muted
-                  )}
-                >
-                  Role
-                </th>
+              <tr className={mobileDataTableClasses.headerRow}>
+                <MobileDataTableSortTh
+                  label="Name"
+                  sortKey="name"
+                  sort={membersTableSort}
+                  onToggle={toggleMembersTableSort}
+                  className="w-[70%] p-0 align-bottom"
+                />
+                <MobileDataTableSortTh
+                  label="Role"
+                  sortKey="role"
+                  sort={membersTableSort}
+                  onToggle={toggleMembersTableSort}
+                  className="w-[30%] p-0 align-bottom"
+                />
               </tr>
             </thead>
           </table>
         </div>
 
         <div
-          className={cn("no-scrollbar flex-1 overflow-y-auto overscroll-none", membersDirectoryShade)}
-          style={{ overscrollBehavior: "contain", touchAction: "pan-y" }}
+          className={cn(
+            mobileDataTableClasses.bodyScroll,
+            "pb-[calc(max(env(safe-area-inset-bottom),0px)+28px)]"
+          )}
+          style={mobileDataTableClasses.bodyScrollStyle}
         >
           <table className="w-full table-fixed text-sm">
             <tbody>
-              {filteredMembers.map((member) => {
+              {sortedMembersForTable.map((member) => {
                 const initials =
                   `${member.first_name?.[0] || ""}${member.last_name?.[0] || ""}`.toUpperCase() || "U";
                 const role = getPrimaryRoleDisplay(member.privileges);
@@ -399,17 +433,13 @@ export function CongregationMembers({
                 return (
                   <tr
                     key={member.id}
-                    className={cn(
-                      "cursor-pointer border-b transition-colors dark:border-[#3a3342] dark:hover:bg-[#2a2534]",
-                      studyBibleDarkClasses.divider,
-                      studyBibleDarkClasses.cardHover
-                    )}
+                    className={mobileDataTableClasses.row(member.id)}
                     onClick={() => {
                       setSelectedUser(member);
                       setUserManagementModalOpen(true);
                     }}
                   >
-                    <td className="w-[70%] min-w-0 p-3">
+                    <td className={cn(mobileDataTableClasses.cell, "w-[70%]")}>
                       <div className="flex min-w-0 items-center gap-3">
                         <Avatar className="h-7 w-7">
                           <AvatarImage src={member.avatar_url || undefined} />
@@ -433,15 +463,12 @@ export function CongregationMembers({
                         </div>
                       </div>
                     </td>
-                    <td className="w-[30%] p-3 align-top">
+                    <td className={cn(mobileDataTableClasses.cell, "w-[30%] align-top")}>
                       <div className="flex flex-wrap justify-end gap-1">
                         {role ? (
                           <Badge
                             variant="outline"
-                            className={cn(
-                              "h-4 border px-1.5 py-0 text-[10px] font-medium leading-none",
-                              CONG_ROLE_BADGE_CLASSES[role.tone]
-                            )}
+                            className={cn(mobileDataTableClasses.statusBadge, CONG_ROLE_BADGE_CLASSES[role.tone])}
                           >
                             {role.label}
                           </Badge>
@@ -449,10 +476,7 @@ export function CongregationMembers({
                         {showBwi ? (
                           <Badge
                             variant="outline"
-                            className={cn(
-                              "h-4 border px-1.5 py-0 text-[10px] font-medium leading-none",
-                              CONG_BWI_BADGE_CLASS
-                            )}
+                            className={cn(mobileDataTableClasses.statusBadge, CONG_BWI_BADGE_CLASS)}
                             title="Business Witnessing Initiative participant"
                           >
                             BWI

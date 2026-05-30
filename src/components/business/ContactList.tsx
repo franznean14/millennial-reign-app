@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { List, LayoutGrid, Table as TableIcon, Filter, User, UserCheck, X, Building2, ChevronUp, ChevronDown } from "lucide-react";
-import { type HouseholderWithDetails, type BusinessFiltersState } from "@/lib/db/business";
+import { type ContactWithDetails, type BusinessFiltersState } from "@/lib/db/business";
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/sonner";
 import { Button } from "@/components/ui/button";
@@ -16,17 +16,18 @@ import {
   usePersistedTableSort,
   type TableSortDir,
 } from "@/lib/hooks/use-persisted-table-sort";
-import { formatHouseholderStatusCompactText, formatStatusText } from "@/lib/utils/formatters";
+import { CONTACT_STATUS_DISPLAY_ORDER } from "@/lib/utils/contact-status-tabs";
+import { formatContactStatusCompactText, formatStatusText } from "@/lib/utils/formatters";
 import { getStudyBibleDarkCardFade, getStudyBibleDarkCardShade, studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 import { getStatusTitleColor } from "@/lib/utils/status-hierarchy";
 
-interface HouseholderListProps {
-  householders: HouseholderWithDetails[];
-  onHouseholderClick: (householder: HouseholderWithDetails) => void;
-  onHouseholderDelete?: (householder: HouseholderWithDetails) => void;
-  onHouseholderArchive?: (householder: HouseholderWithDetails) => void;
-  myHouseholdersOnly?: boolean;
-  onMyHouseholdersChange?: (checked: boolean) => void;
+interface ContactListProps {
+  contacts: ContactWithDetails[];
+  onContactClick: (contact: ContactWithDetails) => void;
+  onContactDelete?: (contact: ContactWithDetails) => void;
+  onContactArchive?: (contact: ContactWithDetails) => void;
+  myContactsOnly?: boolean;
+  onMyContactsChange?: (checked: boolean) => void;
   onOpenFilters?: () => void;
   filters?: BusinessFiltersState;
   onClearAllFilters?: () => void;
@@ -40,19 +41,9 @@ interface HouseholderListProps {
 
 type ViewMode = 'detailed' | 'compact' | 'table';
 
-const HOUSEHOLDER_DETAILED_COLUMN_ORDER = [
-  "bible_study",
-  "return_visit",
-  "interested",
-  "potential",
-  "do_not_call",
-  "moved_branch",
-  "resigned",
-];
+type ContactTableSortKey = "name" | "status" | "establishment" | "last_call" | "calls";
 
-type HhTableSortKey = "name" | "status" | "establishment" | "last_call" | "calls";
-
-const HH_TABLE_SORT_KEYS: readonly HhTableSortKey[] = [
+const CONTACT_TABLE_SORT_KEYS: readonly ContactTableSortKey[] = [
   "name",
   "status",
   "establishment",
@@ -60,7 +51,7 @@ const HH_TABLE_SORT_KEYS: readonly HhTableSortKey[] = [
   "calls",
 ];
 
-const HH_TABLE_DEFAULT_DIRS: Record<HhTableSortKey, TableSortDir> = {
+const HH_TABLE_DEFAULT_DIRS: Record<ContactTableSortKey, TableSortDir> = {
   name: "asc",
   status: "asc",
   establishment: "asc",
@@ -117,7 +108,7 @@ function formatTableDate(value?: string | null) {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "2-digit" });
 }
 
-function HouseholderTableSortTh({
+function ContactTableSortTh({
   label,
   sortKey,
   sort,
@@ -125,9 +116,9 @@ function HouseholderTableSortTh({
   className,
 }: {
   label: string;
-  sortKey: HhTableSortKey;
-  sort: { column: HhTableSortKey; dir: TableSortDir };
-  onToggle: (k: HhTableSortKey) => void;
+  sortKey: ContactTableSortKey;
+  sort: { column: ContactTableSortKey; dir: TableSortDir };
+  onToggle: (k: ContactTableSortKey) => void;
   className?: string;
 }) {
   const active = sort.column === sortKey;
@@ -145,9 +136,9 @@ function HouseholderTableSortTh({
           onToggle(sortKey);
         }}
         className={cn(
-          "inline-flex min-h-11 w-full min-w-0 items-center gap-0.5 py-3 pl-3 pr-1 text-left font-medium touch-manipulation",
-          "rounded-md hover:bg-muted/25 active:bg-muted/40 dark:hover:bg-[#3b3348]/60 dark:active:bg-[#3b3348]",
-          active && "text-foreground dark:text-[#fffaff]"
+          "inline-flex min-h-11 w-full min-w-0 touch-manipulation items-center gap-0.5 rounded-md py-3 pl-3 pr-1 text-left font-medium",
+          studyBibleDarkClasses.tableHeaderSortButton,
+          active && studyBibleDarkClasses.tableHeaderSortButtonActive
         )}
       >
         <span className="min-w-0 flex-1 truncate">{label}</span>
@@ -155,13 +146,17 @@ function HouseholderTableSortTh({
           <ChevronUp
             className={cn(
               "h-2.5 w-2.5",
-              active && sort.dir === "asc" ? "text-[#80778e]" : "opacity-30"
+              active && sort.dir === "asc"
+                ? studyBibleDarkClasses.tableHeaderSortChevronActive
+                : "opacity-30"
             )}
           />
           <ChevronDown
             className={cn(
               "-mt-0.5 h-2.5 w-2.5",
-              active && sort.dir === "desc" ? "text-[#80778e]" : "opacity-30"
+              active && sort.dir === "desc"
+                ? studyBibleDarkClasses.tableHeaderSortChevronActive
+                : "opacity-30"
             )}
           />
         </span>
@@ -170,13 +165,13 @@ function HouseholderTableSortTh({
   );
 }
 
-export function HouseholderList({ 
-  householders, 
-  onHouseholderClick,
-  onHouseholderDelete,
-  onHouseholderArchive,
-  myHouseholdersOnly,
-  onMyHouseholdersChange,
+export function ContactList({ 
+  contacts, 
+  onContactClick,
+  onContactDelete,
+  onContactArchive,
+  myContactsOnly,
+  onMyContactsChange,
   onOpenFilters,
   filters,
   onClearAllFilters,
@@ -185,7 +180,7 @@ export function HouseholderList({
   onRemoveArea,
   viewMode: externalViewMode,
   onViewModeChange
-}: HouseholderListProps) {
+}: ContactListProps) {
   
   // Reset scroll position to top when component mounts
   useEffect(() => {
@@ -195,15 +190,15 @@ export function HouseholderList({
     defaultViewMode: "detailed",
     externalViewMode,
     onViewModeChange,
-    storageKey: "householder-view-mode",
+    storageKey: "contact-view-mode",
     allowedModes: ["detailed", "compact", "table"],
     cycleOrder: ["detailed", "compact", "table"],
   });
 
-  const { sort: householderTableSort, toggleColumn: toggleHouseholderTableSort } =
-    usePersistedTableSort<HhTableSortKey>({
-      storageKey: "bwi-householder-table-sort",
-      allowedColumns: HH_TABLE_SORT_KEYS,
+  const { sort: contactTableSort, toggleColumn: toggleContactTableSort } =
+    usePersistedTableSort<ContactTableSortKey>({
+      storageKey: "bwi-contact-table-sort",
+      allowedColumns: CONTACT_TABLE_SORT_KEYS,
       defaultColumn: "name",
       defaultDirs: HH_TABLE_DEFAULT_DIRS,
     });
@@ -226,9 +221,9 @@ export function HouseholderList({
     !!filters.search || (filters.statuses?.length ?? 0) > 0 || (filters.areas?.length ?? 0) > 0 || !!filters.myEstablishments
   );
 
-  const formatStatusCompactText = formatHouseholderStatusCompactText;
+  const formatStatusCompactText = formatContactStatusCompactText;
 
-  const truncateHouseholderName = (name: string, maxLength: number = 20) => {
+  const truncateContactName = (name: string, maxLength: number = 20) => {
     return name.length > maxLength ? name.substring(0, maxLength) + '...' : name;
   };
 
@@ -270,14 +265,14 @@ export function HouseholderList({
     }
   };
 
-  const getHouseholderCallTotal = (householder: HouseholderWithDetails) =>
-    householder.visit_count ?? 0;
+  const getContactCallTotal = (contact: ContactWithDetails) =>
+    contact.visit_count ?? 0;
 
-  const sortedHouseholdersForTable = useMemo(() => {
-    if (viewMode !== "table") return householders;
-    const { column, dir } = householderTableSort;
+  const sortedContactsForTable = useMemo(() => {
+    if (viewMode !== "table") return contacts;
+    const { column, dir } = contactTableSort;
     const mult = dir === "asc" ? 1 : -1;
-    const list = [...householders];
+    const list = [...contacts];
 
     const cmpStr = (a: string, b: string) =>
       mult * a.localeCompare(b, undefined, { sensitivity: "base" });
@@ -318,7 +313,7 @@ export function HouseholderList({
           cmp = cmpVisitDateStr(ha.last_visit_at, hb.last_visit_at);
           break;
         case "calls":
-          cmp = cmpNum(getHouseholderCallTotal(ha), getHouseholderCallTotal(hb));
+          cmp = cmpNum(getContactCallTotal(ha), getContactCallTotal(hb));
           break;
         default:
           cmp = 0;
@@ -329,42 +324,42 @@ export function HouseholderList({
       });
     });
     return list;
-  }, [viewMode, householders, householderTableSort, formatStatusCompactText]);
+  }, [viewMode, contacts, contactTableSort, formatStatusCompactText]);
 
-  const householdersForSlice = sortedHouseholdersForTable;
+  const contactsForSlice = sortedContactsForTable;
 
   const { visibleCount, sentinelRef } = useInfiniteList({
-    itemsLength: householdersForSlice.length,
+    itemsLength: contactsForSlice.length,
     viewMode,
     initialCounts: { detailed: 7, compact: 10, table: 40 },
     stepCounts: { detailed: 5, compact: 10, table: 40 },
   });
 
-  const visibleHouseholders = useMemo(
-    () => householdersForSlice.slice(0, visibleCount),
-    [householdersForSlice, visibleCount]
+  const visibleContacts = useMemo(
+    () => contactsForSlice.slice(0, visibleCount),
+    [contactsForSlice, visibleCount]
   );
 
   useEffect(() => {
     if (viewMode !== "table") return;
     tableBodyScrollRef.current?.scrollTo({ top: 0 });
-  }, [viewMode, householderTableSort.column, householderTableSort.dir]);
+  }, [viewMode, contactTableSort.column, contactTableSort.dir]);
 
   const detailedStatusColumns = useMemo(() => {
-    const statuses = Array.from(new Set(householders.map((householder) => householder.status || "potential")));
+    const statuses = Array.from(new Set(contacts.map((contact) => contact.status || "potential")));
     statuses.sort((a, b) => {
-      const aIndex = HOUSEHOLDER_DETAILED_COLUMN_ORDER.indexOf(a);
-      const bIndex = HOUSEHOLDER_DETAILED_COLUMN_ORDER.indexOf(b);
+      const aIndex = CONTACT_STATUS_DISPLAY_ORDER.indexOf(a as (typeof CONTACT_STATUS_DISPLAY_ORDER)[number]);
+      const bIndex = CONTACT_STATUS_DISPLAY_ORDER.indexOf(b as (typeof CONTACT_STATUS_DISPLAY_ORDER)[number]);
       const normalizedA = aIndex === -1 ? Number.MAX_SAFE_INTEGER : aIndex;
       const normalizedB = bIndex === -1 ? Number.MAX_SAFE_INTEGER : bIndex;
       return normalizedA - normalizedB || a.localeCompare(b);
     });
     return statuses;
-  }, [householders]);
+  }, [contacts]);
 
-  const renderDetailedView = (householder: HouseholderWithDetails, index: number) => (
+  const renderDetailedView = (contact: ContactWithDetails, index: number) => (
     <motion.div
-      key={householder.id}
+      key={contact.id}
       initial={{ opacity: 0, filter: "blur(6px)" }}
       animate={{ opacity: 1, filter: "blur(0px)" }}
       exit={{ opacity: 0, filter: "blur(6px)" }}
@@ -375,10 +370,10 @@ export function HouseholderList({
         className={cn(
           "w-full max-w-full cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-md hover:scale-[1.02] md:max-w-none md:overflow-visible",
           studyBibleDarkClasses.bwiCard,
-          getStudyBibleDarkCardShade(householder.id || householder.name),
+          getStudyBibleDarkCardShade(contact.id || contact.name),
           studyBibleDarkClasses.cardHover
         )}
-        onClick={() => onHouseholderClick(householder)}
+        onClick={() => onContactClick(contact)}
       >
         <CardHeader>
           <div className="flex items-start justify-between w-full min-w-0 gap-2 md:min-w-[auto]">
@@ -388,42 +383,42 @@ export function HouseholderList({
                   <div className="relative min-w-0 flex-1 max-w-[320px] overflow-hidden">
                     <span 
                       className={`whitespace-nowrap block pr-8 ${
-                        householder.name.length > 35 ? 'animate-marquee' : ''
+                        contact.name.length > 35 ? 'animate-marquee' : ''
                       }`}
-                      title={householder.name}
+                      title={contact.name}
                       style={{
-                        '--marquee-distance': householder.name.length > 35 
-                          ? `calc(-100% + ${Math.max(320 - (householder.name.length * 8), 200)}px)`
+                        '--marquee-distance': contact.name.length > 35 
+                          ? `calc(-100% + ${Math.max(320 - (contact.name.length * 8), 200)}px)`
                           : '-80%'
                       } as React.CSSProperties}
                     >
-                      {householder.name}
+                      {contact.name}
                     </span>
-                    <div className={cn("absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-card via-card/50 to-transparent pointer-events-none", getStudyBibleDarkCardFade(householder.id || householder.name))}></div>
+                    <div className={cn("absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-card via-card/50 to-transparent pointer-events-none", getStudyBibleDarkCardFade(contact.id || contact.name))}></div>
                   </div>
                 </CardTitle>
                 
                 {/* Establishment name */}
-                {householder.establishment_name && (
+                {contact.establishment_name && (
                   <div className="mt-2 flex min-w-0 items-center gap-1 text-sm font-medium">
                     <Building2 className="h-4 w-4 shrink-0" />
-                    <span className="min-w-0 truncate md:whitespace-normal">{householder.establishment_name}</span>
+                    <span className="min-w-0 truncate md:whitespace-normal">{contact.establishment_name}</span>
                   </div>
                 )}
                 {/* Status Badge */}
                 <div className="mt-2 flex items-center gap-2">
                   <Badge
                     variant="outline"
-                    className={cn(getStatusTextColorClass(householder.status))}
+                    className={cn(getStatusTextColorClass(contact.status))}
                   >
-                    {formatStatusText(householder.status)}
+                    {formatStatusText(contact.status)}
                   </Badge>
                 </div>
               </div>
             </div>
             <div className="flex flex-col items-end gap-1 flex-shrink-0">
               <div className="text-center">
-                <p className="text-sm font-medium">{householder.top_visitors?.length || 0}</p>
+                <p className="text-sm font-medium">{contact.top_visitors?.length || 0}</p>
                 <p className="text-xs text-muted-foreground">Visitors</p>
               </div>
             </div>
@@ -434,7 +429,7 @@ export function HouseholderList({
             <div className="flex items-center gap-2 min-w-0 flex-1">
               {/* Overlapping avatars for top visitors - up to 5 */}
               <div className="flex items-center flex-shrink-0">
-                {householder.top_visitors?.slice(0, 5).map((visitor, index) => (
+                {contact.top_visitors?.slice(0, 5).map((visitor, index) => (
                   <Avatar 
                     key={visitor.user_id || index} 
                     className={`h-6 w-6 ring-2 ring-background ${index > 0 ? '-ml-2' : ''}`}
@@ -446,26 +441,26 @@ export function HouseholderList({
                   </Avatar>
                 ))}
               </div>
-              {householder.top_visitors && householder.top_visitors.length > 5 && (
+              {contact.top_visitors && contact.top_visitors.length > 5 && (
                 <span className="text-xs text-muted-foreground flex-shrink-0">
-                  +{householder.top_visitors.length - 5} more
+                  +{contact.top_visitors.length - 5} more
                 </span>
               )}
-              {householder.note && (
+              {contact.note && (
                 <div className="relative min-w-0 flex-1 max-w-[320px] overflow-hidden">
                   <span 
                     className={`text-xs text-muted-foreground whitespace-nowrap block pr-8 ${
-                      householder.note.length > 55 ? 'animate-marquee' : ''
+                      contact.note.length > 55 ? 'animate-marquee' : ''
                     }`}
                     style={{
-                      '--marquee-distance': householder.note.length > 55 
-                        ? `calc(-100% + ${Math.max(320 - (householder.note.length * 6), 200)}px)`
+                      '--marquee-distance': contact.note.length > 55 
+                        ? `calc(-100% + ${Math.max(320 - (contact.note.length * 6), 200)}px)`
                         : '-80%'
                     } as React.CSSProperties}
                   >
-                    {householder.note}
+                    {contact.note}
                   </span>
-                  <div className={cn("absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-card via-card/50 to-transparent pointer-events-none", getStudyBibleDarkCardFade(householder.id || householder.name))}></div>
+                  <div className={cn("absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-card via-card/50 to-transparent pointer-events-none", getStudyBibleDarkCardFade(contact.id || contact.name))}></div>
                 </div>
               )}
             </div>
@@ -475,9 +470,9 @@ export function HouseholderList({
     </motion.div>
   );
 
-  const renderCompactView = (householder: HouseholderWithDetails, index: number) => (
+  const renderCompactView = (contact: ContactWithDetails, index: number) => (
     <motion.div
-      key={householder.id}
+      key={contact.id}
       initial={{ opacity: 0, filter: "blur(6px)" }}
       animate={{ opacity: 1, filter: "blur(0px)" }}
       exit={{ opacity: 0, filter: "blur(6px)" }}
@@ -488,42 +483,42 @@ export function HouseholderList({
         className={cn(
           "cursor-pointer hover:shadow-md transition-all duration-300 hover:scale-[1.02] overflow-hidden",
           studyBibleDarkClasses.bwiCard,
-          getStudyBibleDarkCardShade(householder.id || householder.name),
+          getStudyBibleDarkCardShade(contact.id || contact.name),
           studyBibleDarkClasses.cardHover
         )}
-        onClick={() => onHouseholderClick(householder)}
+        onClick={() => onContactClick(contact)}
       >
         <div className="py-0 px-3">
           <div className="flex items-center justify-between gap-2 min-w-0">
             {/* Left side - Name, status, establishment, and avatars */}
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1 flex-wrap min-w-0">
-                <h3 className="font-semibold text-sm truncate" title={householder.name}>{truncateHouseholderName(householder.name)}</h3>
+                <h3 className="font-semibold text-sm truncate" title={contact.name}>{truncateContactName(contact.name)}</h3>
                 
                 {/* Status Badge */}
                 <div className="flex items-center gap-1">
                   <Badge 
                     variant="outline" 
-                    className={cn("text-xs px-1.5 py-0.5", getStatusTextColorClass(householder.status))}
+                    className={cn("text-xs px-1.5 py-0.5", getStatusTextColorClass(contact.status))}
                   >
-                    {formatStatusText(householder.status)}
+                    {formatStatusText(contact.status)}
                   </Badge>
                 </div>
               </div>
               
               {/* Establishment and avatars in same line */}
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                {householder.establishment_name && (
+                {contact.establishment_name && (
                   <span className="truncate flex items-center gap-1">
                     <Building2 className="h-3 w-3" />
-                    {householder.establishment_name}
+                    {contact.establishment_name}
                   </span>
                 )}
                 
                 {/* Avatars inline with establishment */}
-                {(householder.top_visitors && householder.top_visitors.length > 0) && (
+                {(contact.top_visitors && contact.top_visitors.length > 0) && (
                   <div className="flex items-center ml-2">
-                    {householder.top_visitors.slice(0, 3).map((visitor, index) => (
+                    {contact.top_visitors.slice(0, 3).map((visitor, index) => (
                       <Avatar 
                         key={visitor.user_id || index} 
                         className={`h-4 w-4 ring-1 ring-background ${index > 0 ? '-ml-1' : ''}`}
@@ -534,9 +529,9 @@ export function HouseholderList({
                         </AvatarFallback>
                       </Avatar>
                     ))}
-                    {householder.top_visitors.length > 3 && (
+                    {contact.top_visitors.length > 3 && (
                       <span className="text-xs text-muted-foreground ml-1">
-                        +{householder.top_visitors.length - 3}
+                        +{contact.top_visitors.length - 3}
                       </span>
                     )}
                   </div>
@@ -552,43 +547,43 @@ export function HouseholderList({
   const renderTableView = () => (
     <div className={cn("w-full h-full flex flex-col overscroll-none overflow-hidden rounded-xl border border-border/70 dark:border-[#3a3342]", studyBibleDarkClasses.card)} style={{ overscrollBehavior: 'none' }}>
       {/* Fixed Table Header */}
-      <div className="flex-shrink-0 border-b bg-card border-border dark:border-[#1c1921] dark:bg-[#30283c]">
+      <div className={cn("flex-shrink-0 border-b", studyBibleDarkClasses.tableHeader)}>
         <table className="w-full text-sm table-fixed">
           <thead>
-            <tr className={cn("border-b border-border dark:border-[#1c1921]", studyBibleDarkClasses.muted)}>
-              <HouseholderTableSortTh
+            <tr className={studyBibleDarkClasses.tableHeaderRow}>
+              <ContactTableSortTh
                 label="Name"
                 sortKey="name"
-                sort={householderTableSort}
-                onToggle={toggleHouseholderTableSort}
+                sort={contactTableSort}
+                onToggle={toggleContactTableSort}
                 className="w-[40%] md:w-[30%] p-0 align-bottom"
               />
-              <HouseholderTableSortTh
+              <ContactTableSortTh
                 label="Status"
                 sortKey="status"
-                sort={householderTableSort}
-                onToggle={toggleHouseholderTableSort}
+                sort={contactTableSort}
+                onToggle={toggleContactTableSort}
                 className="w-[20%] md:w-[16%] p-0 align-bottom"
               />
-              <HouseholderTableSortTh
+              <ContactTableSortTh
                 label="Establishment"
                 sortKey="establishment"
-                sort={householderTableSort}
-                onToggle={toggleHouseholderTableSort}
+                sort={contactTableSort}
+                onToggle={toggleContactTableSort}
                 className="w-[40%] md:w-[30%] p-0 align-bottom"
               />
-              <HouseholderTableSortTh
+              <ContactTableSortTh
                 label="Last call"
                 sortKey="last_call"
-                sort={householderTableSort}
-                onToggle={toggleHouseholderTableSort}
+                sort={contactTableSort}
+                onToggle={toggleContactTableSort}
                 className="hidden md:table-cell w-[14%] p-0 align-bottom"
               />
-              <HouseholderTableSortTh
+              <ContactTableSortTh
                 label="Calls"
                 sortKey="calls"
-                sort={householderTableSort}
-                onToggle={toggleHouseholderTableSort}
+                sort={contactTableSort}
+                onToggle={toggleContactTableSort}
                 className="hidden md:table-cell w-[10%] p-0 align-bottom"
               />
             </tr>
@@ -604,47 +599,47 @@ export function HouseholderList({
       >
         <table className="w-full text-sm table-fixed">
           <tbody>
-            {visibleHouseholders.map((householder, index) => (
+            {visibleContacts.map((contact, index) => (
               <tr
-                key={householder.id || index}
+                key={contact.id || index}
                 className={cn(
                   "cursor-pointer border-b transition-colors",
                   "dark:border-[#3a3342]",
-                  getStudyBibleDarkCardShade(String(householder.id ?? householder.name ?? index)),
+                  getStudyBibleDarkCardShade(String(contact.id ?? contact.name ?? index)),
                   "hover:bg-muted/30",
                   studyBibleDarkClasses.cardHover
                 )}
-                onClick={() => onHouseholderClick(householder)}
+                onClick={() => onContactClick(contact)}
               >
                 <td className="p-3 min-w-0 w-[40%] md:w-[30%]">
-                  <NameWithAvatarsCell name={householder.name} visitors={householder.top_visitors} />
+                  <NameWithAvatarsCell name={contact.name} visitors={contact.top_visitors} />
                 </td>
                 <td className="p-3 w-[20%] md:w-[16%]">
                   <div className="flex items-center gap-1 min-w-0">
                     <Badge 
                       variant="outline" 
-                      className={cn("text-[10px] leading-4 px-1.5 py-0.5 rounded-sm", getStatusTextColorClass(householder.status))}
+                      className={cn("text-[10px] leading-4 px-1.5 py-0.5 rounded-sm", getStatusTextColorClass(contact.status))}
                     >
-                      {formatStatusCompactText(householder.status)}
+                      {formatStatusCompactText(contact.status)}
                     </Badge>
                   </div>
                 </td>
                 <td className="p-3 min-w-0 w-[40%] md:w-[30%]">
-                  {householder.establishment_name ? (
-                    <EstablishmentNameCell name={householder.establishment_name} />
+                  {contact.establishment_name ? (
+                    <EstablishmentNameCell name={contact.establishment_name} />
                   ) : null}
                 </td>
                 <td className="hidden md:table-cell p-3 min-w-0 md:w-[14%] text-muted-foreground dark:text-[#ded6e7]">
-                  {formatTableDate(householder.last_visit_at)}
+                  {formatTableDate(contact.last_visit_at)}
                 </td>
                 <td className="hidden md:table-cell p-3 md:w-[10%]">
-                  {getHouseholderCallTotal(householder)}
+                  {getContactCallTotal(contact)}
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-        {visibleCount < householdersForSlice.length && (
+        {visibleCount < contactsForSlice.length && (
           <div ref={sentinelRef} className="h-16 w-full" aria-label="Load more trigger" />
         )}
       </div>
@@ -669,7 +664,7 @@ export function HouseholderList({
       }
     >
 
-      {/* Householders */}
+      {/* Contacts */}
       <AnimatePresence mode="wait" initial={false}>
         {viewMode === 'table' ? (
           <motion.div
@@ -691,8 +686,8 @@ export function HouseholderList({
             {viewMode === "detailed" ? (
               <>
                 <div className="grid gap-4 mt-10 w-full md:hidden">
-                  {visibleHouseholders.map((householder, index) =>
-                    renderDetailedView(householder, index)
+                  {visibleContacts.map((contact, index) =>
+                    renderDetailedView(contact, index)
                   )}
                 </div>
                 <div
@@ -702,7 +697,7 @@ export function HouseholderList({
                   }}
                 >
                   {detailedStatusColumns.map((status) => {
-                    const columnHouseholders = householders.filter((householder) => (householder.status || "potential") === status);
+                    const columnContacts = contacts.filter((contact) => (contact.status || "potential") === status);
                     return (
                       <section
                         key={status}
@@ -713,8 +708,8 @@ export function HouseholderList({
                           {formatStatusText(status)}
                         </div>
                         <div className="no-scrollbar flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain pb-[calc(max(env(safe-area-inset-bottom),0px)+132px)] md:pb-[max(env(safe-area-inset-bottom),0px)+12px)] pr-1">
-                          {columnHouseholders.map((householder, index) =>
-                            renderDetailedView(householder, index)
+                          {columnContacts.map((contact, index) =>
+                            renderDetailedView(contact, index)
                           )}
                         </div>
                       </section>
@@ -724,12 +719,12 @@ export function HouseholderList({
               </>
             ) : (
               <div className="grid gap-4 mt-10 w-full">
-                {visibleHouseholders.map((householder, index) =>
-                  renderCompactView(householder, index)
+                {visibleContacts.map((contact, index) =>
+                  renderCompactView(contact, index)
                 )}
               </div>
             )}
-            {visibleCount < householdersForSlice.length && (
+            {visibleCount < contactsForSlice.length && (
               <div
                 ref={sentinelRef}
                 className={cn("h-20 w-full", viewMode === "detailed" && "md:hidden")}

@@ -354,23 +354,25 @@ export function HomeSummary({
     loadRecords();
   }, [recordsDrawerOpen, uid]);
 
-  // Cache for householder names (from visit IDs and legacy householder IDs) — used to count unique householder names for BS
-  const [householderNamesCache, setHouseholderNamesCache] = useState<Map<string, string>>(new Map());
+  // Cache for contact names (from visit IDs and legacy contact IDs) — used to count unique contact names for BS
+  const [contactNamesCache, setContactNamesCache] = useState<Map<string, string>>(new Map());
   const cacheRef = useRef<Map<string, string>>(new Map());
 
-  // Load householder names for ALL visit IDs and householder IDs in daily records (so table/summary BS = unique names)
+  // Load contact names for ALL visit IDs and contact IDs in daily records (so table/summary BS = unique names)
   useEffect(() => {
     if (!uid || !recordsDrawerOpen) return;
     const visitIds = new Set<string>();
-    const householderIds = new Set<string>();
+    const contactIds = new Set<string>();
     dailyRecords.forEach(r => {
       if (Array.isArray(r.bible_studies)) {
         r.bible_studies.forEach(bs => {
           if (bs && bs.trim()) {
             if (bs.startsWith("visit:")) {
               visitIds.add(bs.replace("visit:", ""));
+            } else if (bs.startsWith("contact:")) {
+              contactIds.add(bs.replace("contact:", ""));
             } else if (bs.startsWith("householder:")) {
-              householderIds.add(bs.replace("householder:", ""));
+              contactIds.add(bs.replace("householder:", ""));
             }
           }
         });
@@ -394,35 +396,39 @@ export function HomeSummary({
               .in('id', visitIdsToFetch);
             if (!visitError && visits) {
               visits.forEach((visit: any) => {
-                if (visit.householders && visit.householders.name) {
-                  newCache.set(`visit:${visit.id}`, visit.householders.name);
+                const linkedContact = visit.householders ?? visit.contacts;
+                const contactName = Array.isArray(linkedContact)
+                  ? linkedContact[0]?.name
+                  : linkedContact?.name;
+                if (contactName) {
+                  newCache.set(`visit:${visit.id}`, contactName);
                 }
               });
             }
           }
         }
-        if (householderIds.size > 0) {
-          const idsToFetch = Array.from(householderIds).filter(id => !cacheRef.current.has(`householder:${id}`));
+        if (contactIds.size > 0) {
+          const idsToFetch = Array.from(contactIds).filter(id => !cacheRef.current.has(`contact:${id}`));
           if (idsToFetch.length > 0) {
-            const { listHouseholders } = await import("@/lib/db/business");
-            const householders = await listHouseholders();
-            householders.forEach(hh => {
-              if (hh.id && householderIds.has(hh.id)) {
-                newCache.set(`householder:${hh.id}`, hh.name);
+            const { listContacts } = await import("@/lib/db/business");
+            const contacts = await listContacts();
+            contacts.forEach(hh => {
+              if (hh.id && contactIds.has(hh.id)) {
+                newCache.set(`contact:${hh.id}`, hh.name);
               }
             });
           }
         }
         cacheRef.current = newCache;
-        setHouseholderNamesCache(newCache);
+        setContactNamesCache(newCache);
       } catch (error) {
-        console.error('Error fetching householder names:', error);
+        console.error('Error fetching contact names:', error);
       }
     };
-    if (visitIds.size > 0 || householderIds.size > 0) fetchNames();
+    if (visitIds.size > 0 || contactIds.size > 0) fetchNames();
   }, [recordsDrawerOpen, dailyRecords, uid]);
 
-  // Aggregate daily records by month — BS = unique householder names (resolve visit/householder IDs via cache)
+  // Aggregate daily records by month — BS = unique contact names (resolve visit/contact IDs via cache)
   const monthlyAggregates = useMemo(() => {
     const monthMap = new Map<string, {
       month: string;
@@ -462,7 +468,7 @@ export function HomeSummary({
       bsCount: agg.uniqueBS.size,
       notes: agg.notes,
     }));
-  }, [dailyRecords, householderNamesCache]);
+  }, [dailyRecords, contactNamesCache]);
 
   // Get service years from records (September to August)
   const serviceYears = useMemo(() => {
@@ -789,20 +795,20 @@ export function HomeSummary({
       bibleStudies,
       notes,
     };
-  }, [selectedMonth, dailyRecords, householderNamesCache]);
+  }, [selectedMonth, dailyRecords, contactNamesCache]);
 
   // Copy month data to clipboard
   const copyMonthToClipboard = async (month: string) => {
     const monthRecords = dailyRecords.filter(r => r.date.startsWith(month));
     const totalHours = monthRecords.reduce((sum, r) => sum + (Number(r.hours) || 0), 0);
     
-    // Collect unique Bible Study names (resolved from visit IDs or householder IDs)
+    // Collect unique Bible Study names (resolved from visit IDs or contact IDs)
     const uniqueBS = new Set<string>();
     monthRecords.forEach(r => {
       if (Array.isArray(r.bible_studies)) {
         r.bible_studies.forEach(bs => {
           if (bs && bs.trim()) {
-            // Resolve visit ID or householder ID to name
+            // Resolve visit ID or contact ID to name
             const resolvedName = cacheRef.current.get(bs.trim()) || bs.trim();
             uniqueBS.add(resolvedName);
           }
@@ -841,7 +847,7 @@ export function HomeSummary({
     }
   };
 
-  // Calculate service year totals — BS = unique householder names (resolve visit/householder IDs via cache)
+  // Calculate service year totals — BS = unique contact names (resolve visit/contact IDs via cache)
   const serviceYearTotals = useMemo(() => {
     if (filteredRecords.length === 0) {
       return { totalHours: 0, totalBS: 0, totalNotes: 0 };
@@ -875,7 +881,7 @@ export function HomeSummary({
       totalBS: allUniqueBS.size,
       totalNotes,
     };
-  }, [filteredRecords, dailyRecords, activeServiceYear, householderNamesCache]);
+  }, [filteredRecords, dailyRecords, activeServiceYear, contactNamesCache]);
 
   return (
     <>

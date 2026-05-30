@@ -124,7 +124,7 @@ export function getAssigneeAvatarInitials(options: {
 }
 
 export function getVisitDisplayName(visit: VisitRecord): string {
-  return visit.householder_name || visit.establishment_name || "";
+  return visit.contact_name || visit.establishment_name || "";
 }
 
 export function getVisitSearchText(visit: VisitRecord): string {

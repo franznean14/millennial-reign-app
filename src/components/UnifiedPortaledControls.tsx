@@ -13,7 +13,7 @@ import { buildFilterBadges } from "@/lib/utils/filter-badges";
 import { cn } from "@/lib/utils";
 import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 import { LayoutGrid, List, Table as TableIcon, X, ChevronLeft, Edit } from "lucide-react";
-import type { BusinessFiltersState, EstablishmentWithDetails, HouseholderWithDetails } from "@/lib/db/business";
+import type { BusinessFiltersState, EstablishmentWithDetails, ContactWithDetails } from "@/lib/db/business";
 import { getBusinessDetailsHeaderTitleStatus, getStatusTitleColor } from "@/lib/utils/status-hierarchy";
 import {
   getHeaderToastState,
@@ -25,8 +25,8 @@ import {
 interface UnifiedPortaledControlsProps {
   currentSection: string;
   // Business props
-  businessTab?: 'establishments' | 'householders' | 'map';
-  onBusinessTabChange?: (tab: 'establishments' | 'householders' | 'map') => void;
+  businessTab?: 'establishments' | 'contacts' | 'map';
+  onBusinessTabChange?: (tab: 'establishments' | 'contacts' | 'map') => void;
   filters?: BusinessFiltersState;
   onFiltersChange?: (filters: BusinessFiltersState) => void;
   onOpenFilters?: () => void;
@@ -41,7 +41,7 @@ interface UnifiedPortaledControlsProps {
   onToggleNearMe?: () => void;
   formatStatusLabel?: (status: string) => string;
   selectedEstablishment?: EstablishmentWithDetails | null;
-  selectedHouseholder?: HouseholderWithDetails | null;
+  selectedContact?: ContactWithDetails | null;
   onBackClick?: () => void;
   onEditClick?: () => void;
   /** Signed-in user id — used to color detail headers for personal territory / personal contact */
@@ -49,7 +49,7 @@ interface UnifiedPortaledControlsProps {
   // Congregation props
   congregationTab?: 'meetings' | 'ministry' | 'admin';
   onCongregationTabChange?: (tab: 'meetings' | 'ministry' | 'admin') => void;
-  congregationSelectedHouseholder?: HouseholderWithDetails | null;
+  congregationSelectedContact?: ContactWithDetails | null;
   onCongregationBackClick?: () => void;
   onCongregationEditClick?: () => void;
   isElder?: boolean;
@@ -94,14 +94,14 @@ function BusinessControlsContent({
   onToggleNearMe,
   formatStatusLabel,
   selectedEstablishment,
-  selectedHouseholder,
+  selectedContact,
   onBackClick,
   onEditClick,
   headerDetailsUserId,
   headerToast = null
 }: {
-  businessTab: 'establishments' | 'householders' | 'map';
-  onBusinessTabChange: (tab: 'establishments' | 'householders' | 'map') => void;
+  businessTab: 'establishments' | 'contacts' | 'map';
+  onBusinessTabChange: (tab: 'establishments' | 'contacts' | 'map') => void;
   filters: BusinessFiltersState;
   onFiltersChange: (filters: BusinessFiltersState) => void;
   onOpenFilters: () => void;
@@ -116,7 +116,7 @@ function BusinessControlsContent({
   onToggleNearMe: () => void;
   formatStatusLabel: (status: string) => string;
   selectedEstablishment?: EstablishmentWithDetails | null;
-  selectedHouseholder?: HouseholderWithDetails | null;
+  selectedContact?: ContactWithDetails | null;
   onBackClick: () => void;
   onEditClick: () => void;
   headerDetailsUserId?: string | null;
@@ -179,12 +179,12 @@ function BusinessControlsContent({
     formatStatusLabel
   });
   const isDetailsView =
-    (!!selectedEstablishment || !!selectedHouseholder) &&
+    (!!selectedEstablishment || !!selectedContact) &&
     (typeof window === "undefined" || window.innerWidth < 768 || businessTab === "map");
-  // When both are set we're on householder details (opened from establishment); show householder name
-  const detailsName = selectedHouseholder?.name || selectedEstablishment?.name || "";
+  // When both are set we're on contact details (opened from establishment); show contact name
+  const detailsName = selectedContact?.name || selectedEstablishment?.name || "";
   const detailsStatus = getBusinessDetailsHeaderTitleStatus(
-    selectedHouseholder,
+    selectedContact,
     selectedEstablishment,
     headerDetailsUserId
   );
@@ -318,7 +318,7 @@ function BusinessControlsContent({
                   }
                 }}
                 myActive={filters.myEstablishments}
-                myLabel={businessTab === "householders" ? "My Contacts" : "My Personal Territory"}
+                myLabel={businessTab === "contacts" ? "My Contacts" : "My Personal Territory"}
                 onMyActivate={() => onFiltersChange({ ...filters, myEstablishments: true })}
                 onMyClear={onClearMyEstablishments}
                 filterBadges={badges}
@@ -375,7 +375,7 @@ function BusinessControlsContent({
                     }
                   }}
                   myActive={filters.myEstablishments}
-                  myLabel={businessTab === "householders" ? "My Contacts" : "My Personal Territory"}
+                  myLabel={businessTab === "contacts" ? "My Contacts" : "My Personal Territory"}
                   onMyActivate={() => onFiltersChange({ ...filters, myEstablishments: true })}
                   onMyClear={onClearMyEstablishments}
                   filterBadges={badges}
@@ -443,7 +443,7 @@ function CongregationControlsContent({
   congregationTab,
   onCongregationTabChange,
   isElder,
-  selectedHouseholder,
+  selectedContact,
   onBackClick,
   onEditClick,
   headerDetailsUserId,
@@ -452,16 +452,16 @@ function CongregationControlsContent({
   congregationTab: 'meetings' | 'ministry' | 'admin';
   onCongregationTabChange: (tab: 'meetings' | 'ministry' | 'admin') => void;
   isElder?: boolean;
-  selectedHouseholder?: HouseholderWithDetails | null;
+  selectedContact?: ContactWithDetails | null;
   onBackClick?: () => void;
   onEditClick?: () => void;
   headerDetailsUserId?: string | null;
   headerToast?: HeaderToastProp;
 }) {
-  const isDetailsView = !!selectedHouseholder;
-  const detailsName = selectedHouseholder?.name || "";
+  const isDetailsView = !!selectedContact;
+  const detailsName = selectedContact?.name || "";
   const detailsStatus = getBusinessDetailsHeaderTitleStatus(
-    selectedHouseholder,
+    selectedContact,
     undefined,
     headerDetailsUserId
   );
@@ -724,7 +724,7 @@ export function UnifiedPortaledControls(props: UnifiedPortaledControlsProps) {
         onToggleNearMe={props.onToggleNearMe!}
         formatStatusLabel={props.formatStatusLabel!}
         selectedEstablishment={props.selectedEstablishment}
-        selectedHouseholder={props.selectedHouseholder}
+        selectedContact={props.selectedContact}
         onBackClick={props.onBackClick!}
         onEditClick={props.onEditClick!}
         headerDetailsUserId={props.headerDetailsUserId}
@@ -735,7 +735,7 @@ export function UnifiedPortaledControls(props: UnifiedPortaledControlsProps) {
         congregationTab={props.congregationTab}
         onCongregationTabChange={props.onCongregationTabChange!}
         isElder={props.isElder}
-      selectedHouseholder={props.congregationSelectedHouseholder}
+      selectedContact={props.congregationSelectedContact}
       onBackClick={props.onCongregationBackClick}
       onEditClick={props.onCongregationEditClick}
       headerDetailsUserId={props.headerDetailsUserId}

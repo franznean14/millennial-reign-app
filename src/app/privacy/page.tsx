@@ -20,7 +20,7 @@ export default function PrivacyPolicyPage() {
             <li><strong>Contact Information:</strong> Phone numbers and addresses for emergency contact purposes</li>
             <li><strong>Location Data:</strong> Address coordinates for congregation management and emergency purposes</li>
             <li><strong>Service Records:</strong> Monthly and daily field service reports, Bible study information</li>
-            <li><strong>Business Records:</strong> Establishment and householder information for witnessing work</li>
+            <li><strong>Business Records:</strong> Establishment and contact information for witnessing work</li>
             <li><strong>Usage Data:</strong> How you interact with our app, including performance metrics</li>
           </ul>
         </section>
@@ -32,7 +32,7 @@ export default function PrivacyPolicyPage() {
             <li><strong>Congregation Management:</strong> Organizing congregation activities, assignments, and communication</li>
             <li><strong>Emergency Contact:</strong> Providing contact information to congregation elders for emergency situations</li>
             <li><strong>Service Reporting:</strong> Tracking and reporting field service activities as required by congregation policies</li>
-            <li><strong>Business Witnessing:</strong> Managing establishment and householder records for organized witnessing work</li>
+            <li><strong>Business Witnessing:</strong> Managing establishment and contact records for organized witnessing work</li>
             <li><strong>App Functionality:</strong> Providing personalized features and improving user experience</li>
             <li><strong>Communication:</strong> Sending important updates, notifications, and congregation announcements</li>
           </ul>
@@ -113,7 +113,7 @@ export default function PrivacyPolicyPage() {
           <ul className="list-disc pl-6 mb-4">
             <li><strong>Active Accounts:</strong> Information is retained while your account is active</li>
             <li><strong>Service Records:</strong> Field service records are retained according to congregation policies</li>
-            <li><strong>Business Records:</strong> Establishment and householder information is retained for ongoing witnessing work</li>
+            <li><strong>Business Records:</strong> Establishment and contact information is retained for ongoing witnessing work</li>
             <li><strong>Deleted Accounts:</strong> Data is permanently deleted within 30 days of account deletion</li>
           </ul>
         </section>

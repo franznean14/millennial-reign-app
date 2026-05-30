@@ -16,7 +16,7 @@ export function formatStatusText(status: string): string {
     .join(" ");
 }
 
-export function formatHouseholderStatusCompactText(status: string): string {
+export function formatContactStatusCompactText(status: string): string {
   switch (status) {
     case "return_visit":
       return "RV";

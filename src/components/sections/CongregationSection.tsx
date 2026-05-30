@@ -7,7 +7,7 @@ import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 import dynamic from "next/dynamic";
 import { toast } from "@/components/ui/sonner";
 import type { Congregation } from "@/lib/db/congregations";
-import type { HouseholderWithDetails, VisitWithUser } from "@/lib/db/business";
+import type { ContactWithDetails, VisitWithUser } from "@/lib/db/business";
 import { CongregationView } from "@/components/views/CongregationView";
 
 const CongregationForm = dynamic(() => import("@/components/congregation/CongregationForm").then((m) => m.CongregationForm), {
@@ -29,21 +29,21 @@ export interface CongregationSectionProps {
   congregationTab: "meetings" | "ministry" | "admin";
   setCongregationTab: Dispatch<SetStateAction<"meetings" | "ministry" | "admin">>;
   userId: string;
-  selectedHouseholder: HouseholderWithDetails | null;
-  selectedHouseholderDetails: {
-    householder: HouseholderWithDetails;
+  selectedContact: ContactWithDetails | null;
+  selectedContactDetails: {
+    contact: ContactWithDetails;
     visits: VisitWithUser[];
     establishment?: { id: string; name: string } | null;
   } | null;
-  householderDetailsLoading: boolean;
-  onSelectHouseholder: (householder: HouseholderWithDetails | null) => void;
-  onSelectHouseholderDetails: (details: {
-    householder: HouseholderWithDetails;
+  contactDetailsLoading: boolean;
+  onSelectContact: (contact: ContactWithDetails | null) => void;
+  onSelectContactDetails: (details: {
+    contact: ContactWithDetails;
     visits: VisitWithUser[];
     establishment?: { id: string; name: string } | null;
   } | null) => void;
-  onClearSelectedHouseholder: () => void;
-  loadHouseholderDetails: (householderId: string) => Promise<void>;
+  onClearSelectedContact: () => void;
+  loadContactDetails: (contactId: string) => Promise<void>;
   modalOpen: boolean;
   setModalOpen: Dispatch<SetStateAction<boolean>>;
   mode: "edit" | "create";
@@ -66,13 +66,13 @@ export function CongregationSection({
   congregationTab,
   setCongregationTab,
   userId,
-  selectedHouseholder,
-  selectedHouseholderDetails,
-  householderDetailsLoading,
-  onSelectHouseholder,
-  onSelectHouseholderDetails,
-  onClearSelectedHouseholder,
-  loadHouseholderDetails,
+  selectedContact,
+  selectedContactDetails,
+  contactDetailsLoading,
+  onSelectContact,
+  onSelectContactDetails,
+  onClearSelectedContact,
+  loadContactDetails,
   modalOpen,
   setModalOpen,
   mode,
@@ -117,13 +117,13 @@ export function CongregationSection({
             congregationTab={congregationTab}
             onCongregationTabChange={setCongregationTab}
             userId={userId}
-            selectedHouseholder={selectedHouseholder}
-            selectedHouseholderDetails={selectedHouseholderDetails}
-            householderDetailsLoading={householderDetailsLoading}
-            onSelectHouseholder={onSelectHouseholder}
-            onSelectHouseholderDetails={onSelectHouseholderDetails}
-            onClearSelectedHouseholder={onClearSelectedHouseholder}
-            loadHouseholderDetails={loadHouseholderDetails}
+            selectedContact={selectedContact}
+            selectedContactDetails={selectedContactDetails}
+            contactDetailsLoading={contactDetailsLoading}
+            onSelectContact={onSelectContact}
+            onSelectContactDetails={onSelectContactDetails}
+            onClearSelectedContact={onClearSelectedContact}
+            loadContactDetails={loadContactDetails}
           />
         ) : (
           <section className="rounded-md border p-4 space-y-2">

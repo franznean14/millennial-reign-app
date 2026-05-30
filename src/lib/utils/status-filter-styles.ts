@@ -22,7 +22,7 @@ export function getFadedStatusColor(status: string) {
       return "text-slate-500 border-slate-500 bg-slate-500/5";
     case "on_hold":
       return "text-stone-400 border-stone-600 bg-stone-800/15";
-    // Householder statuses
+    // Contact statuses
     case "potential":
       return "text-cyan-500 border-cyan-500 bg-cyan-500/5";
     case "interested":
@@ -67,7 +67,7 @@ export function getSelectedStatusColor(status: string) {
       return "text-white bg-slate-600 border-slate-600";
     case "on_hold":
       return "text-stone-100 bg-stone-600 border-stone-600";
-    // Householder statuses
+    // Contact statuses
     case "potential":
       return "text-white bg-cyan-500 border-cyan-500";
     case "interested":

@@ -163,9 +163,9 @@ function EstablishmentTableSortTh({
           onToggle(sortKey);
         }}
         className={cn(
-          "inline-flex min-h-11 w-full min-w-0 items-center gap-0.5 py-3 pl-3 pr-1 text-left font-medium touch-manipulation",
-          "rounded-md hover:bg-muted/25 active:bg-muted/40 dark:hover:bg-[#3b3348]/60 dark:active:bg-[#3b3348]",
-          active && "text-foreground dark:text-[#fffaff]"
+          "inline-flex min-h-11 w-full min-w-0 touch-manipulation items-center gap-0.5 rounded-md py-3 pl-3 pr-1 text-left font-medium",
+          studyBibleDarkClasses.tableHeaderSortButton,
+          active && studyBibleDarkClasses.tableHeaderSortButtonActive
         )}
       >
         <span className="min-w-0 flex-1 truncate">{label}</span>
@@ -173,13 +173,17 @@ function EstablishmentTableSortTh({
           <ChevronUp
             className={cn(
               "h-2.5 w-2.5",
-              active && sort.dir === "asc" ? "text-[#80778e]" : "opacity-30"
+              active && sort.dir === "asc"
+                ? studyBibleDarkClasses.tableHeaderSortChevronActive
+                : "opacity-30"
             )}
           />
           <ChevronDown
             className={cn(
               "-mt-0.5 h-2.5 w-2.5",
-              active && sort.dir === "desc" ? "text-[#80778e]" : "opacity-30"
+              active && sort.dir === "desc"
+                ? studyBibleDarkClasses.tableHeaderSortChevronActive
+                : "opacity-30"
             )}
           />
         </span>
@@ -386,7 +390,7 @@ export function EstablishmentList({
           cmp = cmpNum(ea.visit_count ?? 0, eb.visit_count ?? 0);
           break;
         case "contacts":
-          cmp = cmpNum(ea.householder_count ?? 0, eb.householder_count ?? 0);
+          cmp = cmpNum(ea.contact_count ?? 0, eb.contact_count ?? 0);
           break;
         case "floor":
           cmp = cmpStr((ea.floor || "").toLowerCase(), (eb.floor || "").toLowerCase());
@@ -526,7 +530,7 @@ export function EstablishmentList({
                 <p className="text-xs text-muted-foreground">Visits</p>
               </div>
               <div className="text-center">
-                <p className="text-sm font-medium">{establishment.householder_count || 0}</p>
+                <p className="text-sm font-medium">{establishment.contact_count || 0}</p>
                 <p className="text-xs text-muted-foreground">BS</p>
               </div>
               <div className="text-center">
@@ -708,10 +712,10 @@ export function EstablishmentList({
   const renderTableView = () => (
     <div className={cn("w-full h-full flex flex-col overscroll-none overflow-hidden rounded-xl border border-border/70 dark:border-[#3a3342]", studyBibleDarkClasses.card)} style={{ overscrollBehavior: 'none' }}>
       {/* Fixed Table Header */}
-      <div className="flex-shrink-0 border-b bg-card border-border dark:border-[#1c1921] dark:bg-[#30283c]">
+      <div className={cn("flex-shrink-0 border-b", studyBibleDarkClasses.tableHeader)}>
         <table className="w-full text-sm table-fixed">
           <thead>
-            <tr className={cn("border-b border-border dark:border-[#1c1921]", studyBibleDarkClasses.muted)}>
+            <tr className={studyBibleDarkClasses.tableHeaderRow}>
               <EstablishmentTableSortTh
                 label="Name"
                 sortKey="name"
@@ -821,7 +825,7 @@ export function EstablishmentList({
                   {establishment.visit_count ?? 0}
                 </td>
                 <td className="hidden md:table-cell p-3 md:w-[10%]">
-                  {establishment.householder_count ?? 0}
+                  {establishment.contact_count ?? 0}
                 </td>
                 <td className="hidden md:table-cell p-3 min-w-0 md:w-[7%] text-muted-foreground dark:text-[#ded6e7]">
                   <MarqueeCell text={establishment.floor || "-"} />

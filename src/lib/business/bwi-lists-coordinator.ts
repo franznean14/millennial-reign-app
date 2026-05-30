@@ -2,22 +2,22 @@
 
 import {
   getEstablishmentsWithDetails,
-  listHouseholders,
+  listContacts,
   type EstablishmentWithDetails,
-  type HouseholderWithDetails,
+  type ContactWithDetails,
 } from "@/lib/db/business";
 
 /**
- * Single in-flight fetch for establishment + householder list queries.
+ * Single in-flight fetch for establishment + contact list queries.
  * CallHistory and AppClient realtime refetches can overlap; this dedupes concurrent Disk IO.
  */
-let inflight: Promise<[EstablishmentWithDetails[], HouseholderWithDetails[]]> | null = null;
+let inflight: Promise<[EstablishmentWithDetails[], ContactWithDetails[]]> | null = null;
 
-export function getSharedEstablishmentsAndHouseholders(): Promise<
-  [EstablishmentWithDetails[], HouseholderWithDetails[]]
+export function getSharedEstablishmentsAndContacts(): Promise<
+  [EstablishmentWithDetails[], ContactWithDetails[]]
 > {
   if (!inflight) {
-    inflight = Promise.all([getEstablishmentsWithDetails(), listHouseholders()]).finally(() => {
+    inflight = Promise.all([getEstablishmentsWithDetails(), listContacts()]).finally(() => {
       inflight = null;
     });
   }

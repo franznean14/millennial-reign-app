@@ -23,7 +23,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
 // Import all the data and business logic functions
 import { getDailyRecord, listDailyByMonth, upsertDailyRecord, isDailyEmpty, deleteDailyRecord } from "@/lib/db/dailyRecords";
-import { getEstablishmentDetails, getHouseholderDetails, deleteHouseholder, archiveHouseholder, calculateDistance, type EstablishmentWithDetails, type VisitWithUser, type HouseholderWithDetails, type BusinessFiltersState } from "@/lib/db/business";
+import { getEstablishmentDetails, getContactDetails, deleteContact, archiveContact, calculateDistance, type EstablishmentWithDetails, type VisitWithUser, type ContactWithDetails, type BusinessFiltersState } from "@/lib/db/business";
 import { useBusinessFilteredLists } from "@/lib/hooks/use-business-filtered-lists";
 import { useBusinessFilterOptions } from "@/lib/hooks/use-business-filter-options";
 import { useMyOpenTodoTargets } from "@/lib/hooks/use-my-open-todo-targets";
@@ -33,11 +33,11 @@ import { getProfile } from "@/lib/db/profiles";
 import { cacheDelete, cacheGet } from "@/lib/offline/store";
 import {
   establishmentDetailsCacheKey,
-  householderDetailsCacheKey,
+  contactDetailsCacheKey,
 } from "@/lib/db/entity-details-cache";
 import { archiveEstablishment, deleteEstablishment } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
-import { getSharedEstablishmentsAndHouseholders } from "@/lib/business/bwi-lists-coordinator";
+import { getSharedEstablishmentsAndContacts } from "@/lib/business/bwi-lists-coordinator";
 import { formatStatusText } from "@/lib/utils/formatters";
 import { applyDeviceSafeAreaInsets } from "@/lib/utils/device-safe-area";
 import { hasCompletedAppBootSession, markAppBootSessionComplete } from "@/lib/app/boot-session";
@@ -52,25 +52,25 @@ import { UnifiedFab } from "@/components/shared/UnifiedFab";
 const HomeSummary = dynamic(() => import("@/components/home/HomeSummary").then(m => m.HomeSummary), { ssr: false });
 // FAB handled by UnifiedFab
 
-type HouseholderDetailsSnapshot = {
-  householder: HouseholderWithDetails;
+type ContactDetailsSnapshot = {
+  contact: ContactWithDetails;
   visits: VisitWithUser[];
   establishment?: { id: string; name: string; area?: string | null; statuses?: string[] | null } | null;
 };
 
 /** Stale-while-revalidate loader shared by BWI and congregation contact detail views. */
-async function loadHouseholderDetailsSwr(
-  householderId: string,
+async function loadContactDetailsSwr(
+  contactId: string,
   options: {
     hasInMemory: boolean;
     setLoading: (loading: boolean) => void;
-    setDetails: (details: HouseholderDetailsSnapshot | null) => void;
-    setHouseholder: (householder: HouseholderWithDetails | null) => void;
+    setDetails: (details: ContactDetailsSnapshot | null) => void;
+    setContact: (contact: ContactWithDetails | null) => void;
     logLabel?: string;
   }
 ): Promise<void> {
-  const { hasInMemory, setLoading, setDetails, setHouseholder, logLabel = "householder" } = options;
-  const cacheKey = householderDetailsCacheKey(householderId);
+  const { hasInMemory, setLoading, setDetails, setContact, logLabel = "contact" } = options;
+  const cacheKey = contactDetailsCacheKey(contactId);
 
   if (!hasInMemory) {
     setDetails(null);
@@ -82,22 +82,22 @@ async function loadHouseholderDetailsSwr(
   try {
     const cached = hasInMemory
       ? null
-      : await cacheGet<HouseholderDetailsSnapshot>(cacheKey);
+      : await cacheGet<ContactDetailsSnapshot>(cacheKey);
 
     if (!hasInMemory && cached) {
       setDetails(cached);
-      setHouseholder(cached.householder);
+      setContact(cached.contact);
       setLoading(false);
     }
 
-    const details = await getHouseholderDetails(householderId);
+    const details = await getContactDetails(contactId);
     if (details) {
       setDetails(details);
-      setHouseholder(details.householder);
+      setContact(details.contact);
     } else {
       setDetails(null);
-      setHouseholder(null);
-      toast.info("Householder was deleted.");
+      setContact(null);
+      toast.info("Contact was deleted.");
     }
   } catch (error) {
     console.error(`Failed to load ${logLabel} details:`, error);
@@ -146,15 +146,15 @@ export function AppClient() {
   useEffect(() => {
     establishmentsRef.current = establishments;
   }, [establishments]);
-  const [householders, setHouseholders] = useState<HouseholderWithDetails[]>([]);
-  const [businessTab, setBusinessTab] = useState<'establishments' | 'householders' | 'map'>('establishments');
+  const [contacts, setContacts] = useState<ContactWithDetails[]>([]);
+  const [businessTab, setBusinessTab] = useState<'establishments' | 'contacts' | 'map'>('establishments');
   
   // Update business tab based on current section
   useEffect(() => {
     if (currentSection === 'business-establishments') {
       setBusinessTab('establishments');
-    } else if (currentSection === 'business-householders') {
-      setBusinessTab('householders');
+    } else if (currentSection === 'business-contacts') {
+      setBusinessTab('contacts');
     } else if (currentSection === 'business-map') {
       setBusinessTab('map');
     }
@@ -211,14 +211,14 @@ export function AppClient() {
   const [selectedEstablishmentDetails, setSelectedEstablishmentDetails] = useState<{
     establishment: EstablishmentWithDetails;
     visits: VisitWithUser[];
-    householders: HouseholderWithDetails[];
+    contacts: ContactWithDetails[];
   } | null>(null);
   /** Explicit fetch lifecycle — do not infer loading from `!selectedEstablishmentDetails` or failed loads stick on skeleton forever */
   const [establishmentDetailsLoading, setEstablishmentDetailsLoading] = useState(false);
-  const [selectedHouseholder, setSelectedHouseholder] = useState<HouseholderWithDetails | null>(null);
-  const [selectedHouseholderDetails, setSelectedHouseholderDetails] = useState<HouseholderDetailsSnapshot | null>(null);
+  const [selectedContact, setSelectedContact] = useState<ContactWithDetails | null>(null);
+  const [selectedContactDetails, setSelectedContactDetails] = useState<ContactDetailsSnapshot | null>(null);
   /** Explicit fetch lifecycle — same pattern as establishment details (stale-while-revalidate). */
-  const [householderDetailsLoading, setHouseholderDetailsLoading] = useState(false);
+  const [contactDetailsLoading, setContactDetailsLoading] = useState(false);
   const defaultFilters: BusinessFiltersState = {
     search: "",
     statuses: [],
@@ -233,20 +233,20 @@ export function AppClient() {
   };
 
   const [filtersEstablishments, setFiltersEstablishments] = useState<BusinessFiltersState>(defaultFilters);
-  const [filtersHouseholders, setFiltersHouseholders] = useState<BusinessFiltersState>(defaultFilters);
+  const [filtersContacts, setFiltersContacts] = useState<BusinessFiltersState>(defaultFilters);
   const [filtersHydrated, setFiltersHydrated] = useState(false);
   const [filtersModalOpen, setFiltersModalOpen] = useState(false);
   const [searchModalOpen, setSearchModalOpen] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationWatchId, setLocationWatchId] = useState<number | null>(null);
 
-  // Current tab's filters (establishments tab + map use establishment filters; householders tab uses householder filters).
-  const filters = businessTab === "householders" ? filtersHouseholders : filtersEstablishments;
+  // Current tab's filters (establishments tab + map use establishment filters; contacts tab uses contact filters).
+  const filters = businessTab === "contacts" ? filtersContacts : filtersEstablishments;
 
   const setFilters = useCallback(
     (updater: React.SetStateAction<BusinessFiltersState>) => {
-      if (businessTab === "householders") {
-        setFiltersHouseholders(updater);
+      if (businessTab === "contacts") {
+        setFiltersContacts(updater);
       } else {
         setFiltersEstablishments(updater);
       }
@@ -254,14 +254,16 @@ export function AppClient() {
     [businessTab]
   );
 
-  // Load persisted business filters from localStorage on mount (separate per establishment vs householder list).
+  // Load persisted business filters from localStorage on mount (separate per establishment vs contact list).
   // Persisted: statuses, areas, floors, sort, search, myEstablishments, nearMe, userLocation for each list.
   useEffect(() => {
     let isMounted = true;
     try {
       if (typeof window === "undefined") return;
       const rawEst = window.localStorage.getItem("business:filters:establishments");
-      const rawHh = window.localStorage.getItem("business:filters:householders");
+      const rawHh =
+        window.localStorage.getItem("business:filters:contacts") ??
+        window.localStorage.getItem("business:filters:householders");
       const merge = (raw: string | null, prev: BusinessFiltersState): BusinessFiltersState => {
         if (!raw) return prev;
         try {
@@ -290,7 +292,7 @@ export function AppClient() {
       };
       if (isMounted) {
         setFiltersEstablishments((prev) => merge(rawEst, prev));
-        setFiltersHouseholders((prev) => merge(rawHh, prev));
+        setFiltersContacts((prev) => merge(rawHh, prev));
       }
     } catch {
       // Ignore
@@ -299,15 +301,15 @@ export function AppClient() {
     return () => { isMounted = false; };
   }, []);
 
-  // Persist establishment and householder filters separately so switching tabs doesn't reset either.
+  // Persist establishment and contact filters separately so switching tabs doesn't reset either.
   useEffect(() => {
     if (!filtersHydrated) return;
     try {
       if (typeof window === "undefined") return;
       window.localStorage.setItem("business:filters:establishments", JSON.stringify(filtersEstablishments));
-      window.localStorage.setItem("business:filters:householders", JSON.stringify(filtersHouseholders));
+      window.localStorage.setItem("business:filters:contacts", JSON.stringify(filtersContacts));
     } catch {}
-  }, [filtersEstablishments, filtersHouseholders, filtersHydrated]);
+  }, [filtersEstablishments, filtersContacts, filtersHydrated]);
 
   // Congregation state
   const [cong, setCong] = useState<Congregation | null>(null);
@@ -316,10 +318,10 @@ export function AppClient() {
   const [busy, setBusy] = useState(false);
   const [congregationInitialTab, setCongregationInitialTab] = useState<'meetings' | 'ministry' | 'admin' | undefined>(undefined);
   const [congregationTab, setCongregationTab] = useState<'meetings' | 'ministry' | 'admin'>('meetings');
-  const [congregationSelectedHouseholder, setCongregationSelectedHouseholder] = useState<HouseholderWithDetails | null>(null);
-  const [congregationSelectedHouseholderDetails, setCongregationSelectedHouseholderDetails] =
-    useState<HouseholderDetailsSnapshot | null>(null);
-  const [congregationHouseholderDetailsLoading, setCongregationHouseholderDetailsLoading] = useState(false);
+  const [congregationSelectedContact, setCongregationSelectedContact] = useState<ContactWithDetails | null>(null);
+  const [congregationSelectedContactDetails, setCongregationSelectedContactDetails] =
+    useState<ContactDetailsSnapshot | null>(null);
+  const [congregationContactDetailsLoading, setCongregationContactDetailsLoading] = useState(false);
   
   // Update congregation tab when initialTab changes
   useEffect(() => {
@@ -355,8 +357,8 @@ export function AppClient() {
   // Add this state to track user's visited establishments
   const [userVisitedEstablishments, setUserVisitedEstablishments] = useState<Set<string>>(new Set());
   
-  // Add this state to track user's visited householders
-  const [userVisitedHouseholders, setUserVisitedHouseholders] = useState<Set<string>>(new Set());
+  // Add this state to track user's visited contacts
+  const [userVisitedContacts, setUserVisitedContacts] = useState<Set<string>>(new Set());
   const businessSubscriptionsInitializedRef = useRef(false);
   const businessRefetchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const businessRefetchInFlightRef = useRef(false);
@@ -490,14 +492,14 @@ export function AppClient() {
     };
   }, [locationWatchId]);
 
-  // Stop location tracking only when leaving the business area entirely (not when switching establishment/householder/map tabs).
+  // Stop location tracking only when leaving the business area entirely (not when switching establishment/contact/map tabs).
   const isBusinessArea = currentSection === "business" || currentSection.startsWith("business-");
   useEffect(() => {
     if (!isBusinessArea && locationWatchId !== null) {
       navigator.geolocation.clearWatch(locationWatchId);
       setLocationWatchId(null);
       setFiltersEstablishments((prev) => ({ ...prev, nearMe: false, userLocation: null }));
-      setFiltersHouseholders((prev) => ({ ...prev, nearMe: false, userLocation: null }));
+      setFiltersContacts((prev) => ({ ...prev, nearMe: false, userLocation: null }));
     }
   }, [isBusinessArea, locationWatchId]);
 
@@ -510,15 +512,15 @@ export function AppClient() {
           const supabase = await getSupabaseClient();
           const { data: visits } = await supabase
             .from('calls')
-            .select('establishment_id, householder_id')
+            .select(`establishment_id, contact_id:householder_id`)
             .or(`publisher_id.eq.${userId},partner_id.eq.${userId}`);
           
           if (visits) {
             const visitedEstablishmentIds = new Set(visits.map(v => v.establishment_id).filter(Boolean));
             setUserVisitedEstablishments(visitedEstablishmentIds);
             
-            const visitedHouseholderIds = new Set(visits.map(v => v.householder_id).filter(Boolean));
-            setUserVisitedHouseholders(visitedHouseholderIds);
+            const visitedContactIds = new Set(visits.map(v => v.contact_id).filter(Boolean));
+            setUserVisitedContacts(visitedContactIds);
           }
         } catch (error) {
           console.error('Failed to load user visits:', error);
@@ -552,26 +554,30 @@ export function AppClient() {
   const loadBusinessData = useCallback(async () => {
     try {
       // Hydrate from IndexedDB cache first for instant render.
-      const [cachedEstablishments, cachedHouseholders] = await Promise.all([
+      const [cachedEstablishments, cachedContactsRaw] = await Promise.all([
         cacheGet<EstablishmentWithDetails[]>("establishments:with-details"),
-        cacheGet<HouseholderWithDetails[]>("householders:list:v2"),
+        cacheGet<ContactWithDetails[]>("contacts:list:v3"),
       ]);
+      const cachedContacts =
+        cachedContactsRaw?.length
+          ? cachedContactsRaw
+          : await cacheGet<ContactWithDetails[]>("householders:list:v2");
       if (cachedEstablishments?.length) {
         setEstablishments(cachedEstablishments);
       }
-      if (cachedHouseholders?.length) {
-        setHouseholders(cachedHouseholders.filter((householder) => !!householder.establishment_id));
+      if (cachedContacts?.length) {
+        setContacts(cachedContacts.filter((contact) => !!contact.establishment_id));
       }
 
-      const [establishmentsData, householdersData] = await getSharedEstablishmentsAndHouseholders();
+      const [establishmentsData, contactsData] = await getSharedEstablishmentsAndContacts();
       setEstablishments(establishmentsData);
-      setHouseholders(householdersData.filter((householder) => !!householder.establishment_id));
+      setContacts(contactsData.filter((contact) => !!contact.establishment_id));
 
       if (!businessSubscriptionsInitializedRef.current) {
         // Set up business event listeners once to avoid duplicate subscriptions.
         businessEventBus.subscribe('establishment-added', addNewEstablishment);
         businessEventBus.subscribe('establishment-updated', updateEstablishment);
-        businessEventBus.subscribe('householder-added', addNewHouseholder);
+        businessEventBus.subscribe('contact-added', addNewContact);
         businessEventBus.subscribe('visit-added', addNewVisit);
         businessEventBus.subscribe('visit-updated', (v: any) => {
           setSelectedEstablishmentDetails(prev => {
@@ -589,7 +595,7 @@ export function AppClient() {
               } : existing)
             };
           });
-          setSelectedHouseholderDetails(prev => {
+          setSelectedContactDetails(prev => {
             if (!prev) return prev;
             return {
               ...prev,
@@ -610,24 +616,24 @@ export function AppClient() {
             if (!prev) return prev;
             return { ...prev, visits: prev.visits.filter(ex => ex.id !== v.id) };
           });
-          setSelectedHouseholderDetails(prev => {
+          setSelectedContactDetails(prev => {
             if (!prev) return prev;
             return { ...prev, visits: prev.visits.filter(ex => ex.id !== v.id) };
           });
         });
-        businessEventBus.subscribe('householder-updated', (hh: any) => {
-          // Update main householders list
-          setHouseholders(prev => prev.map(h => h.id === hh.id ? { ...h, ...hh } : h));
+        businessEventBus.subscribe('contact-updated', (hh: any) => {
+          // Update main contacts list
+          setContacts(prev => prev.map(h => h.id === hh.id ? { ...h, ...hh } : h));
           
           setSelectedEstablishmentDetails(prev => {
             if (!prev) return prev;
             // Create new arrays to ensure React detects the changes
-            const updatedHouseholders = prev.householders.map(h => h.id === hh.id ? { ...h, ...hh } : h);
+            const updatedContacts = prev.contacts.map(h => h.id === hh.id ? { ...h, ...hh } : h);
             const updatedVisits = prev.visits.map(visit => {
-              if (visit.householder && visit.householder.id === hh.id) {
+              if (visit.contact && visit.contact.id === hh.id) {
                 return { 
                   ...visit, 
-                  householder: { ...visit.householder, ...hh }
+                  contact: { ...visit.contact, ...hh }
                 };
               }
               return visit;
@@ -635,20 +641,20 @@ export function AppClient() {
             
             return { 
               ...prev, 
-              householders: updatedHouseholders,
+              contacts: updatedContacts,
               visits: updatedVisits
             };
           });
-          setSelectedHouseholder(prev => prev && prev.id === hh.id ? { ...prev, ...hh } : prev);
-          setSelectedHouseholderDetails(prev => prev && prev.householder.id === hh.id ? { ...prev, householder: { ...prev.householder, ...hh } } : prev);
+          setSelectedContact(prev => prev && prev.id === hh.id ? { ...prev, ...hh } : prev);
+          setSelectedContactDetails(prev => prev && prev.contact.id === hh.id ? { ...prev, contact: { ...prev.contact, ...hh } } : prev);
         });
-        businessEventBus.subscribe('householder-deleted', (hh: any) => {
+        businessEventBus.subscribe('contact-deleted', (hh: any) => {
           setSelectedEstablishmentDetails(prev => {
             if (!prev) return prev;
-            return { ...prev, householders: prev.householders.filter(h => h.id !== hh.id) };
+            return { ...prev, contacts: prev.contacts.filter(h => h.id !== hh.id) };
           });
-          setSelectedHouseholder(null);
-          setSelectedHouseholderDetails(null);
+          setSelectedContact(null);
+          setSelectedContactDetails(null);
         });
         businessSubscriptionsInitializedRef.current = true;
       }
@@ -660,24 +666,24 @@ export function AppClient() {
   // Refs so Realtime refetch can refresh open detail views without stale closures
   const selectedEstablishmentIdRef = useRef<string | null>(null);
   const selectedEstablishmentDetailsRef = useRef(selectedEstablishmentDetails);
-  const selectedHouseholderDetailsRef = useRef(selectedHouseholderDetails);
-  const congregationSelectedHouseholderDetailsRef = useRef(congregationSelectedHouseholderDetails);
-  const selectedHouseholderIdRef = useRef<string | null>(null);
-  const congregationSelectedHouseholderIdRef = useRef<string | null>(null);
+  const selectedContactDetailsRef = useRef(selectedContactDetails);
+  const congregationSelectedContactDetailsRef = useRef(congregationSelectedContactDetails);
+  const selectedContactIdRef = useRef<string | null>(null);
+  const congregationSelectedContactIdRef = useRef<string | null>(null);
   useEffect(() => {
     selectedEstablishmentIdRef.current = selectedEstablishment?.id ?? null;
     selectedEstablishmentDetailsRef.current = selectedEstablishmentDetails;
-    selectedHouseholderIdRef.current = selectedHouseholder?.id ?? null;
-    selectedHouseholderDetailsRef.current = selectedHouseholderDetails;
-    congregationSelectedHouseholderIdRef.current = congregationSelectedHouseholder?.id ?? null;
-    congregationSelectedHouseholderDetailsRef.current = congregationSelectedHouseholderDetails;
+    selectedContactIdRef.current = selectedContact?.id ?? null;
+    selectedContactDetailsRef.current = selectedContactDetails;
+    congregationSelectedContactIdRef.current = congregationSelectedContact?.id ?? null;
+    congregationSelectedContactDetailsRef.current = congregationSelectedContactDetails;
   }, [
     selectedEstablishment?.id,
     selectedEstablishmentDetails,
-    selectedHouseholder?.id,
-    selectedHouseholderDetails,
-    congregationSelectedHouseholder?.id,
-    congregationSelectedHouseholderDetails,
+    selectedContact?.id,
+    selectedContactDetails,
+    congregationSelectedContact?.id,
+    congregationSelectedContactDetails,
   ]);
 
   // Refetch-only (no event bus). Used when Supabase Realtime detects changes so views re-render with latest data.
@@ -689,21 +695,21 @@ export function AppClient() {
     businessRefetchInFlightRef.current = true;
     try {
       const estId = selectedEstablishmentIdRef.current;
-      const hhId = selectedHouseholderIdRef.current;
-      const congHhId = congregationSelectedHouseholderIdRef.current;
+      const hhId = selectedContactIdRef.current;
+      const congHhId = congregationSelectedContactIdRef.current;
       // Invalidate detail caches first so detail fetches never see stale cache (list and details both get fresh data)
       await Promise.all([
         estId ? cacheDelete(establishmentDetailsCacheKey(estId)) : Promise.resolve(),
-        hhId ? cacheDelete(householderDetailsCacheKey(hhId)) : Promise.resolve(),
-        congHhId ? cacheDelete(householderDetailsCacheKey(congHhId)) : Promise.resolve(),
+        hhId ? cacheDelete(contactDetailsCacheKey(hhId)) : Promise.resolve(),
+        congHhId ? cacheDelete(contactDetailsCacheKey(congHhId)) : Promise.resolve(),
       ]);
-      const [establishmentsData, householdersData] = await getSharedEstablishmentsAndHouseholders();
+      const [establishmentsData, contactsData] = await getSharedEstablishmentsAndContacts();
       setEstablishments(establishmentsData);
-      setHouseholders(householdersData.filter((householder) => !!householder.establishment_id));
+      setContacts(contactsData.filter((contact) => !!contact.establishment_id));
       const [estDetails, hhDetails, congHhDetails] = await Promise.all([
         estId ? getEstablishmentDetails(estId) : Promise.resolve(null),
-        hhId ? getHouseholderDetails(hhId) : Promise.resolve(null),
-        congHhId ? getHouseholderDetails(congHhId) : Promise.resolve(null),
+        hhId ? getContactDetails(hhId) : Promise.resolve(null),
+        congHhId ? getContactDetails(congHhId) : Promise.resolve(null),
       ]);
       if (estDetails) {
         setSelectedEstablishmentDetails(estDetails);
@@ -722,25 +728,25 @@ export function AppClient() {
         // Still listed but details missing: transient/network/query issue — keep selection and avoid false “deleted” toast
       }
       if (hhDetails) {
-        setSelectedHouseholderDetails(hhDetails);
-        // Keep selected householder (name, status, note, etc.) in sync so details view updates on property changes
-        setSelectedHouseholder((prev) =>
-          prev?.id === hhDetails.householder.id ? { ...prev, ...hhDetails.householder } : prev
+        setSelectedContactDetails(hhDetails);
+        // Keep selected contact (name, status, note, etc.) in sync so details view updates on property changes
+        setSelectedContact((prev) =>
+          prev?.id === hhDetails.contact.id ? { ...prev, ...hhDetails.contact } : prev
         );
       } else if (hhId) {
-        // Open householder was soft-deleted (getHouseholderDetails returned null) — clear detail view
-        setSelectedHouseholderDetails(null);
-        setSelectedHouseholder(null);
-        toast.info("Householder was deleted.");
+        // Open contact was soft-deleted (getContactDetails returned null) — clear detail view
+        setSelectedContactDetails(null);
+        setSelectedContact(null);
+        toast.info("Contact was deleted.");
       }
       if (congHhDetails) {
-        setCongregationSelectedHouseholderDetails(congHhDetails);
-        setCongregationSelectedHouseholder(congHhDetails.householder);
+        setCongregationSelectedContactDetails(congHhDetails);
+        setCongregationSelectedContact(congHhDetails.contact);
       } else if (congHhId) {
-        // Open congregation householder was soft-deleted — clear detail view
-        setCongregationSelectedHouseholderDetails(null);
-        setCongregationSelectedHouseholder(null);
-        toast.info("Householder was deleted.");
+        // Open congregation contact was soft-deleted — clear detail view
+        setCongregationSelectedContactDetails(null);
+        setCongregationSelectedContact(null);
+        toast.info("Contact was deleted.");
       }
     } catch (error) {
       console.error('Failed to refetch business data:', error);
@@ -805,7 +811,7 @@ export function AppClient() {
     };
   }, [userId, congregationId, scheduleBusinessRefetch]);
 
-  // When current user soft-deletes a householder, refetch establishment details so householders list and establishment fields stay in sync
+  // When current user soft-deletes a contact, refetch establishment details so contacts list and establishment fields stay in sync
   useEffect(() => {
     const handler = () => {
       const estId = selectedEstablishmentIdRef.current;
@@ -821,8 +827,8 @@ export function AppClient() {
         })
       );
     };
-    businessEventBus.subscribe("householder-deleted", handler);
-    return () => businessEventBus.unsubscribe("householder-deleted", handler);
+    businessEventBus.subscribe("contact-deleted", handler);
+    return () => businessEventBus.unsubscribe("contact-deleted", handler);
   }, []);
 
   const loadEstablishmentDetails = useCallback(async (establishmentId: string) => {
@@ -845,7 +851,7 @@ export function AppClient() {
         : await cacheGet<{
             establishment: EstablishmentWithDetails;
             visits: VisitWithUser[];
-            householders: HouseholderWithDetails[];
+            contacts: ContactWithDetails[];
           }>(cacheKey);
 
       if (!hasInMemory && cached) {
@@ -873,7 +879,7 @@ export function AppClient() {
             setSelectedEstablishmentDetails({
               establishment: row,
               visits: [],
-              householders: [],
+              contacts: [],
             });
           }
         }
@@ -904,50 +910,50 @@ export function AppClient() {
     }
   }, [selectedEstablishment]);
 
-  // Reset scroll position when navigating to householder details
+  // Reset scroll position when navigating to contact details
   useEffect(() => {
-    if (selectedHouseholder) {
-      // Reset scroll position immediately when householder is selected
+    if (selectedContact) {
+      // Reset scroll position immediately when contact is selected
       requestAnimationFrame(() => {
         window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
         document.documentElement.scrollTop = 0;
         document.body.scrollTop = 0;
       });
     }
-  }, [selectedHouseholder]);
+  }, [selectedContact]);
 
   useEffect(() => {
-    if (!selectedHouseholder) {
-      setHouseholderDetailsLoading(false);
+    if (!selectedContact) {
+      setContactDetailsLoading(false);
     }
-  }, [selectedHouseholder]);
+  }, [selectedContact]);
 
   useEffect(() => {
-    if (!congregationSelectedHouseholder) {
-      setCongregationHouseholderDetailsLoading(false);
+    if (!congregationSelectedContact) {
+      setCongregationContactDetailsLoading(false);
     }
-  }, [congregationSelectedHouseholder]);
+  }, [congregationSelectedContact]);
 
-  const loadHouseholderDetails = useCallback(async (householderId: string) => {
+  const loadContactDetails = useCallback(async (contactId: string) => {
     const hasInMemory =
-      selectedHouseholderDetailsRef.current?.householder?.id === householderId;
-    await loadHouseholderDetailsSwr(householderId, {
+      selectedContactDetailsRef.current?.contact?.id === contactId;
+    await loadContactDetailsSwr(contactId, {
       hasInMemory,
-      setLoading: setHouseholderDetailsLoading,
-      setDetails: setSelectedHouseholderDetails,
-      setHouseholder: setSelectedHouseholder,
+      setLoading: setContactDetailsLoading,
+      setDetails: setSelectedContactDetails,
+      setContact: setSelectedContact,
     });
   }, []);
 
-  const loadCongregationHouseholderDetails = useCallback(async (householderId: string) => {
+  const loadCongregationContactDetails = useCallback(async (contactId: string) => {
     const hasInMemory =
-      congregationSelectedHouseholderDetailsRef.current?.householder?.id === householderId;
-    await loadHouseholderDetailsSwr(householderId, {
+      congregationSelectedContactDetailsRef.current?.contact?.id === contactId;
+    await loadContactDetailsSwr(contactId, {
       hasInMemory,
-      setLoading: setCongregationHouseholderDetailsLoading,
-      setDetails: setCongregationSelectedHouseholderDetails,
-      setHouseholder: setCongregationSelectedHouseholder,
-      logLabel: "congregation householder",
+      setLoading: setCongregationContactDetailsLoading,
+      setDetails: setCongregationSelectedContactDetails,
+      setContact: setCongregationSelectedContact,
+      logLabel: "congregation contact",
     });
   }, []);
 
@@ -985,10 +991,10 @@ export function AppClient() {
     setSelectedEstablishmentDetails(prev => prev ? ({ ...prev, establishment: merge(prev.establishment)! }) : prev);
   }, []);
 
-  const addNewHouseholder = useCallback((householder: HouseholderWithDetails) => {
+  const addNewContact = useCallback((contact: ContactWithDetails) => {
     setSelectedEstablishmentDetails(prev => {
       if (!prev) return prev;
-      return { ...prev, householders: [householder, ...prev.householders] };
+      return { ...prev, contacts: [contact, ...prev.contacts] };
     });
   }, []);
 
@@ -999,7 +1005,7 @@ export function AppClient() {
       if (visitExists) return prev;
       return { ...prev, visits: [visit, ...prev.visits] };
     });
-    setSelectedHouseholderDetails(prev => {
+    setSelectedContactDetails(prev => {
       if (!prev) return prev;
       const visitExists = prev.visits.some(existingVisit => existingVisit.id === visit.id);
       if (visitExists) return prev;
@@ -1045,53 +1051,53 @@ export function AppClient() {
     }
   }, [selectedEstablishment]);
 
-  const handleDeleteHouseholder = useCallback(async (householder: HouseholderWithDetails) => {
+  const handleDeleteContact = useCallback(async (contact: ContactWithDetails) => {
     try {
-      const success = await deleteHouseholder(householder.id);
+      const success = await deleteContact(contact.id);
       if (success) {
-        toast.success(`${householder.name} deleted successfully`);
-        setHouseholders(prev => prev.filter(h => h.id !== householder.id));
-        if (selectedHouseholder?.id === householder.id) {
-          setSelectedHouseholder(null);
-          setSelectedHouseholderDetails(null);
+        toast.success(`${contact.name} deleted successfully`);
+        setContacts(prev => prev.filter(h => h.id !== contact.id));
+        if (selectedContact?.id === contact.id) {
+          setSelectedContact(null);
+          setSelectedContactDetails(null);
         }
       } else {
-        toast.error('Failed to delete householder');
+        toast.error('Failed to delete contact');
       }
     } catch (error) {
-      console.error('Failed to delete householder:', error);
-      toast.error('Failed to delete householder');
+      console.error('Failed to delete contact:', error);
+      toast.error('Failed to delete contact');
     }
-  }, [selectedHouseholder]);
+  }, [selectedContact]);
 
-  const handleArchiveHouseholder = useCallback(async (householder: HouseholderWithDetails) => {
+  const handleArchiveContact = useCallback(async (contact: ContactWithDetails) => {
     try {
-      const success = await archiveHouseholder(householder.id);
+      const success = await archiveContact(contact.id);
       if (success) {
-        toast.success(`${householder.name} archived successfully`);
-        setHouseholders(prev => prev.filter(h => h.id !== householder.id));
-        if (selectedHouseholder?.id === householder.id) {
-          setSelectedHouseholder(null);
-          setSelectedHouseholderDetails(null);
+        toast.success(`${contact.name} archived successfully`);
+        setContacts(prev => prev.filter(h => h.id !== contact.id));
+        if (selectedContact?.id === contact.id) {
+          setSelectedContact(null);
+          setSelectedContactDetails(null);
         }
       } else {
-        toast.error('Failed to archive householder');
+        toast.error('Failed to archive contact');
       }
     } catch (error) {
-      console.error('Failed to archive householder:', error);
-      toast.error('Failed to archive householder');
+      console.error('Failed to archive contact:', error);
+      toast.error('Failed to archive contact');
     }
-  }, [selectedHouseholder]);
+  }, [selectedContact]);
 
   const { targets: myOpenTodoTargets } = useMyOpenTodoTargets(userId);
 
-  const { filteredEstablishments, filteredHouseholders } = useBusinessFilteredLists({
+  const { filteredEstablishments, filteredContacts } = useBusinessFilteredLists({
     establishments,
-    householders,
+    contacts,
     filtersEstablishments,
-    filtersHouseholders,
+    filtersContacts,
     userVisitedEstablishments,
-    userVisitedHouseholders,
+    userVisitedContacts,
     userId,
     myOpenTodoTargets,
   });
@@ -1113,7 +1119,7 @@ export function AppClient() {
   };
 
   const onNavigateToBusinessWithStatus = useCallback(
-    (tab: "establishments" | "householders", status: string, areas?: string | string[]) => {
+    (tab: "establishments" | "contacts", status: string, areas?: string | string[]) => {
       const nextAreas = Array.isArray(areas)
         ? Array.from(new Set(areas.map((area) => area.trim()).filter(Boolean)))
         : (areas?.trim() ? [areas.trim()] : []);
@@ -1126,7 +1132,7 @@ export function AppClient() {
           areas: nextAreas,
         }));
       } else {
-        setFiltersHouseholders((prev) => ({
+        setFiltersContacts((prev) => ({
           ...prev,
           statuses: [status],
           excludedStatuses: [],
@@ -1231,7 +1237,7 @@ export function AppClient() {
 
   const { dynamicStatusOptions, dynamicAreaOptions, dynamicFloorOptions } = useBusinessFilterOptions({
     establishments,
-    householders,
+    contacts,
     filters,
     userVisitedEstablishments,
     businessTab,
@@ -1294,12 +1300,12 @@ export function AppClient() {
       onToggleNearMe={handleToggleNearMe}
       formatStatusLabel={formatStatusText}
       selectedEstablishment={selectedEstablishment}
-      selectedHouseholder={selectedHouseholder}
+      selectedContact={selectedContact}
       onBackClick={() => {
-        // When both are set we're on householder details (opened from establishment); handle householder first
-        if (selectedHouseholder) {
-          setSelectedHouseholder(null);
-          setSelectedHouseholderDetails(null);
+        // When both are set we're on contact details (opened from establishment); handle contact first
+        if (selectedContact) {
+          setSelectedContact(null);
+          setSelectedContactDetails(null);
           if (selectedEstablishment) {
             // Came from establishment details → stay there (view will show establishment details)
             return;
@@ -1310,13 +1316,13 @@ export function AppClient() {
               ? previousSection
               : businessTab === 'map'
                 ? 'business-map'
-                : 'business-householders';
+                : 'business-contacts';
             setCurrentSection(targetSection);
             const url = new URL(window.location.href);
             url.pathname = targetSection === 'home' ? '/' : '/business';
             window.history.pushState({}, '', url.toString());
           } else {
-            const fallback = businessTab === 'map' ? 'business-map' : 'business-householders';
+            const fallback = businessTab === 'map' ? 'business-map' : 'business-contacts';
             setCurrentSection(fallback);
             const url = new URL(window.location.href);
             url.pathname = '/business';
@@ -1346,20 +1352,20 @@ export function AppClient() {
         }
       }}
       onEditClick={() => {
-        if (selectedEstablishment || selectedHouseholder) {
+        if (selectedEstablishment || selectedContact) {
           window.dispatchEvent(new CustomEvent('trigger-edit-details'));
         }
       }}
       headerDetailsUserId={userId}
       congregationTab={congregationTab}
       onCongregationTabChange={setCongregationTab}
-      congregationSelectedHouseholder={congregationSelectedHouseholder}
+      congregationSelectedContact={congregationSelectedContact}
       onCongregationBackClick={() => {
-        setCongregationSelectedHouseholder(null);
-        setCongregationSelectedHouseholderDetails(null);
+        setCongregationSelectedContact(null);
+        setCongregationSelectedContactDetails(null);
       }}
       onCongregationEditClick={() => {
-        if (congregationSelectedHouseholder) {
+        if (congregationSelectedContact) {
           window.dispatchEvent(new CustomEvent("trigger-edit-details"));
         }
       }}
@@ -1376,16 +1382,16 @@ export function AppClient() {
       currentSection={currentSection}
       userId={userId}
       establishments={establishments}
-      householders={householders}
+      contacts={contacts}
       selectedEstablishment={selectedEstablishment}
-      selectedHouseholder={selectedHouseholder}
+      selectedContact={selectedContact}
       selectedArea={filters.areas[0]}
       businessTab={businessTab}
       congregationId={cong?.id ?? null}
       congregationTab={congregationTab}
       isElder={isElder}
       isAdmin={admin}
-      congregationSelectedHouseholder={congregationSelectedHouseholder}
+      congregationSelectedContact={congregationSelectedContact}
     />
   );
 
@@ -1415,9 +1421,9 @@ export function AppClient() {
           pushNavigation={pushNavigation}
           setBusinessTab={setBusinessTab}
           setSelectedEstablishment={setSelectedEstablishment}
-          setSelectedHouseholder={setSelectedHouseholder}
+          setSelectedContact={setSelectedContact}
           loadEstablishmentDetails={loadEstablishmentDetails}
-          loadHouseholderDetails={loadHouseholderDetails}
+          loadContactDetails={loadContactDetails}
         />
           {unifiedFab}
         </>
@@ -1439,24 +1445,24 @@ export function AppClient() {
           viewMode={viewMode}
           setViewMode={setViewMode}
           filteredEstablishments={filteredEstablishments}
-          filteredHouseholders={filteredHouseholders}
+          filteredContacts={filteredContacts}
           establishments={establishments}
           selectedEstablishment={selectedEstablishment}
           setSelectedEstablishment={setSelectedEstablishment}
           selectedEstablishmentDetails={selectedEstablishmentDetails}
           establishmentDetailsLoading={establishmentDetailsLoading}
           setSelectedEstablishmentDetails={setSelectedEstablishmentDetails}
-          selectedHouseholder={selectedHouseholder}
-          setSelectedHouseholder={setSelectedHouseholder}
-          selectedHouseholderDetails={selectedHouseholderDetails}
-          householderDetailsLoading={householderDetailsLoading}
-          setSelectedHouseholderDetails={setSelectedHouseholderDetails}
+          selectedContact={selectedContact}
+          setSelectedContact={setSelectedContact}
+          selectedContactDetails={selectedContactDetails}
+          contactDetailsLoading={contactDetailsLoading}
+          setSelectedContactDetails={setSelectedContactDetails}
           loadEstablishmentDetails={loadEstablishmentDetails}
-          loadHouseholderDetails={loadHouseholderDetails}
+          loadContactDetails={loadContactDetails}
           handleDeleteEstablishment={handleDeleteEstablishment}
           handleArchiveEstablishment={handleArchiveEstablishment}
-          handleDeleteHouseholder={handleDeleteHouseholder}
-          handleArchiveHouseholder={handleArchiveHouseholder}
+          handleDeleteContact={handleDeleteContact}
+          handleArchiveContact={handleArchiveContact}
           handleClearAllFilters={handleClearAllFilters}
           handleClearSearch={handleClearSearch}
           handleRemoveStatus={handleRemoveStatus}
@@ -1491,16 +1497,16 @@ export function AppClient() {
           congregationTab={congregationTab}
           setCongregationTab={setCongregationTab}
           userId={userId}
-            selectedHouseholder={congregationSelectedHouseholder}
-            selectedHouseholderDetails={congregationSelectedHouseholderDetails}
-            householderDetailsLoading={congregationHouseholderDetailsLoading}
-            onSelectHouseholder={setCongregationSelectedHouseholder}
-            onSelectHouseholderDetails={setCongregationSelectedHouseholderDetails}
-            onClearSelectedHouseholder={() => {
-              setCongregationSelectedHouseholder(null);
-              setCongregationSelectedHouseholderDetails(null);
+            selectedContact={congregationSelectedContact}
+            selectedContactDetails={congregationSelectedContactDetails}
+            contactDetailsLoading={congregationContactDetailsLoading}
+            onSelectContact={setCongregationSelectedContact}
+            onSelectContactDetails={setCongregationSelectedContactDetails}
+            onClearSelectedContact={() => {
+              setCongregationSelectedContact(null);
+              setCongregationSelectedContactDetails(null);
             }}
-            loadHouseholderDetails={loadCongregationHouseholderDetails}
+            loadContactDetails={loadCongregationContactDetails}
           modalOpen={modalOpen}
           setModalOpen={setModalOpen}
           mode={mode}

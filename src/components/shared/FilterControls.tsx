@@ -110,10 +110,10 @@ interface FilterControlsProps {
   bwiLabel?: string;
   onBwiActivate?: () => void;
   onBwiClear?: () => void;
-  householderActive?: boolean;
-  householderLabel?: string;
-  onHouseholderActivate?: () => void;
-  onHouseholderClear?: () => void;
+  contactActive?: boolean;
+  contactLabel?: string;
+  onContactActivate?: () => void;
+  onContactClear?: () => void;
   showTodoFilter?: boolean;
   todosActive?: boolean;
   todosLabel?: string;
@@ -153,10 +153,10 @@ export function FilterControls({
   bwiLabel = "BWI Only",
   onBwiActivate,
   onBwiClear,
-  householderActive = false,
-  householderLabel = "Personal Contacts Only",
-  onHouseholderActivate,
-  onHouseholderClear,
+  contactActive = false,
+  contactLabel = "Personal Contacts Only",
+  onContactActivate,
+  onContactClear,
   showTodoFilter = false,
   todosActive = false,
   todosLabel = "My To-Dos",
@@ -414,7 +414,7 @@ export function FilterControls({
         />
       ) : null}
       <FilterToolbarMotionShell
-        show={!!(bwiActive && !householderActive && onBwiClear)}
+        show={!!(bwiActive && !contactActive && onBwiClear)}
         layoutId="filter-toolbar-bwi-active"
       >
         <Button
@@ -431,19 +431,19 @@ export function FilterControls({
         </Button>
       </FilterToolbarMotionShell>
       <FilterToolbarMotionShell
-        show={!!(householderActive && onHouseholderClear)}
-        layoutId="filter-toolbar-householder-active"
+        show={!!(contactActive && onContactClear)}
+        layoutId="filter-toolbar-contact-active"
       >
         <Button
           type="button"
           variant="default"
           size="sm"
           className={cn("h-9 rounded-full px-3 flex items-center gap-2 text-primary-foreground", filterPillActiveClass)}
-          onClick={onHouseholderClear}
-          aria-label={householderLabel}
+          onClick={onContactClear}
+          aria-label={contactLabel}
         >
           <Users className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
-          <span className="text-sm whitespace-nowrap text-primary-foreground">{householderLabel}</span>
+          <span className="text-sm whitespace-nowrap text-primary-foreground">{contactLabel}</span>
           <X className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
         </Button>
       </FilterToolbarMotionShell>
@@ -465,7 +465,7 @@ export function FilterControls({
       ) : null}
       {filtersMegaButton}
       <FilterToolbarMotionShell
-        show={!bwiActive && !householderActive && !!onBwiActivate}
+        show={!bwiActive && !contactActive && !!onBwiActivate}
         layoutId="filter-toolbar-bwi-inactive"
       >
         <Button
@@ -482,23 +482,23 @@ export function FilterControls({
         </Button>
       </FilterToolbarMotionShell>
       <FilterToolbarMotionShell
-        show={!!((bwiActive || householderActive) && onHouseholderActivate && !householderActive)}
-        layoutId="filter-toolbar-householder-inactive"
+        show={!!((bwiActive || contactActive) && onContactActivate && !contactActive)}
+        layoutId="filter-toolbar-contact-inactive"
       >
         <Button
           type="button"
           variant="secondary"
           size="icon"
           className={filterIconButtonClass}
-          onClick={onHouseholderActivate}
-          aria-label={householderLabel}
-          title={householderLabel}
+          onClick={onContactActivate}
+          aria-label={contactLabel}
+          title={contactLabel}
         >
           <Users className="h-4 w-4 text-foreground" />
         </Button>
       </FilterToolbarMotionShell>
       <FilterToolbarMotionShell
-        show={!!(householderActive && onBwiActivate)}
+        show={!!(contactActive && onBwiActivate)}
         layoutId="filter-toolbar-bwi-companion"
       >
         <Button
@@ -748,24 +748,24 @@ export function FilterControls({
               <User className="h-4 w-4 text-foreground" />
             </Button>
           )}
-          {preserveActionButtonsWhenTogglesActive && (bwiActive || householderActive) && onBwiActivate && (
+          {preserveActionButtonsWhenTogglesActive && (bwiActive || contactActive) && onBwiActivate && (
             <Button
               type="button"
-              variant={householderActive ? "secondary" : "default"}
+              variant={contactActive ? "secondary" : "default"}
               size="sm"
               className={cn(
                 "h-9 rounded-full flex items-center gap-2",
-                householderActive ? "px-2" : "px-3",
-                householderActive ? cn("shadow-none border", studyBibleDarkClasses.filterToolbarButton) : filterPillActiveClass
+                contactActive ? "px-2" : "px-3",
+                contactActive ? cn("shadow-none border", studyBibleDarkClasses.filterToolbarButton) : filterPillActiveClass
               )}
-              onClick={householderActive ? onBwiActivate : onBwiClear}
+              onClick={contactActive ? onBwiActivate : onBwiClear}
               aria-label={bwiLabel}
             >
               <Building2 className={cn(
                 "h-4 w-4 flex-shrink-0",
-                householderActive ? "text-foreground" : "text-primary-foreground"
+                contactActive ? "text-foreground" : "text-primary-foreground"
               )} />
-              {!householderActive && (
+              {!contactActive && (
                 <>
                   <span className="text-sm whitespace-nowrap text-primary-foreground">{bwiLabel}</span>
                   <X className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
@@ -773,30 +773,30 @@ export function FilterControls({
               )}
             </Button>
           )}
-          {preserveActionButtonsWhenTogglesActive && (bwiActive || householderActive) && onHouseholderActivate && !householderActive && (
+          {preserveActionButtonsWhenTogglesActive && (bwiActive || contactActive) && onContactActivate && !contactActive && (
             <Button
               type="button"
               variant="secondary"
               size="icon"
               className={filterIconButtonClass}
-              onClick={onHouseholderActivate}
-              aria-label={householderLabel}
-              title={householderLabel}
+              onClick={onContactActivate}
+              aria-label={contactLabel}
+              title={contactLabel}
             >
               <Users className="h-4 w-4 text-foreground" />
             </Button>
           )}
-          {preserveActionButtonsWhenTogglesActive && householderActive && onHouseholderClear && (
+          {preserveActionButtonsWhenTogglesActive && contactActive && onContactClear && (
             <Button
               type="button"
               variant="default"
               size="sm"
               className={cn("h-9 rounded-full px-3 flex items-center gap-2 text-primary-foreground", filterPillActiveClass)}
-              onClick={onHouseholderClear}
-              aria-label={householderLabel}
+              onClick={onContactClear}
+              aria-label={contactLabel}
             >
               <Users className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
-              <span className="text-sm whitespace-nowrap text-primary-foreground">{householderLabel}</span>
+              <span className="text-sm whitespace-nowrap text-primary-foreground">{contactLabel}</span>
               <X className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
             </Button>
           )}
@@ -828,7 +828,7 @@ export function FilterControls({
               <ListTodo className="h-4 w-4 text-foreground" />
             </Button>
           )}
-          {preserveActionButtonsWhenTogglesActive && !bwiActive && !householderActive && onBwiActivate && (
+          {preserveActionButtonsWhenTogglesActive && !bwiActive && !contactActive && onBwiActivate && (
             <Button
               type="button"
               variant="secondary"
@@ -870,7 +870,7 @@ export function FilterControls({
           )}
           {trailingActions}
         </div>
-      ) : (showMyFilter && myActive) || bwiActive || householderActive || (showTodoFilter && todosActive) ? (
+      ) : (showMyFilter && myActive) || bwiActive || contactActive || (showTodoFilter && todosActive) ? (
         <div
           className={cn(
             "flex items-center flex-nowrap",
@@ -907,24 +907,24 @@ export function FilterControls({
               <User className="h-4 w-4 text-foreground" />
             </Button>
           )}
-          {(bwiActive || householderActive) && onBwiActivate && (
+          {(bwiActive || contactActive) && onBwiActivate && (
             <Button
               type="button"
-              variant={householderActive ? "secondary" : "default"}
+              variant={contactActive ? "secondary" : "default"}
               size="sm"
               className={cn(
                 "h-9 rounded-full flex items-center gap-2",
-                householderActive ? "px-2" : "px-3",
-                householderActive ? cn("shadow-none border", studyBibleDarkClasses.filterToolbarButton) : filterPillActiveClass
+                contactActive ? "px-2" : "px-3",
+                contactActive ? cn("shadow-none border", studyBibleDarkClasses.filterToolbarButton) : filterPillActiveClass
               )}
-              onClick={householderActive ? onBwiActivate : onBwiClear}
+              onClick={contactActive ? onBwiActivate : onBwiClear}
               aria-label={bwiLabel}
             >
               <Building2 className={cn(
                 "h-4 w-4 flex-shrink-0",
-                householderActive ? "text-foreground" : "text-primary-foreground"
+                contactActive ? "text-foreground" : "text-primary-foreground"
               )} />
-              {!householderActive && (
+              {!contactActive && (
                 <>
                   <span className="text-sm whitespace-nowrap text-primary-foreground">{bwiLabel}</span>
                   <X className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
@@ -932,30 +932,30 @@ export function FilterControls({
               )}
             </Button>
           )}
-          {(bwiActive || householderActive) && onHouseholderActivate && !householderActive && (
+          {(bwiActive || contactActive) && onContactActivate && !contactActive && (
             <Button
               type="button"
               variant="secondary"
               size="icon"
               className={filterIconButtonClass}
-              onClick={onHouseholderActivate}
-              aria-label={householderLabel}
-              title={householderLabel}
+              onClick={onContactActivate}
+              aria-label={contactLabel}
+              title={contactLabel}
             >
               <Users className="h-4 w-4 text-foreground" />
             </Button>
           )}
-          {householderActive && onHouseholderClear && (
+          {contactActive && onContactClear && (
             <Button
               type="button"
               variant="default"
               size="sm"
               className={cn("h-9 rounded-full px-3 flex items-center gap-2 text-primary-foreground", filterPillActiveClass)}
-              onClick={onHouseholderClear}
-              aria-label={householderLabel}
+              onClick={onContactClear}
+              aria-label={contactLabel}
             >
               <Users className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
-              <span className="text-sm whitespace-nowrap text-primary-foreground">{householderLabel}</span>
+              <span className="text-sm whitespace-nowrap text-primary-foreground">{contactLabel}</span>
               <X className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
             </Button>
           )}
@@ -973,7 +973,7 @@ export function FilterControls({
               <X className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
             </Button>
           )}
-          {preserveActionButtonsWhenTogglesActive && !bwiActive && !householderActive && onBwiActivate && (
+          {preserveActionButtonsWhenTogglesActive && !bwiActive && !contactActive && onBwiActivate && (
             <Button
               type="button"
               variant="secondary"

@@ -6,9 +6,9 @@ export type HomeTodoDetailsFabOverride = {
   showNewContact: boolean;
   establishments: Array<{ id: string; name: string }>;
   selectedEstablishmentId: string;
-  householderId?: string;
-  householderName?: string;
-  householderStatus?: string;
+  contactId?: string;
+  contactName?: string;
+  contactStatus?: string;
   onAfterSave: () => void | Promise<void>;
   /** Left-sheet forms from UnifiedFab must stack above the nested contact pane (tablet). */
   stackLeftFormAboveNestedDetails?: boolean;

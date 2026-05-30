@@ -241,7 +241,7 @@ export function EstablishmentMapPopupContent({
               <p className="text-xs text-[#cfc5db]">Visits</p>
             </div>
             <div className="text-right">
-              <p className="text-sm font-medium text-[#fffaff]">{establishment.householder_count || 0}</p>
+              <p className="text-sm font-medium text-[#fffaff]">{establishment.contact_count || 0}</p>
               <p className="text-xs text-[#cfc5db]">BS</p>
             </div>
           </div>

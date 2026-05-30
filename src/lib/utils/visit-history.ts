@@ -6,12 +6,12 @@ export interface VisitRecord {
   id: string;
   visit_date: string;
   establishment_name?: string;
-  householder_name?: string;
-  householder_status?: string;
-  visit_type: "establishment" | "householder";
+  contact_name?: string;
+  contact_status?: string;
+  visit_type: "establishment" | "contact" | "householder";
   establishment_id?: string;
-  householder_id?: string;
-  householder_publisher_id?: string;
+  contact_id?: string;
+  contact_publisher_id?: string;
   establishment_status?: string;
   establishment_area?: string;
   notes?: string;
@@ -33,7 +33,7 @@ export interface VisitRecord {
   };
 }
 
-export function buildVisitRecords(establishmentVisits: any[] = [], householderVisits: any[] = []): VisitRecord[] {
+export function buildVisitRecords(establishmentVisits: any[] = [], contactVisits: any[] = []): VisitRecord[] {
   const establishmentRecords = establishmentVisits.map((v) => ({
     id: `est-${v.id}`,
     visit_date: v.visit_date,
@@ -53,31 +53,31 @@ export function buildVisitRecords(establishmentVisits: any[] = [], householderVi
     partner: (v.partner as any) || undefined
   }));
 
-  const householderRecords = householderVisits.map((v) => {
+  const contactRecords = contactVisits.map((v) => {
     const establishmentData =
       (v.business_establishments as any) ||
-      (v.householders as any)?.business_establishments ||
+      (v.contacts as any)?.business_establishments ||
       null;
 
-    // Get establishment_id from visit, or from householder, or from establishment data
+    // Get establishment_id from visit, or from contact, or from establishment data
     const establishmentId = 
       (v as any).establishment_id || 
-      (v.householders as any)?.establishment_id || 
+      (v.contacts as any)?.establishment_id || 
       establishmentData?.id || 
       null;
 
     return {
     id: `hh-${v.id}`,
     visit_date: v.visit_date,
-    householder_name: (v.householders as any)?.name,
-    householder_status: (v.householders as any)?.status,
+    contact_name: (v.contacts as any)?.name,
+    contact_status: (v.contacts as any)?.status,
     establishment_name: establishmentData?.name,
     establishment_status: getBestStatus(establishmentData?.statuses || []),
     establishment_area: establishmentData?.area || null,
-    visit_type: "householder" as const,
+    visit_type: "contact" as const,
     establishment_id: establishmentId,
-    householder_id: v.householder_id,
-    householder_publisher_id: (v.householders as any)?.publisher_id || undefined,
+    contact_id: v.householder_id ?? v.contact_id,
+    contact_publisher_id: (v.contacts as any)?.publisher_id || undefined,
     notes: v.note,
     created_at: v.created_at,
     updated_at: (v as any).updated_at ?? v.created_at,
@@ -90,7 +90,7 @@ export function buildVisitRecords(establishmentVisits: any[] = [], householderVi
     };
   });
 
-  return [...establishmentRecords, ...householderRecords];
+  return [...establishmentRecords, ...contactRecords];
 }
 
 export function dedupeAndSortVisits(visits: VisitRecord[]): VisitRecord[] {

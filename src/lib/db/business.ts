@@ -2,8 +2,20 @@
 
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cacheDelete, cacheGet, cacheSet } from "@/lib/offline/store";
-import { getBestStatus } from "@/lib/utils/status-hierarchy";
-import { getEstablishmentVisitsWithUsers, getHouseholderVisitsWithUsers } from "@/lib/db/visit-history";
+import {
+  getBestContactStatus,
+  getBestStatus,
+  normalizeContactStatusesForForm,
+} from "@/lib/utils/status-hierarchy";
+import { getEstablishmentVisitsWithUsers, getContactVisitsWithUsers } from "@/lib/db/visit-history";
+import {
+  CONTACT_FK_COLUMN,
+  CONTACTS_TABLE,
+  contactFkWritePayload,
+  DELETE_CONTACT_RPC,
+  DELETE_CONTACT_RPC_LEGACY,
+  mapContactFkRow,
+} from "@/lib/db/contact-supabase";
 
 // Calculate distance between two coordinates using Haversine formula
 export function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -36,7 +48,7 @@ export interface BusinessFiltersState {
 
 export type MyOpenTodoTargets = {
   establishmentIds: Set<string>;
-  householderIds: Set<string>;
+  contactIds: Set<string>;
   /** Establishments with at least one unassigned open congregation to-do (home "Open" pool). */
   openPoolEstablishmentIds: Set<string>;
 };
@@ -61,7 +73,7 @@ export type EstablishmentStatus =
   | 'has_bible_studies'
   | 'closed'
   | 'on_hold';
-export type HouseholderStatus =
+export type ContactStatus =
   | 'potential'
   | 'interested'
   | 'return_visit'
@@ -82,29 +94,94 @@ export interface Establishment {
   note?: string | null;
 }
 
-export interface Householder {
+export interface Contact {
   id?: string;
   establishment_id?: string | null;
   publisher_id?: string | null;
   name: string;
-  status: HouseholderStatus;
+  status: ContactStatus;
+  statuses?: ContactStatus[];
   note?: string | null;
   lat?: number | null;
   lng?: number | null;
+}
+
+/** Cached after first list/detail/write against contacts table (avoids repeated failed selects). */
+let contactStatusesColumnAvailable: boolean | null = null;
+
+function isMissingContactStatusesColumn(error: unknown): boolean {
+  const message = String((error as { message?: string })?.message ?? error ?? "");
+  const hint = String((error as { hint?: string })?.hint ?? "");
+  const combined = `${message} ${hint}`.toLowerCase();
+  return combined.includes("statuses") && combined.includes("does not exist");
+}
+
+const CONTACT_LIST_SELECT_WITH_STATUSES = `
+        id,
+        name,
+        status,
+        statuses,
+        note,
+        establishment_id,
+        publisher_id,
+        lat,
+        lng,
+        created_at,
+        establishment:business_establishments(name, statuses)
+      `;
+
+const CONTACT_LIST_SELECT_LEGACY = `
+        id,
+        name,
+        status,
+        note,
+        establishment_id,
+        publisher_id,
+        lat,
+        lng,
+        created_at,
+        establishment:business_establishments(name, statuses)
+      `;
+
+const CONTACT_DETAIL_SELECT_WITH_STATUSES =
+  "id,name,status,statuses,note,establishment_id,publisher_id,lat,lng,created_at, establishment:business_establishments(id,name,area,statuses)";
+
+const CONTACT_DETAIL_SELECT_LEGACY =
+  "id,name,status,note,establishment_id,publisher_id,lat,lng,created_at, establishment:business_establishments(id,name,area,statuses)";
+
+function resolveContactStatusesFromRow(row: {
+  status?: string | null;
+  statuses?: ContactStatus[] | null;
+}): ContactStatus[] {
+  const merged = new Set<ContactStatus>();
+  if (row.status) merged.add(row.status as ContactStatus);
+  row.statuses?.forEach((s) => {
+    if (s) merged.add(s);
+  });
+  return Array.from(merged);
+}
+
+const CALL_TODO_SELECT_BASE = `id, call_id, congregation_id, establishment_id, contact_id:${CONTACT_FK_COLUMN}, body, is_done, publisher_id, partner_id, deadline_date, created_at`;
+const CALL_TODO_SELECT_WITH_GUESTS = `id, call_id, congregation_id, establishment_id, contact_id:${CONTACT_FK_COLUMN}, body, is_done, publisher_id, partner_id, publisher_guest_name, partner_guest_name, deadline_date, created_at`;
+
+function mapCallTodoRows<T extends { householder_id?: string | null; contact_id?: string | null }>(
+  rows: T[] | null | undefined
+): CallTodo[] {
+  return (rows ?? []).map((row) => mapContactFkRow(row) as unknown as CallTodo);
 }
 
 export interface VisitUpdate {
   id?: string;
   congregation_id?: string;
   establishment_id?: string | null;
-  householder_id?: string | null;
+  contact_id?: string | null;
   note?: string | null;
   publisher_id?: string | null;
   partner_id?: string | null;
   visit_date?: string; // YYYY-MM-DD
 }
 
-/** To-do item associated with a call (establishment or householder call). */
+/** To-do item associated with a call (establishment or contact call). */
 export interface CallTodo {
   id: string;
   call_id?: string | null;
@@ -112,7 +189,7 @@ export interface CallTodo {
   is_done: boolean;
   congregation_id?: string | null;
   establishment_id?: string | null;
-  householder_id?: string | null;
+  contact_id?: string | null;
   publisher_id?: string | null;
   partner_id?: string | null;
   publisher_guest_name?: string | null;
@@ -127,12 +204,12 @@ export interface MyOpenCallTodoItem extends CallTodo {
   /** Prefer for display when set; else use visit_date from call */
   deadline_date?: string | null;
   establishment_id?: string | null;
-  householder_id?: string | null;
-  /** Display name for badge: establishment name or householder name */
+  contact_id?: string | null;
+  /** Display name for badge: establishment name or contact name */
   context_name?: string | null;
-  /** Establishment name when call is for a householder (for second badge) */
+  /** Establishment name when call is for a contact (for second badge) */
   context_establishment_name?: string | null;
-  /** Status for badge color: establishment best status or householder status */
+  /** Status for badge color: establishment best status or contact status */
   context_status?: string | null;
   /** Establishment status for its own badge color */
   context_establishment_status?: string | null;
@@ -153,7 +230,7 @@ export function establishmentHasMapLocation(
 
 /** Establishment to-do (not contact) whose parent establishment has no map coordinates. */
 export function isEstablishmentTodoMissingLocation(todo: MyOpenCallTodoItem): boolean {
-  return !todo.householder_id && !!todo.establishment_id && todo.context_establishment_missing_location === true;
+  return !todo.contact_id && !!todo.establishment_id && todo.context_establishment_missing_location === true;
 }
 
 export interface EstablishmentWithDetails {
@@ -180,7 +257,7 @@ export interface EstablishmentWithDetails {
     avatar_url?: string;
   } | null;
   visit_count?: number;
-  householder_count?: number;
+  contact_count?: number;
   last_visit_at?: string | null;
   top_visitors?: Array<{
     user_id: string;
@@ -198,7 +275,7 @@ export interface VisitWithUser {
   partner_id?: string | null;
   publisher_guest_name?: string | null;
   partner_guest_name?: string | null;
-  householder_id?: string | null;
+  contact_id?: string | null;
   establishment_id?: string | null;
   publisher?: {
     id: string;
@@ -212,7 +289,7 @@ export interface VisitWithUser {
     last_name: string;
     avatar_url?: string;
   } | null;
-  householder?: {
+  contact?: {
     id: string;
     name: string;
     status: string;
@@ -224,10 +301,11 @@ export interface VisitWithUser {
   } | null;
 }
 
-export interface HouseholderWithDetails {
+export interface ContactWithDetails {
   id: string;
   name: string;
-  status: HouseholderStatus;
+  status: ContactStatus;
+  statuses?: ContactStatus[];
   note?: string | null;
   establishment_id?: string | null;
   establishment_name?: string | null;
@@ -236,7 +314,7 @@ export interface HouseholderWithDetails {
   lng?: number | null;
   created_at?: string;
   last_visit_at?: string | null;
-  /** Total `calls` rows for this householder. Do not infer from summing `top_visitors` (that double-counts publisher+partner). */
+  /** Total `calls` rows for this contact. Do not infer from summing `top_visitors` (that double-counts publisher+partner). */
   visit_count?: number;
   assigned_user?: {
     id: string;
@@ -292,10 +370,10 @@ export async function listEstablishments(): Promise<Establishment[]> {
   }
 }
 
-export async function getPersonalContactHouseholders(userId: string): Promise<Array<{ id: string; name: string }>> {
+export async function getPersonalContacts(userId: string): Promise<Array<{ id: string; name: string }>> {
   const supabase = createSupabaseBrowserClient();
   await supabase.auth.getSession().catch(() => {});
-  const cacheKey = `householders:personal:${userId}`;
+  const cacheKey = `contacts:personal:${userId}`;
   try {
     // If offline, serve from cache
     if (typeof navigator !== 'undefined' && !navigator.onLine) {
@@ -304,7 +382,7 @@ export async function getPersonalContactHouseholders(userId: string): Promise<Ar
     }
     
     const { data, error } = await supabase
-      .from('householders')
+      .from(CONTACTS_TABLE)
       .select('id, name')
       .eq('publisher_id', userId)
       .eq('is_deleted', false)
@@ -312,65 +390,73 @@ export async function getPersonalContactHouseholders(userId: string): Promise<Ar
       .order('name', { ascending: true });
 
     if (error) {
-      console.error('Error fetching personal contact householders:', error);
+      console.error('Error fetching personal contact contacts:', error);
       const cached = await cacheGet<Array<{ id: string; name: string }>>(cacheKey);
       return cached ?? [];
     }
     
-    const householders = (data ?? []).map((hh: any) => ({
+    const contacts = (data ?? []).map((hh: any) => ({
       id: hh.id,
       name: hh.name
     }));
 
-    await cacheSet(cacheKey, householders);
-    return householders;
+    await cacheSet(cacheKey, contacts);
+    return contacts;
   } catch (error) {
-    console.error('Error getting personal contact householders:', error);
+    console.error('Error getting personal contact contacts:', error);
     const cached = await cacheGet<Array<{ id: string; name: string }>>(cacheKey);
     return cached ?? [];
   }
 }
 
-export async function listHouseholders(): Promise<HouseholderWithDetails[]> {
+export async function listContacts(): Promise<ContactWithDetails[]> {
   const supabase = createSupabaseBrowserClient();
   await supabase.auth.getSession().catch(() => {});
-  const cacheKey = 'householders:list:v2';
+  const cacheKey = 'contacts:list:v3';
   try {
     // Return cached data immediately if available (for fast initial load)
-    const cached = await cacheGet<HouseholderWithDetails[]>(cacheKey);
+    let cached = await cacheGet<ContactWithDetails[]>(cacheKey);
+    if (!cached?.length) {
+      cached = await cacheGet<ContactWithDetails[]>("householders:list:v2");
+    }
     if (cached?.length && typeof navigator !== 'undefined' && !navigator.onLine) {
       // If offline, return cached data
       return cached;
     }
     
-    // Fetch fresh data
-    const { data, error } = await supabase
-      .from('householders')
-      .select(`
-        id,
-        name,
-        status,
-        note,
-        establishment_id,
-        publisher_id,
-        lat,
-        lng,
-        created_at,
-        establishment:business_establishments(name, statuses)
-      `)
-      .eq('is_deleted', false)
-      .eq('is_archived', false)
-      .order('updated_at', { ascending: false });
+    // Fetch fresh data (retry without statuses[] when migration not applied yet)
+    const listQuery = (select: string) =>
+      supabase
+        .from(CONTACTS_TABLE)
+        .select(select)
+        .eq("is_deleted", false)
+        .eq("is_archived", false)
+        .order("updated_at", { ascending: false });
+
+    let data: unknown[] | null = null;
+    let error: { message?: string; hint?: string } | null = null;
+
+    if (contactStatusesColumnAvailable === false) {
+      ({ data, error } = await listQuery(CONTACT_LIST_SELECT_LEGACY));
+    } else {
+      ({ data, error } = await listQuery(CONTACT_LIST_SELECT_WITH_STATUSES));
+      if (error && isMissingContactStatusesColumn(error)) {
+        contactStatusesColumnAvailable = false;
+        ({ data, error } = await listQuery(CONTACT_LIST_SELECT_LEGACY));
+      } else if (!error) {
+        contactStatusesColumnAvailable = true;
+      }
+    }
 
     if (error) {
-      console.error('Error fetching householders:', error);
+      console.error("Error fetching contacts:", error);
       return [];
     }
     if (!data) return [];
 
-    const householderIds = (data ?? []).map((hh: any) => hh.id).filter(Boolean);
-    type HouseholderVisitRow = {
-      householder_id?: string | null;
+    const contactIds = (data ?? []).map((hh: any) => hh.id).filter(Boolean);
+    type ContactVisitRow = {
+      contact_id?: string | null;
       visit_date?: string | null;
       publisher?:
         | { id: string; first_name: string; last_name: string; avatar_url?: string | null }
@@ -381,41 +467,41 @@ export async function listHouseholders(): Promise<HouseholderWithDetails[]> {
         | Array<{ id: string; first_name: string; last_name: string; avatar_url?: string | null }>
         | null;
     };
-    const { data: visits, error: visitsError } = householderIds.length
+    const { data: visits, error: visitsError } = contactIds.length
       ? await supabase
           .from('calls')
           .select(
             `
-              householder_id,
+              contact_id:${CONTACT_FK_COLUMN},
               visit_date,
               publisher:profiles!calls_publisher_id_fkey(id, first_name, last_name, avatar_url),
               partner:profiles!calls_partner_id_fkey(id, first_name, last_name, avatar_url)
             `
           )
-          .in('householder_id', householderIds)
-      : { data: [] as HouseholderVisitRow[], error: null };
+          .in(CONTACT_FK_COLUMN, contactIds)
+      : { data: [] as ContactVisitRow[], error: null };
     if (visitsError) {
-      console.error('Error fetching householder visits for list:', visitsError);
+      console.error('Error fetching contact visits for list:', visitsError);
     }
 
-    const visitsByHouseholder = new Map<string, HouseholderVisitRow[]>();
+    const visitsByContact = new Map<string, ContactVisitRow[]>();
     (visits ?? []).forEach((visit) => {
-      const householderId = visit.householder_id;
-      if (!householderId) return;
-      const bucket = visitsByHouseholder.get(householderId) || [];
+      const contactId = visit.contact_id ?? visit.contact_id;
+      if (!contactId) return;
+      const bucket = visitsByContact.get(contactId) || [];
       bucket.push(visit);
-      visitsByHouseholder.set(householderId, bucket);
+      visitsByContact.set(contactId, bucket);
     });
 
-    // Transform the data to match HouseholderWithDetails interface
-    const householders: HouseholderWithDetails[] = (data ?? []).map((hh: any) => {
+    // Transform the data to match ContactWithDetails interface
+    const contacts: ContactWithDetails[] = (data ?? []).map((hh: any) => {
       // Get establishment name
       const establishment = Array.isArray(hh.establishment) ? hh.establishment[0] : hh.establishment;
       
       // Get unique visitors with visit counts
       const visitors = new Map();
-      const hhVisits = visitsByHouseholder.get(hh.id) || [];
-      hhVisits.forEach((visit: HouseholderVisitRow) => {
+      const hhVisits = visitsByContact.get(hh.id) || [];
+      hhVisits.forEach((visit: ContactVisitRow) => {
         const publisher = Array.isArray(visit.publisher) ? visit.publisher[0] : visit.publisher;
         const partner = Array.isArray(visit.partner) ? visit.partner[0] : visit.partner;
         if (publisher) {
@@ -456,6 +542,7 @@ export async function listHouseholders(): Promise<HouseholderWithDetails[]> {
         id: hh.id,
         name: hh.name,
         status: hh.status,
+        statuses: resolveContactStatusesFromRow(hh),
         note: hh.note,
         establishment_id: hh.establishment_id,
         establishment_name: establishment?.name,
@@ -469,11 +556,11 @@ export async function listHouseholders(): Promise<HouseholderWithDetails[]> {
       };
     });
 
-    await cacheSet(cacheKey, householders);
-    return householders;
+    await cacheSet(cacheKey, contacts);
+    return contacts;
   } catch (error) {
-    console.error('Error listing householders:', error);
-    const cached = await cacheGet<HouseholderWithDetails[]>(cacheKey);
+    console.error('Error listing contacts:', error);
+    const cached = await cacheGet<ContactWithDetails[]>(cacheKey);
     return cached ?? [];
   }
 }
@@ -659,7 +746,7 @@ export async function findEstablishmentDuplicates(name: string, area?: string | 
 }
 
 /** Readable message for PostgREST errors (console/overlay often show `{}` for the raw object). */
-function formatHouseholderWriteError(
+function formatContactWriteError(
   error: { message?: string; code?: string; details?: string; hint?: string } | null
 ): string {
   if (!error) return "Could not save contact.";
@@ -670,7 +757,10 @@ function formatHouseholderWriteError(
   const combined = [msg, details, hint].filter(Boolean).join(" — ");
   if (combined) {
     if (/householder_status|invalid input value for enum/i.test(combined)) {
-      return `${combined} Apply the migration that adds new contact statuses (e.g. supabase/migrations/20260331130000_add_householder_moved_resigned_status.sql) to your Supabase project.`;
+      return `${combined} Apply contact status migrations (e.g. supabase/migrations/20260331130000_add_householder_moved_resigned_status.sql, 20260530130000_add_householder_statuses_array.sql) to your Supabase project.`;
+    }
+    if (/column.*statuses|statuses.*does not exist/i.test(combined)) {
+      return `${combined} Apply supabase/migrations/20260530130000_add_householder_statuses_array.sql to your Supabase project.`;
     }
     return combined;
   }
@@ -678,7 +768,7 @@ function formatHouseholderWriteError(
   return "Could not save contact.";
 }
 
-export async function upsertHouseholder(h: Householder): Promise<Householder | null> {
+export async function upsertContact(h: Contact): Promise<Contact | null> {
   const supabase = createSupabaseBrowserClient();
   await supabase.auth.getSession().catch(() => {});
   
@@ -686,34 +776,53 @@ export async function upsertHouseholder(h: Householder): Promise<Householder | n
   const latValue = typeof h.lat === 'number' && !isNaN(h.lat) ? Number(h.lat.toFixed(6)) : null;
   const lngValue = typeof h.lng === 'number' && !isNaN(h.lng) ? Number(h.lng.toFixed(8)) : null;
   
-  const payload: any = { 
-    name: h.name, 
-    status: h.status, 
+  const statusesPayload = normalizeContactStatusesForForm(
+    (h.statuses?.length ? h.statuses : h.status ? [h.status] : ["potential"]) as string[]
+  ) as ContactStatus[];
+  const primaryStatus = getBestContactStatus(statusesPayload) as ContactStatus;
+
+  const payloadBase = {
+    name: h.name,
+    status: primaryStatus,
     note: h.note ?? null,
     establishment_id: h.establishment_id ?? null,
     publisher_id: h.publisher_id ?? null,
     lat: latValue,
-    lng: lngValue
+    lng: lngValue,
   };
-  if (h.id) {
-    const { data, error } = await supabase.from('householders').update(payload).eq('id', h.id).select().single();
-    if (error) {
-      const text = formatHouseholderWriteError(error);
-      console.error("Error updating householder:", text, { code: error.code, details: error.details, hint: error.hint });
-      throw new Error(text);
+  const payloadWithStatuses = { ...payloadBase, statuses: statusesPayload };
+
+  const writePayload =
+    contactStatusesColumnAvailable === false ? payloadBase : payloadWithStatuses;
+
+  const runWrite = async (payload: Record<string, unknown>) => {
+    if (h.id) {
+      return supabase.from(CONTACTS_TABLE).update(payload).eq("id", h.id).select().single();
     }
-    return data as any;
+    return supabase.from(CONTACTS_TABLE).insert(payload).select().single();
+  };
+
+  let { data, error } = await runWrite(writePayload);
+  if (error && isMissingContactStatusesColumn(error)) {
+    contactStatusesColumnAvailable = false;
+    ({ data, error } = await runWrite(payloadBase));
+  } else if (!error && contactStatusesColumnAvailable !== false) {
+    contactStatusesColumnAvailable = true;
   }
-  const { data, error } = await supabase.from('householders').insert(payload).select().single();
+
   if (error) {
-    const text = formatHouseholderWriteError(error);
-    console.error("Error inserting householder:", text, { code: error.code, details: error.details, hint: error.hint });
+    const text = formatContactWriteError(error);
+    console.error(h.id ? "Error updating contact:" : "Error inserting contact:", text, {
+      code: error.code,
+      details: error.details,
+      hint: error.hint,
+    });
     throw new Error(text);
   }
   return data as any;
 }
 
-export async function deleteHouseholder(householderId: string): Promise<boolean> {
+export async function deleteContact(contactId: string): Promise<boolean> {
   const supabase = createSupabaseBrowserClient();
   await supabase.auth.getSession().catch(() => {});
   
@@ -724,13 +833,19 @@ export async function deleteHouseholder(householderId: string): Promise<boolean>
   }
   
   // Use RPC function to bypass RLS for deletion
-  const { error } = await supabase.rpc('delete_householder', {
-    householder_id: householderId,
-    deleted_by_user: profile.id
+  let { error } = await supabase.rpc(DELETE_CONTACT_RPC, {
+    contact_id: contactId,
+    deleted_by_user: profile.id,
   });
+  if (error) {
+    ({ error } = await supabase.rpc(DELETE_CONTACT_RPC_LEGACY, {
+      householder_id: contactId,
+      deleted_by_user: profile.id,
+    }));
+  }
     
   if (error) {
-    console.error('Error deleting householder:', {
+    console.error('Error deleting contact:', {
       message: error.message,
       details: error.details,
       hint: error.hint,
@@ -741,7 +856,7 @@ export async function deleteHouseholder(householderId: string): Promise<boolean>
   return true;
 }
 
-export async function archiveHouseholder(householderId: string): Promise<boolean> {
+export async function archiveContact(contactId: string): Promise<boolean> {
   const supabase = createSupabaseBrowserClient();
   await supabase.auth.getSession().catch(() => {});
   
@@ -752,16 +867,16 @@ export async function archiveHouseholder(householderId: string): Promise<boolean
   }
   
   const { error } = await supabase
-    .from('householders')
+    .from(CONTACTS_TABLE)
     .update({
       is_archived: true,
       archived_at: new Date().toISOString(),
       archived_by: profile.id
     })
-    .eq('id', householderId);
+    .eq('id', contactId);
     
   if (error) {
-    console.error('Error archiving householder:', error);
+    console.error('Error archiving contact:', error);
     return false;
   }
   return true;
@@ -769,7 +884,7 @@ export async function archiveHouseholder(householderId: string): Promise<boolean
 
 export async function addVisit(visit: {
   establishment_id?: string;
-  householder_id?: string;
+  contact_id?: string;
   note?: string | null;
   publisher_id?: string;
   partner_id?: string;
@@ -779,7 +894,7 @@ export async function addVisit(visit: {
 }): Promise<{
   id: string;
   establishment_id?: string | null;
-  householder_id?: string | null;
+  contact_id?: string | null;
   note?: string | null;
   publisher_id?: string | null;
   partner_id?: string | null;
@@ -823,7 +938,7 @@ export async function addVisit(visit: {
       .insert({
         congregation_id: profile.congregation_id,
         establishment_id: visit.establishment_id === 'none' ? null : visit.establishment_id,
-        householder_id: visit.householder_id || null,
+        ...contactFkWritePayload(visit.contact_id),
         note: visit.note,
         publisher_id: visit.publisher_id || null,
         partner_id: visit.partner_id || null,
@@ -831,7 +946,7 @@ export async function addVisit(visit: {
         partner_guest_name: visit.partner_guest_name ?? null,
         visit_date: visit.visit_date || new Date().toISOString().split('T')[0]
       })
-      .select('id, establishment_id, householder_id, note, publisher_id, partner_id, publisher_guest_name, partner_guest_name, visit_date')
+      .select(`id, establishment_id, contact_id:${CONTACT_FK_COLUMN}, note, publisher_id, partner_id, publisher_guest_name, partner_guest_name, visit_date`)
       .single();
 
     if (error) {
@@ -850,7 +965,7 @@ export async function addVisit(visit: {
 export async function updateVisit(visit: {
   id: string;
   establishment_id?: string | null;
-  householder_id?: string | null;
+  contact_id?: string | null;
   note?: string | null;
   publisher_id?: string | null;
   partner_id?: string | null;
@@ -865,7 +980,7 @@ export async function updateVisit(visit: {
       .from('calls')
       .update({
         establishment_id: visit.establishment_id ?? null,
-        householder_id: visit.householder_id ?? null,
+        ...contactFkWritePayload(visit.contact_id),
         note: visit.note ?? null,
         publisher_id: visit.publisher_id ?? null,
         partner_id: visit.partner_id ?? null,
@@ -992,7 +1107,7 @@ export async function deleteVisit(visitId: string, _establishmentId?: string | n
   }
 }
 
-// --- Call to-dos (for establishment and householder calls) ---
+// --- Call to-dos (for establishment and contact calls) ---
 
 export async function getCallTodos(callId: string): Promise<CallTodo[]> {
   const supabase = createSupabaseBrowserClient();
@@ -1007,7 +1122,7 @@ export async function getCallTodos(callId: string): Promise<CallTodo[]> {
       console.error('Error fetching call todos:', error);
       return [];
     }
-    return (data ?? []) as CallTodo[];
+    return mapCallTodoRows((data ?? []) as Array<{ householder_id?: string | null; contact_id?: string | null }>);
   } catch (e) {
     console.error('getCallTodos:', e);
     return [];
@@ -1109,12 +1224,6 @@ export async function deleteCallTodo(id: string): Promise<boolean> {
   }
 }
 
-/** Create a standalone to-do item (no call row is created). */
-const CALL_TODO_SELECT_BASE =
-  "id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, deadline_date, created_at";
-const CALL_TODO_SELECT_WITH_GUESTS =
-  "id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, publisher_guest_name, partner_guest_name, deadline_date, created_at";
-
 function isGuestColumnMissingError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
   const details = JSON.stringify(error).toLowerCase();
@@ -1127,7 +1236,7 @@ function isGuestColumnMissingError(error: unknown): boolean {
 
 export async function addStandaloneTodo(params: {
   establishment_id?: string | null;
-  householder_id?: string | null;
+  contact_id?: string | null;
   body: string;
   deadline_date?: string | null;
   publisher_id?: string | null;
@@ -1149,7 +1258,7 @@ export async function addStandaloneTodo(params: {
       call_id: null,
       congregation_id: profile.congregation_id,
       establishment_id: params.establishment_id ?? null,
-      householder_id: params.householder_id ?? null,
+      ...contactFkWritePayload(params.contact_id),
       body: params.body.trim(),
       is_done: false,
       publisher_id: params.publisher_id ?? null,
@@ -1243,7 +1352,7 @@ export async function updateTodoForBulkEdit(
   id: string,
   updates: {
     establishment_id?: string | null;
-    householder_id?: string | null;
+    contact_id?: string | null;
     body?: string;
     deadline_date?: string | null;
     publisher_id?: string | null;
@@ -1255,18 +1364,11 @@ export async function updateTodoForBulkEdit(
   const supabase = createSupabaseBrowserClient();
   try {
     await supabase.auth.getSession().catch(() => {});
-    const payload: {
-      establishment_id?: string | null;
-      householder_id?: string | null;
-      body?: string;
-      deadline_date?: string | null;
-      publisher_id?: string | null;
-      partner_id?: string | null;
-      publisher_guest_name?: string | null;
-      partner_guest_name?: string | null;
-    } = {};
+    const payload: Record<string, unknown> = {};
     if (updates.establishment_id !== undefined) payload.establishment_id = updates.establishment_id;
-    if (updates.householder_id !== undefined) payload.householder_id = updates.householder_id;
+    if (updates.contact_id !== undefined) {
+      Object.assign(payload, contactFkWritePayload(updates.contact_id));
+    }
     if (updates.body !== undefined) payload.body = updates.body.trim();
     if (updates.deadline_date !== undefined) payload.deadline_date = updates.deadline_date;
     if (updates.publisher_id !== undefined) payload.publisher_id = updates.publisher_id;
@@ -1293,31 +1395,32 @@ export async function updateTodoForBulkEdit(
   }
 }
 
-function buildCallMetaById(calls: any[]): Map<string, { visit_date: string | null; establishment_id: string | null; householder_id: string | null; context_name: string | null; context_establishment_name: string | null; context_status: string | null; context_establishment_status: string | null; call_created_at: string | null; context_area: string | null }> {
+function buildCallMetaById(calls: any[]): Map<string, { visit_date: string | null; establishment_id: string | null; contact_id: string | null; context_name: string | null; context_establishment_name: string | null; context_status: string | null; context_establishment_status: string | null; call_created_at: string | null; context_area: string | null }> {
   return new Map(
     calls.map((c) => {
       const establishment = Array.isArray((c as any).establishment)
         ? (c as any).establishment[0]
         : (c as any).establishment;
-      const householder = Array.isArray((c as any).householder)
-        ? (c as any).householder[0]
-        : (c as any).householder;
-      const context_name = (c.householder_id && householder?.name
-        ? householder.name
+      const contact = Array.isArray((c as any).contact)
+        ? (c as any).contact[0]
+        : (c as any).contact;
+      const callContactId = c.contact_id ?? c.contact_id;
+      const context_name = (callContactId && contact?.name
+        ? contact.name
         : establishment?.name ?? null) as string | null;
       const context_establishment_name = (establishment?.name ?? null) as string | null;
       const establishment_status = establishment?.statuses
         ? getBestStatus(establishment.statuses as string[])
         : null;
-      const context_status = c.householder_id && householder?.status
-        ? householder.status
+      const context_status = callContactId && contact?.status
+        ? contact.status
         : establishment_status;
       return [
         c.id,
         {
           visit_date: c.visit_date ?? null,
           establishment_id: c.establishment_id ?? null,
-          householder_id: c.householder_id ?? null,
+          contact_id: callContactId ?? null,
           context_name: context_name ?? null,
           context_establishment_name: context_establishment_name ?? null,
           context_status: context_status ?? null,
@@ -1338,12 +1441,12 @@ async function enrichTodoItems(
     .map((t) => t.call_id)
     .filter((id): id is string => !!id);
 
-  let callMetaById = new Map<string, { visit_date: string | null; establishment_id: string | null; householder_id: string | null; context_name: string | null; context_establishment_name: string | null; context_status: string | null; context_establishment_status: string | null; call_created_at: string | null; context_area: string | null }>();
+  let callMetaById = new Map<string, { visit_date: string | null; establishment_id: string | null; contact_id: string | null; context_name: string | null; context_establishment_name: string | null; context_status: string | null; context_establishment_status: string | null; call_created_at: string | null; context_area: string | null }>();
   if (callIds.length > 0) {
     const { data: calls } = await supabase
       .from("calls")
       .select(
-        "id, created_at, visit_date, establishment_id, householder_id, establishment:business_establishments!calls_establishment_id_fkey(name, statuses, area), householder:householders!calls_householder_id_fkey(name, status)"
+        `id, created_at, visit_date, establishment_id, contact_id:${CONTACT_FK_COLUMN}, establishment:business_establishments!calls_establishment_id_fkey(name, statuses, area), contact:householders!calls_householder_id_fkey(name, status)`
       )
       .in("id", callIds);
     if (calls?.length) {
@@ -1352,27 +1455,27 @@ async function enrichTodoItems(
   }
 
   const establishmentIds = new Set<string>();
-  const householderIds = new Set<string>();
+  const contactIds = new Set<string>();
   for (const t of todos) {
     const callMeta = t.call_id ? callMetaById.get(t.call_id) : undefined;
     const effectiveEstablishmentId = t.establishment_id ?? callMeta?.establishment_id ?? null;
-    const effectiveHouseholderId = t.householder_id ?? callMeta?.householder_id ?? null;
+    const effectiveContactId = t.contact_id ?? callMeta?.contact_id ?? null;
     if (effectiveEstablishmentId) establishmentIds.add(effectiveEstablishmentId);
-    if (effectiveHouseholderId) householderIds.add(effectiveHouseholderId);
+    if (effectiveContactId) contactIds.add(effectiveContactId);
   }
 
-  const [establishmentRows, householderRows] = await Promise.all([
+  const [establishmentRows, contactRows] = await Promise.all([
     establishmentIds.size
       ? supabase
           .from("business_establishments")
           .select("id, name, statuses, area, lat, lng")
           .in("id", Array.from(establishmentIds))
       : Promise.resolve({ data: [], error: null } as any),
-    householderIds.size
+    contactIds.size
       ? supabase
-          .from("householders")
+          .from(CONTACTS_TABLE)
           .select("id, name, status, establishment_id")
-          .in("id", Array.from(householderIds))
+          .in("id", Array.from(contactIds))
       : Promise.resolve({ data: [], error: null } as any),
   ]);
 
@@ -1383,15 +1486,15 @@ async function enrichTodoItems(
   for (const e of establishmentRows.data ?? []) {
     establishmentById.set(e.id, e);
   }
-  const householderById = new Map<string, { id: string; name: string; status?: string | null; establishment_id?: string | null }>();
-  for (const h of householderRows.data ?? []) {
-    householderById.set(h.id, h);
+  const contactById = new Map<string, { id: string; name: string; status?: string | null; establishment_id?: string | null }>();
+  for (const h of contactRows.data ?? []) {
+    contactById.set(h.id, h);
   }
 
   // Contact to-dos may only reference householder_id; load parent establishment for name/status/area.
   const parentEstablishmentIds = Array.from(
     new Set(
-      (householderRows.data ?? [])
+      (contactRows.data ?? [])
         .map((h: { establishment_id?: string | null }) => h.establishment_id)
         .filter((id: string | null | undefined): id is string => !!id && !establishmentById.has(id))
     )
@@ -1409,27 +1512,27 @@ async function enrichTodoItems(
   const items = todos.map((t) => {
     const callMeta = t.call_id ? callMetaById.get(t.call_id) : undefined;
     const effectiveEstablishmentId = t.establishment_id ?? callMeta?.establishment_id ?? null;
-    const effectiveHouseholderId = t.householder_id ?? callMeta?.householder_id ?? null;
+    const effectiveContactId = t.contact_id ?? callMeta?.contact_id ?? null;
     const establishment = effectiveEstablishmentId ? establishmentById.get(effectiveEstablishmentId) : undefined;
-    const householder = effectiveHouseholderId ? householderById.get(effectiveHouseholderId) : undefined;
-    const householderEstablishment = householder?.establishment_id
-      ? establishmentById.get(householder.establishment_id)
+    const contact = effectiveContactId ? contactById.get(effectiveContactId) : undefined;
+    const contactEstablishment = contact?.establishment_id
+      ? establishmentById.get(contact.establishment_id)
       : undefined;
     const establishmentStatus = establishment?.statuses
       ? getBestStatus(establishment.statuses)
       : null;
 
-    const context_name = householder?.name ?? establishment?.name ?? callMeta?.context_name ?? null;
-    const context_status = householder?.status ?? establishmentStatus ?? callMeta?.context_status ?? null;
-    const context_establishment_name = householder
-      ? householderEstablishment?.name ?? establishment?.name ?? callMeta?.context_establishment_name ?? null
+    const context_name = contact?.name ?? establishment?.name ?? callMeta?.context_name ?? null;
+    const context_status = contact?.status ?? establishmentStatus ?? callMeta?.context_status ?? null;
+    const context_establishment_name = contact
+      ? contactEstablishment?.name ?? establishment?.name ?? callMeta?.context_establishment_name ?? null
       : establishment?.name ?? callMeta?.context_establishment_name ?? null;
-    const context_establishment_status = householder
-      ? (householderEstablishment?.statuses ? getBestStatus(householderEstablishment.statuses) : establishmentStatus ?? callMeta?.context_establishment_status ?? null)
+    const context_establishment_status = contact
+      ? (contactEstablishment?.statuses ? getBestStatus(contactEstablishment.statuses) : establishmentStatus ?? callMeta?.context_establishment_status ?? null)
       : establishmentStatus ?? callMeta?.context_establishment_status ?? null;
     const context_area =
-      householderEstablishment?.area ?? establishment?.area ?? callMeta?.context_area ?? null;
-    const establishmentForLocation = householder ? householderEstablishment ?? establishment : establishment;
+      contactEstablishment?.area ?? establishment?.area ?? callMeta?.context_area ?? null;
+    const establishmentForLocation = contact ? contactEstablishment ?? establishment : establishment;
     const context_establishment_missing_location = establishmentForLocation
       ? !establishmentHasMapLocation(establishmentForLocation.lat, establishmentForLocation.lng)
       : undefined;
@@ -1438,7 +1541,7 @@ async function enrichTodoItems(
       ...(t as CallTodo),
       visit_date: callMeta?.visit_date ?? null,
       establishment_id: effectiveEstablishmentId,
-      householder_id: effectiveHouseholderId,
+      contact_id: effectiveContactId,
       context_name,
       context_establishment_name,
       context_status,
@@ -1473,14 +1576,14 @@ async function fetchMyOpenTodoRows(userId: string, limit = 500): Promise<CallTod
   const linkedPromise = callIds.length
     ? supabase
         .from("call_todos")
-        .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, publisher_guest_name, partner_guest_name, deadline_date, created_at")
+        .select(CALL_TODO_SELECT_WITH_GUESTS)
         .eq("is_done", false)
         .in("call_id", callIds)
         .limit(limit)
     : Promise.resolve({ data: [], error: null } as { data: CallTodo[]; error: null });
   const standalonePromise = supabase
     .from("call_todos")
-    .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, publisher_guest_name, partner_guest_name, deadline_date, created_at")
+    .select(CALL_TODO_SELECT_WITH_GUESTS)
     .eq("is_done", false)
     .is("call_id", null)
     .or(`publisher_id.eq.${userId},partner_id.eq.${userId}`)
@@ -1492,8 +1595,8 @@ async function fetchMyOpenTodoRows(userId: string, limit = 500): Promise<CallTod
   if (linkedError || standaloneError) return [];
 
   const byId = new Map<string, CallTodo>();
-  for (const t of (linked ?? []) as CallTodo[]) byId.set(t.id, t);
-  for (const t of (standalone ?? []) as CallTodo[]) byId.set(t.id, t);
+  for (const t of mapCallTodoRows((linked ?? []) as Array<{ householder_id?: string | null; contact_id?: string | null }>)) byId.set(t.id, t);
+  for (const t of mapCallTodoRows((standalone ?? []) as Array<{ householder_id?: string | null; contact_id?: string | null }>)) byId.set(t.id, t);
   return Array.from(byId.values()).slice(0, limit);
 }
 
@@ -1501,7 +1604,7 @@ async function fetchMyOpenTodoRows(userId: string, limit = 500): Promise<CallTod
 export async function getMyOpenTodoTargets(userId: string): Promise<MyOpenTodoTargets> {
   const empty: MyOpenTodoTargets = {
     establishmentIds: new Set(),
-    householderIds: new Set(),
+    contactIds: new Set(),
     openPoolEstablishmentIds: new Set(),
   };
   try {
@@ -1519,7 +1622,7 @@ export async function getMyOpenTodoTargets(userId: string): Promise<MyOpenTodoTa
 
     const items = await enrichTodoItems(merged);
     const establishmentIds = new Set<string>();
-    const householderIds = new Set<string>();
+    const contactIds = new Set<string>();
     const openPoolEstablishmentIds = new Set<string>();
 
     for (const t of items) {
@@ -1531,12 +1634,12 @@ export async function getMyOpenTodoTargets(userId: string): Promise<MyOpenTodoTa
         establishmentIds.add(t.establishment_id);
         if (unassigned) openPoolEstablishmentIds.add(t.establishment_id);
       }
-      if (t.householder_id) {
-        householderIds.add(t.householder_id);
+      if (t.contact_id) {
+        contactIds.add(t.contact_id);
       }
     }
 
-    return { establishmentIds, householderIds, openPoolEstablishmentIds };
+    return { establishmentIds, contactIds, openPoolEstablishmentIds };
   } catch (e) {
     console.error("getMyOpenTodoTargets:", e);
     return empty;
@@ -1571,14 +1674,14 @@ export async function getMyCompletedCallTodos(userId: string, limit = 20): Promi
     const linkedPromise = callIds.length
       ? supabase
           .from("call_todos")
-          .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, publisher_guest_name, partner_guest_name, deadline_date, created_at")
+          .select(CALL_TODO_SELECT_WITH_GUESTS)
           .eq("is_done", true)
           .in("call_id", callIds)
           .limit(limit)
       : Promise.resolve({ data: [], error: null } as any);
     const standalonePromise = supabase
       .from("call_todos")
-      .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, publisher_guest_name, partner_guest_name, deadline_date, created_at")
+      .select(CALL_TODO_SELECT_WITH_GUESTS)
       .eq("is_done", true)
       .is("call_id", null)
       .or(`publisher_id.eq.${userId},partner_id.eq.${userId}`)
@@ -1590,8 +1693,8 @@ export async function getMyCompletedCallTodos(userId: string, limit = 20): Promi
     if (linkedError || standaloneError) return [];
 
     const byId = new Map<string, CallTodo>();
-    for (const t of (linked ?? []) as CallTodo[]) byId.set(t.id, t);
-    for (const t of (standalone ?? []) as CallTodo[]) byId.set(t.id, t);
+    for (const t of mapCallTodoRows((linked ?? []) as Array<{ householder_id?: string | null; contact_id?: string | null }>)) byId.set(t.id, t);
+    for (const t of mapCallTodoRows((standalone ?? []) as Array<{ householder_id?: string | null; contact_id?: string | null }>)) byId.set(t.id, t);
     const merged = Array.from(byId.values()).slice(0, limit);
     if (merged.length === 0) return [];
     return await enrichTodoItems(merged);
@@ -1610,13 +1713,13 @@ async function getCongregationCallTodos(isDone: boolean, limit = 50): Promise<My
 
     const { data, error } = await supabase
       .from("call_todos")
-      .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, publisher_guest_name, partner_guest_name, deadline_date, created_at")
+      .select(CALL_TODO_SELECT_WITH_GUESTS)
       .eq("congregation_id", profile.congregation_id)
       .eq("is_done", isDone)
       .limit(limit);
     if (error) return [];
 
-    const merged = ((data ?? []) as CallTodo[]).slice(0, limit);
+    const merged = mapCallTodoRows((data ?? []) as Array<{ householder_id?: string | null; contact_id?: string | null }>).slice(0, limit);
     if (merged.length === 0) return [];
     return await enrichTodoItems(merged);
   } catch (e) {
@@ -1637,19 +1740,19 @@ export async function getCongregationCompletedCallTodos(limit = 50): Promise<MyO
 
 async function getScopedCallTodos(options: {
   establishmentId?: string;
-  householderId?: string;
+  contactId?: string;
   isDone: boolean;
   limit?: number;
 }): Promise<MyOpenCallTodoItem[]> {
-  const { establishmentId, householderId, isDone, limit = 50 } = options;
-  if (!establishmentId && !householderId) return [];
+  const { establishmentId, contactId, isDone, limit = 50 } = options;
+  if (!establishmentId && !contactId) return [];
 
   const supabase = createSupabaseBrowserClient();
   try {
     await supabase.auth.getSession().catch(() => {});
     let callsQuery = supabase.from("calls").select("id").limit(300);
     if (establishmentId) callsQuery = callsQuery.eq("establishment_id", establishmentId);
-    if (householderId) callsQuery = callsQuery.eq("householder_id", householderId);
+    if (contactId) callsQuery = callsQuery.eq(CONTACT_FK_COLUMN, contactId);
     const { data: calls, error: callsError } = await callsQuery;
     if (callsError) return [];
     const callIds = (calls ?? []).map((c) => c.id);
@@ -1657,7 +1760,7 @@ async function getScopedCallTodos(options: {
     const linkedPromise = callIds.length
       ? supabase
           .from("call_todos")
-          .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, publisher_guest_name, partner_guest_name, deadline_date, created_at")
+          .select(CALL_TODO_SELECT_WITH_GUESTS)
           .eq("is_done", isDone)
           .in("call_id", callIds)
           .limit(limit)
@@ -1665,12 +1768,12 @@ async function getScopedCallTodos(options: {
 
     let standaloneQuery = supabase
       .from("call_todos")
-      .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, publisher_guest_name, partner_guest_name, deadline_date, created_at")
+      .select(CALL_TODO_SELECT_WITH_GUESTS)
       .eq("is_done", isDone)
       .is("call_id", null)
       .limit(limit);
     if (establishmentId) standaloneQuery = standaloneQuery.eq("establishment_id", establishmentId);
-    if (householderId) standaloneQuery = standaloneQuery.eq("householder_id", householderId);
+    if (contactId) standaloneQuery = standaloneQuery.eq(CONTACT_FK_COLUMN, contactId);
 
     const [{ data: linked, error: linkedError }, { data: standalone, error: standaloneError }] = await Promise.all([
       linkedPromise,
@@ -1679,8 +1782,8 @@ async function getScopedCallTodos(options: {
     if (linkedError || standaloneError) return [];
 
     const byId = new Map<string, CallTodo>();
-    for (const t of (linked ?? []) as CallTodo[]) byId.set(t.id, t);
-    for (const t of (standalone ?? []) as CallTodo[]) byId.set(t.id, t);
+    for (const t of mapCallTodoRows((linked ?? []) as Array<{ householder_id?: string | null; contact_id?: string | null }>)) byId.set(t.id, t);
+    for (const t of mapCallTodoRows((standalone ?? []) as Array<{ householder_id?: string | null; contact_id?: string | null }>)) byId.set(t.id, t);
     const merged = Array.from(byId.values()).slice(0, limit);
     if (merged.length === 0) return [];
     return await enrichTodoItems(merged);
@@ -1698,12 +1801,12 @@ export function getEstablishmentCompletedCallTodos(establishmentId: string, limi
   return getScopedCallTodos({ establishmentId, isDone: true, limit });
 }
 
-export function getHouseholderOpenCallTodos(householderId: string, limit = 50): Promise<MyOpenCallTodoItem[]> {
-  return getScopedCallTodos({ householderId, isDone: false, limit });
+export function getContactOpenCallTodos(contactId: string, limit = 50): Promise<MyOpenCallTodoItem[]> {
+  return getScopedCallTodos({ contactId, isDone: false, limit });
 }
 
-export function getHouseholderCompletedCallTodos(householderId: string, limit = 50): Promise<MyOpenCallTodoItem[]> {
-  return getScopedCallTodos({ householderId, isDone: true, limit });
+export function getContactCompletedCallTodos(contactId: string, limit = 50): Promise<MyOpenCallTodoItem[]> {
+  return getScopedCallTodos({ contactId, isDone: true, limit });
 }
 
 /** Distinct guest names used in calls for the current user's congregation (for "Guest" dropdown). */
@@ -1849,7 +1952,7 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
         | null;
     };
 
-    const [visitsResult, householdersResult] = await Promise.all([
+    const [visitsResult, contactsResult] = await Promise.all([
       establishmentIds.length
         ? supabase
             .from('calls')
@@ -1865,7 +1968,7 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
         : Promise.resolve({ data: [] as VisitRow[] }),
       establishmentIds.length
         ? supabase
-            .from('householders')
+            .from(CONTACTS_TABLE)
             .select('id, establishment_id')
             .in('establishment_id', establishmentIds)
             .eq('is_deleted', false)
@@ -1877,13 +1980,13 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
     if (visitsError) {
       console.error('Error fetching establishment visits for list:', visitsError);
     }
-    const householdersError = (householdersResult as any)?.error;
-    if (householdersError) {
-      console.error('Error fetching householders for list:', householdersError);
+    const contactsError = (contactsResult as any)?.error;
+    if (contactsError) {
+      console.error('Error fetching contacts for list:', contactsError);
     }
 
     const visits = (visitsResult as any)?.data as VisitRow[] | undefined;
-    const householders = (householdersResult as any)?.data as { id: string; establishment_id?: string | null }[] | undefined;
+    const contacts = (contactsResult as any)?.data as { id: string; establishment_id?: string | null }[] | undefined;
 
     const visitStats = new Map<
       string,
@@ -1929,11 +2032,11 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
       }
     });
 
-    const householdersByEstablishment = new Map<string, number>();
-    (householders ?? []).forEach((householder) => {
-      const establishmentId = householder.establishment_id;
+    const contactsByEstablishment = new Map<string, number>();
+    (contacts ?? []).forEach((contact) => {
+      const establishmentId = contact.establishment_id;
       if (!establishmentId) return;
-      householdersByEstablishment.set(establishmentId, (householdersByEstablishment.get(establishmentId) || 0) + 1);
+      contactsByEstablishment.set(establishmentId, (contactsByEstablishment.get(establishmentId) || 0) + 1);
     });
 
     // Transform the data to include counts and top visitors
@@ -1957,7 +2060,7 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
       return {
         ...establishment,
         visit_count: stats.visit_count,
-        householder_count: householdersByEstablishment.get(establishment.id) || 0,
+        contact_count: contactsByEstablishment.get(establishment.id) || 0,
         last_visit_at: stats.last_visit_at,
         top_visitors
       } as EstablishmentWithDetails;
@@ -1976,7 +2079,7 @@ export async function getEstablishmentsWithDetails(): Promise<EstablishmentWithD
 export async function getEstablishmentDetails(establishmentId: string): Promise<{
   establishment: EstablishmentWithDetails;
   visits: VisitWithUser[];
-  householders: HouseholderWithDetails[];
+  contacts: ContactWithDetails[];
 } | null> {
   const supabase = createSupabaseBrowserClient();
   await supabase.auth.getSession().catch(() => {});
@@ -1990,7 +2093,7 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
       const cached = await cacheGet<{
         establishment: EstablishmentWithDetails;
         visits: VisitWithUser[];
-        householders: HouseholderWithDetails[];
+        contacts: ContactWithDetails[];
       }>(cacheKey);
       if (cached) return cached;
     }
@@ -2011,7 +2114,7 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
     const cachedAfterErr = await cacheGet<{
       establishment: EstablishmentWithDetails;
       visits: VisitWithUser[];
-      householders: HouseholderWithDetails[];
+      contacts: ContactWithDetails[];
     }>(cacheKey);
     if (cachedAfterErr) return cachedAfterErr;
     const pg = establishmentError as {
@@ -2028,7 +2131,7 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
       details: pg.details,
       hint: pg.hint,
     });
-    // Return null (do not throw): callers batch detail fetches with Promise.all; throwing would skip refreshing householders/lists.
+    // Return null (do not throw): callers batch detail fetches with Promise.all; throwing would skip refreshing contacts/lists.
     return null;
   }
 
@@ -2042,9 +2145,9 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
   
   const transformedVisits = await getEstablishmentVisitsWithUsers(establishmentId);
   
-  // Get householders for this establishment only (no user assignment)
-  const { data: householders } = await supabase
-    .from('householders')
+  // Get contacts for this establishment only (no user assignment)
+  const { data: contacts } = await supabase
+    .from(CONTACTS_TABLE)
     .select(`
       id,
       name,
@@ -2114,7 +2217,7 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
       top_visitors: topVisitorsList
     },
     visits: transformedVisits,
-    householders: householders || []
+    contacts: contacts || []
   };
   
   // Cache the results
@@ -2125,45 +2228,81 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
     const cached = await cacheGet<{
       establishment: EstablishmentWithDetails;
       visits: VisitWithUser[];
-      householders: HouseholderWithDetails[];
+      contacts: ContactWithDetails[];
     }>(cacheKey);
     return cached ?? null;
   }
 }
 
-export async function getHouseholderDetails(householderId: string): Promise<{
-  householder: HouseholderWithDetails;
+export async function getContactDetails(contactId: string): Promise<{
+  contact: ContactWithDetails;
   visits: VisitWithUser[];
   establishment?: { id: string; name: string; area?: string | null; statuses?: string[] | null } | null;
 } | null> {
   const supabase = createSupabaseBrowserClient();
   await supabase.auth.getSession().catch(() => {});
-  const cacheKey = `householder:details:v3:${householderId}`;
+  const cacheKey = `contact:details:v4:${contactId}`;
   
   try {
     // Offline-first only; when online, fetch fresh visits for the Calls section (same as establishment details).
     const offline = typeof navigator !== "undefined" && !navigator.onLine;
     if (offline) {
       const cached = await cacheGet<{
-        householder: HouseholderWithDetails;
+        contact: ContactWithDetails;
         visits: VisitWithUser[];
         establishment?: { id: string; name: string; area?: string | null; statuses?: string[] | null } | null;
       }>(cacheKey);
       if (cached) return cached;
     }
 
-  // Householder with establishment and publisher profile
-  // Fetch visits first to ensure they're always loaded, even if householder query fails
-  const transformedVisits = await getHouseholderVisitsWithUsers(householderId);
+  // Contact with establishment and publisher profile
+  // Fetch visits first to ensure they're always loaded, even if contact query fails
+  const transformedVisits = await getContactVisitsWithUsers(contactId);
   
-  // Fetch householder without publisher join (more reliable). Exclude soft-deleted (deleted_at / is_deleted).
-  const { data: hh, error: hhError } = await supabase
-    .from('householders')
-    .select('id,name,status,note,establishment_id,publisher_id,lat,lng,created_at, establishment:business_establishments(id,name,area,statuses)')
-    .eq('id', householderId)
-    .eq('is_deleted', false)
-    .eq('is_archived', false)
-    .single();
+  // Fetch contact without publisher join (more reliable). Exclude soft-deleted (deleted_at / is_deleted).
+  const detailQuery = (select: string) =>
+    supabase
+      .from(CONTACTS_TABLE)
+      .select(select)
+      .eq("id", contactId)
+      .eq("is_deleted", false)
+      .eq("is_archived", false)
+      .single();
+
+  type ContactDetailRow = {
+    id: string;
+    name: string;
+    status: ContactStatus;
+    statuses?: ContactStatus[] | null;
+    note?: string | null;
+    establishment_id?: string | null;
+    publisher_id?: string | null;
+    lat?: number | null;
+    lng?: number | null;
+    created_at?: string;
+    establishment?: { id: string; name: string; area?: string | null; statuses?: string[] | null } | { id: string; name: string; area?: string | null; statuses?: string[] | null }[] | null;
+  };
+
+  let hh: ContactDetailRow | null = null;
+  let hhError: { message?: string; hint?: string } | null = null;
+
+  if (contactStatusesColumnAvailable === false) {
+    const res = await detailQuery(CONTACT_DETAIL_SELECT_LEGACY);
+    hh = res.data as ContactDetailRow | null;
+    hhError = res.error;
+  } else {
+    const res = await detailQuery(CONTACT_DETAIL_SELECT_WITH_STATUSES);
+    hh = res.data as ContactDetailRow | null;
+    hhError = res.error;
+    if (hhError && isMissingContactStatusesColumn(hhError)) {
+      contactStatusesColumnAvailable = false;
+      const legacy = await detailQuery(CONTACT_DETAIL_SELECT_LEGACY);
+      hh = legacy.data as ContactDetailRow | null;
+      hhError = legacy.error;
+    } else if (!hhError) {
+      contactStatusesColumnAvailable = true;
+    }
+  }
 
   if (hhError || !hh) {
     // Row not found (e.g. soft-deleted by another user) — return null so UI can show list + toast
@@ -2173,7 +2312,7 @@ export async function getHouseholderDetails(householderId: string): Promise<{
       return null;
     }
     const cached = await cacheGet<{
-      householder: HouseholderWithDetails;
+      contact: ContactWithDetails;
       visits: VisitWithUser[];
       establishment?: { id: string; name: string; area?: string | null; statuses?: string[] | null } | null;
     }>(cacheKey);
@@ -2202,10 +2341,11 @@ export async function getHouseholderDetails(householderId: string): Promise<{
         .sort((a: string, b: string) => (a < b ? 1 : a > b ? -1 : 0))[0] || null
     : null;
 
-  const householder: HouseholderWithDetails = {
+  const contact: ContactWithDetails = {
     id: hh.id,
     name: hh.name,
     status: hh.status,
+    statuses: resolveContactStatusesFromRow(hh as { status?: string; statuses?: ContactStatus[] }),
     note: hh.note,
     establishment_id: hh.establishment_id,
     establishment_name: establishment?.name,
@@ -2224,7 +2364,7 @@ export async function getHouseholderDetails(householderId: string): Promise<{
   };
 
   const result = {
-    householder,
+    contact,
     visits: transformedVisits,
     establishment: establishment
       ? {
@@ -2240,9 +2380,9 @@ export async function getHouseholderDetails(householderId: string): Promise<{
   await cacheSet(cacheKey, result);
   return result;
   } catch (error) {
-    console.error('Error fetching householder details:', error);
+    console.error('Error fetching contact details:', error);
     const cached = await cacheGet<{
-      householder: HouseholderWithDetails;
+      contact: ContactWithDetails;
       visits: VisitWithUser[];
       establishment?: { id: string; name: string; area?: string | null; statuses?: string[] | null } | null;
     }>(cacheKey);

@@ -1,9 +1,9 @@
 import { cacheGet } from "@/lib/offline/store";
 import {
   getEstablishmentDetails,
-  getHouseholderDetails,
+  getContactDetails,
   type EstablishmentWithDetails,
-  type HouseholderWithDetails,
+  type ContactWithDetails,
   type VisitWithUser,
 } from "@/lib/db/business";
 
@@ -11,21 +11,43 @@ export function establishmentDetailsCacheKey(establishmentId: string) {
   return `establishment:details:${establishmentId}`;
 }
 
-export function householderDetailsCacheKey(householderId: string) {
-  return `householder:details:v3:${householderId}`;
+export function contactDetailsCacheKey(contactId: string) {
+  return `contact:details:v4:${contactId}`;
 }
 
 export type EstablishmentDetailsSnapshot = {
   establishment: EstablishmentWithDetails;
   visits: VisitWithUser[];
-  householders: HouseholderWithDetails[];
+  contacts: ContactWithDetails[];
 };
 
-export type HouseholderDetailsSnapshot = {
-  householder: HouseholderWithDetails;
+export type ContactDetailsSnapshot = {
+  contact: ContactWithDetails;
   visits: VisitWithUser[];
   establishment?: { id: string; name: string; area?: string | null; statuses?: string[] | null } | null;
 };
+
+function legacyContactDetailsCacheKey(contactId: string) {
+  return `householder:details:v3:${contactId}`;
+}
+
+/** Normalize IndexedDB snapshots written before the Contact rename. */
+function normalizeContactDetailsSnapshot(raw: unknown): ContactDetailsSnapshot | null {
+  if (!raw || typeof raw !== "object") return null;
+  const record = raw as Record<string, unknown>;
+  if (record.contact && typeof record.contact === "object") {
+    return raw as ContactDetailsSnapshot;
+  }
+  if (record.householder && typeof record.householder === "object") {
+    return {
+      contact: record.householder as ContactWithDetails,
+      visits: (record.visits as VisitWithUser[]) ?? [],
+      establishment:
+        (record.establishment as ContactDetailsSnapshot["establishment"]) ?? null,
+    };
+  }
+  return null;
+}
 
 /** Session memory → IndexedDB → stub (same order as BWI AppClient loadEstablishmentDetails). */
 export async function resolveEstablishmentDetailsSnapshot(
@@ -49,20 +71,22 @@ export async function resolveEstablishmentDetailsSnapshot(
   return { snapshot: fallbackStub, hadWarmCache: false };
 }
 
-/** Session memory → IndexedDB → stub (same order as BWI loadHouseholderDetailsSwr). */
-export async function resolveHouseholderDetailsSnapshot(
-  householderId: string,
-  memoryCache: Map<string, HouseholderDetailsSnapshot>,
-  fallbackStub: HouseholderDetailsSnapshot
-): Promise<{ snapshot: HouseholderDetailsSnapshot; hadWarmCache: boolean }> {
-  const fromMemory = memoryCache.get(householderId);
+/** Session memory → IndexedDB → stub (same order as BWI loadContactDetailsSwr). */
+export async function resolveContactDetailsSnapshot(
+  contactId: string,
+  memoryCache: Map<string, ContactDetailsSnapshot>,
+  fallbackStub: ContactDetailsSnapshot
+): Promise<{ snapshot: ContactDetailsSnapshot; hadWarmCache: boolean }> {
+  const fromMemory = memoryCache.get(contactId);
   if (fromMemory) {
     return { snapshot: fromMemory, hadWarmCache: true };
   }
 
-  const fromIdb = await cacheGet<HouseholderDetailsSnapshot>(householderDetailsCacheKey(householderId));
+  const fromIdb =
+    normalizeContactDetailsSnapshot(await cacheGet(contactDetailsCacheKey(contactId))) ??
+    normalizeContactDetailsSnapshot(await cacheGet(legacyContactDetailsCacheKey(contactId)));
   if (fromIdb) {
-    memoryCache.set(householderId, fromIdb);
+    memoryCache.set(contactId, fromIdb);
     return { snapshot: fromIdb, hadWarmCache: true };
   }
 
@@ -89,26 +113,28 @@ export async function warmEstablishmentDetailsInMemory(
   memoryCache.set(establishmentId, {
     establishment: result.establishment,
     visits: result.visits,
-    householders: result.householders,
+    contacts: result.contacts,
   });
 }
 
-export async function warmHouseholderDetailsInMemory(
-  householderId: string,
-  memoryCache: Map<string, HouseholderDetailsSnapshot>
+export async function warmContactDetailsInMemory(
+  contactId: string,
+  memoryCache: Map<string, ContactDetailsSnapshot>
 ): Promise<void> {
-  if (memoryCache.has(householderId)) return;
+  if (memoryCache.has(contactId)) return;
 
-  const fromIdb = await cacheGet<HouseholderDetailsSnapshot>(householderDetailsCacheKey(householderId));
+  const fromIdb =
+    normalizeContactDetailsSnapshot(await cacheGet(contactDetailsCacheKey(contactId))) ??
+    normalizeContactDetailsSnapshot(await cacheGet(legacyContactDetailsCacheKey(contactId)));
   if (fromIdb) {
-    memoryCache.set(householderId, fromIdb);
+    memoryCache.set(contactId, fromIdb);
     return;
   }
 
-  const result = await getHouseholderDetails(householderId);
+  const result = await getContactDetails(contactId);
   if (!result) return;
-  memoryCache.set(householderId, {
-    householder: result.householder,
+  memoryCache.set(contactId, {
+    contact: result.contact,
     visits: result.visits,
     establishment: result.establishment,
   });
