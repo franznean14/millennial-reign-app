@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { formatVisitDateCompact, visitDayKey } from "@/lib/utils/visit-history-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -58,7 +58,15 @@ import { EstablishmentDetails } from "@/components/business/EstablishmentDetails
 import { HouseholderDetails } from "@/components/business/HouseholderDetails";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { useHomeTodoDetailsFabOptional } from "@/components/home/home-todo-details-fab-context";
-import { getStudyBibleDarkCardShade, studyBibleDarkClasses, studyBibleSectionToggle } from "@/lib/theme/study-bible-dark";
+import {
+  getStudyBibleDarkCardShade,
+  getStudyBibleHomeCardDarkShadeHex,
+  getStudyBibleHomeCardShade,
+  getStudyBibleHomeCardShadeHex,
+  getStudyBibleHomeCardTabTrackHex,
+  studyBibleDarkClasses,
+  studyBibleSectionToggle,
+} from "@/lib/theme/study-bible-dark";
 import { HomeMobileDetailsDrawer } from "@/components/home/HomeMobileDetailsDrawer";
 
 interface CallHistoryProps {
@@ -277,6 +285,28 @@ export function CallHistory({
   const callsEntityEditPanelClass = useMemo(
     () => getStudyBibleDarkCardShade(`bwi-calls-entity-edit:${userId}`),
     [userId]
+  );
+  const homeCardShadeSlot =
+    presentation === "calls"
+      ? "calls"
+      : presentation === "summary"
+        ? "bwiSummary"
+        : "bwiCallsTabs";
+  const homeCardShade = useMemo(
+    () => getStudyBibleHomeCardShade(homeCardShadeSlot),
+    [homeCardShadeSlot]
+  );
+  const homeCardShadeHex = useMemo(
+    () => getStudyBibleHomeCardShadeHex(homeCardShadeSlot),
+    [homeCardShadeSlot]
+  );
+  const homeCardDarkShadeHex = useMemo(
+    () => getStudyBibleHomeCardDarkShadeHex(homeCardShadeSlot),
+    [homeCardShadeSlot]
+  );
+  const homeCardTabTrackHex = useMemo(
+    () => getStudyBibleHomeCardTabTrackHex(homeCardShadeSlot),
+    [homeCardShadeSlot]
   );
 
   useEffect(() => {
@@ -1750,10 +1780,18 @@ export function CallHistory({
     <>
       <div
         className={cn(
-          "rounded-lg border overflow-hidden bg-background",
+          "rounded-lg border overflow-hidden",
           presentation === "calls" ? studyBibleDarkClasses.callsCard : studyBibleDarkClasses.bwiCard,
+          homeCardShade,
           className
         )}
+        style={
+          {
+            "--study-card-shade": homeCardShadeHex,
+            "--study-card-shade-dark": homeCardDarkShadeHex,
+            "--study-card-tab-track": homeCardTabTrackHex,
+          } as CSSProperties
+        }
       >
         {presentation === "summary" ? (
           <div className="flex h-full min-h-0 flex-col">
@@ -1762,7 +1800,8 @@ export function CallHistory({
               onClick={() => setShowAreaDrawer(true)}
               className={cn(
                 "flex h-10 shrink-0 items-center justify-center gap-2 border-b px-4 text-sm font-medium hover:bg-[#ece8f2] dark:hover:bg-[#3b3348]",
-                studyBibleDarkClasses.cardBarHeader
+                studyBibleDarkClasses.cardBarHeader,
+                homeCardShade
               )}
             >
               <Building2 className="h-4 w-4 shrink-0" />
@@ -1780,7 +1819,8 @@ export function CallHistory({
               onClick={() => setShowDrawer(true)}
               className={cn(
                 "flex h-10 shrink-0 items-center gap-2 border-b px-4 text-sm font-medium hover:bg-[#ece8f2] dark:hover:bg-[#3b3348]",
-                studyBibleDarkClasses.cardBarHeader
+                studyBibleDarkClasses.cardBarHeader,
+                homeCardShade
               )}
             >
               <KnockingDoorIcon />
@@ -1793,14 +1833,21 @@ export function CallHistory({
           </div>
         ) : (
         <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-          <TabsList className={cn("grid-cols-2", studyBibleSectionToggle.cardTabList)}>
+          <TabsList
+            className={cn(
+              "grid-cols-2",
+              studyBibleSectionToggle.cardTabList,
+              "!bg-[var(--study-card-tab-track)] dark:!bg-[#2a2534]"
+            )}
+          >
             <TabsTrigger 
               value="bwi"
               onPointerDown={handleBwiPointerDown}
               onClick={handleBwiTabClick}
               className={cn(
                 studyBibleSectionToggle.cardTabTrigger,
-                studyBibleSectionToggle.cardTabTriggerLeft
+                studyBibleSectionToggle.cardTabTriggerLeft,
+                studyBibleSectionToggle.cardTabActiveFromShell
               )}
             >
               <motion.div
@@ -1820,7 +1867,8 @@ export function CallHistory({
               onClick={handleCallHistoryTabClick}
               className={cn(
                 studyBibleSectionToggle.cardTabTrigger,
-                studyBibleSectionToggle.cardTabTriggerRight
+                studyBibleSectionToggle.cardTabTriggerRight,
+                studyBibleSectionToggle.cardTabActiveFromShell
               )}
             >
               <KnockingDoorIcon />
@@ -1836,7 +1884,8 @@ export function CallHistory({
             className={cn(
               studyBibleSectionToggle.cardTabContent,
               "overflow-y-auto scrollbar-hide",
-              studyBibleDarkClasses.bwiCard
+              studyBibleDarkClasses.bwiCard,
+              homeCardShade
             )}
           >
             {renderBwiSummaryContent()}
@@ -1844,7 +1893,7 @@ export function CallHistory({
           
           <TabsContent
             value="visit-history"
-            className={cn(studyBibleSectionToggle.cardTabContent, studyBibleDarkClasses.bwiCard)}
+            className={cn(studyBibleSectionToggle.cardTabContent, studyBibleDarkClasses.bwiCard, homeCardShade)}
           >
             {renderCallsPreviewContent()}
           </TabsContent>

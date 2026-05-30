@@ -13,7 +13,12 @@ import InstallPrompt from "@/components/InstallPrompt";
 import { toast } from "@/components/ui/sonner";
 import type { DailyRecord } from "@/lib/db/types";
 import { cn } from "@/lib/utils";
-import { studyBibleDarkClasses, getStudyBibleDarkCardShade, studyBibleSectionToggle } from "@/lib/theme/study-bible-dark";
+import {
+  studyBibleDarkClasses,
+  getStudyBibleDarkCardShade,
+  getStudyBibleHomeCardShade,
+  studyBibleSectionToggle,
+} from "@/lib/theme/study-bible-dark";
 
 type StudyCount = [string, number];
 
@@ -884,6 +889,7 @@ export function HomeSummary({
             className={cn(
               "sm:col-span-3 rounded-lg border p-6 cursor-pointer hover:bg-muted/50 transition-colors",
               studyBibleDarkClasses.summaryCard,
+              getStudyBibleHomeCardShade("hoursSummary"),
               studyBibleDarkClasses.cardHover
             )}
             onClick={() => setRecordsDrawerOpen(true)}

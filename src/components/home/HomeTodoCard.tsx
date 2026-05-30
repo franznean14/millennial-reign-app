@@ -97,7 +97,7 @@ import { EstablishmentSummaryFields } from "@/components/business/EstablishmentS
 import { HouseholderSummaryFields } from "@/components/business/HouseholderSummaryFields";
 import { HouseholderForm } from "@/components/business/HouseholderForm";
 import { useMediaQuery } from "@/hooks/use-media-query";
-import { studyBibleDarkClasses, getStudyBibleDarkCardShade } from "@/lib/theme/study-bible-dark";
+import { studyBibleDarkClasses, getStudyBibleDarkCardShade, getStudyBibleHomeCardShade } from "@/lib/theme/study-bible-dark";
 import { HomeMobileDetailsDrawer } from "@/components/home/HomeMobileDetailsDrawer";
 
 const todoLayoutTransition = {
@@ -644,6 +644,7 @@ export function HomeTodoCard({
     () => getStudyBibleDarkCardShade(`bwi-todos-bulk-edit-picker:${todoDrawerShadeKey}`),
     [todoDrawerShadeKey]
   );
+  const homeTodoCardShade = useMemo(() => getStudyBibleHomeCardShade("todo"), []);
 
   const loadTodos = useCallback((opts?: {
     useCache?: boolean;
@@ -3685,7 +3686,7 @@ export function HomeTodoCard({
 
   return (
     <>
-      <div className={cn("rounded-lg border overflow-hidden bg-background", studyBibleDarkClasses.todoCard, className)}>
+      <div className={cn("rounded-lg border overflow-hidden", studyBibleDarkClasses.todoCard, homeTodoCardShade, className)}>
         <div className={cn("flex h-full min-h-0 flex-col", headerVariant === "bar" ? "" : "p-4")}>
           <button
             type="button"
@@ -3694,7 +3695,7 @@ export function HomeTodoCard({
               headerVariant === "bar"
                 ? "flex h-10 shrink-0 items-center gap-2 border-b px-4 text-sm font-medium hover:bg-[#ece8f2] dark:hover:bg-[#3b3348] transition-colors"
                 : "text-xs text-muted-foreground mb-4 flex items-center gap-1.5 w-full text-left hover:text-foreground transition-colors",
-              headerVariant === "bar" ? studyBibleDarkClasses.cardBarHeader : studyBibleDarkClasses.muted
+              headerVariant === "bar" ? cn(studyBibleDarkClasses.cardBarHeader, homeTodoCardShade) : studyBibleDarkClasses.muted
             )}
           >
             <ListTodo className="h-4 w-4 shrink-0" />

@@ -15,7 +15,7 @@ import { FormModal } from "@/components/shared/FormModal";
 import { FabMenu } from "@/components/shared/FabMenu";
 import { ChevronRight, MapPin, SquarePen } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
+import { studyBibleDarkClasses, getStudyBibleDarkCardShade } from "@/lib/theme/study-bible-dark";
 
 type AccountTab = "profile" | "account";
 
@@ -39,16 +39,19 @@ function AccountContentCard({
   title,
   children,
   className,
+  shadeKey,
 }: {
   title?: string;
   children: ReactNode;
   className?: string;
+  shadeKey: string;
 }) {
   return (
     <article
       className={cn(
         "min-w-0 overflow-hidden rounded-xl border shadow-md",
         studyBibleDarkClasses.bwiCard,
+        getStudyBibleDarkCardShade(shadeKey),
         className
       )}
     >
@@ -131,7 +134,7 @@ export function AccountSection({
         <div className="space-y-4 md:mx-auto md:max-w-6xl md:space-y-6 md:p-4">
           {accountTab === "profile" ? (
             <div className="space-y-4 md:grid md:grid-cols-2 md:items-start md:gap-4 md:space-y-0">
-              <AccountContentCard>
+              <AccountContentCard shadeKey="account:profile-card">
                 <div className="flex flex-col items-center gap-4 text-center md:flex-row md:items-start md:text-left">
                   <Avatar className="h-20 w-20 shrink-0 md:h-20 md:w-20">
                     <AvatarImage src={profile?.avatar_url || undefined} alt={fullName} />
@@ -185,7 +188,7 @@ export function AccountSection({
                 ) : null}
               </AccountContentCard>
 
-              <AccountContentCard title="Contact Information">
+              <AccountContentCard shadeKey="account:contact" title="Contact Information">
                 {profile?.phone_number || profile?.address ? (
                   <div className="grid gap-4">
                     {profile?.phone_number ? (
@@ -227,7 +230,7 @@ export function AccountSection({
             </div>
           ) : (
             <div className="space-y-4 md:grid md:grid-cols-3 md:items-start md:gap-4 md:space-y-0">
-              <AccountContentCard title="Account Settings">
+              <AccountContentCard shadeKey="account:settings" title="Account Settings">
                 <div className="grid gap-4">
                   <AccountDetailField label="Email">{profile?.email || "Not set"}</AccountDetailField>
                   {profile?.username ? (
@@ -251,11 +254,11 @@ export function AccountSection({
                 </div>
               </AccountContentCard>
 
-              <AccountContentCard title="Notifications">
+              <AccountContentCard shadeKey="account:notifications" title="Notifications">
                 <NotificationSettings />
               </AccountContentCard>
 
-              <AccountContentCard title="Security & Legal" className="md:col-span-1">
+              <AccountContentCard shadeKey="account:security" title="Security & Legal" className="md:col-span-1">
                 <div className="space-y-5">
                   <div className="space-y-3">
                     <p

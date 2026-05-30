@@ -1,9 +1,9 @@
 export const studyBibleLightPalette = {
   page: "#f5f4f7",
-  surface: "#ffffff",
+  surface: "#e8e2ef",
   surfaceElevated: "#ece8f2",
-  surfaceMuted: "#ede9f3",
-  surfaceDeep: "#e4deea",
+  surfaceMuted: "#e4deea",
+  surfaceDeep: "#ded6e7",
   surfaceActive: "#6b5196",
   border: "#e2dde8",
   purple: "#6b5196",
@@ -30,16 +30,16 @@ export const studyBibleDarkPalette = {
 /** Semantic Tailwind bundles — include light + dark so both modes stay in sync. */
 export const studyBibleDarkClasses = {
   page: "bg-[#f5f4f7] text-[#1a1820] dark:bg-[#24231f] dark:text-[#fffaff]",
-  card: "border-[#e2dde8] bg-[#ffffff] text-[#1a1820] dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff]",
+  card: "border-[#e2dde8] bg-[#e8e2ef] text-[#1a1820] dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff]",
   summaryCard:
-    "border-[#e2dde8] bg-[#ffffff] text-[#1a1820] dark:border-[#1c1921] dark:bg-[#342a43] dark:text-[#fffaff]",
+    "border-[#e2dde8] bg-[#e4deea] text-[#1a1820] dark:border-[#1c1921] dark:bg-[#342a43] dark:text-[#fffaff]",
   bwiCard:
-    "border-[#e2dde8] bg-[#ffffff] text-[#1a1820] dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff]",
+    "border-[#e2dde8] bg-[#e8e2ef] text-[#1a1820] dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff]",
   todoCard:
-    "border-[#e2dde8] bg-[#faf8fc] text-[#1a1820] dark:border-[#1c1921] dark:bg-[#2a2534] dark:text-[#fffaff]",
+    "border-[#e2dde8] bg-[#ece8f2] text-[#1a1820] dark:border-[#1c1921] dark:bg-[#2a2534] dark:text-[#fffaff]",
   callsCard:
-    "border-[#e2dde8] bg-[#f3eff8] text-[#1a1820] dark:border-[#1c1921] dark:bg-[#3b3348] dark:text-[#fffaff]",
-  cardHover: "hover:bg-[#ece8f2] dark:hover:bg-[#3b3348]",
+    "border-[#e2dde8] bg-[#e0d8e8] text-[#1a1820] dark:border-[#1c1921] dark:bg-[#3b3348] dark:text-[#fffaff]",
+  cardHover: "hover:bg-[#ded6e7] dark:hover:bg-[#3b3348]",
   header:
     "border-[#e2dde8] bg-[#ece8f2] text-[#1a1820] hover:bg-[#e4deea] dark:border-[#1c1921] dark:bg-[#3b3348] dark:text-[#fffaff] dark:hover:bg-[#4b405c]",
   callsHeader:
@@ -51,21 +51,21 @@ export const studyBibleDarkClasses = {
   callsMuted: "text-[#6d6880] dark:text-[#e8e0ef]",
   divider: "border-[#e2dde8] dark:border-[#1c1921]",
   popoverPanel:
-    "border-[#e2dde8] bg-[#ffffff] text-[#1a1820] dark:border-[#1c1921] dark:bg-[#342a43] dark:text-[#fffaff]",
-  laneTitleBar: "bg-[#ede9f3] dark:bg-[#272133]",
-  sheetEmptyWell: "border-[#e2dde8] bg-[#faf8fc]/80 dark:border-[#1c1921] dark:bg-[#30283c]/40",
+    "border-[#e2dde8] bg-[#e8e2ef] text-[#1a1820] dark:border-[#1c1921] dark:bg-[#342a43] dark:text-[#fffaff]",
+  laneTitleBar: "bg-[#e4deea] dark:bg-[#272133]",
+  sheetEmptyWell: "border-[#e2dde8] bg-[#ece8f2]/90 dark:border-[#1c1921] dark:bg-[#30283c]/40",
   /** Bottom sheets and wide drawers */
   drawerPanel:
-    "border-[#e2dde8] bg-[#ffffff] text-[#1a1820] dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]",
-  drawerHeader: "bg-[#ffffff] dark:bg-[#181714]",
-  tableHeader: "border-[#e2dde8] bg-[#ffffff] dark:border-[#1c1921] dark:bg-[#30283c]",
+    "border-[#e2dde8] bg-[#e8e2ef] text-[#1a1820] dark:border-[#1c1921] dark:bg-[#181714] dark:text-[#fffaff]",
+  drawerHeader: "bg-[#e4deea] dark:bg-[#181714]",
+  tableHeader: "border-[#e2dde8] bg-[#e4deea] dark:border-[#1c1921] dark:bg-[#30283c]",
   tableBody: "bg-[#f5f4f7] dark:bg-[#24231f]",
-  navBar: "border-[#e2dde8] bg-[#ffffff] dark:border-[#1c1921] dark:bg-[#2a2534]",
-  toggleShell: "border-[#e2dde8] bg-[#ede9f3] dark:border-[#1c1921] dark:bg-[#2a2534]",
+  navBar: "border-[#e2dde8] bg-[#ece8f2] dark:border-[#1c1921] dark:bg-[#2a2534]",
+  toggleShell: "border-[#e2dde8] bg-[#e4deea] dark:border-[#1c1921] dark:bg-[#2a2534]",
   toggleItem:
-    "border border-transparent ring-0 data-[state=on]:ring-0 focus-visible:ring-0 text-[#6d6880] hover:bg-[#ece8f2] hover:border-transparent data-[state=on]:!border-[#6b5196] data-[state=on]:!bg-[#6b5196] data-[state=on]:!text-white dark:text-[#ded6e7] dark:hover:bg-[#3b3348] dark:hover:border-transparent dark:data-[state=on]:!border-[#80778e] dark:data-[state=on]:!bg-[#80778e] dark:data-[state=on]:!text-white",
+    "border border-transparent ring-0 data-[state=on]:ring-0 focus-visible:ring-0 text-[#6d6880] hover:bg-[#ded6e7] hover:border-transparent data-[state=on]:!border-[#6b5196] data-[state=on]:!bg-[#6b5196] data-[state=on]:!text-white dark:text-[#ded6e7] dark:hover:bg-[#3b3348] dark:hover:border-transparent dark:data-[state=on]:!border-[#80778e] dark:data-[state=on]:!bg-[#80778e] dark:data-[state=on]:!text-white",
   rowActionButton:
-    "border-[#e2dde8] bg-[#ffffff] text-[#1a1820] hover:bg-[#ece8f2] active:bg-[#e4deea] dark:border-[#1c1921] dark:bg-[#272133] dark:text-[#fffaff] dark:hover:bg-[#3b3348] dark:active:bg-[#463b55]",
+    "border-[#e2dde8] bg-[#e8e2ef] text-[#1a1820] hover:bg-[#ded6e7] active:bg-[#d4cbdf] dark:border-[#1c1921] dark:bg-[#272133] dark:text-[#fffaff] dark:hover:bg-[#3b3348] dark:active:bg-[#463b55]",
   /** Unchecked/checked boxes on tinted todo and form rows */
   checkbox:
     "border-[#8e89a3] bg-[#ffffff] shadow-none data-[state=checked]:border-[#6b5196] data-[state=checked]:bg-[#6b5196] data-[state=checked]:text-white dark:border-[#80778e] dark:bg-[#3b3348] dark:data-[state=checked]:border-[#80778e] dark:data-[state=checked]:bg-[#80778e] dark:data-[state=checked]:text-white",
@@ -73,7 +73,7 @@ export const studyBibleDarkClasses = {
     "border-[#8e89a3] bg-[#ffffff] dark:border-[#80778e] dark:bg-[#3b3348]",
   /** Solid circular/pill controls in drawer filter toolbars (Calls, To-Do, BWI). */
   filterToolbarButton:
-    "border-[#e2dde8] !bg-[#ece8f2] text-[#1a1820] hover:!bg-[#e4deea] active:!bg-[#ded6e7] [&>svg]:text-[#1a1820] dark:border-[#1c1921] dark:!bg-[#3b3348] dark:text-[#fffaff] dark:hover:!bg-[#463b55] dark:active:!bg-[#514562] dark:[&>svg]:text-[#fffaff]",
+    "border-[#e2dde8] !bg-[#e4deea] text-[#1a1820] hover:!bg-[#ded6e7] active:!bg-[#d4cbdf] [&>svg]:text-[#1a1820] dark:border-[#1c1921] dark:!bg-[#3b3348] dark:text-[#fffaff] dark:hover:!bg-[#463b55] dark:active:!bg-[#514562] dark:[&>svg]:text-[#fffaff]",
   filterToolbarButtonActive:
     "border-[#6b5196] !bg-[#6b5196] !text-white hover:!bg-[#5d4788] [&>svg]:!text-white dark:border-[#80778e] dark:!bg-[#80778e] dark:!text-white dark:hover:!bg-[#8c839a] dark:[&>svg]:!text-white",
   drawerHandle:
@@ -104,7 +104,7 @@ export const studyBibleDarkClasses = {
     "border border-white/30 !bg-[#5a6b96] !text-white hover:!bg-[#506287] [&_svg]:!text-white dark:border-white/14 dark:!bg-[#272133] dark:hover:!bg-[#30283c] dark:[&_svg]:!text-white",
   /** FAB menu — secondary / outline action (card surface). */
   fabMenuSecondary:
-    "border border-[#c8c0d4] !bg-[#ffffff] !text-[#1a1820] hover:!bg-[#ece8f2] [&_svg]:!text-[#1a1820] dark:border-[#5a5068] dark:!bg-[#30283c] dark:!text-[#fffaff] dark:hover:!bg-[#3b3348] dark:[&_svg]:!text-[#fffaff]",
+    "border border-[#c8c0d4] !bg-[#e8e2ef] !text-[#1a1820] hover:!bg-[#ded6e7] [&_svg]:!text-[#1a1820] dark:border-[#5a5068] dark:!bg-[#30283c] dark:!text-[#fffaff] dark:hover:!bg-[#3b3348] dark:[&_svg]:!text-[#fffaff]",
   /** FAB menu — destructive action. */
   fabMenuDestructive:
     "border border-white/25 !bg-destructive !text-destructive-foreground hover:!bg-destructive/90 [&_svg]:!text-destructive-foreground dark:border-white/12 dark:!bg-destructive dark:hover:!bg-destructive/90",
@@ -119,10 +119,10 @@ export const studyBibleDarkClasses = {
     "border border-white/30 !bg-[#6b5196] !text-white hover:!bg-[#5c4685] [&_svg]:!text-white dark:border-white/14 dark:!bg-[#80778e] dark:hover:!bg-[#8c839a] dark:[&_svg]:!text-white",
   /** @deprecated Use {@link fabMenuSecondary} */
   bulkFabAdd:
-    "border border-[#c8c0d4] !bg-[#ffffff] !text-[#1a1820] hover:!bg-[#ece8f2] [&_svg]:!text-[#1a1820] dark:border-[#5a5068] dark:!bg-[#30283c] dark:!text-[#fffaff] dark:hover:!bg-[#3b3348] dark:[&_svg]:!text-[#fffaff]",
+    "border border-[#c8c0d4] !bg-[#e8e2ef] !text-[#1a1820] hover:!bg-[#ded6e7] [&_svg]:!text-[#1a1820] dark:border-[#5a5068] dark:!bg-[#30283c] dark:!text-[#fffaff] dark:hover:!bg-[#3b3348] dark:[&_svg]:!text-[#fffaff]",
   /** Tappable card title bar — same surface as card body (not a contrasting header strip). */
   cardBarHeader:
-    "border-[#e2dde8] bg-[#ffffff] text-[#1a1820] dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff]",
+    "border-[#e2dde8] bg-[#e8e2ef] text-[#1a1820] dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff]",
 } as const;
 
 /** Flush segmented toggles — no inner padding; shell overflow clips square items for smooth corners. */
@@ -135,12 +135,12 @@ function joinStudyBibleClasses(...parts: string[]) {
 
 export const studyBibleSectionToggle = {
   shell:
-    "relative w-full min-w-0 overflow-hidden rounded-xl border shadow-lg border-[#e2dde8] bg-[#ffffff] dark:border-[#1c1921] dark:bg-[#30283c]",
+    "relative w-full min-w-0 overflow-hidden rounded-xl border shadow-lg border-[#e2dde8] bg-[#e4deea] dark:border-[#1c1921] dark:bg-[#30283c]",
   shellRow:
-    "relative flex w-full min-w-0 items-center overflow-hidden rounded-xl border shadow-lg border-[#e2dde8] bg-[#ffffff] dark:border-[#1c1921] dark:bg-[#30283c]",
+    "relative flex w-full min-w-0 items-center overflow-hidden rounded-xl border shadow-lg border-[#e2dde8] bg-[#e4deea] dark:border-[#1c1921] dark:bg-[#30283c]",
   /** Muted track for year/day pickers (single row, scrollable) */
   trackShell:
-    "relative w-full overflow-hidden rounded-xl border shadow-lg border-[#e2dde8] bg-[#ede9f3] dark:border-[#1c1921] dark:bg-[#2a2534]",
+    "relative w-full overflow-hidden rounded-xl border shadow-lg border-[#e2dde8] bg-[#e4deea] dark:border-[#1c1921] dark:bg-[#2a2534]",
   group: "flex h-full min-h-0 w-full min-w-full gap-0 rounded-none",
   /** Horizontal scroll tabs (members groups): flush left, scroll when overflow. */
   scrollableTabGroup: "w-max min-w-full justify-start",
@@ -157,24 +157,37 @@ export const studyBibleSectionToggle = {
   itemCompact:
     "flex h-11 min-w-0 items-center justify-center px-3 text-[11px] font-medium transition-colors md:h-12",
   ghostSideButton:
-    "flex h-full min-h-0 shrink-0 items-center justify-center self-stretch rounded-none px-3 py-0 transition-colors hover:bg-[#ece8f2] dark:hover:bg-[#3b3348]",
+    "flex h-full min-h-0 shrink-0 items-center justify-center self-stretch rounded-none px-3 py-0 transition-colors hover:bg-[#ded6e7] dark:hover:bg-[#3b3348]",
   /** Embedded card tabs (All / Calls, Upcoming / All) — active tab matches card body surface. */
   cardTabList:
-    "relative z-10 mb-0 -mb-px grid h-auto w-full gap-0 border-0 bg-[#ede9f3] p-0 dark:bg-[#2a2534] [&>*]:border-0",
+    "relative z-10 mb-0 -mb-px grid h-auto w-full gap-0 border-0 bg-[#e4deea] p-0 dark:bg-[#2a2534] [&>*]:border-0",
   cardTabTrigger:
-    "relative h-10 rounded-none rounded-bl-none rounded-br-none border border-transparent px-4 font-medium shadow-none ring-0 outline-none transition-all duration-200 after:hidden focus-visible:outline-none focus-visible:ring-0 bg-[#ede9f3] text-[#6d6880] hover:bg-[#ece8f2] hover:text-[#1a1820] hover:border-transparent dark:bg-[#2a2534] dark:text-[#ded6e7] dark:hover:bg-[#342a43] dark:hover:text-[#fffaff] dark:hover:border-transparent data-[state=active]:!border-[#ffffff] data-[state=active]:!bg-[#ffffff] data-[state=active]:!text-[#1a1820] data-[state=active]:hover:!border-[#ffffff] data-[state=active]:hover:!bg-[#ffffff] dark:data-[state=active]:!border-[#30283c] dark:data-[state=active]:!bg-[#30283c] dark:data-[state=active]:!text-[#fffaff] dark:data-[state=active]:hover:!border-[#30283c] dark:data-[state=active]:hover:!bg-[#30283c] [&>svg]:text-[#6d6880] hover:[&>svg]:text-[#1a1820] data-[state=active]:[&>svg]:!text-[#1a1820] dark:[&>svg]:text-[#ded6e7] dark:hover:[&>svg]:text-[#fffaff] dark:data-[state=active]:[&>svg]:!text-[#fffaff]",
+    "relative h-10 rounded-none rounded-bl-none rounded-br-none border border-transparent px-4 font-medium shadow-none ring-0 outline-none transition-all duration-200 after:hidden focus-visible:outline-none focus-visible:ring-0 bg-[#e4deea] text-[#6d6880] hover:bg-[#ded6e7] hover:text-[#1a1820] hover:border-transparent dark:bg-[#2a2534] dark:text-[#ded6e7] dark:hover:bg-[#342a43] dark:hover:text-[#fffaff] dark:hover:border-transparent data-[state=active]:!border-[#e8e2ef] data-[state=active]:!bg-[#e8e2ef] data-[state=active]:!text-[#1a1820] data-[state=active]:hover:!border-[#e8e2ef] data-[state=active]:hover:!bg-[#e8e2ef] dark:data-[state=active]:!border-[#30283c] dark:data-[state=active]:!bg-[#30283c] dark:data-[state=active]:!text-[#fffaff] dark:data-[state=active]:hover:!border-[#30283c] dark:data-[state=active]:hover:!bg-[#30283c] [&>svg]:text-[#6d6880] hover:[&>svg]:text-[#1a1820] data-[state=active]:[&>svg]:!text-[#1a1820] dark:[&>svg]:text-[#ded6e7] dark:hover:[&>svg]:text-[#fffaff] dark:data-[state=active]:[&>svg]:!text-[#fffaff]",
   cardTabTriggerLeft: "rounded-tl-lg rounded-tr-none",
   cardTabTriggerRight: "rounded-tr-lg rounded-tl-none",
-  cardTabContent: "mt-0 rounded-b-lg bg-[#ffffff] p-4 dark:bg-[#30283c]",
+  cardTabContent: "mt-0 rounded-b-lg p-4 bg-transparent dark:bg-transparent",
+  /** Active embedded tab — set `--study-card-shade` / `--study-card-shade-dark` on the card shell. */
+  cardTabActiveFromShell:
+    "data-[state=active]:!border-[var(--study-card-shade)] data-[state=active]:!bg-[var(--study-card-shade)] data-[state=active]:!text-[#1a1820] data-[state=active]:hover:!border-[var(--study-card-shade)] data-[state=active]:hover:!bg-[var(--study-card-shade)] data-[state=active]:[&>svg]:!text-[#1a1820] dark:data-[state=active]:!border-[var(--study-card-shade-dark)] dark:data-[state=active]:!bg-[var(--study-card-shade-dark)] dark:data-[state=active]:!text-[#fffaff] dark:data-[state=active]:hover:!border-[var(--study-card-shade-dark)] dark:data-[state=active]:hover:!bg-[var(--study-card-shade-dark)] dark:data-[state=active]:[&>svg]:!text-[#fffaff]",
 } as const;
 
 const studyBibleLightCardShadeClasses = [
-  "bg-[#ffffff]",
-  "bg-[#faf8fc]",
-  "bg-[#f3eff8]",
-  "bg-[#ece7f3]",
-  "bg-[#f5f2f8]",
   "bg-[#e8e2ef]",
+  "bg-[#ece8f2]",
+  "bg-[#e4deea]",
+  "bg-[#e0d8e8]",
+  "bg-[#ded6e7]",
+  "bg-[#d4cbdf]",
+] as const;
+
+/** Light-mode card hex values — keep in sync with {@link studyBibleLightCardShadeClasses}. */
+export const studyBibleLightCardShadeHex = [
+  "#e8e2ef",
+  "#ece8f2",
+  "#e4deea",
+  "#e0d8e8",
+  "#ded6e7",
+  "#d4cbdf",
 ] as const;
 
 const studyBibleDarkCardShadeClasses = [
@@ -186,13 +199,23 @@ const studyBibleDarkCardShadeClasses = [
   "dark:bg-[#463b55]",
 ] as const;
 
+/** Dark-mode card hex values — keep in sync with {@link studyBibleDarkCardShadeClasses}. */
+export const studyBibleDarkCardShadeHex = [
+  "#30283c",
+  "#342a43",
+  "#3b3348",
+  "#2a2534",
+  "#272133",
+  "#463b55",
+] as const;
+
 const studyBibleLightCardFadeClasses = [
-  "from-[#ffffff] via-[#ffffff]/50",
-  "from-[#faf8fc] via-[#faf8fc]/50",
-  "from-[#f3eff8] via-[#f3eff8]/50",
-  "from-[#ece7f3] via-[#ece7f3]/50",
-  "from-[#f5f2f8] via-[#f5f2f8]/50",
   "from-[#e8e2ef] via-[#e8e2ef]/50",
+  "from-[#ece8f2] via-[#ece8f2]/50",
+  "from-[#e4deea] via-[#e4deea]/50",
+  "from-[#e0d8e8] via-[#e0d8e8]/50",
+  "from-[#ded6e7] via-[#ded6e7]/50",
+  "from-[#d4cbdf] via-[#d4cbdf]/50",
 ] as const;
 
 const studyBibleDarkCardFadeClasses = [
@@ -215,6 +238,47 @@ function getStablePaletteIndex(key: string, length: number) {
 export function getStudyBibleDarkCardShade(key: string) {
   const index = getStablePaletteIndex(key, studyBibleLightCardShadeClasses.length);
   return `${studyBibleLightCardShadeClasses[index]} ${studyBibleDarkCardShadeClasses[index]}`;
+}
+
+export function getStudyBibleLightCardShadeHex(key: string) {
+  return studyBibleLightCardShadeHex[getStablePaletteIndex(key, studyBibleLightCardShadeHex.length)];
+}
+
+/** Fixed palette slots — adjacent home cards use spread indices for distinct tints. */
+export const studyBibleHomeCardShadeSlots = {
+  hoursSummary: 0,
+  todo: 2,
+  bwiCallsTabs: 5,
+  bwiSummary: 3,
+  calls: 4,
+} as const;
+
+export type StudyBibleHomeCardShadeSlot = keyof typeof studyBibleHomeCardShadeSlots;
+
+function getStudyBibleCardShadeByIndex(index: number) {
+  const normalized =
+    ((index % studyBibleLightCardShadeClasses.length) + studyBibleLightCardShadeClasses.length) %
+    studyBibleLightCardShadeClasses.length;
+  return `${studyBibleLightCardShadeClasses[normalized]} ${studyBibleDarkCardShadeClasses[normalized]}`;
+}
+
+export function getStudyBibleHomeCardShade(slot: StudyBibleHomeCardShadeSlot) {
+  return getStudyBibleCardShadeByIndex(studyBibleHomeCardShadeSlots[slot]);
+}
+
+export function getStudyBibleHomeCardShadeHex(slot: StudyBibleHomeCardShadeSlot) {
+  return studyBibleLightCardShadeHex[studyBibleHomeCardShadeSlots[slot]];
+}
+
+export function getStudyBibleHomeCardDarkShadeHex(slot: StudyBibleHomeCardShadeSlot) {
+  return studyBibleDarkCardShadeHex[studyBibleHomeCardShadeSlots[slot]];
+}
+
+/** Inactive tab track — offset from body for contrast (light mode). */
+export function getStudyBibleHomeCardTabTrackHex(slot: StudyBibleHomeCardShadeSlot) {
+  const slotIndex = studyBibleHomeCardShadeSlots[slot];
+  const trackIndex = (slotIndex + 3) % studyBibleLightCardShadeHex.length;
+  return studyBibleLightCardShadeHex[trackIndex];
 }
 
 export function getStudyBibleDarkCardFade(key: string) {

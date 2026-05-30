@@ -17,7 +17,7 @@ import { FormModal } from "@/components/shared/FormModal";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import type { DailyRecord } from "@/lib/db/types";
 import { cn } from "@/lib/utils";
-import { studyBibleDarkClasses, getStudyBibleDarkCardShade, studyBibleSectionToggle } from "@/lib/theme/study-bible-dark";
+import { studyBibleDarkClasses, getStudyBibleDarkCardShade, getStudyBibleHomeCardShade, studyBibleSectionToggle } from "@/lib/theme/study-bible-dark";
 
 type StudyCount = [string, number];
 
@@ -762,7 +762,7 @@ export function DesktopHomeSummary({
   return (
     <>
       <div className="w-full min-w-0 space-y-4">
-        <Card className={studyBibleDarkClasses.summaryCard}>
+        <Card className={cn(studyBibleDarkClasses.summaryCard, getStudyBibleHomeCardShade("hoursSummary"))}>
         <CardContent>
           <div className="space-y-6">
             {/* Hours Summary — only this region opens Monthly Records (not calendar / daily form). */}
