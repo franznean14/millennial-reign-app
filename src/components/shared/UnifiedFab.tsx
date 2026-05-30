@@ -16,6 +16,7 @@ import type { EstablishmentWithDetails, HouseholderWithDetails } from "@/lib/db/
 import { useHomeTodoDetailsFabOptional } from "@/components/home/home-todo-details-fab-context";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
+import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 
 type BusinessTab = "establishments" | "householders" | "map";
 type CongregationTab = "meetings" | "ministry" | "admin";
@@ -272,13 +273,13 @@ export function UnifiedFab({
     }
   }, [openKey]);
 
-  const bulkFabTabletDocked =
-    useBusinessLeftSheet && openKey === "business-bulk-todos" && isTabletUp;
+  const bulkFabDocked = openKey === "business-bulk-todos";
+  const bulkFabTabletDocked = bulkFabDocked && isTabletUp;
 
-  const bulkTabletFabDockedActions = useMemo((): BulkTabletDockedFabAction[] => {
+  const bulkFabDockedActions = useMemo((): BulkTabletDockedFabAction[] => {
     const items: BulkTabletDockedFabAction[] = [
       {
-        label: "Add More",
+        label: "Add Another To-Do",
         icon: <Plus className="size-6" />,
         onClick: () => {
           try {
@@ -309,8 +310,7 @@ export function UnifiedFab({
             /* ignore */
           }
         },
-        className:
-          "border-0 !bg-yellow-500 !text-gray-950 shadow-md hover:!bg-yellow-600 dark:!bg-yellow-500 dark:!text-gray-950 dark:hover:!bg-yellow-400",
+        className: studyBibleDarkClasses.fabMenuClear,
       },
     ];
     if (bulkSavedEditRowCount > 0) {
@@ -330,29 +330,34 @@ export function UnifiedFab({
     return items;
   }, [bulkSavedEditRowCount]);
 
-  if (hideHomeFab || actions.length === 0) return null;
+  const fabMenuActions = bulkFabDocked ? [] : actions;
 
-  const mainIcon = actions.length === 1 ? actions[0].icon : <Plus className="size-6" />;
-  const mainIconOpen = actions.length === 1 ? actions[0].icon : <X className="size-6" />;
+  if (hideHomeFab || (!bulkFabDocked && fabMenuActions.length === 0)) return null;
+
+  const mainIcon = fabMenuActions.length === 1 ? fabMenuActions[0].icon : <Plus className="size-6" />;
+  const mainIconOpen = fabMenuActions.length === 1 ? fabMenuActions[0].icon : <X className="size-6" />;
 
   return (
     <>
       <FabMenu
-        label={bulkFabTabletDocked ? "Bulk to-do actions" : "Actions"}
-        tabletDockedToBulkTodoSheet={bulkFabTabletDocked}
-        tabletDockedActions={bulkFabTabletDocked ? bulkTabletFabDockedActions : undefined}
+        label={bulkFabDocked ? "Bulk to-do actions" : "Actions"}
+        tabletDockedToBulkTodoSheet={bulkFabDocked}
+        bulkTodoSheetDockedLayout={isTabletUp ? "tablet" : "mobile"}
+        tabletDockedActions={bulkFabDocked ? bulkFabDockedActions : undefined}
         mainIcon={mainIcon}
         mainIconOpen={mainIconOpen}
         mainClassName={cn(
-          "bg-primary text-primary-foreground md:h-[4.75rem] md:w-[4.75rem] md:[&_svg]:h-8 md:[&_svg]:w-8 dark:!bg-[#80778e] dark:!text-white dark:hover:!bg-[#8c839a]",
+          "md:h-[4.75rem] md:w-[4.75rem] md:[&_svg]:h-8 md:[&_svg]:w-8",
           !bulkFabTabletDocked &&
             "md:!bottom-[calc(max(env(safe-area-inset-bottom),0px)+28px)]",
           "md:transition-[left,transform] md:duration-300 md:ease-[cubic-bezier(0.34,1.2,0.64,1)]",
           bulkFabTabletDocked ? "" : "md:!left-1/2 md:!-translate-x-1/2 md:!z-40 md:!right-auto"
         )}
-        actionClassName="md:!left-1/2 md:!right-auto md:[--fab-action-x:-50%] md:[--fab-action-offset-start:112px] md:[--fab-action-offset-step:0px] md:[--fab-action-closed-y:72px]"
+        actionOffsetStart={112}
+        actionOffsetStep={56}
+        actionClassName="md:!left-1/2 md:!right-auto md:[--fab-action-x:-50%] md:[--fab-action-offset-step:0px] md:[--fab-action-closed-y:72px]"
         tabletDockedSheetMaxWidthRem={bulkTabletSheetMaxWidthRem}
-        actions={actions.map((action) => ({
+        actions={fabMenuActions.map((action) => ({
           label: action.label,
           icon: action.icon,
           variant: action.variant,
@@ -466,7 +471,7 @@ export function UnifiedFab({
           "md:flex-1 md:min-h-0 md:flex md:flex-col md:pb-2",
           bulkTabletUnifiedLaneScrollInSheet ? "md:overflow-visible" : "md:overflow-hidden"
         )}
-        skipFabRootInert={openKey === "business-bulk-todos" && isTabletUp}
+        skipFabRootInert={openKey === "business-bulk-todos"}
       >
         <BulkTodoForm
           establishments={establishments}

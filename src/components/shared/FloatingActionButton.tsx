@@ -15,10 +15,10 @@ interface FloatingActionButtonProps extends ComponentProps<typeof Button> {
 }
 
 const baseFabAnchoredBottomRight =
-  "pointer-events-auto fixed right-4 z-40 h-14 w-14 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-110 active:scale-95 touch-manipulation md:right-6 bottom-[calc(max(env(safe-area-inset-bottom),0px)+80px)] md:bottom-[104px]";
+  "pointer-events-auto fixed right-4 z-40 h-14 w-14 rounded-full shadow-[0_12px_32px_rgba(28,24,36,0.42),0_4px_10px_rgba(28,24,36,0.26)] hover:shadow-[0_14px_36px_rgba(28,24,36,0.48),0_5px_12px_rgba(28,24,36,0.3)] transition-all duration-300 hover:scale-110 active:scale-95 touch-manipulation md:right-6 bottom-[calc(max(env(safe-area-inset-bottom),0px)+80px)] md:bottom-[104px] dark:shadow-[0_16px_40px_rgba(0,0,0,0.8),0_6px_16px_rgba(0,0,0,0.55)]";
 /** No inset — caller supplies `style` (bulk tablet dock). */
 const baseFabDockedShell =
-  "pointer-events-auto fixed z-40 h-14 w-14 rounded-full shadow-2xl hover:shadow-3xl transition-all duration-300 hover:scale-110 active:scale-95 touch-manipulation";
+  "pointer-events-auto fixed z-40 h-14 w-14 rounded-full shadow-[0_12px_32px_rgba(28,24,36,0.42),0_4px_10px_rgba(28,24,36,0.26)] hover:shadow-[0_14px_36px_rgba(28,24,36,0.48)] transition-all duration-300 hover:scale-110 active:scale-95 touch-manipulation dark:shadow-[0_16px_40px_rgba(0,0,0,0.8),0_6px_16px_rgba(0,0,0,0.55)]";
 
 export function FloatingActionButton({
   label,

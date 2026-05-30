@@ -72,7 +72,10 @@ interface FormModalProps {
   tabletQuery?: string;
   /** When using left sheet above home stacked contact pane (tablet). */
   leftSheetStackAboveNestedRight?: boolean;
-  /** When open, skip marking `#fab-root` inert so a docked FAB stays tappable (tablet bulk sheet). */
+  /**
+   * When open, skip marking `#fab-root` inert and skip lowering its z-index on mobile so a docked FAB
+   * stays above the sheet (bulk to-dos).
+   */
   skipFabRootInert?: boolean;
   /**
    * Merged with the tablet left/right sheet main content wrapper (default scroll area).
@@ -134,8 +137,9 @@ export function FormModal({
       fabRoot.setAttribute("inert", "");
     }
 
-    // On mobile, keep form drawers above FAB/menu so submit controls remain tappable.
-    if (isMobile) {
+    // On mobile, keep form drawers above FAB/menu so inline submit controls remain tappable.
+    // Bulk sheet uses skipFabRootInert so the unified FAB stays above the drawer.
+    if (isMobile && !skipFabRootInert) {
       const currentCount = Number(fabRoot.dataset[OPEN_COUNT_KEY] ?? "0");
       const nextCount = currentCount + 1;
       fabRoot.dataset[OPEN_COUNT_KEY] = String(nextCount);

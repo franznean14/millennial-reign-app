@@ -78,6 +78,48 @@ export const studyBibleDarkClasses = {
     "border-[#6b5196] !bg-[#6b5196] !text-white hover:!bg-[#5d4788] [&>svg]:!text-white dark:border-[#80778e] dark:!bg-[#80778e] dark:!text-white dark:hover:!bg-[#8c839a] dark:[&>svg]:!text-white",
   drawerHandle:
     "bg-[#6b5196] shadow-[0_0_18px_rgba(107,81,150,0.35)] dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]",
+  /**
+   * FAB menu — pill chrome (size, shape, subtle lift off scroll content).
+   * Elevation lives here so accent fills keep a readable edge.
+   */
+  fabMenuActionShell:
+    "isolate h-auto min-h-11 rounded-full px-4 py-2.5 text-sm font-semibold touch-manipulation ring-1 ring-[#1a1820]/14 dark:ring-[#fffaff]/22 shadow-[0_2px_8px_rgba(26,24,32,0.14),0_0_0_1px_rgba(255,255,255,0.35)_inset] dark:shadow-[0_3px_10px_rgba(0,0,0,0.38),0_0_0_1px_rgba(255,255,255,0.08)_inset]",
+  /** FAB menu — primary action (lavender accent; submit). */
+  fabMenuPrimary:
+    "border border-white/30 !bg-[#6b5196] !text-white hover:!bg-[#5c4685] [&_svg]:!text-white dark:border-white/14 dark:!bg-[#80778e] dark:hover:!bg-[#8c839a] dark:[&_svg]:!text-white",
+  /** FAB menu — calls / visits (deeper plum). */
+  fabMenuAccentCall:
+    "border border-white/30 !bg-[#5d4788] !text-white hover:!bg-[#524379] [&_svg]:!text-white dark:border-white/14 dark:!bg-[#463b55] dark:hover:!bg-[#514562] dark:[&_svg]:!text-white",
+  /** FAB menu — to-dos (mid lavender). */
+  fabMenuAccentTodo:
+    "border border-white/30 !bg-[#6b5196] !text-white hover:!bg-[#5c4685] [&_svg]:!text-white dark:border-white/14 dark:!bg-[#80778e] dark:hover:!bg-[#8c839a] dark:[&_svg]:!text-white",
+  /** FAB menu — contacts (soft mauve). */
+  fabMenuAccentContact:
+    "border border-white/30 !bg-[#7d6b92] !text-white hover:!bg-[#6f6286] [&_svg]:!text-white dark:border-white/14 dark:!bg-[#3b3348] dark:hover:!bg-[#463b55] dark:[&_svg]:!text-white",
+  /** FAB menu — establishments (rich purple). */
+  fabMenuAccentPlace:
+    "border border-white/30 !bg-[#563985] !text-white hover:!bg-[#4c3277] [&_svg]:!text-white dark:border-white/14 dark:!bg-[#342a43] dark:hover:!bg-[#3b3348] dark:[&_svg]:!text-white",
+  /** FAB menu — schedules (muted plum). */
+  fabMenuAccentSchedule:
+    "border border-white/30 !bg-[#5a6b96] !text-white hover:!bg-[#506287] [&_svg]:!text-white dark:border-white/14 dark:!bg-[#272133] dark:hover:!bg-[#30283c] dark:[&_svg]:!text-white",
+  /** FAB menu — secondary / outline action (card surface). */
+  fabMenuSecondary:
+    "border border-[#c8c0d4] !bg-[#ffffff] !text-[#1a1820] hover:!bg-[#ece8f2] [&_svg]:!text-[#1a1820] dark:border-[#5a5068] dark:!bg-[#30283c] dark:!text-[#fffaff] dark:hover:!bg-[#3b3348] dark:[&_svg]:!text-[#fffaff]",
+  /** FAB menu — destructive action. */
+  fabMenuDestructive:
+    "border border-white/25 !bg-destructive !text-destructive-foreground hover:!bg-destructive/90 [&_svg]:!text-destructive-foreground dark:border-white/12 dark:!bg-destructive dark:hover:!bg-destructive/90",
+  /** FAB menu — warning accent (e.g. bulk Clear). */
+  fabMenuClear:
+    "border border-[#ca8a04]/40 !bg-yellow-500 !text-gray-950 hover:!bg-yellow-600 [&_svg]:!text-gray-950 dark:border-yellow-300/25 dark:!bg-yellow-500 dark:!text-gray-950 dark:hover:!bg-yellow-400 dark:[&_svg]:!text-gray-950",
+  /** FAB main toggle (closed / open). */
+  fabMenuMain:
+    "ring-1 ring-[#1a1820]/14 dark:ring-[#fffaff]/22 shadow-[0_2px_10px_rgba(26,24,32,0.18)] dark:shadow-[0_3px_12px_rgba(0,0,0,0.4)] !border-0 !bg-[#6b5196] !text-white hover:!bg-[#5c4685] [&_svg]:!text-white dark:!bg-[#80778e] dark:hover:!bg-[#8c839a] dark:[&_svg]:!text-white",
+  /** @deprecated Use {@link fabMenuPrimary} */
+  bulkFabSubmit:
+    "border border-white/30 !bg-[#6b5196] !text-white hover:!bg-[#5c4685] [&_svg]:!text-white dark:border-white/14 dark:!bg-[#80778e] dark:hover:!bg-[#8c839a] dark:[&_svg]:!text-white",
+  /** @deprecated Use {@link fabMenuSecondary} */
+  bulkFabAdd:
+    "border border-[#c8c0d4] !bg-[#ffffff] !text-[#1a1820] hover:!bg-[#ece8f2] [&_svg]:!text-[#1a1820] dark:border-[#5a5068] dark:!bg-[#30283c] dark:!text-[#fffaff] dark:hover:!bg-[#3b3348] dark:[&_svg]:!text-[#fffaff]",
   /** Tappable card title bar — same surface as card body (not a contrasting header strip). */
   cardBarHeader:
     "border-[#e2dde8] bg-[#ffffff] text-[#1a1820] dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff]",
@@ -173,4 +215,73 @@ export function getStudyBibleDarkCardShade(key: string) {
 export function getStudyBibleDarkCardFade(key: string) {
   const index = getStablePaletteIndex(key, studyBibleLightCardFadeClasses.length);
   return `${studyBibleLightCardFadeClasses[index]} ${studyBibleDarkCardFadeClasses[index]}`;
+}
+
+export type FabMenuActionSurfaceInput = {
+  label?: string;
+  variant?: "default" | "outline" | "destructive" | "secondary" | "ghost" | "link";
+  className?: string;
+};
+
+const FAB_MENU_ACCENT_VARIANTS = [
+  studyBibleDarkClasses.fabMenuAccentCall,
+  studyBibleDarkClasses.fabMenuAccentTodo,
+  studyBibleDarkClasses.fabMenuAccentContact,
+  studyBibleDarkClasses.fabMenuAccentPlace,
+  studyBibleDarkClasses.fabMenuAccentSchedule,
+] as const;
+
+/** Stable per-label accent; semantic keywords first, then hashed palette slot. */
+function resolveFabMenuLabelAccent(label: string): string {
+  const normalized = label.trim().toLowerCase();
+
+  if (normalized.includes("submit ready")) {
+    return studyBibleDarkClasses.fabMenuPrimary;
+  }
+  if (normalized.includes("add another to-do")) {
+    return studyBibleDarkClasses.fabMenuSecondary;
+  }
+  if (normalized.includes("schedule")) {
+    return studyBibleDarkClasses.fabMenuAccentSchedule;
+  }
+  if (normalized.includes("establishment")) {
+    return studyBibleDarkClasses.fabMenuAccentPlace;
+  }
+  if (
+    normalized.includes("contact") ||
+    normalized.includes("householder") ||
+    normalized.includes("publisher")
+  ) {
+    return studyBibleDarkClasses.fabMenuAccentContact;
+  }
+  if (normalized.includes("to-do") || normalized.includes("todos")) {
+    return studyBibleDarkClasses.fabMenuAccentTodo;
+  }
+  if (
+    normalized.includes("call") ||
+    normalized.includes("field service") ||
+    normalized.includes("visit")
+  ) {
+    return studyBibleDarkClasses.fabMenuAccentCall;
+  }
+
+  return FAB_MENU_ACCENT_VARIANTS[getStablePaletteIndex(label, FAB_MENU_ACCENT_VARIANTS.length)];
+}
+
+/** Resolves FAB menu pill surface colors from action variant or explicit className. */
+export function resolveFabMenuActionSurface(action: FabMenuActionSurfaceInput): string {
+  if (action.className) return action.className;
+  if (action.variant === "destructive" || action.label === "Delete All") {
+    return studyBibleDarkClasses.fabMenuDestructive;
+  }
+  if (action.label === "Clear") {
+    return studyBibleDarkClasses.fabMenuClear;
+  }
+  if (action.label) {
+    return resolveFabMenuLabelAccent(action.label);
+  }
+  if (action.variant === "outline" || action.variant === "secondary") {
+    return studyBibleDarkClasses.fabMenuSecondary;
+  }
+  return studyBibleDarkClasses.fabMenuAccentTodo;
 }

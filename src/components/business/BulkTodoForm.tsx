@@ -438,7 +438,6 @@ export function BulkTodoForm({
   }, []);
 
   useEffect(() => {
-    if (!isTabletUp) return;
     const openPicker = () => companionAddPickerRef.current?.();
     const submit = () => companionFabSubmitRef.current?.();
     const clear = () => companionFabClearRef.current?.();
@@ -453,7 +452,7 @@ export function BulkTodoForm({
       window.removeEventListener("business-bulk-todos-request-clear", clear);
       window.removeEventListener("business-bulk-todos-request-delete-all-saved", deleteAllSaved);
     };
-  }, [isTabletUp]);
+  }, []);
 
   useEffect(() => {
     const loadCachedGuestNames = () => {
@@ -3429,8 +3428,8 @@ export function BulkTodoForm({
       id={bulkFormDomId}
       ref={formRef}
       className={cn(
-        "flex flex-col gap-4 pt-2 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]",
-        "md:gap-2 md:pb-[max(0.5rem,env(safe-area-inset-bottom))]",
+        "flex flex-col gap-4 pt-2 max-md:pb-[calc(max(env(safe-area-inset-bottom),0px)+108px)] md:pb-[max(0.5rem,env(safe-area-inset-bottom))]",
+        "md:gap-2",
         tabletBulkUseSheetLaneScroll
           ? "md:flex-none md:min-h-0 md:overflow-visible"
           : "md:flex-1 md:min-h-0 md:overflow-hidden",
@@ -3511,163 +3510,6 @@ export function BulkTodoForm({
       )}
 
 
-      {!isTabletUp ? (
-      <div className="flex w-full flex-wrap items-center justify-between gap-2 shrink-0">
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-        {isMobile ? (
-          <Drawer
-            open={!!targetPickerOpenByRow[NEW_TODO_PICKER_ROW_ID]}
-            onOpenChange={(open) => {
-              setTargetPickerOpenByRow((prev) => ({ ...prev, [NEW_TODO_PICKER_ROW_ID]: open }));
-            }}
-          >
-            <DrawerTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                className={sidebarFormClasses.button}
-                onClick={addRow}
-                disabled={saving || deletingAllSourceTodos || !!submittingRowId || !!deletingSourceTodoRowId}
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Add Another To-Do
-              </Button>
-            </DrawerTrigger>
-            <DrawerContent className={cn("max-h-[70vh]", studyBibleDarkClasses.popoverPanel)}>
-              <DrawerHeader className="bg-transparent text-center sm:text-center text-foreground dark:text-[#fffaff]">
-                <DrawerTitle className="text-center">Select Establishment or Contact</DrawerTitle>
-                <DrawerDescription className="sr-only">Choose establishments or contacts to attach to bulk to-dos.</DrawerDescription>
-              </DrawerHeader>
-              <div className="flex min-h-0 flex-1 flex-col px-4 pt-2 pb-[calc(env(safe-area-inset-bottom)+24px)]">
-                <div className="shrink-0 space-y-2">
-                  {renderTargetPickerControls({
-                    id: NEW_TODO_PICKER_ROW_ID,
-                    targetKey: "none",
-                    body: "",
-                    slots: [],
-                    dueDate: null,
-                  })}
-                </div>
-                {renderTargetPickerList(
-                  {
-                    id: NEW_TODO_PICKER_ROW_ID,
-                    targetKey: "none",
-                    body: "",
-                    slots: [],
-                    dueDate: null,
-                  },
-                  "min-h-0 flex-1 overflow-y-auto space-y-1"
-                )}
-              </div>
-            </DrawerContent>
-          </Drawer>
-        ) : (
-          <Popover
-            open={!!targetPickerOpenByRow[NEW_TODO_PICKER_ROW_ID]}
-            onOpenChange={(open) => {
-              setTargetPickerOpenByRow((prev) => ({ ...prev, [NEW_TODO_PICKER_ROW_ID]: open }));
-            }}
-          >
-            <PopoverTrigger asChild>
-              <Button
-                type="button"
-                variant="outline"
-                className={sidebarFormClasses.button}
-                onClick={addRow}
-                disabled={saving || deletingAllSourceTodos || !!submittingRowId || !!deletingSourceTodoRowId}
-              >
-                <Plus className="h-4 w-4 mr-1" />
-                Add Another To-Do
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent
-              align="center"
-              className={cn("w-[min(92vw,420px)] p-2", sidebarFormClasses.popover)}
-            >
-              <div className="space-y-2">
-                {renderTargetPickerControls({
-                  id: NEW_TODO_PICKER_ROW_ID,
-                  targetKey: "none",
-                  body: "",
-                  slots: [],
-                  dueDate: null,
-                })}
-                {renderTargetPickerList(
-                  {
-                    id: NEW_TODO_PICKER_ROW_ID,
-                    targetKey: "none",
-                    body: "",
-                    slots: [],
-                    dueDate: null,
-                  },
-                  "max-h-[280px] overflow-y-auto space-y-1"
-                )}
-              </div>
-            </PopoverContent>
-          </Popover>
-          )}
-        {rows.length > 0 ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 shrink-0 text-red-400 border-red-500/40 hover:text-red-300 hover:border-red-400/60"
-              onClick={() => setClearConfirmOpen(true)}
-              disabled={
-                saving ||
-                deletingAllSourceTodos ||
-                !!submittingRowId ||
-                !!deletingSourceTodoRowId
-              }
-            >
-              Clear
-            </Button>
-        ) : null}
-        {savedTodoRowCount > 0 ? (
-          <Button
-            type="button"
-            variant="destructive"
-            size="sm"
-            className="h-8 shrink-0 gap-1.5"
-            onClick={() => setDeleteAllSavedConfirmOpen(true)}
-            disabled={
-              saving ||
-              deletingAllSourceTodos ||
-              !!submittingRowId ||
-              !!deletingSourceTodoRowId ||
-              !!deleteSourceTodoConfirmRow
-            }
-            aria-label="Delete all saved to-dos from database"
-            title="Delete all saved to-dos from database"
-          >
-            <Trash2 className="h-3.5 w-3.5 shrink-0" />
-            Delete All
-          </Button>
-        ) : null}
-        </div>
-        <Button
-          type="submit"
-          form={bulkFormDomId}
-          size="sm"
-          disabled={!canSubmit}
-          className={cn(
-            "h-8 min-w-0 shrink-0 truncate text-xs sm:text-sm",
-            sidebarFormClasses.primaryButton
-          )}
-        >
-          {saving
-            ? "Submitting..."
-            : (() => {
-                const parts: string[] = [];
-                if (submittableEditCount > 0) parts.push(`${submittableEditCount} Edit`);
-                if (submittableNewCount > 0) parts.push(`${submittableNewCount} New`);
-                const detail = parts.length > 0 ? `(${parts.join(", ")})` : "";
-                return `Submit Ready To-Do${submitCount > 1 ? "s" : ""} ${detail}`.trim();
-              })()}
-        </Button>
-      </div>
-      ) : null}
-
       {isTabletUp ? (
         <Drawer
           open={!!targetPickerOpenByRow[NEW_TODO_PICKER_ROW_ID]}
@@ -3713,7 +3555,44 @@ export function BulkTodoForm({
             </div>
           </DrawerWideLeftContent>
         </Drawer>
-      ) : null}
+      ) : (
+        <Drawer
+          open={!!targetPickerOpenByRow[NEW_TODO_PICKER_ROW_ID]}
+          onOpenChange={(open) => {
+            setTargetPickerOpenByRow((prev) => ({ ...prev, [NEW_TODO_PICKER_ROW_ID]: open }));
+          }}
+        >
+          <DrawerContent className={cn("max-h-[70vh]", studyBibleDarkClasses.popoverPanel)}>
+            <DrawerHeader className="bg-transparent text-center sm:text-center text-foreground dark:text-[#fffaff]">
+              <DrawerTitle className="text-center">Select Establishment or Contact</DrawerTitle>
+              <DrawerDescription className="sr-only">
+                Choose establishments or contacts to attach to bulk to-dos.
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="flex min-h-0 flex-1 flex-col px-4 pt-2 pb-[calc(env(safe-area-inset-bottom)+24px)]">
+              <div className="shrink-0 space-y-2">
+                {renderTargetPickerControls({
+                  id: NEW_TODO_PICKER_ROW_ID,
+                  targetKey: "none",
+                  body: "",
+                  slots: [],
+                  dueDate: null,
+                })}
+              </div>
+              {renderTargetPickerList(
+                {
+                  id: NEW_TODO_PICKER_ROW_ID,
+                  targetKey: "none",
+                  body: "",
+                  slots: [],
+                  dueDate: null,
+                },
+                "min-h-0 flex-1 overflow-y-auto space-y-1"
+              )}
+            </div>
+          </DrawerContent>
+        </Drawer>
+      )}
 
       <Drawer open={clearConfirmOpen} onOpenChange={setClearConfirmOpen}>
         <DrawerContent
