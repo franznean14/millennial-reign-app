@@ -49,6 +49,8 @@ Avoid stacking another full **`dark:bg-[#181714]`** (or similar flat gray) **on 
 
 ## Drawers (bottom sheets, left filter sheets, wide right/left panels)
 
+**Phone bottom sheets with inputs:** use **`FormDrawerRoot`** + **`FormDrawerContent`** (or **`FormModal`**) and scroll padding from **`form-drawer-phone.ts`** — see **`.cursor/rules/ios-viewport-safe-area.mdc`** (Drawer form sheets).
+
 1. **Panel** — `dark:border-[#1c1921]`, **`dark:text-[#fffaff]`**, plus **`getStudyBibleDarkCardShade(key)`** for main `DrawerContent` / `DrawerWideLeftContent` / `DrawerWideRightContent` / `DrawerThinRightContent` surfaces.
 2. **Title row** — Prefer **`DrawerHeader`** with **`bg-transparent`** (and **`shrink-0`** where needed) so the header doesn’t read as a separate “strip.” **Do not** default to **`border-b border-border`** on drawer titles; spacing (`pt` / `pb` / `gap`) carries hierarchy.
 3. **Handle** (bottom sheets) — Optional: `handleClassName` with muted lavender handle + soft shadow (see **CallHistory** / **HomeTodoCard**) for consistency.

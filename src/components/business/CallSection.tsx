@@ -3,6 +3,8 @@
 import React, { useState, useMemo } from "react";
 import { ChevronRight } from "lucide-react";
 import { FormModal } from "@/components/shared/FormModal";
+import { FormDrawerRoot, FormDrawerContent } from "@/components/shared/FormDrawerPhone";
+import { drawerFormScrollPadClass } from "@/lib/theme/form-drawer-phone";
 import { type VisitWithUser } from "@/lib/db/business";
 import { CallForm } from "./CallForm";
 import { formatVisitDateShort } from "@/lib/utils/visit-history-ui";
@@ -18,7 +20,6 @@ import {
   DrawerTitle,
   DrawerWideLeftContent,
   DrawerWideLeftContentTop,
-  DrawerContent,
 } from "@/components/ui/drawer";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
@@ -138,7 +139,7 @@ export function CallSection({
     <div
       className={
         forDrawer
-          ? "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2"
+          ? cn("min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-2", drawerFormScrollPadClass)
           : "flex-1 overflow-y-auto p-4 pb-20"
       }
     >
@@ -286,8 +287,8 @@ export function CallSection({
           )}
         </Drawer>
       ) : (
-        <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
-          <DrawerContent
+        <FormDrawerRoot open={drawerOpen} onOpenChange={setDrawerOpen}>
+          <FormDrawerContent
             className={cn(
               "h-[85svh] max-h-[85svh] border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
               callsListPaneShade
@@ -298,8 +299,8 @@ export function CallSection({
               <DrawerTitle className="text-center text-lg font-bold">Calls</DrawerTitle>
             </DrawerHeader>
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{callsListExpandedBody(true)}</div>
-          </DrawerContent>
-        </Drawer>
+          </FormDrawerContent>
+        </FormDrawerRoot>
       )}
 
       {useLeftPanel ? (

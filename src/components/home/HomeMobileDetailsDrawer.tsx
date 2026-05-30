@@ -1,7 +1,9 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Drawer, DrawerContent, DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
+import { FormDrawerRoot, FormDrawerContent } from "@/components/shared/FormDrawerPhone";
+import { drawerFormScrollPadClass } from "@/lib/theme/form-drawer-phone";
 import { cn } from "@/lib/utils";
 import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 
@@ -23,23 +25,18 @@ export function HomeMobileDetailsDrawer({
   bodyClassName,
 }: HomeMobileDetailsDrawerProps) {
   return (
-    <Drawer open={open} onOpenChange={onOpenChange}>
-      <DrawerContent
+    <FormDrawerRoot open={open} onOpenChange={onOpenChange}>
+      <FormDrawerContent
         className={cn(studyBibleDarkClasses.drawerPanel, "max-h-[90vh]", contentClassName)}
         handleClassName={studyBibleDarkClasses.drawerHandle}
       >
         <DrawerHeader className="bg-transparent px-4 pb-3 pt-4 text-center">
           <DrawerTitle className="text-center text-lg font-bold">{title}</DrawerTitle>
         </DrawerHeader>
-        <div
-          className={cn(
-            "overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-3",
-            bodyClassName
-          )}
-        >
+        <div className={cn("overflow-y-auto px-4 pt-3", drawerFormScrollPadClass, bodyClassName)}>
           {children}
         </div>
-      </DrawerContent>
-    </Drawer>
+      </FormDrawerContent>
+    </FormDrawerRoot>
   );
 }

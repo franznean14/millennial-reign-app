@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { DatePicker } from "@/components/ui/date-picker";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { X, Plus, Calendar, Users, FileText, Link2 } from "lucide-react";
+import { FormDrawerRoot, FormDrawerContent } from "@/components/shared/FormDrawerPhone";
+import { drawerFormScrollPadTightClass } from "@/lib/theme/form-drawer-phone";
 import {
   Drawer,
   DrawerContent,
@@ -348,7 +350,7 @@ export function TodoForm({
       <DrawerHeader className="bg-transparent pb-3 pt-4 text-center md:pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)]">
         <DrawerTitle className="text-center text-lg font-bold">Select publisher or guest</DrawerTitle>
       </DrawerHeader>
-      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+24px)] pt-4">
+      <div className={cn("min-h-0 flex-1 space-y-6 overflow-y-auto px-4 pt-4", drawerFormScrollPadTightClass)}>
         <section>
           <h3 className="mb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground dark:text-[#ded6e7]/75">
             Publishers
@@ -588,7 +590,7 @@ export function TodoForm({
             </div>
           ))}
           {slots.length < 2 && (
-            <Drawer
+            <FormDrawerRoot
               open={addPublisherDrawerOpen}
               onOpenChange={(open) => {
                 setAddPublisherDrawerOpen(open);
@@ -616,11 +618,11 @@ export function TodoForm({
                   {publisherPickerContent}
                 </DrawerThinRightContent>
               ) : (
-                <DrawerContent className={cn("max-h-[70vh]", sidebarFormClasses.popover)}>
+                <FormDrawerContent className={cn("max-h-[70vh]", sidebarFormClasses.popover)}>
                   {publisherPickerContent}
-                </DrawerContent>
+                </FormDrawerContent>
               )}
-            </Drawer>
+            </FormDrawerRoot>
           )}
         </div>
       </div>

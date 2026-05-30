@@ -429,10 +429,9 @@ body.app-scroll-locked {
   }
 
   /*
-   * Field Service fit-content drawer: Vaul repositionInputs off + flex-none when closed.
-   * When keyboard opens, inner scroll fills the clamped sheet (no gray band above keyboard).
+   * Phone form drawers (`data-form-modal-drawer`): inner scroll fills clamped sheet when keyboard opens.
    */
-  html.visual-keyboard-open [data-field-service-drawer] .drawer-content-inner {
+  html.visual-keyboard-open [data-form-modal-drawer] .drawer-content-inner {
     flex: 1 1 auto !important;
     min-height: 0 !important;
     overflow-y: auto !important;
@@ -440,9 +439,13 @@ body.app-scroll-locked {
     scroll-padding-bottom: max(env(safe-area-inset-bottom, 0px), 12px) !important;
   }
 
-  html.visual-keyboard-open [data-field-service-drawer][data-vaul-drawer] {
+  html.visual-keyboard-open [data-form-modal-drawer][data-vaul-drawer] {
     height: auto !important;
     max-height: var(--visual-viewport-height, 100dvh) !important;
+  }
+
+  html.visual-keyboard-open [data-form-modal-drawer] .drawer-form-scroll {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 12px) !important;
   }
 }
 

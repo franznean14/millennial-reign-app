@@ -92,3 +92,37 @@ This documents fixes applied when iOS standalone showed a **solid gray/black ban
 2. Confirm **`interactive-widget`** isn’t reintroduced globally without testing standalone.
 3. Compare broken section’s shell classes to **`HomeSection`** / **`BusinessSection`** (`flex-1 min-h-0`, bottom **`calc`** padding).
 4. Hard-refresh / update **service worker**—stale shell CSS mimics layout bugs.
+
+---
+
+## Drawer form sheets (phone) — keyboard + bottom padding
+
+When a **bottom drawer contains inputs** (text fields, textarea, search), iOS can show a **gray band** above the keyboard or push the sheet **mostly off-screen**. Use this pattern on every phone form drawer.
+
+### Required stack
+
+1. **`FormModal`** (preferred) — phone paths use **`FormDrawerRoot`** (`repositionInputs={false}`), **`data-form-modal-drawer`**, default inner scroll classes from **`getFormDrawerPhoneClassName`**, and **`.form-modal-body`** with **`pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]`** when the keyboard is closed.
+
+2. **Custom `Drawer` + `DrawerContent`** (lists/filters that are not `FormModal`) — use **`FormDrawerRoot`** + **`FormDrawerContent`** from **`src/components/shared/FormDrawerPhone.tsx`**, or the same attrs/classes from **`src/lib/theme/form-drawer-phone.ts`**.
+
+3. **Scroll end padding** — use **`drawerFormScrollPadClass`** (80px + nav), **`drawerFormScrollPad112Class`** (FAB-heavy lists), or **`drawerFormScrollPadTightClass`** (nested pickers) from **`form-drawer-phone.ts`** on custom scroll regions; class **`drawer-form-scroll`** pairs with keyboard rules in **`globals.css`**.
+
+4. **`html.visual-keyboard-open`** — set in **`use-visual-viewport.ts`** when a software keyboard is detected on phone-like devices. Do not reserve nav padding while the keyboard is open (see **`globals.css`** for **`.form-modal-body`** and **`.drawer-form-scroll`**).
+
+5. **Short / fit-content forms** (e.g. Field Service) — **`drawerFitContent`** on **`FormModal`** or **`fitContent`** on **`FormDrawerContent`**. Adds **`data-drawer-fit-content`** and **`flex-none`** inner when closed; globals expand inner scroll when **`visual-keyboard-open`**.
+
+6. **Focused fields** — on long forms, **`scrollIntoView({ block: "nearest" })`** in **`requestAnimationFrame`** on **`onFocus`** for low fields (Field Service Bible Studies / Note pattern).
+
+### Do not
+
+- Enable Vaul **`repositionInputs`** on phone form drawers (conflicts with visual-viewport clamp).
+- Use **`flex-none`** inner + full viewport **`max-height`** without **`visual-keyboard-open`** overrides (empty gray band above keyboard).
+- Keep **`pb-[calc(…+80px)]`** on **`.form-modal-body`** or **`.drawer-form-scroll`** while the software keyboard is open.
+
+### Key files
+
+- **`src/lib/theme/form-drawer-phone.ts`** — shared attrs + class bundles
+- **`src/components/shared/FormDrawerPhone.tsx`** — **`FormDrawerRoot`**, **`FormDrawerContent`**
+- **`src/components/shared/FormModal.tsx`** — all **`FormModal`** phone drawers
+- **`src/app/globals.css`** — **`max-width: 599px`** **`[data-form-modal-drawer]`** keyboard rules
+- **`src/lib/hooks/use-visual-viewport.ts`** — **`visual-keyboard-open`** class

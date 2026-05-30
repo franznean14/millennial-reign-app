@@ -15,6 +15,11 @@ import {
 } from "@/components/ui/drawer";
 import { cn } from "@/lib/utils";
 import { getStudyBibleDarkCardShade, studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
+import {
+  FORM_DRAWER_PHONE_ATTR,
+  getFormDrawerPhoneClassName,
+} from "@/lib/theme/form-drawer-phone";
+import { FormDrawerRoot } from "@/components/shared/FormDrawerPhone";
 
 const FORM_MODAL_SHELL_BASE = cn(studyBibleDarkClasses.drawerPanel);
 const FORM_MODAL_DRAWER_HANDLE = studyBibleDarkClasses.drawerHandle;
@@ -89,8 +94,8 @@ interface FormModalProps {
   /** Merged onto sheet/dialog title (e.g. `text-left` for detail panels). */
   titleClassName?: string;
   /**
-   * Phone bottom sheet height follows its content (Field Service). Disables Vaul `repositionInputs`
-   * so keyboard handling uses visual-viewport clamp + scroll only (avoids gray gap / off-screen sheet).
+   * Phone bottom sheet height follows its content (e.g. Field Service). Uses `data-drawer-fit-content`
+   * + flex-none inner when keyboard closed; see ios-viewport-safe-area drawer form rules.
    */
   drawerFitContent?: boolean;
 }
@@ -116,8 +121,11 @@ export function FormModal({
   titleClassName,
   drawerFitContent = false,
 }: FormModalProps) {
-  const phoneDrawerRepositionInputs = drawerFitContent ? false : undefined;
   const isDesktop = useMediaQuery(desktopQuery);
+  const phoneDrawerClassName = getFormDrawerPhoneClassName({
+    fitContent: drawerFitContent,
+    extra: drawerContentClassName,
+  });
   const isTabletUp = useMediaQuery(tabletQuery);
   const resolvedDrawerHandle = cn(FORM_MODAL_DRAWER_HANDLE, drawerHandleClassName);
   /** Radix Dialog/Drawer warn if content has no Description; extra copy is screen-reader only when no `description` prop. */
@@ -218,11 +226,12 @@ export function FormModal({
     }
 
     return (
-      <Drawer open={open} onOpenChange={onOpenChange} repositionInputs={phoneDrawerRepositionInputs}>
+      <FormDrawerRoot open={open} onOpenChange={onOpenChange}>
         <DrawerContent
-          className={cn(FORM_MODAL_SHELL_BASE, FORM_MODAL_PHONE_SHADE, className, drawerContentClassName)}
+          {...FORM_DRAWER_PHONE_ATTR}
+          data-drawer-fit-content={drawerFitContent ? "" : undefined}
+          className={cn(FORM_MODAL_SHELL_BASE, FORM_MODAL_PHONE_SHADE, className, phoneDrawerClassName)}
           handleClassName={resolvedDrawerHandle}
-          data-field-service-drawer={drawerFitContent ? "" : undefined}
         >
           <DrawerHeader className={cn("bg-transparent text-foreground dark:text-[#fffaff]", headerClassName)}>
             <DrawerTitle>{title}</DrawerTitle>
@@ -234,7 +243,7 @@ export function FormModal({
           </DrawerHeader>
           <FormModalBody className={bodyClassName}>{children}</FormModalBody>
         </DrawerContent>
-      </Drawer>
+      </FormDrawerRoot>
     );
   }
 
@@ -280,16 +289,17 @@ export function FormModal({
     }
 
     return (
-      <Drawer open={open} onOpenChange={onOpenChange} repositionInputs={phoneDrawerRepositionInputs}>
+      <FormDrawerRoot open={open} onOpenChange={onOpenChange}>
         <DrawerContent
+          {...FORM_DRAWER_PHONE_ATTR}
+          data-drawer-fit-content={drawerFitContent ? "" : undefined}
           className={cn(
             "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
             getStudyBibleDarkCardShade("bwi-bulk-todos-right-sheet:phone"),
             className,
-            drawerContentClassName
+            phoneDrawerClassName
           )}
           handleClassName={resolvedDrawerHandle}
-          data-field-service-drawer={drawerFitContent ? "" : undefined}
         >
           <DrawerHeader className={cn("bg-transparent text-foreground dark:text-[#fffaff]", headerClassName)}>
             <DrawerTitle className={cn("text-lg font-bold w-full", titleClassName)}>{title}</DrawerTitle>
@@ -305,7 +315,7 @@ export function FormModal({
           </DrawerHeader>
           <FormModalBody className={bodyClassName}>{children}</FormModalBody>
         </DrawerContent>
-      </Drawer>
+      </FormDrawerRoot>
     );
   }
 
@@ -324,11 +334,12 @@ export function FormModal({
   }
 
   return (
-    <Drawer open={open} onOpenChange={onOpenChange} repositionInputs={phoneDrawerRepositionInputs}>
+    <FormDrawerRoot open={open} onOpenChange={onOpenChange}>
       <DrawerContent
-        className={cn(FORM_MODAL_SHELL_BASE, FORM_MODAL_PHONE_SHADE, className, drawerContentClassName)}
+        {...FORM_DRAWER_PHONE_ATTR}
+        data-drawer-fit-content={drawerFitContent ? "" : undefined}
+        className={cn(FORM_MODAL_SHELL_BASE, FORM_MODAL_PHONE_SHADE, className, phoneDrawerClassName)}
         handleClassName={resolvedDrawerHandle}
-        data-field-service-drawer={drawerFitContent ? "" : undefined}
       >
         <DrawerHeader className={cn("bg-transparent text-foreground dark:text-[#fffaff]", headerClassName)}>
           <DrawerTitle>{title}</DrawerTitle>
@@ -342,6 +353,6 @@ export function FormModal({
         </DrawerHeader>
         <FormModalBody className={bodyClassName}>{children}</FormModalBody>
       </DrawerContent>
-    </Drawer>
+    </FormDrawerRoot>
   );
 }

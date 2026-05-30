@@ -6,6 +6,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { type HouseholderWithDetails } from "@/lib/db/business";
 import { formatStatusText } from "@/lib/utils/formatters";
+import { FormDrawerRoot, FormDrawerContent } from "@/components/shared/FormDrawerPhone";
+import { drawerFormScrollPadClass } from "@/lib/theme/form-drawer-phone";
 import {
   Drawer,
   DrawerContent,
@@ -138,7 +140,7 @@ export function ContactsSection({
     <div
       className={
         forDrawer
-          ? "min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2"
+          ? cn("min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-2", drawerFormScrollPadClass)
           : "flex-1 overflow-y-auto p-4 pb-20"
       }
     >
@@ -240,8 +242,8 @@ export function ContactsSection({
           </DrawerWideLeftContentTop>
         </Drawer>
       ) : (
-        <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
-          <DrawerContent
+        <FormDrawerRoot open={drawerOpen} onOpenChange={setDrawerOpen}>
+          <FormDrawerContent
             className={cn(
               "h-[85svh] max-h-[85svh] border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
               contactsListPaneShade
@@ -252,8 +254,8 @@ export function ContactsSection({
               <DrawerTitle className="text-center text-lg font-bold">Contacts</DrawerTitle>
             </DrawerHeader>
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{expandedListBody(true)}</div>
-          </DrawerContent>
-        </Drawer>
+          </FormDrawerContent>
+        </FormDrawerRoot>
       )}
     </div>
   );

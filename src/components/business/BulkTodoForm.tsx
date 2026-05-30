@@ -12,6 +12,8 @@ import { toast } from "@/components/ui/sonner";
 import { Check, ChevronDown, ChevronUp, ExternalLink, Plus, Search, Trash2, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { FormDrawerRoot, FormDrawerContent } from "@/components/shared/FormDrawerPhone";
+import { drawerFormScrollPadTightClass } from "@/lib/theme/form-drawer-phone";
 import {
   Drawer,
   DrawerContent,
@@ -1806,18 +1808,18 @@ export function BulkTodoForm({
           </motion.div>
         ) : null}
       </AnimatePresence>
-      <Drawer
+      <FormDrawerRoot
         open={!!targetFiltersPanelOpenByRow[row.id]}
         onOpenChange={(open) => {
           setTargetFiltersPanelOpenByRow((prev) => ({ ...prev, [row.id]: open }));
         }}
       >
-        <DrawerContent className={cn("max-h-[80vh]", studyBibleDarkClasses.popoverPanel)}>
+        <FormDrawerContent className={cn("max-h-[80vh]", studyBibleDarkClasses.popoverPanel)}>
           <DrawerHeader className="bg-transparent text-center">
             <DrawerTitle>Filter establishment/contact</DrawerTitle>
             <DrawerDescription className="sr-only">Adjust filters for establishments and contacts.</DrawerDescription>
           </DrawerHeader>
-          <div className="overflow-y-auto px-4 pt-2 pb-[calc(env(safe-area-inset-bottom)+24px)]">
+          <div className={cn("overflow-y-auto px-4 pt-2", drawerFormScrollPadTightClass)}>
             <VisitFiltersForm
               filters={targetFiltersByRow[row.id] ?? DEFAULT_TARGET_PICKER_FILTERS}
               statusOptions={targetStatusOptions}
@@ -1844,8 +1846,8 @@ export function BulkTodoForm({
               }
             />
           </div>
-        </DrawerContent>
-      </Drawer>
+        </FormDrawerContent>
+      </FormDrawerRoot>
     </>
     );
   };
@@ -2962,7 +2964,7 @@ export function BulkTodoForm({
             ) : null}
             {row.slots.length < 2 ? (
               <div className="flex min-w-0 justify-end">
-                <Drawer
+                <FormDrawerRoot
                   open={!!assigneeDrawerOpenByRow[row.id]}
                   onOpenChange={(open) => {
                     setAssigneeDrawerOpenByRow((prev) => ({ ...prev, [row.id]: open }));
@@ -3097,11 +3099,11 @@ export function BulkTodoForm({
                       </div>
                     </DrawerThinRightContent>
                   ) : (
-                    <DrawerContent className={cn("max-h-[70vh]", studyBibleDarkClasses.popoverPanel)}>
+                    <FormDrawerContent className={cn("max-h-[70vh]", studyBibleDarkClasses.popoverPanel)}>
                       <DrawerHeader className="bg-transparent text-center">
                         <DrawerTitle>Select publisher or guest</DrawerTitle>
                       </DrawerHeader>
-                      <div className="overflow-y-auto px-4 pb-[calc(env(safe-area-inset-bottom)+24px)] space-y-6">
+                      <div className={cn("space-y-6 overflow-y-auto px-4", drawerFormScrollPadTightClass)}>
                         <section>
                           <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
                             Publishers
@@ -3193,9 +3195,9 @@ export function BulkTodoForm({
                           </div>
                         </section>
                       </div>
-                    </DrawerContent>
+                    </FormDrawerContent>
                   )}
-                </Drawer>
+                </FormDrawerRoot>
               </div>
             ) : null}
           </div>
@@ -3556,20 +3558,20 @@ export function BulkTodoForm({
           </DrawerWideLeftContent>
         </Drawer>
       ) : (
-        <Drawer
+        <FormDrawerRoot
           open={!!targetPickerOpenByRow[NEW_TODO_PICKER_ROW_ID]}
           onOpenChange={(open) => {
             setTargetPickerOpenByRow((prev) => ({ ...prev, [NEW_TODO_PICKER_ROW_ID]: open }));
           }}
         >
-          <DrawerContent className={cn("max-h-[70vh]", studyBibleDarkClasses.popoverPanel)}>
+          <FormDrawerContent className={cn("max-h-[70vh]", studyBibleDarkClasses.popoverPanel)}>
             <DrawerHeader className="bg-transparent text-center sm:text-center text-foreground dark:text-[#fffaff]">
               <DrawerTitle className="text-center">Select Establishment or Contact</DrawerTitle>
               <DrawerDescription className="sr-only">
                 Choose establishments or contacts to attach to bulk to-dos.
               </DrawerDescription>
             </DrawerHeader>
-            <div className="flex min-h-0 flex-1 flex-col px-4 pt-2 pb-[calc(env(safe-area-inset-bottom)+24px)]">
+            <div className={cn("flex min-h-0 flex-1 flex-col px-4 pt-2", drawerFormScrollPadTightClass)}>
               <div className="shrink-0 space-y-2">
                 {renderTargetPickerControls({
                   id: NEW_TODO_PICKER_ROW_ID,
@@ -3590,8 +3592,8 @@ export function BulkTodoForm({
                 "min-h-0 flex-1 overflow-y-auto space-y-1"
               )}
             </div>
-          </DrawerContent>
-        </Drawer>
+          </FormDrawerContent>
+        </FormDrawerRoot>
       )}
 
       <Drawer open={clearConfirmOpen} onOpenChange={setClearConfirmOpen}>

@@ -10,6 +10,7 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { X, Plus } from "lucide-react";
+import { FormDrawerRoot, FormDrawerContent } from "@/components/shared/FormDrawerPhone";
 import {
   Drawer,
   DrawerContent,
@@ -746,7 +747,7 @@ export function CallForm({ establishments, selectedEstablishmentId, onSaved, ini
             </div>
           ))}
           {slots.length < 2 && (
-            <Drawer
+            <FormDrawerRoot
               open={addPublisherDrawerOpen}
               onOpenChange={(open) => { setAddPublisherDrawerOpen(open); if (!open) setNewGuestName(""); }}
               {...(usePublisherSidebar
@@ -771,11 +772,11 @@ export function CallForm({ establishments, selectedEstablishmentId, onSaved, ini
                   {publisherPickerContent}
                 </DrawerThinRightContent>
               ) : (
-                <DrawerContent className={cn("max-h-[70vh]", sidebarFormClasses.popover)}>
+                <FormDrawerContent className={cn("max-h-[70vh]", sidebarFormClasses.popover)}>
                   {publisherPickerContent}
-                </DrawerContent>
+                </FormDrawerContent>
               )}
-            </Drawer>
+            </FormDrawerRoot>
           )}
         </div>
       </div>

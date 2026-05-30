@@ -52,6 +52,8 @@ import {
   DrawerWideLeftContentTop,
   DrawerWideRightContent,
 } from "@/components/ui/drawer";
+import { FormDrawerRoot, FormDrawerContent } from "@/components/shared/FormDrawerPhone";
+import { drawerFormScrollPadClass, drawerFormScrollPad112Class } from "@/lib/theme/form-drawer-phone";
 import { EstablishmentForm } from "@/components/business/EstablishmentForm";
 import { HouseholderForm } from "@/components/business/HouseholderForm";
 import { EstablishmentDetails } from "@/components/business/EstablishmentDetails";
@@ -1902,7 +1904,7 @@ export function CallHistory({
       </div>
 
       {/* Drawer: full calls list (matches To-Do drawer on tablet; two columns on md+) */}
-      <Drawer
+      <FormDrawerRoot
         nested
         open={showDrawer}
         onOpenChange={(open) => {
@@ -1928,7 +1930,7 @@ export function CallHistory({
           if (!open) setShowFiltersDrawer(false);
         }}
       >
-        <DrawerContent
+        <FormDrawerContent
           className={cn(
             "h-[85svh] max-h-[85svh] md:h-[92dvh] md:max-h-[92dvh] border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
             callsDrawerPanelClass
@@ -2034,7 +2036,7 @@ export function CallHistory({
                 "relative min-h-0 flex-1",
                 callsDrawerTabletLayout
                   ? "overflow-hidden"
-                  : "overflow-y-auto overscroll-contain pb-[calc(max(env(safe-area-inset-bottom),0px)+112px)]"
+                  : cn("overflow-y-auto overscroll-contain", drawerFormScrollPad112Class)
               )}
               tabIndex={-1}
               onFocus={(e) => {
@@ -2139,8 +2141,8 @@ export function CallHistory({
 
             </div>
           </div>
-        </DrawerContent>
-      </Drawer>
+        </FormDrawerContent>
+      </FormDrawerRoot>
 
       {callsDrawerTabletLayout ? (
         <Drawer
@@ -2399,8 +2401,8 @@ export function CallHistory({
           </DrawerWideLeftContent>
         </Drawer>
       ) : (
-        <Drawer open={showFiltersDrawer} onOpenChange={setShowFiltersDrawer} modal shouldScaleBackground={false}>
-          <DrawerContent
+        <FormDrawerRoot open={showFiltersDrawer} onOpenChange={setShowFiltersDrawer} modal shouldScaleBackground={false}>
+          <FormDrawerContent
             className={cn(
               "max-h-[85svh] border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
               callsFilterDrawerPanelClass
@@ -2414,7 +2416,7 @@ export function CallHistory({
               </DrawerTitle>
             </DrawerHeader>
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4">
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
+              <div className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain pt-2", drawerFormScrollPadClass)}>
                 {filterForm}
                 <div className="flex justify-end pt-4">
                   <Button type="button" variant="outline" onClick={() => setShowFiltersDrawer(false)}>
@@ -2423,8 +2425,8 @@ export function CallHistory({
                 </div>
               </div>
             </div>
-          </DrawerContent>
-        </Drawer>
+          </FormDrawerContent>
+        </FormDrawerRoot>
       )}
 
       {/* Area picker drawer for BWI tab header */}

@@ -83,6 +83,8 @@ import { cn } from "@/lib/utils";
 import { formatStatusText } from "@/lib/utils/formatters";
 import { Badge } from "@/components/ui/badge";
 import { FormModal } from "@/components/shared/FormModal";
+import { FormDrawerRoot, FormDrawerContent } from "@/components/shared/FormDrawerPhone";
+import { drawerFormScrollPadClass } from "@/lib/theme/form-drawer-phone";
 import { useHomeTodoDetailsFabOptional } from "@/components/home/home-todo-details-fab-context";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getAssigneeAvatarInitials } from "@/lib/utils/visit-history-ui";
@@ -3779,7 +3781,7 @@ export function HomeTodoCard({
         </div>
       </div>
 
-      <Drawer
+      <FormDrawerRoot
         open={drawerOpen}
         onOpenChange={(open) => {
           setDrawerOpen(open);
@@ -3812,7 +3814,7 @@ export function HomeTodoCard({
             </div>
           </DrawerWideLeftContent>
         ) : (
-          <DrawerContent
+          <FormDrawerContent
             className={cn(
               "h-[85svh] max-h-[85svh] md:h-[92dvh] md:max-h-[92dvh] border-[#d4c8e4] text-[#1a1820] dark:border-[#1c1921] dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
               todoMainDrawerPanelClass
@@ -3832,15 +3834,15 @@ export function HomeTodoCard({
                   "relative min-h-0 flex-1",
                   isTodoDetailsSideLayout
                     ? "overflow-hidden"
-                    : "overflow-y-auto overscroll-contain pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]"
+                    : cn("overflow-y-auto overscroll-contain", drawerFormScrollPadClass)
                 )}
               >
                 {renderTodoDrawerBody()}
               </div>
             </div>
-          </DrawerContent>
+          </FormDrawerContent>
         )}
-      </Drawer>
+      </FormDrawerRoot>
 
       <Drawer open={takeTodoConfirmOpen} onOpenChange={setTakeTodoConfirmOpen}>
         <DrawerContent className="flex flex-col" style={{ maxHeight: "50vh", height: "50vh" }}>
@@ -3912,8 +3914,8 @@ export function HomeTodoCard({
           </DrawerWideLeftContent>
         </Drawer>
       ) : (
-        <Drawer open={filterDrawerOpen} onOpenChange={setFilterDrawerOpen} modal shouldScaleBackground={false}>
-          <DrawerContent
+        <FormDrawerRoot open={filterDrawerOpen} onOpenChange={setFilterDrawerOpen} modal shouldScaleBackground={false}>
+          <FormDrawerContent
             className={cn(
               "max-h-[85svh] border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden",
               todoFilterDrawerPanelClass
@@ -3927,7 +3929,7 @@ export function HomeTodoCard({
               </DrawerTitle>
             </DrawerHeader>
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4">
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
+              <div className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain pt-2", drawerFormScrollPadClass)}>
                 <VisitFiltersForm
                   filters={filters}
                   statusOptions={statusOptions}
@@ -3945,8 +3947,8 @@ export function HomeTodoCard({
                 </div>
               </div>
             </div>
-          </DrawerContent>
-        </Drawer>
+          </FormDrawerContent>
+        </FormDrawerRoot>
       )}
 
       {detailsAndEditorLayers}

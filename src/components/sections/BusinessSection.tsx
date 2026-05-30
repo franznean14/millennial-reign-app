@@ -6,6 +6,8 @@ import { SectionShell } from "@/components/shared/SectionShell";
 import dynamic from "next/dynamic";
 import { StickySearchBar } from "@/components/business/StickySearchBar";
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerWideLeftContentTop, DrawerWideRightContent } from "@/components/ui/drawer";
+import { FormDrawerRoot, FormDrawerContent } from "@/components/shared/FormDrawerPhone";
+import { drawerFormScrollPadClass } from "@/lib/theme/form-drawer-phone";
 import { HomeMobileDetailsDrawer } from "@/components/home/HomeMobileDetailsDrawer";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
@@ -801,14 +803,14 @@ export function BusinessSection({
               {renderHouseholderDetails()}
             </HomeMobileDetailsDrawer>
 
-            <Drawer
+            <FormDrawerRoot
               nested
               open={!!selectedHouseholder && !!selectedEstablishment}
               onOpenChange={(open) => {
                 if (!open) closeHouseholderSideDetails();
               }}
             >
-              <DrawerContent
+              <FormDrawerContent
                 className={cn(
                   studyBibleDarkClasses.drawerPanel,
                   businessContactStackShade,
@@ -835,11 +837,11 @@ export function BusinessSection({
                     </DrawerTitle>
                   </div>
                 </DrawerHeader>
-                <div className="overflow-y-auto px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3">
+                <div className={cn("overflow-y-auto space-y-3 px-4 pt-2", drawerFormScrollPadClass)}>
                   {renderHouseholderDetails({ stacked: true })}
                 </div>
-              </DrawerContent>
-            </Drawer>
+              </FormDrawerContent>
+            </FormDrawerRoot>
 
             <FormModal
               open={!!businessEditSheet}
