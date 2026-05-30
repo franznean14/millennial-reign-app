@@ -115,8 +115,10 @@ export const DrawerContent = React.forwardRef<
   React.ComponentPropsWithoutRef<typeof DrawerPrimitive.Content> & {
     overlayClassName?: string;
     handleClassName?: string;
+    /** Stack above another open bottom sheet (must beat global `[data-vaul-drawer]` z-index). */
+    stackAboveParentSheet?: boolean;
   }
->(({ className, overlayClassName, handleClassName, children, onPointerDownOutside, style, ...props }, ref) => {
+>(({ className, overlayClassName, handleClassName, stackAboveParentSheet = false, children, onPointerDownOutside, style, ...props }, ref) => {
   const visualViewport = useVisualViewport();
   
   // Check if this is a nested drawer (time picker) that needs to be taller
@@ -171,9 +173,13 @@ export const DrawerContent = React.forwardRef<
     [dynamicStyles, style]
   );
 
+  const stackAboveParentAttrs = stackAboveParentSheet
+    ? ({ "data-stack-above-parent-sheet": "" } as const)
+    : undefined;
+
   return (
     <DrawerPortal>
-      <DrawerOverlay className={overlayClassName} />
+      <DrawerOverlay className={overlayClassName} {...stackAboveParentAttrs} />
       <DrawerPrimitive.Content
         ref={ref}
         aria-describedby={undefined}
@@ -184,6 +190,7 @@ export const DrawerContent = React.forwardRef<
           className
         )}
         style={mergedContentStyle}
+        {...stackAboveParentAttrs}
         {...props}
         onPointerDownOutside={mergePointerDownOutsideForFabRoot(onPointerDownOutside)}
       >

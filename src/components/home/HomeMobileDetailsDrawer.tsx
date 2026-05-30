@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { DrawerHeader, DrawerTitle } from "@/components/ui/drawer";
 import { FormDrawerRoot, FormDrawerContent } from "@/components/shared/FormDrawerPhone";
-import { drawerFormScrollPadClass } from "@/lib/theme/form-drawer-phone";
+import { drawerFormScrollPadClass, drawerFormScrollPadTightClass } from "@/lib/theme/form-drawer-phone";
 import { cn } from "@/lib/utils";
 import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 
@@ -16,9 +16,9 @@ interface HomeMobileDetailsDrawerProps {
   bodyClassName?: string;
   /** Stack above another bottom sheet (e.g. contacts list) without closing it. */
   stackAboveParentSheet?: boolean;
+  /** Size sheet to content height (capped) instead of default max viewport height. */
+  fitContent?: boolean;
 }
-
-const STACK_ABOVE_PARENT_Z = 150;
 
 export function HomeMobileDetailsDrawer({
   open,
@@ -28,26 +28,33 @@ export function HomeMobileDetailsDrawer({
   contentClassName,
   bodyClassName,
   stackAboveParentSheet = false,
+  fitContent = false,
 }: HomeMobileDetailsDrawerProps) {
-  const stackStyle = stackAboveParentSheet ? ({ zIndex: STACK_ABOVE_PARENT_Z } as const) : undefined;
+  const scrollPadClass = stackAboveParentSheet ? drawerFormScrollPadTightClass : drawerFormScrollPadClass;
 
   return (
     <FormDrawerRoot open={open} onOpenChange={onOpenChange} nested={stackAboveParentSheet}>
       <FormDrawerContent
+        fitContent={fitContent}
+        stackAboveParentSheet={stackAboveParentSheet}
         className={cn(
           studyBibleDarkClasses.drawerPanel,
-          "max-h-[90vh]",
-          stackAboveParentSheet && "!z-[150]",
+          !fitContent && "max-h-[90vh]",
           contentClassName
         )}
-        overlayClassName={stackAboveParentSheet ? "!z-[150]" : undefined}
-        style={stackStyle}
         handleClassName={studyBibleDarkClasses.drawerHandle}
       >
         <DrawerHeader className="bg-transparent px-4 pb-3 pt-4 text-center">
           <DrawerTitle className="text-center text-lg font-bold">{title}</DrawerTitle>
         </DrawerHeader>
-        <div className={cn("overflow-y-auto px-4 pt-3", drawerFormScrollPadClass, bodyClassName)}>
+        <div
+          className={cn(
+            "overflow-y-auto px-4 pt-3",
+            fitContent && "max-h-[72svh]",
+            scrollPadClass,
+            bodyClassName
+          )}
+        >
           {children}
         </div>
       </FormDrawerContent>

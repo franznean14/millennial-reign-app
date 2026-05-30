@@ -892,35 +892,11 @@ export function AppClient() {
     }
   }, []);
 
-  // Reset scroll position when navigating to establishment details
-  useEffect(() => {
-    if (selectedEstablishment) {
-      // Reset scroll position immediately when establishment is selected
-      requestAnimationFrame(() => {
-        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-        document.documentElement.scrollTop = 0;
-        document.body.scrollTop = 0;
-      });
-    }
-  }, [selectedEstablishment]);
-
   useEffect(() => {
     if (!selectedEstablishment) {
       setEstablishmentDetailsLoading(false);
     }
   }, [selectedEstablishment]);
-
-  // Reset scroll position when navigating to contact details
-  useEffect(() => {
-    if (selectedContact) {
-      // Reset scroll position immediately when contact is selected
-      requestAnimationFrame(() => {
-        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-        document.documentElement.scrollTop = 0;
-        document.body.scrollTop = 0;
-      });
-    }
-  }, [selectedContact]);
 
   useEffect(() => {
     if (!selectedContact) {
@@ -1299,64 +1275,6 @@ export function AppClient() {
       onClearAllFilters={handleClearAllFilters}
       onToggleNearMe={handleToggleNearMe}
       formatStatusLabel={formatStatusText}
-      selectedEstablishment={selectedEstablishment}
-      selectedContact={selectedContact}
-      onBackClick={() => {
-        // When both are set we're on contact details (opened from establishment); handle contact first
-        if (selectedContact) {
-          setSelectedContact(null);
-          setSelectedContactDetails(null);
-          if (selectedEstablishment) {
-            // Came from establishment details → stay there (view will show establishment details)
-            return;
-          }
-          const previousSection = popNavigation();
-          if (previousSection) {
-            const targetSection = (previousSection === 'home' || previousSection.startsWith('business-'))
-              ? previousSection
-              : businessTab === 'map'
-                ? 'business-map'
-                : 'business-contacts';
-            setCurrentSection(targetSection);
-            const url = new URL(window.location.href);
-            url.pathname = targetSection === 'home' ? '/' : '/business';
-            window.history.pushState({}, '', url.toString());
-          } else {
-            const fallback = businessTab === 'map' ? 'business-map' : 'business-contacts';
-            setCurrentSection(fallback);
-            const url = new URL(window.location.href);
-            url.pathname = '/business';
-            window.history.pushState({}, '', url.toString());
-          }
-        } else if (selectedEstablishment) {
-          setSelectedEstablishment(null);
-          setSelectedEstablishmentDetails(null);
-          const previousSection = popNavigation();
-          if (previousSection) {
-            const targetSection = (previousSection === 'home' || previousSection.startsWith('business-'))
-              ? previousSection
-              : businessTab === 'map'
-                ? 'business-map'
-                : 'business-establishments';
-            setCurrentSection(targetSection);
-            const url = new URL(window.location.href);
-            url.pathname = targetSection === 'home' ? '/' : '/business';
-            window.history.pushState({}, '', url.toString());
-          } else {
-            const fallback = businessTab === 'map' ? 'business-map' : 'business-establishments';
-            setCurrentSection(fallback);
-            const url = new URL(window.location.href);
-            url.pathname = '/business';
-            window.history.pushState({}, '', url.toString());
-          }
-        }
-      }}
-      onEditClick={() => {
-        if (selectedEstablishment || selectedContact) {
-          window.dispatchEvent(new CustomEvent('trigger-edit-details'));
-        }
-      }}
-      headerDetailsUserId={userId}
       congregationTab={congregationTab}
       onCongregationTabChange={setCongregationTab}
       congregationSelectedContact={congregationSelectedContact}
@@ -1436,7 +1354,6 @@ export function AppClient() {
         <BusinessSectionView
           userId={userId}
           portaledControls={portaledControls}
-          currentSection={currentSection}
           businessTab={businessTab}
           filters={filters}
           setFilters={setFilters}
@@ -1472,9 +1389,6 @@ export function AppClient() {
           dynamicAreaOptions={dynamicAreaOptions}
           dynamicFloorOptions={dynamicFloorOptions}
           myOpenTodoTargets={myOpenTodoTargets}
-          popNavigation={popNavigation}
-          pushNavigation={pushNavigation}
-          setCurrentSection={setCurrentSection}
           updateEstablishment={updateEstablishment}
           canManagePersonalTerritoryOwner={admin || isElder}
         />

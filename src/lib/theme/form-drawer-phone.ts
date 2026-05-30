@@ -6,6 +6,11 @@ import { cn } from "@/lib/utils";
  */
 export const FORM_DRAWER_PHONE_ATTR = { "data-form-modal-drawer": "" } as const;
 
+/** Nested phone sheet opened above another bottom drawer (e.g. contact deets over contacts list). */
+export const FORM_DRAWER_STACK_ABOVE_PARENT_ATTR = {
+  "data-stack-above-parent-sheet": "",
+} as const;
+
 /** Home To-Do / Calls list drawers: lvh + !important beats DrawerContent inline 100svh (iOS standalone). */
 export const homeListDrawerHeightClass =
   "!h-[95lvh] !max-h-[95lvh] md:!h-[98lvh] md:!max-h-[98lvh]";

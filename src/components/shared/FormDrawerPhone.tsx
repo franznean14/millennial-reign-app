@@ -19,17 +19,20 @@ export function FormDrawerRoot({ repositionInputs: _ignored, ...props }: DrawerR
 type FormDrawerContentProps = DrawerContentProps & {
   /** Content-height sheet when keyboard closed (e.g. Field Service). */
   fitContent?: boolean;
+  /** Stack above another open bottom sheet without closing it. */
+  stackAboveParentSheet?: boolean;
 };
 
 export const FormDrawerContent = React.forwardRef<
   React.ElementRef<typeof DrawerContent>,
   FormDrawerContentProps
->(({ fitContent = false, className, ...props }, ref) => {
+>(({ fitContent = false, stackAboveParentSheet = false, className, ...props }, ref) => {
   return (
     <DrawerContent
       ref={ref}
       {...FORM_DRAWER_PHONE_ATTR}
       data-drawer-fit-content={fitContent ? "" : undefined}
+      stackAboveParentSheet={stackAboveParentSheet}
       className={cn(getFormDrawerPhoneClassName({ fitContent }), className)}
       {...props}
     />

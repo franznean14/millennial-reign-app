@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, type ReactNode } from "react";
 import { Calendar, BookOpen, Users, Clock, MapPin, ChevronRight, Map as MapIcon, Building2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +23,7 @@ import { getBestContactStatus, getStatusTextColor, resolveContactStatuses } from
 import { CONG_BWI_BADGE_CLASS } from "@/lib/utils/congregation-member-roles";
 import { cn } from "@/lib/utils";
 import { FormModal } from "@/components/shared/FormModal";
+import { HomeMobileDetailsDrawer } from "@/components/home/HomeMobileDetailsDrawer";
 import { EventScheduleFormSheet } from "@/components/congregation/EventScheduleFormSheet";
 import { businessEventBus } from "@/lib/events/business-events";
 import { useMediaQuery } from "@/hooks/use-media-query";
@@ -71,11 +72,24 @@ interface MinistrySectionProps {
   userId?: string | null;
   onContactClick?: (contact: ContactWithDetails) => void;
   canEdit?: boolean;
+  selectedContact?: ContactWithDetails | null;
+  onClearSelectedContact?: () => void;
+  contactDetailsTitle?: string;
+  contactDetailsBody?: ReactNode;
 }
 
 // Helper to check if an event should appear today
 
-export function MinistrySection({ congregationData, userId, onContactClick, canEdit = false }: MinistrySectionProps) {
+export function MinistrySection({
+  congregationData,
+  userId,
+  onContactClick,
+  canEdit = false,
+  selectedContact = null,
+  onClearSelectedContact,
+  contactDetailsTitle = "Contact Details",
+  contactDetailsBody = null,
+}: MinistrySectionProps) {
   const [todayEvents, setTodayEvents] = useState<EventSchedule[]>([]);
   const [allMinistryEvents, setAllMinistryEvents] = useState<EventSchedule[]>([]);
   const [loading, setLoading] = useState(true);
@@ -1029,6 +1043,51 @@ export function MinistrySection({ congregationData, userId, onContactClick, canE
           <div className="flex min-h-0 flex-1 flex-col gap-4">{contactsDirectoryBody}</div>
         </FormModal>
       )}
+
+      {selectedContact && contactDetailsBody ? (
+        isMdUp ? (
+          <Drawer
+            open={Boolean(selectedContact)}
+            onOpenChange={(open) => {
+              if (!open) onClearSelectedContact?.();
+            }}
+            direction="right"
+            modal
+            nested
+            shouldScaleBackground={false}
+          >
+            <DrawerWideRightContent
+              stackAboveDetailsSheet
+              className="flex flex-col overflow-hidden border-border dark:border-[#1c1921] bg-card dark:bg-[#181714] text-foreground dark:text-[#fffaff] md:max-h-[100lvh]"
+            >
+              <DrawerHeader className="shrink-0 px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center bg-card dark:bg-[#181714]">
+                <DrawerTitle className="text-center text-xl font-extrabold tracking-tight">
+                  {contactDetailsTitle}
+                </DrawerTitle>
+                <DrawerDescription className="sr-only">
+                  Return visits, notes, and congregation contact actions.
+                </DrawerDescription>
+              </DrawerHeader>
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3 bg-card dark:bg-[#181714]">
+                {contactDetailsBody}
+              </div>
+            </DrawerWideRightContent>
+          </Drawer>
+        ) : (
+          <HomeMobileDetailsDrawer
+            open={Boolean(selectedContact)}
+            onOpenChange={(open) => {
+              if (!open) onClearSelectedContact?.();
+            }}
+            stackAboveParentSheet={contactsDrawerOpen}
+            fitContent
+            title={contactDetailsTitle}
+            bodyClassName="space-y-3"
+          >
+            {contactDetailsBody}
+          </HomeMobileDetailsDrawer>
+        )
+      ) : null}
 
       {isMdUp ? (
         <Drawer

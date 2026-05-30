@@ -12,9 +12,8 @@ import { FilterControls, type FilterBadge } from "@/components/shared/FilterCont
 import { buildFilterBadges } from "@/lib/utils/filter-badges";
 import { cn } from "@/lib/utils";
 import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
-import { LayoutGrid, List, Table as TableIcon, X, ChevronLeft, Edit } from "lucide-react";
-import type { BusinessFiltersState, EstablishmentWithDetails, ContactWithDetails } from "@/lib/db/business";
-import { getBusinessDetailsHeaderTitleStatus, getStatusTitleColor } from "@/lib/utils/status-hierarchy";
+import { LayoutGrid, List, Table as TableIcon, X } from "lucide-react";
+import type { BusinessFiltersState, ContactWithDetails } from "@/lib/db/business";
 import {
   getHeaderToastState,
   subscribeHeaderToast,
@@ -40,11 +39,7 @@ interface UnifiedPortaledControlsProps {
   onClearAllFilters?: () => void;
   onToggleNearMe?: () => void;
   formatStatusLabel?: (status: string) => string;
-  selectedEstablishment?: EstablishmentWithDetails | null;
-  selectedContact?: ContactWithDetails | null;
-  onBackClick?: () => void;
-  onEditClick?: () => void;
-  /** Signed-in user id — used to color detail headers for personal territory / personal contact */
+  /** Signed-in user id — reserved for future header use */
   headerDetailsUserId?: string | null;
   // Congregation props
   congregationTab?: 'meetings' | 'ministry' | 'admin';
@@ -93,11 +88,6 @@ function BusinessControlsContent({
   onClearAllFilters,
   onToggleNearMe,
   formatStatusLabel,
-  selectedEstablishment,
-  selectedContact,
-  onBackClick,
-  onEditClick,
-  headerDetailsUserId,
   headerToast = null
 }: {
   businessTab: 'establishments' | 'contacts' | 'map';
@@ -115,11 +105,6 @@ function BusinessControlsContent({
   onClearAllFilters: () => void;
   onToggleNearMe: () => void;
   formatStatusLabel: (status: string) => string;
-  selectedEstablishment?: EstablishmentWithDetails | null;
-  selectedContact?: ContactWithDetails | null;
-  onBackClick: () => void;
-  onEditClick: () => void;
-  headerDetailsUserId?: string | null;
   headerToast?: HeaderToastProp;
 }) {
   const [isSearchActive, setIsSearchActive] = useState(false);
@@ -178,16 +163,6 @@ function BusinessControlsContent({
     floors: filters.floors,
     formatStatusLabel
   });
-  const isDetailsView =
-    (!!selectedEstablishment || !!selectedContact) &&
-    (typeof window === "undefined" || window.innerWidth < 768 || businessTab === "map");
-  // When both are set we're on contact details (opened from establishment); show contact name
-  const detailsName = selectedContact?.name || selectedEstablishment?.name || "";
-  const detailsStatus = getBusinessDetailsHeaderTitleStatus(
-    selectedContact,
-    selectedEstablishment,
-    headerDetailsUserId
-  );
 
   return (
     <div
@@ -201,102 +176,39 @@ function BusinessControlsContent({
             : portaledChromeTopStyle(),
       }}
     >
-      {typeof window !== "undefined" && window.innerWidth < SIDEBAR_MIN && (
-        <div className="w-full h-[52px] shrink-0">
-          <AnimatePresence mode="wait">
-            {headerToast?.message ? (
-              <HeaderToastRow message={headerToast.message} variant={headerToast.variant} />
-            ) : (
-              <motion.div
-                key="normal"
-                initial={headerToastInitial}
-                animate={headerToastAnimate}
-                exit={headerToastExit}
-                transition={headerToastTransition}
-                className="w-full h-full"
-              >
-                <BusinessTabToggle
-                  value={businessTab}
-                  onValueChange={(value) => {
-                    if (!isDetailsView) {
-                      onBusinessTabChange(value);
-                    }
-                  }}
-                  onClearStatusFilters={() => onFiltersChange({ ...filters, statuses: [], excludedStatuses: [] })}
-                  className="w-full h-full"
-                  isDetailsView={isDetailsView}
-                  detailsName={detailsName}
-                  detailsStatus={detailsStatus}
-                  onBackClick={onBackClick}
-                  onEditClick={onEditClick}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      )}
-
-      {typeof window !== "undefined" && window.innerWidth >= SIDEBAR_MIN && !isDetailsView && (
-        <div className="w-full h-[52px] mb-2 shrink-0">
-          <AnimatePresence mode="wait">
-            {headerToast?.message ? (
-              <HeaderToastRow message={headerToast.message} variant={headerToast.variant} />
-            ) : (
-              <motion.div
-                key="normal"
-                initial={headerToastInitial}
-                animate={headerToastAnimate}
-                exit={headerToastExit}
-                transition={headerToastTransition}
-                className="w-full h-full"
-              >
-                <BusinessTabToggle
-                  value={businessTab}
-                  onValueChange={(value) => {
-                    onBusinessTabChange(value);
-                  }}
-                  onClearStatusFilters={() => onFiltersChange({ ...filters, statuses: [], excludedStatuses: [] })}
-                  className="w-full h-full"
-                  isDetailsView={false}
-                  detailsName=""
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      )}
-
-      {typeof window !== "undefined" && window.innerWidth >= SIDEBAR_MIN && isDetailsView && (
+      <div className="w-full h-[52px] shrink-0 md:mb-2">
         <AnimatePresence mode="wait">
-          <motion.div
-            key="desktop-details-header"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="flex items-center gap-2 w-full bg-background/95 backdrop-blur-sm border rounded-lg p-1 shadow-lg border-border dark:border-[#1c1921] dark:bg-[#30283c] text-foreground dark:text-[#fffaff]"
-          >
-            <Button variant="ghost" size="sm" onClick={onBackClick} className="flex-shrink-0 px-3 py-2 h-9 dark:hover:bg-[#3b3348]">
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <div className="flex-[2] min-w-0 px-3 flex items-center justify-center">
-              <span className={cn("text-xl font-bold truncate w-full text-center", detailsStatus ? getStatusTitleColor(detailsStatus) : "text-foreground")}>{detailsName}</span>
-            </div>
-            <Button variant="outline" size="sm" onClick={onEditClick} className="flex-shrink-0 px-3 py-2 h-9 border-border dark:border-[#1c1921] dark:bg-[#30283c] text-foreground dark:text-[#fffaff] dark:hover:bg-[#3b3348]">
-              <Edit className="h-4 w-4" />
-            </Button>
-          </motion.div>
+          {headerToast?.message ? (
+            <HeaderToastRow message={headerToast.message} variant={headerToast.variant} />
+          ) : (
+            <motion.div
+              key="normal"
+              initial={headerToastInitial}
+              animate={headerToastAnimate}
+              exit={headerToastExit}
+              transition={headerToastTransition}
+              className="w-full h-full"
+            >
+              <BusinessTabToggle
+                value={businessTab}
+                onValueChange={(value) => {
+                  onBusinessTabChange(value);
+                }}
+                onClearStatusFilters={() => onFiltersChange({ ...filters, statuses: [], excludedStatuses: [] })}
+                className="w-full h-full"
+              />
+            </motion.div>
+          )}
         </AnimatePresence>
-      )}
+      </div>
 
-      {!isDetailsView && (
-        <motion.div
-          key="buttons-row"
-          className="flex w-full min-w-0 items-center"
-          layout="position"
-          initial={false}
-          transition={{ type: "spring", stiffness: 300, damping: 30, bounce: 0 }}
-        >
+      <motion.div
+        key="buttons-row"
+        className="flex w-full min-w-0 items-center"
+        layout="position"
+        initial={false}
+        transition={{ type: "spring", stiffness: 300, damping: 30, bounce: 0 }}
+      >
           {isSearchActive ? (
             <motion.div
               layout="position"
@@ -434,7 +346,6 @@ function BusinessControlsContent({
             </motion.div>
           )}
         </motion.div>
-      )}
     </div>
   );
 }
@@ -443,29 +354,13 @@ function CongregationControlsContent({
   congregationTab,
   onCongregationTabChange,
   isElder,
-  selectedContact,
-  onBackClick,
-  onEditClick,
-  headerDetailsUserId,
   headerToast = null
 }: {
   congregationTab: 'meetings' | 'ministry' | 'admin';
   onCongregationTabChange: (tab: 'meetings' | 'ministry' | 'admin') => void;
   isElder?: boolean;
-  selectedContact?: ContactWithDetails | null;
-  onBackClick?: () => void;
-  onEditClick?: () => void;
-  headerDetailsUserId?: string | null;
   headerToast?: HeaderToastProp;
 }) {
-  const isDetailsView = !!selectedContact;
-  const detailsName = selectedContact?.name || "";
-  const detailsStatus = getBusinessDetailsHeaderTitleStatus(
-    selectedContact,
-    undefined,
-    headerDetailsUserId
-  );
-
   return (
     <div
       className={`absolute z-[100] pointer-events-auto space-y-3 px-4 ${
@@ -475,85 +370,29 @@ function CongregationControlsContent({
         top: portaledChromeTopStyle(),
       }}
     >
-      {typeof window !== "undefined" && window.innerWidth < SIDEBAR_MIN && (
-        <div className="w-full h-[52px] shrink-0">
-          <AnimatePresence mode="wait">
-            {headerToast?.message ? (
-              <HeaderToastRow message={headerToast.message} variant={headerToast.variant} />
-            ) : (
-              <motion.div
-                key="normal"
-                initial={headerToastInitial}
-                animate={headerToastAnimate}
-                exit={headerToastExit}
-                transition={headerToastTransition}
-                className="w-full h-full"
-              >
-                <CongregationTabToggle
-                  value={congregationTab}
-                  onValueChange={onCongregationTabChange}
-                  className="w-full h-full"
-                  isElder={isElder}
-                  isDetailsView={isDetailsView}
-                  detailsName={detailsName}
-                  detailsStatus={detailsStatus}
-                  onBackClick={onBackClick}
-                  onEditClick={onEditClick}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      )}
-
-      {typeof window !== "undefined" && window.innerWidth >= SIDEBAR_MIN && isDetailsView && (
+      <div className="w-full h-[52px] shrink-0">
         <AnimatePresence mode="wait">
-          <motion.div
-            key="desktop-details-header"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="flex items-center gap-2 w-full bg-background/95 backdrop-blur-sm border rounded-lg p-1 shadow-lg border-border dark:border-[#1c1921] dark:bg-[#30283c] text-foreground dark:text-[#fffaff]"
-          >
-            <Button variant="ghost" size="sm" onClick={onBackClick} className="flex-shrink-0 px-3 py-2 h-9 dark:hover:bg-[#3b3348]">
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <div className="flex-[2] min-w-0 px-3 flex items-center justify-center">
-              <span className={cn("text-xl font-bold truncate w-full text-center", detailsStatus ? getStatusTitleColor(detailsStatus) : "text-foreground")}>{detailsName}</span>
-            </div>
-            <Button variant="outline" size="sm" onClick={onEditClick} className="flex-shrink-0 px-3 py-2 h-9 border-border dark:border-[#1c1921] dark:bg-[#30283c] text-foreground dark:text-[#fffaff] dark:hover:bg-[#3b3348]">
-              <Edit className="h-4 w-4" />
-            </Button>
-          </motion.div>
-        </AnimatePresence>
-      )}
-
-      {typeof window !== "undefined" && window.innerWidth >= SIDEBAR_MIN && !isDetailsView && (
-        <div className="w-full h-[52px] shrink-0">
-          <AnimatePresence mode="wait">
-            {headerToast?.message ? (
-              <HeaderToastRow message={headerToast.message} variant={headerToast.variant} />
-            ) : (
-              <motion.div
-                key="normal"
-                initial={headerToastInitial}
-                animate={headerToastAnimate}
-                exit={headerToastExit}
-                transition={headerToastTransition}
+          {headerToast?.message ? (
+            <HeaderToastRow message={headerToast.message} variant={headerToast.variant} />
+          ) : (
+            <motion.div
+              key="normal"
+              initial={headerToastInitial}
+              animate={headerToastAnimate}
+              exit={headerToastExit}
+              transition={headerToastTransition}
+              className="w-full h-full"
+            >
+              <CongregationTabToggle
+                value={congregationTab}
+                onValueChange={onCongregationTabChange}
                 className="w-full h-full"
-              >
-                <CongregationTabToggle
-                  value={congregationTab}
-                  onValueChange={onCongregationTabChange}
-                  className="w-full h-full"
-                  isElder={isElder}
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      )}
+                isElder={isElder}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
@@ -723,11 +562,6 @@ export function UnifiedPortaledControls(props: UnifiedPortaledControlsProps) {
         onClearAllFilters={props.onClearAllFilters!}
         onToggleNearMe={props.onToggleNearMe!}
         formatStatusLabel={props.formatStatusLabel!}
-        selectedEstablishment={props.selectedEstablishment}
-        selectedContact={props.selectedContact}
-        onBackClick={props.onBackClick!}
-        onEditClick={props.onEditClick!}
-        headerDetailsUserId={props.headerDetailsUserId}
         headerToast={headerToastProp}
       />
   ) : showCongregationControls && props.congregationTab !== undefined ? (
@@ -735,10 +569,6 @@ export function UnifiedPortaledControls(props: UnifiedPortaledControlsProps) {
         congregationTab={props.congregationTab}
         onCongregationTabChange={props.onCongregationTabChange!}
         isElder={props.isElder}
-      selectedContact={props.congregationSelectedContact}
-      onBackClick={props.onCongregationBackClick}
-      onEditClick={props.onCongregationEditClick}
-      headerDetailsUserId={props.headerDetailsUserId}
       headerToast={headerToastProp}
     />
   ) : showHomeControls && props.homeTab !== undefined ? (

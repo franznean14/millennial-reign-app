@@ -5,18 +5,9 @@ import dynamic from "next/dynamic";
 import type { Congregation } from "@/lib/db/congregations";
 import type { ContactWithDetails, VisitWithUser } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
-import { useMediaQuery } from "@/hooks/use-media-query";
-import { HomeMobileDetailsDrawer } from "@/components/home/HomeMobileDetailsDrawer";
 import { MeetingsSection } from "../congregation/MeetingsSection";
 import { MinistrySection } from "../congregation/MinistrySection";
 import { CongregationAdminEventsCard } from "../congregation/CongregationAdminEventsCard";
-import {
-  Drawer,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerWideRightContent,
-} from "@/components/ui/drawer";
 
 // Dynamic import to avoid circular dependencies
 type CongregationMembersCardProps = {
@@ -66,7 +57,6 @@ interface CongregationViewProps {
 }
 
 export function CongregationView({ data, onEdit, canEdit, canManageCongregationUsers = false, initialTab = 'meetings', congregationTab: externalCongregationTab, onCongregationTabChange: externalOnCongregationTabChange, userId, isElder = false, selectedContact, selectedContactDetails, contactDetailsLoading, onSelectContact, onSelectContactDetails, onClearSelectedContact, loadContactDetails }: CongregationViewProps) {
-  const isMdUp = useMediaQuery("(min-width: 768px)");
   const [internalCongregationTab, setInternalCongregationTab] = useState<'meetings' | 'ministry' | 'admin'>(initialTab);
   
   // Use external state if provided, otherwise use internal state
@@ -214,56 +204,16 @@ export function CongregationView({ data, onEdit, canEdit, canManageCongregationU
       </div>
 
       {congregationTab === "ministry" && (
-        <>
-          <MinistrySection
-            congregationData={data}
-            userId={userId}
-            onContactClick={handleContactOpen}
-            canEdit={canEdit}
-          />
-          {/* Mobile: same bottom details sheet as Home (calls / to-dos). Tablet+: right edge drawer. */}
-          {isMdUp ? (
-            <Drawer
-              open={Boolean(selectedContact)}
-              onOpenChange={(open) => {
-                if (!open) onClearSelectedContact();
-              }}
-              direction="right"
-              modal
-              nested
-              shouldScaleBackground={false}
-            >
-              <DrawerWideRightContent
-                stackAboveDetailsSheet
-                className="flex flex-col overflow-hidden border-border dark:border-[#1c1921] bg-card dark:bg-[#181714] text-foreground dark:text-[#fffaff] md:max-h-[100lvh]"
-              >
-                <DrawerHeader className="shrink-0 px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center bg-card dark:bg-[#181714]">
-                  <DrawerTitle className="text-center text-xl font-extrabold tracking-tight">
-                    {ministryContactDetailsTitle}
-                  </DrawerTitle>
-                  <DrawerDescription className="sr-only">
-                    Return visits, notes, and congregation contact actions.
-                  </DrawerDescription>
-                </DrawerHeader>
-                <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3 bg-card dark:bg-[#181714]">
-                  {ministryContactDetailsBody}
-                </div>
-              </DrawerWideRightContent>
-            </Drawer>
-          ) : (
-            <HomeMobileDetailsDrawer
-              open={Boolean(selectedContact)}
-              onOpenChange={(open) => {
-                if (!open) onClearSelectedContact();
-              }}
-              stackAboveParentSheet
-              title={ministryContactDetailsTitle}
-              bodyClassName="space-y-3"
-            >
-              {ministryContactDetailsBody}
-            </HomeMobileDetailsDrawer>
-          )}
-        </>
+        <MinistrySection
+          congregationData={data}
+          userId={userId}
+          onContactClick={handleContactOpen}
+          canEdit={canEdit}
+          selectedContact={selectedContact}
+          onClearSelectedContact={onClearSelectedContact}
+          contactDetailsTitle={ministryContactDetailsTitle}
+          contactDetailsBody={ministryContactDetailsBody}
+        />
       )}
       
       {congregationTab === "admin" && isElder && data.id ? (

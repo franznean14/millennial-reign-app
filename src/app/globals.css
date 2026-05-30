@@ -510,6 +510,15 @@ body.app-scroll-locked {
   z-index: 9998 !important;
 }
 
+/* Nested bottom sheet above an open parent drawer (ministry contacts → contact deets). */
+[data-vaul-overlay][data-stack-above-parent-sheet] {
+  z-index: 10000 !important;
+}
+
+[data-vaul-drawer][data-stack-above-parent-sheet] {
+  z-index: 10001 !important;
+}
+
 /* Dialog/Modal z-index */
 [role="dialog"] {
   z-index: 9999 !important;

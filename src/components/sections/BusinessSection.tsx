@@ -67,7 +67,6 @@ const ContactForm = dynamic(
 export interface BusinessSectionProps {
   userId: string | null;
   portaledControls: ReactNode;
-  currentSection: string;
   businessTab: BusinessTab;
   filters: BusinessFiltersState;
   setFilters: Dispatch<SetStateAction<BusinessFiltersState>>;
@@ -123,9 +122,6 @@ export interface BusinessSectionProps {
   dynamicAreaOptions: { value: string; label: string }[];
   dynamicFloorOptions: { value: string; label: string }[];
   myOpenTodoTargets: MyOpenTodoTargets;
-  popNavigation: () => string | null;
-  pushNavigation: (section: string) => void;
-  setCurrentSection: (section: string) => void;
   updateEstablishment: (updated: Partial<EstablishmentWithDetails> & { id: string }) => void;
   canManagePersonalTerritoryOwner?: boolean;
 }
@@ -133,7 +129,6 @@ export interface BusinessSectionProps {
 export function BusinessSection({
   userId,
   portaledControls,
-  currentSection,
   businessTab,
   filters,
   setFilters,
@@ -169,22 +164,15 @@ export function BusinessSection({
   dynamicAreaOptions,
   dynamicFloorOptions,
   myOpenTodoTargets,
-  popNavigation,
-  pushNavigation,
-  setCurrentSection,
   updateEstablishment,
   canManagePersonalTerritoryOwner = false,
 }: BusinessSectionProps) {
-  const [selectedEstablishmentSource, setSelectedEstablishmentSource] = useState<EstablishmentSelectionSource>("list");
   const [lastMapSelectedEstablishmentId, setLastMapSelectedEstablishmentId] = useState<string | undefined>(undefined);
   const [mapViewState, setMapViewState] = useState<MapViewState | null>(null);
   const [businessEditSheet, setBusinessEditSheet] = useState<BusinessEditSheet>(null);
   const isTabletUp = useMediaQuery("(min-width: 768px)");
-  /** Tablet+ uses right edge sheets; phone map/contacts keep the list visible and use a bottom details drawer. */
-  const useMobileBottomDetails = !isTabletUp && (businessTab === "map" || businessTab === "contacts");
-  /** Keep list/map visible under detail drawers (avoid full-page detail swap on phone). */
-  const overlayMapDetails =
-    isTabletUp || businessTab === "map" || businessTab === "contacts";
+  /** Phone: list/map stays visible; establishment/contact details open in bottom drawers. */
+  const useMobileBottomDetails = !isTabletUp;
 
   const bwiBizScope = userId ?? "anon";
   const businessEstablishmentDetailShade = useMemo(
@@ -249,66 +237,27 @@ export function BusinessSection({
     transition: { duration: 0 }
   };
 
-  const detailsMotion = {
-    initial: { opacity: 0, filter: "blur(6px)" },
-    animate: { opacity: 1, filter: "blur(0px)" },
-    exit: { opacity: 0, filter: "blur(6px)" },
-    transition: { duration: 0.3 }
-  };
-
-  const mapDetailsMotion = {
-    initial: { opacity: 0, x: 18, scale: 0.985, filter: "blur(4px)" },
-    animate: { opacity: 1, x: 0, scale: 1, filter: "blur(0px)" },
-    exit: { opacity: 0, x: -18, scale: 0.985, filter: "blur(4px)" },
-    transition: { duration: 0.24, ease: [0.22, 1, 0.36, 1] as const }
-  };
-
-  const getDetailsWrapperClass = (_isMap: boolean) => "space-y-6";
-
   const handleSelectEstablishment = useCallback(
     (establishment: EstablishmentWithDetails, source: EstablishmentSelectionSource = "list") => {
-      setSelectedEstablishmentSource(source);
       if (source === "map" && establishment.id) {
         setLastMapSelectedEstablishmentId(establishment.id);
       }
       setSelectedEstablishment(establishment);
-      if (!overlayMapDetails) {
-        pushNavigation(currentSection);
-      }
       if (establishment.id) {
         loadEstablishmentDetails(establishment.id);
       }
     },
-    [currentSection, loadEstablishmentDetails, pushNavigation, setSelectedEstablishment, overlayMapDetails]
+    [loadEstablishmentDetails, setSelectedEstablishment]
   );
 
   const handleSelectContact = useCallback(
     (contact: ContactWithDetails) => {
       setSelectedContact(contact);
-      if (!overlayMapDetails) {
-        pushNavigation(currentSection);
-      }
       if (contact.id) {
         loadContactDetails(contact.id);
       }
     },
-    [currentSection, loadContactDetails, pushNavigation, setSelectedContact, overlayMapDetails]
-  );
-
-  const navigateBack = useCallback(
-    (fallbackSection: string) => {
-      const previousSection = popNavigation();
-      const targetSection = previousSection
-        ? previousSection === "home" || previousSection.startsWith("business-")
-          ? previousSection
-          : fallbackSection
-        : fallbackSection;
-      setCurrentSection(targetSection);
-      const url = new URL(window.location.href);
-      url.pathname = targetSection === "home" ? "/" : "/business";
-      window.history.pushState({}, "", url.toString());
-    },
-    [popNavigation, setCurrentSection]
+    [loadContactDetails, setSelectedContact]
   );
 
   // Lock global scroll while on the BWI (business) section; section itself provides scrolling
@@ -460,131 +409,71 @@ export function BusinessSection({
           transition={{ duration: 0.3, ease: "easeOut" }}
         >
           <AnimatePresence initial={false}>
-            {overlayMapDetails || (!selectedEstablishment && !selectedContact) ? (
-              businessTab === "establishments" ? (
-                <motion.div key="establishment-list" {...listMotion} className="w-full">
-                  <EstablishmentList
-                    establishments={filteredEstablishments}
-                    currentUserId={userId}
-                    onEstablishmentClick={handleSelectEstablishment}
-                    onEstablishmentDelete={handleDeleteEstablishment}
-                    onEstablishmentArchive={handleArchiveEstablishment}
-                    myEstablishmentsOnly={filters.myEstablishments}
-                    onMyEstablishmentsChange={(checked) =>
-                      setFilters((prev) => ({ ...prev, myEstablishments: checked }))
-                    }
-                    onOpenFilters={() => setFiltersModalOpen(true)}
-                    filters={filters}
-                    onClearAllFilters={handleClearAllFilters}
-                    onClearSearch={handleClearSearch}
-                    onRemoveStatus={handleRemoveStatus}
-                    onRemoveArea={handleRemoveArea}
-                    onRemoveFloor={handleRemoveFloor}
-                    viewMode={viewMode}
-                    onViewModeChange={setViewMode}
-                  />
-                </motion.div>
-              ) : businessTab === "contacts" ? (
-                <motion.div key="contact-list" {...listMotion} className="w-full">
-                  <ContactList
-                    contacts={filteredContacts}
-                    onContactClick={handleSelectContact}
-                    onContactDelete={handleDeleteContact}
-                    onContactArchive={handleArchiveContact}
-                    myContactsOnly={filters.myEstablishments}
-                    onMyContactsChange={(checked) =>
-                      setFilters((prev) => ({ ...prev, myEstablishments: checked }))
-                    }
-                    onOpenFilters={() => setFiltersModalOpen(true)}
-                    filters={filters}
-                    onClearAllFilters={handleClearAllFilters}
-                    onClearSearch={handleClearSearch}
-                    onRemoveStatus={handleRemoveStatus}
-                    onRemoveArea={handleRemoveArea}
-                    onRemoveFloor={handleRemoveFloor}
-                    viewMode={viewMode}
-                    onViewModeChange={setViewMode}
-                  />
-                </motion.div>
-              ) : (
-                <motion.div
-                  key="establishment-map"
-                  initial={{ opacity: 0.85, x: -12, scale: 1.01, filter: "blur(4px)" }}
-                  animate={{ opacity: 1, x: 0, scale: 1, filter: "blur(0px)" }}
-                  exit={{ opacity: 0, x: -20, scale: 0.985, filter: "blur(6px)" }}
-                  transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-                  className="w-full h-full"
-                  style={{ height: "100%" }}
-                >
-                  <EstablishmentMap
-                    establishments={filteredEstablishments}
-                    onEstablishmentClick={(establishment) => handleSelectEstablishment(establishment, "map")}
-                    selectedEstablishmentId={lastMapSelectedEstablishmentId}
-                    initialView={mapViewState ?? undefined}
-                    onViewChange={setMapViewState}
-                    className="h-full"
-                    currentUserId={userId}
-                    openPoolEstablishmentIds={myOpenTodoTargets.openPoolEstablishmentIds}
-                  />
-                </motion.div>
-              )
-            ) : selectedContact ? (
-              <motion.div
-                key="contact-details"
-                {...detailsMotion}
-                className="w-full"
-              >
-                <div className={getDetailsWrapperClass(false)}>
-                  <ContactDetails
-                    contact={selectedContactDetails?.contact || selectedContact}
-                    visits={selectedContactDetails?.visits || []}
-                    establishment={selectedContactDetails?.establishment || null}
-                    establishments={
-                      selectedContactDetails?.establishment ? [selectedContactDetails.establishment] : []
-                    }
-                    isLoading={contactDetailsLoading}
-                    onBackClick={() => {
-                      setSelectedContact(null);
-                      setSelectedContactDetails(null);
-                      if (selectedEstablishment) {
-                        // Came from establishment details → stay; view will show establishment details
-                        return;
-                      }
-                      navigateBack("business-contacts");
-                    }}
-                  />
-                </div>
+            {businessTab === "establishments" ? (
+              <motion.div key="establishment-list" {...listMotion} className="w-full">
+                <EstablishmentList
+                  establishments={filteredEstablishments}
+                  currentUserId={userId}
+                  onEstablishmentClick={handleSelectEstablishment}
+                  onEstablishmentDelete={handleDeleteEstablishment}
+                  onEstablishmentArchive={handleArchiveEstablishment}
+                  myEstablishmentsOnly={filters.myEstablishments}
+                  onMyEstablishmentsChange={(checked) =>
+                    setFilters((prev) => ({ ...prev, myEstablishments: checked }))
+                  }
+                  onOpenFilters={() => setFiltersModalOpen(true)}
+                  filters={filters}
+                  onClearAllFilters={handleClearAllFilters}
+                  onClearSearch={handleClearSearch}
+                  onRemoveStatus={handleRemoveStatus}
+                  onRemoveArea={handleRemoveArea}
+                  onRemoveFloor={handleRemoveFloor}
+                  viewMode={viewMode}
+                  onViewModeChange={setViewMode}
+                />
+              </motion.div>
+            ) : businessTab === "contacts" ? (
+              <motion.div key="contact-list" {...listMotion} className="w-full">
+                <ContactList
+                  contacts={filteredContacts}
+                  onContactClick={handleSelectContact}
+                  onContactDelete={handleDeleteContact}
+                  onContactArchive={handleArchiveContact}
+                  myContactsOnly={filters.myEstablishments}
+                  onMyContactsChange={(checked) =>
+                    setFilters((prev) => ({ ...prev, myEstablishments: checked }))
+                  }
+                  onOpenFilters={() => setFiltersModalOpen(true)}
+                  filters={filters}
+                  onClearAllFilters={handleClearAllFilters}
+                  onClearSearch={handleClearSearch}
+                  onRemoveStatus={handleRemoveStatus}
+                  onRemoveArea={handleRemoveArea}
+                  onRemoveFloor={handleRemoveFloor}
+                  viewMode={viewMode}
+                  onViewModeChange={setViewMode}
+                />
               </motion.div>
             ) : (
               <motion.div
-                key="establishment-details"
-                {...detailsMotion}
-                className="w-full"
+                key="establishment-map"
+                initial={{ opacity: 0.85, x: -12, scale: 1.01, filter: "blur(4px)" }}
+                animate={{ opacity: 1, x: 0, scale: 1, filter: "blur(0px)" }}
+                exit={{ opacity: 0, x: -20, scale: 0.985, filter: "blur(6px)" }}
+                transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+                className="w-full h-full"
+                style={{ height: "100%" }}
               >
-                {selectedEstablishment && (
-                  <div className={getDetailsWrapperClass(false)}>
-                    <EstablishmentDetails
-                      establishment={selectedEstablishmentDetails?.establishment ?? selectedEstablishment}
-                      visits={selectedEstablishmentDetails?.visits || []}
-                      contacts={visibleEstablishmentContacts(selectedEstablishmentDetails?.contacts || [])}
-                      isLoading={establishmentDetailsLoading}
-                      canManagePersonalTerritoryOwner={canManagePersonalTerritoryOwner}
-                      onBackClick={() => {
-                        setSelectedEstablishment(null);
-                        setSelectedEstablishmentDetails(null);
-                        navigateBack(selectedEstablishmentSource === "map" ? "business-map" : "business-establishments");
-                      }}
-                      onEstablishmentUpdated={(est) => est?.id && updateEstablishment({ id: est.id!, ...est })}
-                      onContactClick={(hh) => {
-                        setSelectedContact(hh);
-                        if (hh.id) loadContactDetails(hh.id);
-                      }}
-                      preferLeftDetailPanel={isTabletUp}
-                      insideStackedContactPane={!!selectedContact && !!selectedEstablishment}
-                      publisherId={userId}
-                    />
-                  </div>
-                )}
+                <EstablishmentMap
+                  establishments={filteredEstablishments}
+                  onEstablishmentClick={(establishment) => handleSelectEstablishment(establishment, "map")}
+                  selectedEstablishmentId={lastMapSelectedEstablishmentId}
+                  initialView={mapViewState ?? undefined}
+                  onViewChange={setMapViewState}
+                  className="h-full"
+                  currentUserId={userId}
+                  openPoolEstablishmentIds={myOpenTodoTargets.openPoolEstablishmentIds}
+                />
               </motion.div>
             )}
           </AnimatePresence>
@@ -816,6 +705,7 @@ export function BusinessSection({
               }}
             >
               <FormDrawerContent
+                stackAboveParentSheet
                 className={cn(
                   studyBibleDarkClasses.drawerPanel,
                   businessContactStackShade,
