@@ -9,6 +9,15 @@ export type CachedNavPermissions = NavPermissions & {
 
 const STORAGE_KEY = "mr:nav-permissions";
 
+/** Admin with Elder privilege may assign congregation open-pool to-dos. */
+export function canAssignCongregationOpenTodos(
+  profile: { role?: string | null; privileges?: string[] | null } | null | undefined
+): boolean {
+  if (!profile) return false;
+  const isElder = Array.isArray(profile.privileges) && profile.privileges.includes("Elder");
+  return profile.role === "admin" && isElder;
+}
+
 export function deriveNavPermissions(profile: {
   role?: string | null;
   privileges?: string[] | null;

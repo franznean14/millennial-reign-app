@@ -166,6 +166,7 @@ function BusinessControlsContent({
           showTodoFilter: true as const,
           todosActive: !!filters.myTodosOnly,
           todosLabel: "My To-Dos",
+          todosTitle: "My assigned to-dos and congregation open pool",
           onTodosActivate: () => onFiltersChange({ ...filters, myTodosOnly: true }),
           onTodosClear: () => onFiltersChange({ ...filters, myTodosOnly: false }),
         }

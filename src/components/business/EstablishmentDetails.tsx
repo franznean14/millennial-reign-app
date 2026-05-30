@@ -802,7 +802,11 @@ export function EstablishmentDetails({
 
       {/* To-Do scoped to this establishment only */}
       <motion.div className="w-full" layout transition={{ duration: 0.2, ease: "easeOut" }}>
-        <HomeTodoCard establishmentId={establishment.id} onTodoTap={handleTodoTapOpenCall} />
+        <HomeTodoCard
+          establishmentId={establishment.id}
+          userId={currentUserId ?? undefined}
+          onTodoTap={handleTodoTapOpenCall}
+        />
       </motion.div>
 
       {/* Visit Updates Section */}

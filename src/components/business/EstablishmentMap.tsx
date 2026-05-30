@@ -310,6 +310,9 @@ export function EstablishmentMapPopupContent({
   );
 }
 
+/** Teal ring on map pins with an unassigned open congregation to-do (home "Open" pool). */
+const OPEN_POOL_TODO_MAP_STROKE = "#2dd4bf";
+
 export interface EstablishmentMapProps {
   establishments: EstablishmentWithDetails[];
   onEstablishmentClick?: (establishment: EstablishmentWithDetails) => void;
@@ -318,6 +321,8 @@ export interface EstablishmentMapProps {
   onViewChange?: (view: { center: [number, number]; zoom: number }) => void;
   className?: string;
   currentUserId?: string | null;
+  /** When set, matching establishments show an open-pool to-do ring on the pin. */
+  openPoolEstablishmentIds?: Set<string>;
 }
 
 export function EstablishmentMap({
@@ -327,6 +332,7 @@ export function EstablishmentMap({
   initialView,
   onViewChange,
   className = "",
+  openPoolEstablishmentIds,
 }: EstablishmentMapProps) {
   const mapRef = useRef<MapRef | null>(null);
   const hasInitiallyFittedRef = useRef(false);
@@ -400,6 +406,8 @@ export function EstablishmentMap({
               selectedEstablishmentId != null && est.id != null && est.id === selectedEstablishmentId
                 ? 1
                 : 0,
+            hasOpenPoolTodo:
+              est.id && openPoolEstablishmentIds?.has(est.id) ? 1 : 0,
             ...((est.name ?? "").trim() ? { name: (est.name ?? "").trim() } : {}),
           },
         })),
@@ -421,7 +429,7 @@ export function EstablishmentMap({
         geojson,
       };
     });
-  }, [groupedEstablishmentsByStatus, selectedEstablishmentId]);
+  }, [groupedEstablishmentsByStatus, selectedEstablishmentId, openPoolEstablishmentIds]);
 
   const statusBundlesRef = useRef(statusGeoJsonBundles);
   statusBundlesRef.current = statusGeoJsonBundles;
@@ -699,12 +707,16 @@ export function EstablishmentMap({
                     "case",
                     ["==", ["coalesce", ["get", "selected"], 0], 1],
                     "#fffaff",
+                    ["==", ["coalesce", ["get", "hasOpenPoolTodo"], 0], 1],
+                    OPEN_POOL_TODO_MAP_STROKE,
                     stroke,
                   ],
                   "circle-stroke-width": [
                     "case",
                     ["==", ["coalesce", ["get", "selected"], 0], 1],
                     3.25,
+                    ["==", ["coalesce", ["get", "hasOpenPoolTodo"], 0], 1],
+                    3.5,
                     2,
                   ],
                   "circle-opacity": 1,

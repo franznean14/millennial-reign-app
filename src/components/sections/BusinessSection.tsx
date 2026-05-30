@@ -520,6 +520,7 @@ export function BusinessSection({
                     onViewChange={setMapViewState}
                     className="h-full"
                     currentUserId={userId}
+                    openPoolEstablishmentIds={myOpenTodoTargets.openPoolEstablishmentIds}
                   />
                 </motion.div>
               )

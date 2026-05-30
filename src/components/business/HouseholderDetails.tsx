@@ -706,7 +706,11 @@ export function HouseholderDetails({
 
       {/* To-Do scoped to this householder only */}
       <motion.div className="w-full" layout transition={detailTransition}>
-        <HomeTodoCard householderId={householder.id} onTodoTap={handleTodoTapOpenCall} />
+        <HomeTodoCard
+          householderId={householder.id}
+          userId={effectivePublisherId ?? undefined}
+          onTodoTap={handleTodoTapOpenCall}
+        />
       </motion.div>
 
       <motion.div className="w-full" layout transition={detailTransition}>

@@ -117,6 +117,7 @@ interface FilterControlsProps {
   showTodoFilter?: boolean;
   todosActive?: boolean;
   todosLabel?: string;
+  todosTitle?: string;
   onTodosActivate?: () => void;
   onTodosClear?: () => void;
   showNearMeFilter?: boolean;
@@ -159,6 +160,7 @@ export function FilterControls({
   showTodoFilter = false,
   todosActive = false,
   todosLabel = "My To-Dos",
+  todosTitle,
   onTodosActivate,
   onTodosClear,
   showNearMeFilter = false,
@@ -352,6 +354,7 @@ export function FilterControls({
       <X className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
     </Button>
   );
+  const todosTooltip = todosTitle ?? todosLabel;
   const todosInactiveIcon = (
     <Button
       type="button"
@@ -361,7 +364,7 @@ export function FilterControls({
       onClick={onTodosActivate}
       aria-pressed={false}
       aria-label={todosLabel}
-      title={todosLabel}
+      title={todosTooltip}
     >
       <ListTodo className="h-4 w-4 text-foreground" />
     </Button>
@@ -820,7 +823,7 @@ export function FilterControls({
               onClick={onTodosActivate}
               aria-pressed={false}
               aria-label={todosLabel}
-              title={todosLabel}
+              title={todosTooltip}
             >
               <ListTodo className="h-4 w-4 text-foreground" />
             </Button>
@@ -1017,7 +1020,7 @@ export function FilterControls({
                   onClick={onTodosActivate}
                   aria-pressed={false}
                   aria-label={todosLabel}
-                  title={todosLabel}
+                  title={todosTooltip}
                 >
                   <ListTodo className="h-4 w-4 text-foreground" />
                 </Button>
@@ -1122,7 +1125,7 @@ export function FilterControls({
               onClick={onTodosActivate}
               aria-pressed={false}
               aria-label={todosLabel}
-              title={todosLabel}
+              title={todosTooltip}
             >
               <ListTodo className="h-4 w-4 text-foreground" />
             </Button>

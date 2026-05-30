@@ -37,7 +37,20 @@ export interface BusinessFiltersState {
 export type MyOpenTodoTargets = {
   establishmentIds: Set<string>;
   householderIds: Set<string>;
+  /** Establishments with at least one unassigned open congregation to-do (home "Open" pool). */
+  openPoolEstablishmentIds: Set<string>;
 };
+
+function isUnassignedCallTodo(
+  todo: Pick<CallTodo, "publisher_id" | "partner_id" | "publisher_guest_name" | "partner_guest_name">
+): boolean {
+  return (
+    !todo.publisher_id &&
+    !todo.partner_id &&
+    !(todo.publisher_guest_name?.trim()) &&
+    !(todo.partner_guest_name?.trim())
+  );
+}
 
 export type EstablishmentStatus = 
   | 'for_scouting'
@@ -1484,24 +1497,49 @@ async function fetchMyOpenTodoRows(userId: string, limit = 500): Promise<CallTod
   return Array.from(byId.values()).slice(0, limit);
 }
 
-/** Establishment and contact ids referenced by the user's open to-dos (for map filtering). */
+/** Establishment and contact ids for home/map "My To-Dos" (assigned to user + congregation open pool). */
 export async function getMyOpenTodoTargets(userId: string): Promise<MyOpenTodoTargets> {
+  const empty: MyOpenTodoTargets = {
+    establishmentIds: new Set(),
+    householderIds: new Set(),
+    openPoolEstablishmentIds: new Set(),
+  };
   try {
-    const merged = await fetchMyOpenTodoRows(userId, 500);
-    if (merged.length === 0) {
-      return { establishmentIds: new Set(), householderIds: new Set() };
+    const [mineRows, congregationRows] = await Promise.all([
+      fetchMyOpenTodoRows(userId, 500),
+      getCongregationOpenCallTodos(500),
+    ]);
+    const byId = new Map<string, CallTodo>();
+    for (const t of mineRows) byId.set(t.id, t);
+    for (const t of congregationRows) {
+      if (!byId.has(t.id)) byId.set(t.id, t);
     }
+    const merged = Array.from(byId.values());
+    if (merged.length === 0) return empty;
+
     const items = await enrichTodoItems(merged);
     const establishmentIds = new Set<string>();
     const householderIds = new Set<string>();
+    const openPoolEstablishmentIds = new Set<string>();
+
     for (const t of items) {
-      if (t.establishment_id) establishmentIds.add(t.establishment_id);
-      if (t.householder_id) householderIds.add(t.householder_id);
+      const unassigned = isUnassignedCallTodo(t);
+      const isMine = t.publisher_id === userId || t.partner_id === userId;
+      if (!unassigned && !isMine) continue;
+
+      if (t.establishment_id) {
+        establishmentIds.add(t.establishment_id);
+        if (unassigned) openPoolEstablishmentIds.add(t.establishment_id);
+      }
+      if (t.householder_id) {
+        householderIds.add(t.householder_id);
+      }
     }
-    return { establishmentIds, householderIds };
+
+    return { establishmentIds, householderIds, openPoolEstablishmentIds };
   } catch (e) {
     console.error("getMyOpenTodoTargets:", e);
-    return { establishmentIds: new Set(), householderIds: new Set() };
+    return empty;
   }
 }
 

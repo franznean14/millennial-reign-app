@@ -42,6 +42,7 @@ import {
   isEstablishmentTodoMissingLocation,
 } from "@/lib/db/business";
 import { getProfile } from "@/lib/db/profiles";
+import { canAssignCongregationOpenTodos } from "@/lib/app/nav-permissions-cache";
 import { cacheGet, cacheSet, cacheDelete } from "@/lib/offline/store";
 import {
   establishmentDetailsCacheKey,
@@ -493,6 +494,8 @@ interface HomeTodoCardProps {
   onDetailsBridgeOpenChange?: (open: boolean) => void;
   /** Bulk form: set true while est/contact/to-do editors are open so bulk submit stays isolated. */
   onDetailsBridgeNestedFormActiveChange?: (active: boolean) => void;
+  /** Override profile-derived permission to assign open-pool to-dos (admin + Elder). */
+  canAssignOpenTodos?: boolean;
 }
 
 export function HomeTodoCard({
@@ -513,7 +516,10 @@ export function HomeTodoCard({
   detailsBridgeOpen = false,
   onDetailsBridgeOpenChange,
   onDetailsBridgeNestedFormActiveChange,
+  canAssignOpenTodos: canAssignOpenTodosProp,
 }: HomeTodoCardProps) {
+  const [sessionUserId, setSessionUserId] = useState<string | null>(null);
+  const effectiveUserId = userId ?? sessionUserId;
   const [openTodos, setOpenTodos] = useState<MyOpenCallTodoItem[]>(() => prefillOpenTodos ?? []);
   const [completedTodos, setCompletedTodos] = useState<MyOpenCallTodoItem[]>(() => prefillCompletedTodos ?? []);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -575,6 +581,7 @@ export function HomeTodoCard({
   const [takeTodoConfirmOpen, setTakeTodoConfirmOpen] = useState(false);
   const [todoPendingTake, setTodoPendingTake] = useState<MyOpenCallTodoItem | null>(null);
   const [takingTodoId, setTakingTodoId] = useState<string | null>(null);
+  const [canAssignOpenTodosResolved, setCanAssignOpenTodosResolved] = useState(false);
   /** Home-scope todo realtime filters call_todos/calls by congregation_id (from profile). */
   const [todoRealtimeCongregationId, setTodoRealtimeCongregationId] = useState<string | null>(null);
   const layoutScopeId = useId();
@@ -779,6 +786,54 @@ export function HomeTodoCard({
       cancelled = true;
     };
   }, [userId, detailsBridgeOnly, establishmentId, householderId]);
+
+  useEffect(() => {
+    if (userId) {
+      setSessionUserId(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const supabase = createSupabaseBrowserClient();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!cancelled) setSessionUserId(session?.user?.id ?? null);
+      } catch {
+        if (!cancelled) setSessionUserId(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  const canAssignOpenTodos = canAssignOpenTodosProp ?? canAssignOpenTodosResolved;
+
+  useEffect(() => {
+    if (canAssignOpenTodosProp !== undefined) return;
+    const uid = effectiveUserId;
+    if (!uid) {
+      setCanAssignOpenTodosResolved(false);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const cached = await cacheGet<{ role?: string | null; privileges?: string[] | null }>(
+        `profile:${uid}`
+      );
+      if (cached && !cancelled) {
+        setCanAssignOpenTodosResolved(canAssignCongregationOpenTodos(cached));
+        return;
+      }
+      const profile = await getProfile(uid);
+      if (!cancelled) setCanAssignOpenTodosResolved(canAssignCongregationOpenTodos(profile));
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [canAssignOpenTodosProp, effectiveUserId]);
 
   useEffect(() => {
     if (!scopeKey) return;
@@ -1422,20 +1477,20 @@ export function HomeTodoCard({
   };
 
   const handleTakeTodoPrompt = useCallback((todo: MyOpenCallTodoItem) => {
-    if (!userId) return;
+    if (!effectiveUserId) return;
     setTodoPendingTake(todo);
     setTakeTodoConfirmOpen(true);
-  }, [userId]);
+  }, [effectiveUserId]);
 
   const handleConfirmTakeTodo = useCallback(async () => {
-    if (!userId || !todoPendingTake || takingTodoId) return;
+    if (!effectiveUserId || !todoPendingTake || takingTodoId) return;
     const target = todoPendingTake;
     setTakingTodoId(target.id);
     const previousOpen = openTodos;
     const previousCompleted = completedTodos;
     const optimistic: MyOpenCallTodoItem = {
       ...target,
-      publisher_id: userId,
+      publisher_id: effectiveUserId,
       partner_id: null,
       publisher_guest_name: null,
       partner_guest_name: null,
@@ -1444,7 +1499,7 @@ export function HomeTodoCard({
     setTakeTodoConfirmOpen(false);
     setTodoPendingTake(null);
     const ok = await updateStandaloneTodo(target.id, {
-      publisher_id: userId,
+      publisher_id: effectiveUserId,
       partner_id: null,
       publisher_guest_name: null,
       partner_guest_name: null,
@@ -1463,7 +1518,7 @@ export function HomeTodoCard({
       loadTodos({ useCache: false, forceNetwork: true, trustFreshLocalCache: false });
     }
     setTakingTodoId(null);
-  }, [userId, todoPendingTake, takingTodoId, openTodos, completedTodos, loadTodos]);
+  }, [effectiveUserId, todoPendingTake, takingTodoId, openTodos, completedTodos, loadTodos]);
 
   const handleTodoTap = (todo: MyOpenCallTodoItem) => {
     const primeScopedTodoCaches = (targetTodo: MyOpenCallTodoItem) => {
@@ -1926,27 +1981,6 @@ export function HomeTodoCard({
     </div>
   );
 
-  const renderCardTodoRow = (todo: MyOpenCallTodoItem, index: number, listTier?: "assigned" | "unassigned") => (
-    <TodoRow
-      key={todo.id}
-      todo={todo}
-      onMarkDone={handleMarkDone}
-      onTap={hasNavigation ? handleTodoTap : undefined}
-      showCheckbox
-      currentUserId={userId}
-      showAssigneeAvatars={showAssigneeAvatars}
-      highlightOtherPublishers={showOtherPublisherDecorations}
-      participantsById={participantsById}
-      participantsReady={participantsReady}
-      rowIndex={index}
-      layoutId={`${layoutScopeId}-card-${todo.id}`}
-      layoutTransition={todoLayoutTransition}
-      hideHouseholderNameBadge={!!householderId}
-      hideHouseholderEstablishmentBadge={!!householderId}
-      listTier={listTier}
-    />
-  );
-
   const showAssigneeAvatars = Boolean(userId || establishmentId || householderId);
   const showOtherPublisherDecorations = Boolean(
     userId && !establishmentId && !householderId && !filters.myUpdatesOnly
@@ -2140,6 +2174,127 @@ export function HomeTodoCard({
     },
     [isTodoDetailsSideLayout]
   );
+
+  const openTodoEditorFromList = useCallback((todo: MyOpenCallTodoItem) => {
+    const establishments =
+      todo.establishment_id && (todo.context_name || todo.context_establishment_name)
+        ? [
+            {
+              id: todo.establishment_id,
+              name: todo.context_establishment_name ?? todo.context_name ?? "",
+            },
+          ]
+        : todo.establishment_id
+          ? [{ id: todo.establishment_id, name: "" }]
+          : [];
+    setTodoEditorUseLeftPanel(Boolean(preferLeftCompanionDrawer && isTodoDetailsSideLayout));
+    setTodoEditorContext({
+      initialTodo: todo,
+      establishments,
+      selectedEstablishmentId: todo.establishment_id ?? undefined,
+      householderId: todo.householder_id ?? undefined,
+      householderName: todo.householder_id ? todo.context_name ?? undefined : undefined,
+      disableEstablishmentSelect: Boolean(establishmentId || householderId || todo.householder_id),
+    });
+  }, [
+    establishmentId,
+    householderId,
+    isTodoDetailsSideLayout,
+    preferLeftCompanionDrawer,
+  ]);
+
+  const handleAssignOpenTodo = useCallback(
+    (todo: MyOpenCallTodoItem) => {
+      if (onTodoTap) {
+        onTodoTap(todo);
+        return;
+      }
+      openTodoEditorFromList(todo);
+    },
+    [onTodoTap, openTodoEditorFromList]
+  );
+
+  const renderOpenTodoTakeButton = useCallback(
+    (todo: MyOpenCallTodoItem): ReactNode => {
+      if (!isUnassignedTodoItem(todo) || !effectiveUserId) return null;
+      return (
+        <Button
+          type="button"
+          variant="default"
+          size="sm"
+          className="h-7 rounded-full px-3 text-xs font-semibold bg-emerald-600/95 text-white shadow-sm hover:bg-emerald-500 hover:shadow-md hover:scale-[1.02] active:scale-100 transition-all shrink-0"
+          disabled={takingTodoId === todo.id}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            handleTakeTodoPrompt(todo);
+          }}
+        >
+          Take
+        </Button>
+      );
+    },
+    [effectiveUserId, handleTakeTodoPrompt, takingTodoId]
+  );
+
+  const showAssignInHomeTodoDrawer = Boolean(
+    canAssignOpenTodos && !establishmentId && !householderId
+  );
+
+  const renderHomeDrawerOpenTodoActions = useCallback(
+    (todo: MyOpenCallTodoItem): ReactNode => {
+      if (!isUnassignedTodoItem(todo) || !effectiveUserId) return null;
+      return (
+        <div className="flex items-center gap-1.5 shrink-0">
+          {showAssignInHomeTodoDrawer ? (
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              className="h-7 rounded-full px-3 text-xs font-semibold shrink-0 border-0 shadow-none bg-yellow-500 text-gray-950 hover:bg-yellow-600 hover:shadow-none dark:bg-yellow-500 dark:text-gray-950 dark:hover:bg-yellow-400"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                handleAssignOpenTodo(todo);
+              }}
+            >
+              Assign
+            </Button>
+          ) : null}
+          {renderOpenTodoTakeButton(todo)}
+        </div>
+      );
+    },
+    [
+      effectiveUserId,
+      handleAssignOpenTodo,
+      renderOpenTodoTakeButton,
+      showAssignInHomeTodoDrawer,
+    ]
+  );
+
+  const renderCardTodoRow = (todo: MyOpenCallTodoItem, index: number, listTier?: "assigned" | "unassigned") => (
+    <TodoRow
+      key={todo.id}
+      todo={todo}
+      onMarkDone={handleMarkDone}
+      onTap={hasNavigation ? handleTodoTap : undefined}
+      showCheckbox
+      currentUserId={effectiveUserId ?? undefined}
+      showAssigneeAvatars={showAssigneeAvatars}
+      highlightOtherPublishers={showOtherPublisherDecorations}
+      participantsById={participantsById}
+      participantsReady={participantsReady}
+      rowIndex={index}
+      layoutId={`${layoutScopeId}-card-${todo.id}`}
+      layoutTransition={todoLayoutTransition}
+      hideHouseholderNameBadge={!!householderId}
+      hideHouseholderEstablishmentBadge={!!householderId}
+      listTier={listTier}
+      headerAction={isUnassignedTodoItem(todo) ? renderOpenTodoTakeButton(todo) : undefined}
+    />
+  );
+
   useEffect(() => {
     if (!todoDetailsDrawerOpen || isHouseholderDetail) return;
     if (selectedDetailHouseholders.length === 0) return;
@@ -2640,6 +2795,7 @@ export function HomeTodoCard({
       {isHouseholderDetail && selectedHouseholder?.id ? (
         <HomeTodoCard
           householderId={selectedHouseholder.id}
+          userId={effectiveUserId ?? undefined}
           prefillScopeKey={`householder:${selectedHouseholder.id}`}
           prefillOpenTodos={householderPrefillOpenTodos}
           prefillCompletedTodos={householderPrefillCompletedTodos}
@@ -2660,6 +2816,7 @@ export function HomeTodoCard({
       {!isHouseholderDetail && selectedEstablishmentDetails?.id ? (
         <HomeTodoCard
           establishmentId={selectedEstablishmentDetails.id}
+          userId={effectiveUserId ?? undefined}
           prefillScopeKey={`establishment:${selectedEstablishmentDetails.id}`}
           prefillOpenTodos={establishmentPrefillOpenTodos}
           prefillCompletedTodos={establishmentPrefillCompletedTodos}
@@ -2893,24 +3050,7 @@ export function HomeTodoCard({
                     clampBody={false}
                     hideHouseholderNameBadge={!!householderId}
                     hideHouseholderEstablishmentBadge={!!householderId}
-                    headerAction={
-                      userId ? (
-                        <Button
-                          type="button"
-                          variant="default"
-                          size="sm"
-                          className="h-7 rounded-full px-3 text-xs font-semibold bg-emerald-600/95 text-white shadow-sm hover:bg-emerald-500 hover:shadow-md hover:scale-[1.02] active:scale-100 transition-all"
-                          disabled={takingTodoId === todo.id}
-                          onClick={(event) => {
-                            event.preventDefault();
-                            event.stopPropagation();
-                            handleTakeTodoPrompt(todo);
-                          }}
-                        >
-                          Take
-                        </Button>
-                      ) : null
-                    }
+                    headerAction={renderHomeDrawerOpenTodoActions(todo)}
                   />
                 ))}
               </ul>
@@ -3025,24 +3165,7 @@ export function HomeTodoCard({
                         clampBody={false}
                         hideHouseholderNameBadge={!!householderId}
                         hideHouseholderEstablishmentBadge={!!householderId}
-                        headerAction={
-                          userId ? (
-                            <Button
-                              type="button"
-                              variant="default"
-                              size="sm"
-                              className="h-7 rounded-full px-3 text-xs font-semibold bg-emerald-600/95 text-white shadow-sm hover:bg-emerald-500 hover:shadow-md hover:scale-[1.02] active:scale-100 transition-all"
-                              disabled={takingTodoId === todo.id}
-                              onClick={(event) => {
-                                event.preventDefault();
-                                event.stopPropagation();
-                                handleTakeTodoPrompt(todo);
-                              }}
-                            >
-                              Take
-                            </Button>
-                          ) : null
-                        }
+                        headerAction={renderHomeDrawerOpenTodoActions(todo)}
                       />
                     ))}
                   </ul>
@@ -3178,6 +3301,7 @@ export function HomeTodoCard({
       {contactSubdrawerHouseholder?.id ? (
         <HomeTodoCard
           householderId={contactSubdrawerHouseholder.id}
+          userId={effectiveUserId ?? undefined}
           prefillScopeKey={`householder:${contactSubdrawerHouseholder.id}`}
           prefillOpenTodos={contactSubdrawerPrefillOpenTodos}
           prefillCompletedTodos={contactSubdrawerPrefillCompletedTodos}
@@ -3679,7 +3803,7 @@ export function HomeTodoCard({
                 type="button"
                 size="lg"
                 className="w-full h-12 bg-green-600 hover:bg-green-700 text-white"
-                disabled={!todoPendingTake || !userId || takingTodoId === todoPendingTake?.id}
+                disabled={!todoPendingTake || !effectiveUserId || takingTodoId === todoPendingTake?.id}
                 onClick={handleConfirmTakeTodo}
               >
                 {takingTodoId === todoPendingTake?.id ? "Taking..." : "Take"}
