@@ -1949,10 +1949,16 @@ export function HomeTodoCard({
     if (showSplitOpenHeaderBadges) {
       return (
         <>
-          <Badge variant="secondary" className={badgeClassName}>
+          <Badge
+            variant="secondary"
+            className={cn(badgeClassName, studyBibleDarkClasses.todoBadgeAssigned)}
+          >
             To-Do {assignedOpenCount}
           </Badge>
-          <Badge variant="outline" className={badgeClassName}>
+          <Badge
+            variant="secondary"
+            className={cn(badgeClassName, studyBibleDarkClasses.todoBadgeOpen)}
+          >
             Open {unassignedOpenCount}
           </Badge>
         </>
@@ -1960,7 +1966,10 @@ export function HomeTodoCard({
     }
     if (openCount > 0) {
       return (
-        <Badge variant="secondary" className={badgeClassName}>
+        <Badge
+          variant="secondary"
+          className={cn(badgeClassName, studyBibleDarkClasses.todoBadgeOpen)}
+        >
           Open {openCount}
         </Badge>
       );
@@ -1980,7 +1989,12 @@ export function HomeTodoCard({
       <span>{label}</span>
       <Badge
         variant="secondary"
-        className="h-4 rounded-full border border-[#c8bdd6] bg-[#e8e0f2] px-1.5 text-[10px] font-semibold leading-none text-[#5d4788] dark:border-transparent dark:bg-secondary dark:font-normal dark:text-secondary-foreground"
+        className={cn(
+          "h-4 rounded-full px-1.5 text-[10px] font-semibold leading-none",
+          label === "Open"
+            ? studyBibleDarkClasses.todoBadgeOpen
+            : studyBibleDarkClasses.todoBadgeAssigned
+        )}
       >
         {count}
       </Badge>

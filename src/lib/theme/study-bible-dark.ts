@@ -43,6 +43,12 @@ export const studyBibleDarkClasses = {
   todoRowStripe: "bg-[#ebe4f2] dark:bg-[#30283c]/40",
   /** In-card section labels (To-Do / Open / Done). */
   sectionLabel: "text-[#5d4788] dark:text-[#ded6e7]",
+  /** Home To-Do — assigned / “To-Do” counts (header + section chips). */
+  todoBadgeAssigned:
+    "border-[#6b5196] bg-[#6b5196] font-semibold text-white shadow-none hover:bg-[#6b5196] dark:border-[#80778e] dark:bg-[#80778e] dark:text-white",
+  /** Home To-Do — unassigned pool / “Open” counts. */
+  todoBadgeOpen:
+    "border-[#5d4788]/55 bg-[#d8c8f0] font-semibold text-[#4a3870] shadow-none hover:bg-[#d8c8f0] dark:border-[#80778e]/50 dark:bg-[#463b55] dark:text-[#fffaff]",
   /** Collapsible drawer section chrome (mobile stacked + tablet columns). */
   todoDrawerSectionShell:
     "border border-[#d4c8e4] bg-[#ded6e7] dark:border-[#1c1921] dark:bg-[#30283c]",

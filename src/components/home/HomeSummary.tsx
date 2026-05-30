@@ -880,7 +880,7 @@ export function HomeSummary({
   return (
     <>
       <section>
-        <div className="mb-3 flex items-center justify-end gap-2">
+        <div className="mt-3 mb-3 flex items-center justify-end gap-2">
           <InstallPrompt compact />
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
