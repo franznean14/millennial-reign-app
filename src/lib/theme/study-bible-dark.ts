@@ -129,18 +129,30 @@ export const studyBibleDarkClasses = {
 const sectionToggleItemRadius =
   "shadow-none ring-0 outline-none !rounded-none first:!rounded-none last:!rounded-none focus-visible:ring-0 data-[state=on]:ring-0";
 
+/** Phone: borderless section toggle shells and tab items (tablet+ keeps bordered chrome). */
+const sectionToggleShellMobile =
+  "border-0 md:border md:border-[#e2dde8] md:dark:border-[#1c1921]";
+const sectionToggleItemMobileNoBorder =
+  "max-md:!border-0 max-md:border-transparent max-md:hover:!border-transparent max-md:data-[state=on]:!border-0 max-md:dark:hover:!border-transparent max-md:dark:data-[state=on]:!border-0";
+
 function joinStudyBibleClasses(...parts: string[]) {
   return parts.filter(Boolean).join(" ");
 }
 
 export const studyBibleSectionToggle = {
-  shell:
-    "relative w-full min-w-0 overflow-hidden rounded-xl border shadow-lg border-[#e2dde8] bg-[#e4deea] dark:border-[#1c1921] dark:bg-[#30283c]",
-  shellRow:
-    "relative flex w-full min-w-0 items-center overflow-hidden rounded-xl border shadow-lg border-[#e2dde8] bg-[#e4deea] dark:border-[#1c1921] dark:bg-[#30283c]",
+  shell: joinStudyBibleClasses(
+    "relative w-full min-w-0 overflow-hidden rounded-xl shadow-lg bg-[#e4deea] dark:bg-[#30283c]",
+    sectionToggleShellMobile
+  ),
+  shellRow: joinStudyBibleClasses(
+    "relative flex w-full min-w-0 items-center overflow-hidden rounded-xl shadow-lg bg-[#e4deea] dark:bg-[#30283c]",
+    sectionToggleShellMobile
+  ),
   /** Muted track for year/day pickers (single row, scrollable) */
-  trackShell:
-    "relative w-full overflow-hidden rounded-xl border shadow-lg border-[#e2dde8] bg-[#e4deea] dark:border-[#1c1921] dark:bg-[#2a2534]",
+  trackShell: joinStudyBibleClasses(
+    "relative w-full overflow-hidden rounded-xl shadow-lg bg-[#e4deea] dark:bg-[#2a2534]",
+    sectionToggleShellMobile
+  ),
   group: "flex h-full min-h-0 w-full min-w-full gap-0 rounded-none",
   /** Horizontal scroll tabs (members groups): flush left, scroll when overflow. */
   scrollableTabGroup: "w-max min-w-full justify-start",
@@ -149,6 +161,7 @@ export const studyBibleSectionToggle = {
   filledTabItem: "min-h-12 flex-1 basis-0 !max-w-none py-2",
   item: joinStudyBibleClasses(
     sectionToggleItemRadius,
+    sectionToggleItemMobileNoBorder,
     "min-w-0 bg-transparent",
     studyBibleDarkClasses.toggleItem
   ),
@@ -157,7 +170,7 @@ export const studyBibleSectionToggle = {
   itemCompact:
     "flex h-11 min-w-0 items-center justify-center px-3 text-[11px] font-medium transition-colors md:h-12",
   ghostSideButton:
-    "flex h-full min-h-0 shrink-0 items-center justify-center self-stretch rounded-none px-3 py-0 transition-colors hover:bg-[#ded6e7] dark:hover:bg-[#3b3348]",
+    "flex h-full min-h-0 shrink-0 items-center justify-center self-stretch rounded-none px-3 py-0 transition-colors hover:bg-[#ded6e7] dark:hover:bg-[#3b3348] max-md:border-0 max-md:shadow-none max-md:ring-0 max-md:focus-visible:ring-0",
   /** Embedded card tabs (All / Calls, Upcoming / All) — active tab matches card body surface. */
   cardTabList:
     "relative z-10 mb-0 -mb-px grid h-auto w-full gap-0 border-0 bg-[#e4deea] p-0 dark:bg-[#2a2534] [&>*]:border-0",

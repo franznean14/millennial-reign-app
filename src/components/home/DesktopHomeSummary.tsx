@@ -594,9 +594,9 @@ export function DesktopHomeSummary({
   );
 
   const monthlyRecordYearToggleItemClass = cn(
-    "min-w-0 px-3 h-12 flex items-center justify-center transition-colors shadow-none",
-    "!rounded-none first:!rounded-none last:!rounded-none",
-    studyBibleDarkClasses.toggleItem
+    studyBibleSectionToggle.item,
+    studyBibleSectionToggle.itemCompact,
+    "h-12"
   );
 
   const monthlyRecordYearToggleShellClass = studyBibleSectionToggle.trackShell;
