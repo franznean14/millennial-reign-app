@@ -692,7 +692,15 @@ export function UnifiedFab({
         open={openKey === "field-service"}
         onOpenChange={(open) => setOpenKey(open ? "field-service" : null)}
         title=""
-        headerClassName="sr-only"
+        headerClassName="sr-only !m-0 !h-0 overflow-hidden !p-0"
+        drawerContentClassName={cn(
+          "h-auto max-h-[92svh]",
+          "[&_.drawer-content-inner]:flex-none",
+          "[&_.drawer-content-inner]:overflow-y-auto",
+          "[&_.drawer-content-inner]:!pb-0",
+          "[&_.drawer-content-inner]:[scroll-padding-bottom:calc(max(env(safe-area-inset-bottom),0px)+80px)]"
+        )}
+        bodyClassName="px-0 pt-0 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]"
       >
         <FieldServiceForm
           userId={userId}

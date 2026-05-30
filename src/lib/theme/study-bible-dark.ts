@@ -55,6 +55,22 @@ export const studyBibleDarkClasses = {
   todoDrawerColumnHeader:
     "shrink-0 border-b border-[#d4c8e4] bg-[#ded6e7] px-3 py-2 text-xs font-bold uppercase tracking-wide text-[#5d4788] dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#ded6e7]",
   todoMeta: "text-[#6d6880] dark:text-[#ded6e7]",
+  /** Field Service drawer form — light-mode lavender accents (no extra chrome). */
+  fieldServiceSubtitle: "text-[#5d4788] dark:text-[#ded6e7]",
+  /** Inherit drawer shell tint — no separate pane fill in light mode. */
+  fieldServiceCalendarPane: "bg-transparent",
+  fieldServiceFormPane: "bg-transparent",
+  fieldServiceDivider: "border-[#d4c8e4] dark:border-[#1c1921]",
+  fieldServiceLabel: "font-medium text-[#5d4788] dark:text-[#ded6e7]",
+  fieldServiceWeekday: "text-[#6d6880] dark:text-[#ded6e7]",
+  fieldServiceNavControl:
+    "text-[#5d4788] hover:bg-[#ded6e7] hover:text-[#1a1820] dark:text-[#ded6e7] dark:hover:bg-[#3b3348] dark:hover:text-[#fffaff]",
+  fieldServiceInput:
+    "border-[#c8bdd6] bg-[#f5f2f8] text-[#1a1820] placeholder:text-[#8e89a3] focus-visible:border-[#6b5196] focus-visible:ring-[#6b5196]/20 dark:border-[#5a5068] dark:bg-[#2a2534] dark:text-[#fffaff] dark:placeholder:text-[#ded6e7]/70",
+  fieldServiceChip:
+    "border-[#c8bdd6] bg-[#e8e0f2] text-[#5d4788] dark:border-[#5a5068] dark:bg-[#3b3348] dark:text-[#ded6e7]",
+  fieldServiceHoursControl:
+    "[&_button]:border-[#c8bdd6] [&_button]:!bg-[#ded6e7] [&_button]:hover:!bg-[#d4c8e4] [&_button_svg]:!text-[#5d4788] dark:[&_button]:border-[#5a5068] dark:[&_button]:!bg-[#3b3348] dark:[&_button]:hover:!bg-[#463b55] dark:[&_button_svg]:!text-[#fffaff]",
   callsCard:
     "border-[#e2dde8] bg-[#e0d8e8] text-[#1a1820] dark:border-[#1c1921] dark:bg-[#3b3348] dark:text-[#fffaff]",
   cardHover: "hover:bg-[#ded6e7] dark:hover:bg-[#3b3348]",

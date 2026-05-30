@@ -971,27 +971,64 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
 
   return (
     <div>
-      <div className="p-4 pb-0 text-center">
-        <h2 className="text-lg font-semibold">Field Service</h2>
-        <p className="text-sm text-muted-foreground">Record your daily activity.</p>
+      <div className="px-4 pb-0 pt-2 text-center">
+        <h2 className="text-lg font-semibold text-[#1a1820] dark:text-[#fffaff]">Field Service</h2>
+        <p className={cn("text-sm", studyBibleDarkClasses.fieldServiceSubtitle)}>
+          Record your daily activity.
+        </p>
       </div>
       <div className="grid md:grid-cols-2">
-        <div className="p-4 border-b md:border-b-0 md:border-r">
+        <div
+          className={cn(
+            "p-4 border-b md:border-b-0 md:border-r",
+            studyBibleDarkClasses.fieldServiceDivider,
+            studyBibleDarkClasses.fieldServiceCalendarPane
+          )}
+        >
         <div className="flex items-center justify-between pb-3">
-          <Button variant="ghost" size="sm" onClick={() => changeStep(-1)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => changeStep(-1)}
+            className={studyBibleDarkClasses.fieldServiceNavControl}
+          >
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <div className="text-base font-semibold flex items-center gap-2">
-            <Button variant="ghost" size="sm" className="text-base" onClick={() => setMode("months")}>{monthLabel}</Button>
-            <Button variant="ghost" size="sm" className="text-base" onClick={() => setMode("years")}>{yearLabel}</Button>
+          <div className="flex items-center gap-2 text-base font-semibold text-[#1a1820] dark:text-[#fffaff]">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn("text-base", studyBibleDarkClasses.fieldServiceNavControl)}
+              onClick={() => setMode("months")}
+            >
+              {monthLabel}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className={cn("text-base", studyBibleDarkClasses.fieldServiceNavControl)}
+              onClick={() => setMode("years")}
+            >
+              {yearLabel}
+            </Button>
           </div>
-          <Button variant="ghost" size="sm" onClick={() => changeStep(1)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => changeStep(1)}
+            className={studyBibleDarkClasses.fieldServiceNavControl}
+          >
             <ChevronRight className="h-5 w-5" />
           </Button>
         </div>
         {mode === "days" && (
           <>
-            <div className="grid grid-cols-7 gap-1 px-1 text-xs opacity-70">
+            <div
+              className={cn(
+                "grid grid-cols-7 gap-1 px-1 text-xs font-medium",
+                studyBibleDarkClasses.fieldServiceWeekday
+              )}
+            >
               {"S,M,T,W,T,F,S".split(",").map((d, i) => (
                 <div key={`${d}-${i}`} className="text-center">
                   {d}
@@ -1033,11 +1070,18 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
                 }
                 
                 // Determine button styling
-                let buttonClassName = `relative h-10 ${muted ? "opacity-50" : ""}`;
+                let buttonClassName = cn(
+                  "relative h-10",
+                  muted && "opacity-50",
+                  !hasHighHours && !sel && "hover:bg-[#ded6e7] dark:hover:bg-[#3b3348]"
+                );
                 if (hasHighHours) {
                   // Purple/yellow/turquoise gradient background for 8+ hours
                   // Override default button styles to show gradient
-                  buttonClassName += " !bg-gradient-to-br !from-purple-500 !via-yellow-400 !to-cyan-400 !text-gray-900 dark:!text-gray-900 !font-semibold hover:!opacity-90";
+                  buttonClassName = cn(
+                    buttonClassName,
+                    "!bg-gradient-to-br !from-purple-500 !via-yellow-400 !to-cyan-400 !text-gray-900 dark:!text-gray-900 !font-semibold hover:!opacity-90"
+                  );
                 }
                 
                 return (
@@ -1066,6 +1110,7 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
               <Button
                 key={m.idx}
                 variant={m.idx === view.getMonth() ? "default" : "ghost"}
+                className={m.idx !== view.getMonth() ? studyBibleDarkClasses.fieldServiceNavControl : undefined}
                 onClick={() => {
                   const n = new Date(view);
                   n.setMonth(m.idx);
@@ -1084,6 +1129,7 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
               <Button
                 key={y}
                 variant={y === view.getFullYear() ? "default" : "ghost"}
+                className={y !== view.getFullYear() ? studyBibleDarkClasses.fieldServiceNavControl : undefined}
                 onClick={() => {
                   const n = new Date(view);
                   n.setFullYear(y);
@@ -1097,9 +1143,9 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
           </div>
         )}
       </div>
-        <div className="p-4 pt-6 pb-10">
+        <div className={cn("p-4 pt-6 pb-0", studyBibleDarkClasses.fieldServiceFormPane)}>
         <div className="mt-2 grid gap-3">
-          <div className="grid gap-2 text-sm place-items-center">
+          <div className="grid gap-2 place-items-center text-sm">
             <NumberFlowInput
               value={parseInt(hours) || 0}
               onChange={(newValue) => {
@@ -1109,12 +1155,12 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
               min={0}
               max={24}
               size="md"
-              className="mx-auto"
+              className={cn("mx-auto", studyBibleDarkClasses.fieldServiceHoursControl)}
             />
-            <span className="opacity-70 mt-1">Hours</span>
+            <span className={cn("mt-1", studyBibleDarkClasses.fieldServiceLabel)}>Hours</span>
           </div>
           <div className="grid gap-1 text-sm">
-            <span className="opacity-70">Bible Studies</span>
+            <span className={studyBibleDarkClasses.fieldServiceLabel}>Bible Studies</span>
             <div className="flex flex-wrap gap-2">
               {studies.map((s) => {
                 const visitId = getVisitId(s);
@@ -1123,7 +1169,13 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
                 const isTemp = isTemporaryPlaceholder(s);
                 
                 return (
-                  <span key={s} className="inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs">
+                  <span
+                    key={s}
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs",
+                      studyBibleDarkClasses.fieldServiceChip
+                    )}
+                  >
                     {isLoading && !isTemp ? (
                       // Show skeleton only for visit IDs that are loading, not temp placeholders
                       <Skeleton className="h-4 w-20" />
@@ -1154,9 +1206,10 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
               })}
             </div>
             <div className="relative">
-              <Input 
+              <Input
                 ref={inputRef}
-                placeholder="Type a name and press Enter" 
+                className={studyBibleDarkClasses.fieldServiceInput}
+                placeholder="Type a name and press Enter"
                 value={bibleStudiesInputValue}
                 onChange={(e) => setBibleStudiesInputValue(e.target.value)}
                 onFocus={() => setBibleStudiesInputFocused(true)}
@@ -1181,8 +1234,12 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
                 }} 
               />
               {bibleStudiesInputFocused && personalContacts.length > 0 && (
-                <div 
-                  className="bible-studies-dropdown absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md p-1 max-h-[200px] overflow-y-auto"
+                <div
+                  className={cn(
+                    "bible-studies-dropdown absolute z-50 mt-1 w-full max-h-[200px] overflow-y-auto rounded-md border p-1 shadow-md",
+                    studyBibleDarkClasses.fieldServiceInput,
+                    "bg-[#f5f2f8] dark:bg-[#2a2534]"
+                  )}
                   onMouseDown={(e) => {
                     // Prevent input blur when clicking in dropdown
                     e.preventDefault();
@@ -1256,9 +1313,9 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
             </div>
           </div>
           <div className="grid gap-1 text-sm">
-            <span className={cn("opacity-80 dark:opacity-100", studyBibleDarkClasses.muted)}>Note</span>
-            <Textarea 
-              className="min-h-[112px] dark:border-[#5a5068] dark:bg-[#2a2534] text-foreground dark:text-[#fffaff] dark:placeholder:text-[#ded6e7]/70" 
+            <span className={studyBibleDarkClasses.fieldServiceLabel}>Note</span>
+            <Textarea
+              className={cn("min-h-[112px]", studyBibleDarkClasses.fieldServiceInput)}
               value={note} 
               onChange={(e) => { 
                 setNote(e.target.value); 
