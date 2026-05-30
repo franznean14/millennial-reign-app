@@ -56,6 +56,7 @@ export function BusinessFiltersForm({
       areas: [],
       floors: [],
       myEstablishments: false,
+      myTodosOnly: false,
       nearMe: false,
       userLocation: null
     });

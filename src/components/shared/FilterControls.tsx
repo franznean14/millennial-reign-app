@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getInitialsFromName } from "@/lib/utils/visit-history-ui";
-import { Filter as FilterIcon, SquarePen, Search, User, UserCheck, Users, X, Building2 } from "lucide-react";
+import { Filter as FilterIcon, SquarePen, Search, User, UserCheck, Users, X, Building2, ListTodo } from "lucide-react";
 import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
 import { cn } from "@/lib/utils";
 import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
@@ -35,6 +35,11 @@ interface FilterControlsProps {
   householderLabel?: string;
   onHouseholderActivate?: () => void;
   onHouseholderClear?: () => void;
+  showTodoFilter?: boolean;
+  todosActive?: boolean;
+  todosLabel?: string;
+  onTodosActivate?: () => void;
+  onTodosClear?: () => void;
   filterBadges: FilterBadge[];
   onOpenFilters: () => void;
   onClearFilters: () => void;
@@ -69,6 +74,11 @@ export function FilterControls({
   householderLabel = "Personal Contacts Only",
   onHouseholderActivate,
   onHouseholderClear,
+  showTodoFilter = false,
+  todosActive = false,
+  todosLabel = "My To-Dos",
+  onTodosActivate,
+  onTodosClear,
   filterBadges,
   onOpenFilters,
   onClearFilters,
@@ -82,6 +92,7 @@ export function FilterControls({
   trailingActions
 }: FilterControlsProps) {
   const hasActiveFilters = filterBadges.length > 0;
+  const toolbarAllowsHorizontalOverflow = preserveActionButtonsWhenTogglesActive;
   const filterIconButtonClass = cn(
     "h-9 w-9 rounded-full flex-shrink-0 shadow-none border",
     studyBibleDarkClasses.filterToolbarButton
@@ -145,7 +156,8 @@ export function FilterControls({
         <div
           style={{ position: "relative" }}
           className={cn(
-            "flex items-center gap-1 max-w-[calc(100vw-3rem)]",
+            "flex items-center gap-2 flex-nowrap",
+            toolbarAllowsHorizontalOverflow ? "w-max shrink-0" : "max-w-[calc(100vw-3rem)]",
             maxWidthClassName,
             containerClassName
           )}
@@ -154,7 +166,11 @@ export function FilterControls({
             type="button"
             variant="default"
             size="sm"
-            className={cn("h-auto min-h-9 rounded-full px-3 py-1.5 flex items-center gap-1.5 max-w-full text-primary-foreground", filterPillActiveClass)}
+            className={cn(
+              "h-auto min-h-9 rounded-full px-3 py-1.5 flex items-center gap-1.5 shrink-0 text-primary-foreground",
+              toolbarAllowsHorizontalOverflow ? "max-w-none" : "max-w-full",
+              filterPillActiveClass
+            )}
             onClick={(e) => {
               const target = e.target as HTMLElement;
               if (!target.closest(".filter-badge") && !target.closest(".filter-x-button")) {
@@ -165,9 +181,19 @@ export function FilterControls({
           >
             <FilterIcon className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
             <span className="text-sm whitespace-nowrap flex-shrink-0 text-primary-foreground">Filters</span>
-            <div className="flex items-center gap-1 min-w-0 flex-1 overflow-hidden">
+            <div
+              className={cn(
+                "flex items-center gap-1",
+                toolbarAllowsHorizontalOverflow
+                  ? "flex-nowrap shrink-0"
+                  : "min-w-0 flex-1 overflow-hidden"
+              )}
+            >
               {filterBadges.map((badge, index) => {
-                const isRightmost = index >= filterBadges.length - 2 && filterBadges.length > 3;
+                const isRightmost =
+                  !toolbarAllowsHorizontalOverflow &&
+                  index >= filterBadges.length - 2 &&
+                  filterBadges.length > 3;
                 if (badge.type === "assignee") {
                   return (
                     <Badge
@@ -317,6 +343,34 @@ export function FilterControls({
               <X className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
             </Button>
           )}
+          {preserveActionButtonsWhenTogglesActive && showTodoFilter && todosActive && onTodosClear && (
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              className={cn("h-9 rounded-full px-3 flex items-center gap-2 text-primary-foreground", filterPillActiveClass)}
+              onClick={onTodosClear}
+              aria-label={todosLabel}
+            >
+              <ListTodo className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
+              <span className="text-sm whitespace-nowrap text-primary-foreground">{todosLabel}</span>
+              <X className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
+            </Button>
+          )}
+          {preserveActionButtonsWhenTogglesActive && showTodoFilter && !todosActive && onTodosActivate && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon"
+              className={filterIconButtonClass}
+              onClick={onTodosActivate}
+              aria-pressed={false}
+              aria-label={todosLabel}
+              title={todosLabel}
+            >
+              <ListTodo className="h-4 w-4 text-foreground" />
+            </Button>
+          )}
           {preserveActionButtonsWhenTogglesActive && !bwiActive && !householderActive && onBwiActivate && (
             <Button
               type="button"
@@ -363,9 +417,13 @@ export function FilterControls({
             </div>
           ) : null}
         </div>
-      ) : (showMyFilter && myActive) || bwiActive || householderActive ? (
+      ) : (showMyFilter && myActive) || bwiActive || householderActive || (showTodoFilter && todosActive) ? (
         <div
-          className={cn("flex items-center gap-1", containerClassName)}
+          className={cn(
+            "flex items-center gap-2 flex-nowrap",
+            toolbarAllowsHorizontalOverflow ? "w-max shrink-0" : "",
+            containerClassName
+          )}
         >
           {showMyFilter && myActive && onMyClear && (
             <Button
@@ -447,6 +505,20 @@ export function FilterControls({
               <X className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
             </Button>
           )}
+          {showTodoFilter && todosActive && onTodosClear && (
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              className={cn("h-9 rounded-full px-3 flex items-center gap-2 text-primary-foreground", filterPillActiveClass)}
+              onClick={onTodosClear}
+              aria-label={todosLabel}
+            >
+              <ListTodo className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
+              <span className="text-sm whitespace-nowrap text-primary-foreground">{todosLabel}</span>
+              <X className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
+            </Button>
+          )}
           {preserveActionButtonsWhenTogglesActive && !bwiActive && !householderActive && onBwiActivate && (
             <Button
               type="button"
@@ -485,6 +557,20 @@ export function FilterControls({
               >
                 <FilterIcon className="h-4 w-4 text-foreground" />
               </Button>
+              {showTodoFilter && !todosActive && onTodosActivate && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="icon"
+                  className={filterIconButtonClass}
+                  onClick={onTodosActivate}
+                  aria-pressed={false}
+                  aria-label={todosLabel}
+                  title={todosLabel}
+                >
+                  <ListTodo className="h-4 w-4 text-foreground" />
+                </Button>
+              )}
               {showEditButton && onEditClick && (
                 <Button
                   type="button"
@@ -509,7 +595,11 @@ export function FilterControls({
       ) : (
         <div
           style={{ position: "relative" }}
-          className={cn("flex items-center gap-3", containerClassName)}
+          className={cn(
+            "flex items-center gap-3 flex-nowrap",
+            toolbarAllowsHorizontalOverflow ? "w-max shrink-0" : "",
+            containerClassName
+          )}
         >
           {showMyFilter && onMyActivate && (
             <Button
@@ -561,6 +651,34 @@ export function FilterControls({
           >
             <FilterIcon className="h-4 w-4 text-foreground" />
           </Button>
+          {showTodoFilter && todosActive && onTodosClear && (
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              className={cn("h-9 rounded-full px-3 flex items-center gap-2 text-primary-foreground", filterPillActiveClass)}
+              onClick={onTodosClear}
+              aria-label={todosLabel}
+            >
+              <ListTodo className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
+              <span className="text-sm whitespace-nowrap text-primary-foreground">{todosLabel}</span>
+              <X className="h-4 w-4 flex-shrink-0 text-primary-foreground" />
+            </Button>
+          )}
+          {showTodoFilter && !todosActive && onTodosActivate && (
+            <Button
+              type="button"
+              variant="secondary"
+              size="icon"
+              className={filterIconButtonClass}
+              onClick={onTodosActivate}
+              aria-pressed={false}
+              aria-label={todosLabel}
+              title={todosLabel}
+            >
+              <ListTodo className="h-4 w-4 text-foreground" />
+            </Button>
+          )}
           {showEditButton && onEditClick && (
             <Button
               type="button"

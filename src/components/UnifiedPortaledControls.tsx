@@ -160,6 +160,16 @@ function BusinessControlsContent({
   };
 
   const showOtherButtons = !isSearchActive;
+  const todoFilterControlProps =
+    businessTab === "map"
+      ? {
+          showTodoFilter: true as const,
+          todosActive: !!filters.myTodosOnly,
+          todosLabel: "My To-Dos",
+          onTodosActivate: () => onFiltersChange({ ...filters, myTodosOnly: true }),
+          onTodosClear: () => onFiltersChange({ ...filters, myTodosOnly: false }),
+        }
+      : {};
   const badges: FilterBadge[] = buildFilterBadges({
     statuses: filters.statuses,
     excludedStatuses: filters.excludedStatuses,
@@ -281,12 +291,9 @@ function BusinessControlsContent({
       {!isDetailsView && (
         <motion.div
           key="buttons-row"
-          className="flex items-center gap-3 w-full"
+          className="flex w-full min-w-0 items-center"
           layout="position"
           initial={false}
-          style={{
-            justifyContent: isSearchActive ? "flex-start" : "center",
-          }}
           transition={{ type: "spring", stiffness: 300, damping: 30, bounce: 0 }}
         >
           {isSearchActive ? (
@@ -294,8 +301,9 @@ function BusinessControlsContent({
               layout="position"
               initial={false}
               transition={{ type: "spring", stiffness: 300, damping: 30, bounce: 0 }}
-              className="flex-1 min-w-0"
+              className="min-w-0 w-[calc(100%+2rem)] -mx-4 overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
             >
+              <div className="inline-flex w-max max-w-none items-center justify-start gap-3 px-4">
               <FilterControls
                 isSearchActive={isSearchActive}
                 searchValue={filters.search}
@@ -341,16 +349,18 @@ function BusinessControlsContent({
                 containerClassName="w-full !max-w-none !px-0"
                 maxWidthClassName=""
                 trailingActions={null}
+                {...todoFilterControlProps}
               />
+              </div>
             </motion.div>
           ) : (
             <motion.div
               layout="position"
               initial={false}
               transition={{ type: "spring", stiffness: 300, damping: 30, bounce: 0 }}
-              className="w-full overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+              className="min-w-0 w-[calc(100%+2rem)] -mx-4 overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
             >
-              <div className="w-max min-w-full flex items-center justify-center gap-3 px-1">
+              <div className="inline-flex w-max max-w-none items-center justify-start gap-3 px-4">
                 <FilterControls
                   isSearchActive={isSearchActive}
                   searchValue={filters.search}
@@ -449,6 +459,7 @@ function BusinessControlsContent({
                       </>
                     ) : null
                   }
+                  {...todoFilterControlProps}
                 />
               </div>
             </motion.div>

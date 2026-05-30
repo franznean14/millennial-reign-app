@@ -5,8 +5,13 @@ import {
   calculateDistance,
   type BusinessFiltersState,
   type EstablishmentWithDetails,
-  type HouseholderWithDetails
+  type HouseholderWithDetails,
+  type MyOpenTodoTargets,
 } from "@/lib/db/business";
+import {
+  computeEstablishmentIdsFromTodoHouseholders,
+  establishmentMatchesMyOpenTodos,
+} from "@/lib/utils/business-todo-filter";
 
 interface UseBusinessFilterOptionsProps {
   establishments: EstablishmentWithDetails[];
@@ -14,6 +19,7 @@ interface UseBusinessFilterOptionsProps {
   filters: BusinessFiltersState;
   userVisitedEstablishments: Set<string>;
   businessTab: "establishments" | "householders" | "map";
+  myOpenTodoTargets?: MyOpenTodoTargets;
 }
 
 export function useBusinessFilterOptions({
@@ -21,8 +27,18 @@ export function useBusinessFilterOptions({
   householders,
   filters,
   userVisitedEstablishments,
-  businessTab
+  businessTab,
+  myOpenTodoTargets,
 }: UseBusinessFilterOptionsProps) {
+  const establishmentIdsFromTodoHouseholders = useMemo(
+    () =>
+      computeEstablishmentIdsFromTodoHouseholders(
+        householders,
+        myOpenTodoTargets?.householderIds ?? new Set()
+      ),
+    [householders, myOpenTodoTargets]
+  );
+
   const getFilteredEstablishmentsExcluding = useCallback(
     (excludeType: "statuses" | "areas" | "floors" | null) => {
       return establishments.filter((establishment) => {
@@ -95,10 +111,28 @@ export function useBusinessFilterOptions({
           if (distanceKm > 0.15) return false;
         }
 
+        if (filters.myTodosOnly && myOpenTodoTargets) {
+          if (
+            !establishmentMatchesMyOpenTodos(
+              establishment,
+              myOpenTodoTargets,
+              establishmentIdsFromTodoHouseholders
+            )
+          ) {
+            return false;
+          }
+        }
+
         return true;
       });
     },
-    [establishments, filters, userVisitedEstablishments]
+    [
+      establishments,
+      filters,
+      userVisitedEstablishments,
+      myOpenTodoTargets,
+      establishmentIdsFromTodoHouseholders,
+    ]
   );
 
   const dynamicStatusOptions = useMemo(() => {

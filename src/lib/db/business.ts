@@ -27,10 +27,17 @@ export interface BusinessFiltersState {
   areas: string[];
   floors: string[];
   myEstablishments: boolean;
+  /** Map/list: only establishments (and contacts) with the user's open to-dos. */
+  myTodosOnly?: boolean;
   nearMe: boolean;
   userLocation?: [number, number] | null;
   sort?: 'name_asc' | 'name_desc' | 'last_visit_desc' | 'last_visit_asc' | 'area_asc' | 'area_desc' | 'date_added_asc' | 'date_added_desc';
 }
+
+export type MyOpenTodoTargets = {
+  establishmentIds: Set<string>;
+  householderIds: Set<string>;
+};
 
 export type EstablishmentStatus = 
   | 'for_scouting'
@@ -1438,44 +1445,70 @@ async function enrichTodoItems(
   return items;
 }
 
+/** Raw open to-dos where the user is publisher or partner (or linked via their calls). */
+async function fetchMyOpenTodoRows(userId: string, limit = 500): Promise<CallTodo[]> {
+  const supabase = createSupabaseBrowserClient();
+  await supabase.auth.getSession().catch(() => {});
+  const { data: calls, error: callsError } = await supabase
+    .from("calls")
+    .select("id")
+    .or(`publisher_id.eq.${userId},partner_id.eq.${userId}`)
+    .limit(200);
+  if (callsError) return [];
+  const callIds = (calls ?? []).map((c) => c.id);
+
+  const linkedPromise = callIds.length
+    ? supabase
+        .from("call_todos")
+        .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, publisher_guest_name, partner_guest_name, deadline_date, created_at")
+        .eq("is_done", false)
+        .in("call_id", callIds)
+        .limit(limit)
+    : Promise.resolve({ data: [], error: null } as { data: CallTodo[]; error: null });
+  const standalonePromise = supabase
+    .from("call_todos")
+    .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, publisher_guest_name, partner_guest_name, deadline_date, created_at")
+    .eq("is_done", false)
+    .is("call_id", null)
+    .or(`publisher_id.eq.${userId},partner_id.eq.${userId}`)
+    .limit(limit);
+  const [{ data: linked, error: linkedError }, { data: standalone, error: standaloneError }] = await Promise.all([
+    linkedPromise,
+    standalonePromise,
+  ]);
+  if (linkedError || standaloneError) return [];
+
+  const byId = new Map<string, CallTodo>();
+  for (const t of (linked ?? []) as CallTodo[]) byId.set(t.id, t);
+  for (const t of (standalone ?? []) as CallTodo[]) byId.set(t.id, t);
+  return Array.from(byId.values()).slice(0, limit);
+}
+
+/** Establishment and contact ids referenced by the user's open to-dos (for map filtering). */
+export async function getMyOpenTodoTargets(userId: string): Promise<MyOpenTodoTargets> {
+  try {
+    const merged = await fetchMyOpenTodoRows(userId, 500);
+    if (merged.length === 0) {
+      return { establishmentIds: new Set(), householderIds: new Set() };
+    }
+    const items = await enrichTodoItems(merged);
+    const establishmentIds = new Set<string>();
+    const householderIds = new Set<string>();
+    for (const t of items) {
+      if (t.establishment_id) establishmentIds.add(t.establishment_id);
+      if (t.householder_id) householderIds.add(t.householder_id);
+    }
+    return { establishmentIds, householderIds };
+  } catch (e) {
+    console.error("getMyOpenTodoTargets:", e);
+    return { establishmentIds: new Set(), householderIds: new Set() };
+  }
+}
+
 /** Open (incomplete) to-dos for todos where the user is publisher or partner. */
 export async function getMyOpenCallTodos(userId: string, limit = 15): Promise<MyOpenCallTodoItem[]> {
-  const supabase = createSupabaseBrowserClient();
   try {
-    await supabase.auth.getSession().catch(() => {});
-    const { data: calls, error: callsError } = await supabase
-      .from("calls")
-      .select("id")
-      .or(`publisher_id.eq.${userId},partner_id.eq.${userId}`)
-      .limit(200);
-    if (callsError) return [];
-    const callIds = (calls ?? []).map((c) => c.id);
-
-    const linkedPromise = callIds.length
-      ? supabase
-          .from("call_todos")
-          .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, publisher_guest_name, partner_guest_name, deadline_date, created_at")
-          .eq("is_done", false)
-          .in("call_id", callIds)
-          .limit(limit)
-      : Promise.resolve({ data: [], error: null } as any);
-    const standalonePromise = supabase
-      .from("call_todos")
-      .select("id, call_id, congregation_id, establishment_id, householder_id, body, is_done, publisher_id, partner_id, publisher_guest_name, partner_guest_name, deadline_date, created_at")
-      .eq("is_done", false)
-      .is("call_id", null)
-      .or(`publisher_id.eq.${userId},partner_id.eq.${userId}`)
-      .limit(limit);
-    const [{ data: linked, error: linkedError }, { data: standalone, error: standaloneError }] = await Promise.all([
-      linkedPromise,
-      standalonePromise,
-    ]);
-    if (linkedError || standaloneError) return [];
-
-    const byId = new Map<string, CallTodo>();
-    for (const t of (linked ?? []) as CallTodo[]) byId.set(t.id, t);
-    for (const t of (standalone ?? []) as CallTodo[]) byId.set(t.id, t);
-    const merged = Array.from(byId.values()).slice(0, limit);
+    const merged = await fetchMyOpenTodoRows(userId, limit);
     if (merged.length === 0) return [];
     return await enrichTodoItems(merged);
   } catch (e) {

@@ -26,6 +26,7 @@ import { getDailyRecord, listDailyByMonth, upsertDailyRecord, isDailyEmpty, dele
 import { getEstablishmentDetails, getHouseholderDetails, deleteHouseholder, archiveHouseholder, calculateDistance, type EstablishmentWithDetails, type VisitWithUser, type HouseholderWithDetails, type BusinessFiltersState } from "@/lib/db/business";
 import { useBusinessFilteredLists } from "@/lib/hooks/use-business-filtered-lists";
 import { useBusinessFilterOptions } from "@/lib/hooks/use-business-filter-options";
+import { useMyOpenTodoTargets } from "@/lib/hooks/use-my-open-todo-targets";
 import { useAccountState } from "@/lib/hooks/use-account-state";
 import { getMyCongregation, saveCongregation, isAdmin, type Congregation } from "@/lib/db/congregations";
 import { getProfile } from "@/lib/db/profiles";
@@ -225,6 +226,7 @@ export function AppClient() {
     areas: [],
     floors: [],
     myEstablishments: false,
+    myTodosOnly: false,
     nearMe: false,
     userLocation: null,
     sort: "last_visit_desc",
@@ -277,6 +279,7 @@ export function AppClient() {
             areas: Array.isArray(saved.areas) ? saved.areas : prev.areas,
             floors: Array.isArray(saved.floors) ? saved.floors : prev.floors,
             myEstablishments: typeof saved.myEstablishments === "boolean" ? saved.myEstablishments : prev.myEstablishments,
+            myTodosOnly: typeof saved.myTodosOnly === "boolean" ? saved.myTodosOnly : prev.myTodosOnly ?? false,
             nearMe: typeof saved.nearMe === "boolean" ? saved.nearMe : prev.nearMe,
             userLocation: saved.userLocation != null ? saved.userLocation : prev.userLocation,
             sort: saved.sort ?? prev.sort ?? "last_visit_desc",
@@ -1080,6 +1083,8 @@ export function AppClient() {
     }
   }, [selectedHouseholder]);
 
+  const { targets: myOpenTodoTargets } = useMyOpenTodoTargets(userId);
+
   const { filteredEstablishments, filteredHouseholders } = useBusinessFilteredLists({
     establishments,
     householders,
@@ -1087,7 +1092,8 @@ export function AppClient() {
     filtersHouseholders,
     userVisitedEstablishments,
     userVisitedHouseholders,
-    userId
+    userId,
+    myOpenTodoTargets,
   });
 
   const handleRemoveStatus = (status: string) => {
@@ -1145,6 +1151,7 @@ export function AppClient() {
       areas: [],
       floors: [],
       myEstablishments: false,
+      myTodosOnly: false,
       nearMe: false,
       userLocation: null,
       sort: prev.sort || 'last_visit_desc',
@@ -1227,7 +1234,8 @@ export function AppClient() {
     householders,
     filters,
     userVisitedEstablishments,
-    businessTab
+    businessTab,
+    myOpenTodoTargets,
   });
 
   // Congregation functions
@@ -1457,6 +1465,7 @@ export function AppClient() {
           dynamicStatusOptions={dynamicStatusOptions}
           dynamicAreaOptions={dynamicAreaOptions}
           dynamicFloorOptions={dynamicFloorOptions}
+          myOpenTodoTargets={myOpenTodoTargets}
           popNavigation={popNavigation}
           pushNavigation={pushNavigation}
           setCurrentSection={setCurrentSection}

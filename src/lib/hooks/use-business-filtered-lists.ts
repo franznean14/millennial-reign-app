@@ -5,8 +5,13 @@ import {
   calculateDistance,
   type BusinessFiltersState,
   type EstablishmentWithDetails,
-  type HouseholderWithDetails
+  type HouseholderWithDetails,
+  type MyOpenTodoTargets,
 } from "@/lib/db/business";
+import {
+  computeEstablishmentIdsFromTodoHouseholders,
+  establishmentMatchesMyOpenTodos,
+} from "@/lib/utils/business-todo-filter";
 
 interface UseBusinessFilteredListsOptions {
   establishments: EstablishmentWithDetails[];
@@ -16,6 +21,7 @@ interface UseBusinessFilteredListsOptions {
   userVisitedEstablishments: Set<string>;
   userVisitedHouseholders: Set<string>;
   userId?: string | null;
+  myOpenTodoTargets?: MyOpenTodoTargets;
 }
 
 export function useBusinessFilteredLists({
@@ -25,8 +31,18 @@ export function useBusinessFilteredLists({
   filtersHouseholders,
   userVisitedEstablishments,
   userVisitedHouseholders,
-  userId
+  userId,
+  myOpenTodoTargets,
 }: UseBusinessFilteredListsOptions) {
+  const establishmentIdsFromTodoHouseholders = useMemo(
+    () =>
+      computeEstablishmentIdsFromTodoHouseholders(
+        householders,
+        myOpenTodoTargets?.householderIds ?? new Set()
+      ),
+    [householders, myOpenTodoTargets]
+  );
+
   const filteredEstablishments = useMemo(() => {
     const filters = filtersEstablishments;
     const base = establishments.filter((establishment) => {
@@ -87,6 +103,18 @@ export function useBusinessFilteredLists({
           establishment.lng
         );
         if (distanceKm > 0.15) return false;
+      }
+
+      if (filters.myTodosOnly && myOpenTodoTargets) {
+        if (
+          !establishmentMatchesMyOpenTodos(
+            establishment,
+            myOpenTodoTargets,
+            establishmentIdsFromTodoHouseholders
+          )
+        ) {
+          return false;
+        }
       }
 
       return true;
@@ -191,7 +219,14 @@ export function useBusinessFilteredLists({
     }
 
     return sorted;
-  }, [establishments, filtersEstablishments, userVisitedEstablishments]);
+  }, [
+    establishments,
+    filtersEstablishments,
+    userVisitedEstablishments,
+    userId,
+    myOpenTodoTargets,
+    establishmentIdsFromTodoHouseholders,
+  ]);
 
   const filteredHouseholders = useMemo(() => {
     const filters = filtersHouseholders;

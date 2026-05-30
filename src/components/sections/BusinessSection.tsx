@@ -16,8 +16,10 @@ import type {
   BusinessFiltersState,
   EstablishmentWithDetails,
   HouseholderWithDetails,
+  MyOpenTodoTargets,
   VisitWithUser
 } from "@/lib/db/business";
+import { filterHouseholdersWithMyOpenTodos } from "@/lib/utils/business-todo-filter";
 
 type BusinessTab = "establishments" | "householders" | "map";
 type EstablishmentSelectionSource = "list" | "map";
@@ -118,6 +120,7 @@ export interface BusinessSectionProps {
   dynamicStatusOptions: { value: string; label: string }[];
   dynamicAreaOptions: { value: string; label: string }[];
   dynamicFloorOptions: { value: string; label: string }[];
+  myOpenTodoTargets: MyOpenTodoTargets;
   popNavigation: () => string | null;
   pushNavigation: (section: string) => void;
   setCurrentSection: (section: string) => void;
@@ -163,6 +166,7 @@ export function BusinessSection({
   dynamicStatusOptions,
   dynamicAreaOptions,
   dynamicFloorOptions,
+  myOpenTodoTargets,
   popNavigation,
   pushNavigation,
   setCurrentSection,
@@ -203,6 +207,7 @@ export function BusinessSection({
     filters.areas.length > 0 ||
     filters.floors.length > 0 ||
     filters.myEstablishments ||
+    filters.myTodosOnly ||
     !!filters.sort;
 
   const defaultFilters = useMemo<BusinessFiltersState>(
@@ -213,11 +218,20 @@ export function BusinessSection({
       areas: [],
       floors: [],
       myEstablishments: false,
+      myTodosOnly: false,
       nearMe: false,
       userLocation: null,
       sort: "last_visit_desc"
     }),
     []
+  );
+
+  const visibleEstablishmentHouseholders = useCallback(
+    (householders: HouseholderWithDetails[]) => {
+      if (!filters.myTodosOnly) return householders;
+      return filterHouseholdersWithMyOpenTodos(householders, myOpenTodoTargets);
+    },
+    [filters.myTodosOnly, myOpenTodoTargets]
   );
 
   const clearFilters = useCallback(() => {
@@ -394,7 +408,7 @@ export function BusinessSection({
       <EstablishmentDetails
         establishment={selectedEstablishmentDetails?.establishment ?? selectedEstablishment}
         visits={selectedEstablishmentDetails?.visits || []}
-        householders={selectedEstablishmentDetails?.householders || []}
+        householders={visibleEstablishmentHouseholders(selectedEstablishmentDetails?.householders || [])}
         isLoading={establishmentDetailsLoading}
         canManagePersonalTerritoryOwner={canManagePersonalTerritoryOwner}
         onBackClick={closeEstablishmentSideDetails}
@@ -547,7 +561,7 @@ export function BusinessSection({
                     <EstablishmentDetails
                       establishment={selectedEstablishmentDetails?.establishment ?? selectedEstablishment}
                       visits={selectedEstablishmentDetails?.visits || []}
-                      householders={selectedEstablishmentDetails?.householders || []}
+                      householders={visibleEstablishmentHouseholders(selectedEstablishmentDetails?.householders || [])}
                       isLoading={establishmentDetailsLoading}
                       canManagePersonalTerritoryOwner={canManagePersonalTerritoryOwner}
                       onBackClick={() => {
