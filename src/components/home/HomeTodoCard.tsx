@@ -1855,6 +1855,7 @@ export function HomeTodoCard({
     () => filteredOpenTodos.filter((todo) => !isTodoAssigned(todo)),
     [filteredOpenTodos, isTodoAssigned]
   );
+  const showSplitOpenHeaderBadges = Boolean(userId && !establishmentId && !householderId);
   /** Match drawer section order (assigned, then unassigned) so the home card preview aligns with the full list. */
   const cardPreviewOpenTodos = useMemo(() => {
     if (userId && !establishmentId && !householderId) {
@@ -1869,11 +1870,83 @@ export function HomeTodoCard({
     filteredAssignedOpenTodos,
     filteredUnassignedOpenTodos,
   ]);
-  const displayTodos = cardPreviewOpenTodos.slice(0, 5);
+  const maxCardPreviewRows = 5;
+  const cardPreviewAssignedList = useMemo(() => {
+    if (!showSplitOpenHeaderBadges) return [];
+    return filteredAssignedOpenTodos.slice(0, maxCardPreviewRows);
+  }, [showSplitOpenHeaderBadges, filteredAssignedOpenTodos]);
+  const cardPreviewUnassignedList = useMemo(() => {
+    if (!showSplitOpenHeaderBadges) return [];
+    const remaining = maxCardPreviewRows - cardPreviewAssignedList.length;
+    return filteredUnassignedOpenTodos.slice(0, Math.max(0, remaining));
+  }, [showSplitOpenHeaderBadges, cardPreviewAssignedList.length, filteredUnassignedOpenTodos]);
+  const displayTodos = cardPreviewOpenTodos.slice(0, maxCardPreviewRows);
   const displayCompletedPreview = filteredCompletedTodos.slice(0, 1);
   const openCount = filteredOpenTodos.length;
+  const assignedOpenCount = filteredAssignedOpenTodos.length;
+  const unassignedOpenCount = filteredUnassignedOpenTodos.length;
   const doneCount = filteredCompletedTodos.length;
+
+  const renderTodoHeaderBadges = (badgeClassName: string) => {
+    if (showSplitOpenHeaderBadges) {
+      return (
+        <>
+          <Badge variant="secondary" className={badgeClassName}>
+            To-Do {assignedOpenCount}
+          </Badge>
+          <Badge variant="outline" className={badgeClassName}>
+            Open {unassignedOpenCount}
+          </Badge>
+        </>
+      );
+    }
+    if (openCount > 0) {
+      return (
+        <Badge variant="secondary" className={badgeClassName}>
+          Open {openCount}
+        </Badge>
+      );
+    }
+    return null;
+  };
+
   const hasNavigation = !!(onNavigateToTodoCall || onTodoTap);
+
+  const renderCardSectionLabel = (label: string, count: number) => (
+    <div
+      className={cn(
+        "text-xs font-semibold tracking-wide inline-flex items-center gap-1.5",
+        studyBibleDarkClasses.muted
+      )}
+    >
+      <span>{label}</span>
+      <Badge variant="secondary" className="h-4 rounded-full px-1.5 text-[10px] leading-none font-normal">
+        {count}
+      </Badge>
+    </div>
+  );
+
+  const renderCardTodoRow = (todo: MyOpenCallTodoItem, index: number, listTier?: "assigned" | "unassigned") => (
+    <TodoRow
+      key={todo.id}
+      todo={todo}
+      onMarkDone={handleMarkDone}
+      onTap={hasNavigation ? handleTodoTap : undefined}
+      showCheckbox
+      currentUserId={userId}
+      showAssigneeAvatars={showAssigneeAvatars}
+      highlightOtherPublishers={showOtherPublisherDecorations}
+      participantsById={participantsById}
+      participantsReady={participantsReady}
+      rowIndex={index}
+      layoutId={`${layoutScopeId}-card-${todo.id}`}
+      layoutTransition={todoLayoutTransition}
+      hideHouseholderNameBadge={!!householderId}
+      hideHouseholderEstablishmentBadge={!!householderId}
+      listTier={listTier}
+    />
+  );
+
   const showAssigneeAvatars = Boolean(userId || establishmentId || householderId);
   const showOtherPublisherDecorations = Boolean(
     userId && !establishmentId && !householderId && !filters.myUpdatesOnly
@@ -3444,42 +3517,42 @@ export function HomeTodoCard({
           >
             <ListTodo className="h-4 w-4 shrink-0" />
             <span>To-Do</span>
-            {openCount > 0 && (
-              <Badge
-                variant="secondary"
-                className="ml-1 h-4 rounded-full px-1.5 text-[10px] leading-none"
-              >
-                {openCount}
-              </Badge>
-            )}
+            <span className="ml-1 inline-flex items-center gap-1">
+              {renderTodoHeaderBadges("h-4 rounded-full px-1.5 text-[10px] leading-none")}
+            </span>
               <ChevronRight className="h-3.5 w-3.5 ml-auto opacity-80 dark:opacity-100" />
           </button>
           <div className={cn("min-h-0 flex-1 overflow-y-auto scrollbar-hide", headerVariant === "bar" && "p-4")}>
-            <ul className="space-y-2.5">
-              {filteredOpenTodos.length === 0 && filteredCompletedTodos.length === 0 ? (
-                <li className={cn("text-sm text-muted-foreground py-1", studyBibleDarkClasses.muted)}>{emptyText}</li>
-              ) : (
-                displayTodos.map((todo, index) => (
-                  <TodoRow
-                    key={todo.id}
-                    todo={todo}
-                    onMarkDone={handleMarkDone}
-                    onTap={hasNavigation ? handleTodoTap : undefined}
-                    showCheckbox
-                    currentUserId={userId}
-                    showAssigneeAvatars={showAssigneeAvatars}
-                    highlightOtherPublishers={showOtherPublisherDecorations}
-                    participantsById={participantsById}
-                    participantsReady={participantsReady}
-                    rowIndex={index}
-                    layoutId={`${layoutScopeId}-card-${todo.id}`}
-                    layoutTransition={todoLayoutTransition}
-                    hideHouseholderNameBadge={!!householderId}
-                    hideHouseholderEstablishmentBadge={!!householderId}
-                  />
-                ))
-              )}
-            </ul>
+            {filteredOpenTodos.length === 0 && filteredCompletedTodos.length === 0 ? (
+              <p className={cn("text-sm text-muted-foreground py-1", studyBibleDarkClasses.muted)}>{emptyText}</p>
+            ) : showSplitOpenHeaderBadges ? (
+              <div className="space-y-3">
+                {assignedOpenCount > 0 ? (
+                  <div className="space-y-2">
+                    {renderCardSectionLabel("To-Do", assignedOpenCount)}
+                    <ul className="space-y-2.5">
+                      {cardPreviewAssignedList.map((todo, index) =>
+                        renderCardTodoRow(todo, index, "assigned")
+                      )}
+                    </ul>
+                  </div>
+                ) : null}
+                {unassignedOpenCount > 0 ? (
+                  <div className="space-y-2">
+                    {renderCardSectionLabel("Open", unassignedOpenCount)}
+                    <ul className="space-y-2.5">
+                      {cardPreviewUnassignedList.map((todo, index) =>
+                        renderCardTodoRow(todo, index + cardPreviewAssignedList.length, "unassigned")
+                      )}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <ul className="space-y-2.5">
+                {displayTodos.map((todo, index) => renderCardTodoRow(todo, index))}
+              </ul>
+            )}
             {filteredCompletedTodos.length > 0 && (
               <>
                 <div className={cn("text-xs text-muted-foreground mt-4 mb-2 font-medium inline-flex items-center gap-1.5", studyBibleDarkClasses.muted)}>
@@ -3543,18 +3616,7 @@ export function HomeTodoCard({
               <DrawerTitle className="flex w-full flex-wrap items-center justify-center gap-2 text-center text-lg font-bold">
                 <ListTodo className="h-4 w-4 shrink-0" />
                 To-Do
-                <Badge
-                  variant="secondary"
-                  className="h-5 rounded-full px-2 text-[11px] leading-none"
-                >
-                  Open {openCount}
-                </Badge>
-                <Badge
-                  variant="outline"
-                  className="h-5 rounded-full px-2 text-[11px] leading-none"
-                >
-                  Done {doneCount}
-                </Badge>
+                {renderTodoHeaderBadges("h-5 rounded-full px-2 text-[11px] leading-none")}
               </DrawerTitle>
             </DrawerHeader>
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -3575,18 +3637,7 @@ export function HomeTodoCard({
               <DrawerTitle className="flex w-full flex-wrap items-center justify-center gap-2 text-center text-lg font-bold">
                 <ListTodo className="h-4 w-4 shrink-0" />
                 To-Do
-                <Badge
-                  variant="secondary"
-                  className="h-5 rounded-full px-2 text-[11px] leading-none"
-                >
-                  Open {openCount}
-                </Badge>
-                <Badge
-                  variant="outline"
-                  className="h-5 rounded-full px-2 text-[11px] leading-none"
-                >
-                  Done {doneCount}
-                </Badge>
+                {renderTodoHeaderBadges("h-5 rounded-full px-2 text-[11px] leading-none")}
               </DrawerTitle>
             </DrawerHeader>
             <div className="flex min-h-0 flex-1 flex-col px-4">
@@ -4139,6 +4190,7 @@ function TodoRow({
   hideHouseholderNameBadge = false,
   hideHouseholderEstablishmentBadge = false,
   headerAction,
+  listTier,
 }: {
   todo: MyOpenCallTodoItem;
   onMarkDone: (todo: MyOpenCallTodoItem, checked: boolean) => void;
@@ -4156,6 +4208,8 @@ function TodoRow({
   hideHouseholderNameBadge?: boolean;
   hideHouseholderEstablishmentBadge?: boolean;
   headerAction?: ReactNode;
+  /** Home card preview: shows whether the row is assigned (To-Do) or pool (Open). */
+  listTier?: "assigned" | "unassigned";
 }) {
   const canNavigate = !!onTap && (!!todo.call_id || !!todo.establishment_id || !!todo.householder_id);
   const householderStatus = todo.context_status || "for_scouting";
@@ -4173,7 +4227,7 @@ function TodoRow({
   const hasEstablishmentBadge =
     isHouseholder && !!todo.context_establishment_name && !hideHouseholderEstablishmentBadge;
   const hasVisibleBadges = hasNameBadge || hasEstablishmentBadge;
-  const collapseHeaderRow = !hasVisibleBadges && !headerAction;
+  const collapseHeaderRow = !hasVisibleBadges && !headerAction && !listTier;
   const assigneeAvatarsNode =
     showAssigneeAvatars && assigneeSlots.length > 0 ? (
       <div className="inline-flex items-center gap-1 shrink-0 ml-auto pl-1">
@@ -4204,9 +4258,18 @@ function TodoRow({
         />
       )}
       <div className="min-w-0 flex-1 flex flex-col gap-2.5 pr-2.5">
-        {!collapseHeaderRow && (todo.context_name || (showAssigneeAvatars && assigneeSlots.length > 0) || !!headerAction) ? (
+        {!collapseHeaderRow &&
+        (listTier || todo.context_name || (showAssigneeAvatars && assigneeSlots.length > 0) || !!headerAction) ? (
           <div className="flex items-center gap-1.5 min-w-0 w-full">
             <div className="flex items-center gap-1.5 min-w-0 flex-1 overflow-hidden">
+              {listTier ? (
+                <Badge
+                  variant={listTier === "assigned" ? "secondary" : "outline"}
+                  className="h-4 shrink-0 rounded-full px-1.5 text-[9px] leading-none font-medium"
+                >
+                  {listTier === "assigned" ? "To-Do" : "Open"}
+                </Badge>
+              ) : null}
               {todo.context_name ? (
                 <>
                   {isHouseholder ? (
