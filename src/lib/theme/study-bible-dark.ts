@@ -142,6 +142,11 @@ export const studyBibleSectionToggle = {
   trackShell:
     "relative w-full overflow-hidden rounded-xl border shadow-lg border-[#e2dde8] bg-[#ede9f3] dark:border-[#1c1921] dark:bg-[#2a2534]",
   group: "flex h-full min-h-0 w-full min-w-full gap-0 rounded-none",
+  /** Horizontal scroll tabs (members groups): flush left, scroll when overflow. */
+  scrollableTabGroup: "w-max min-w-full justify-start",
+  /** Fixed-count tabs that evenly fill the shell edge-to-edge (profile sections). */
+  filledTabGroup: "w-full",
+  filledTabItem: "min-h-12 flex-1 basis-0 !max-w-none py-2",
   item: joinStudyBibleClasses(
     sectionToggleItemRadius,
     "min-w-0 bg-transparent",

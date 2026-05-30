@@ -61,6 +61,15 @@ const FAB_MAIN_HEIGHT_MOBILE = "3.5rem";
 const FAB_MAIN_HEIGHT_TABLET_DOCK = "4.75rem";
 const FAB_MOBILE_BOTTOM_CSS = "calc(max(env(safe-area-inset-bottom),0px) + 80px)";
 const FAB_TABLET_DOCK_BOTTOM_CSS = "calc(max(env(safe-area-inset-bottom),0px) + 28px)";
+/** iPad / tablet: center main FAB in bottom nav notch (matches UnifiedFab). */
+const FAB_TABLET_BOTTOM_NAV_MAIN = cn(
+  "md:h-[4.75rem] md:w-[4.75rem] md:[&_svg]:h-8 md:[&_svg]:w-8",
+  "md:!bottom-[calc(max(env(safe-area-inset-bottom),0px)+28px)]",
+  "md:transition-[left,transform] md:duration-300 md:ease-[cubic-bezier(0.34,1.2,0.64,1)]",
+  "md:!left-1/2 md:!-translate-x-1/2 md:!z-40 md:!right-auto"
+);
+const FAB_TABLET_BOTTOM_NAV_ACTIONS =
+  "md:!left-1/2 md:!right-auto md:[--fab-action-x:-50%] md:[--fab-action-offset-step:0px] md:[--fab-action-closed-y:72px]";
 
 function FabActionLabel({ action }: { action: FabAction }) {
   return (
@@ -175,6 +184,9 @@ export function FabMenu({
   const hasStandardActions = actions.length > 0;
   if (!hasStandardActions && !hasDockedBulkActions) return null;
 
+  /** Bulk sheet dock (tablet right edge) keeps legacy side FAB; everything else centers on md+. */
+  const useTabletBottomNavCenter = !tabletDockedToBulkTodoSheet;
+
   const sheetRem = tabletDockedSheetMaxWidthRem;
   const dockFabRightExpr = `min(100vw, ${sheetRem}rem) + max(12px,env(safe-area-inset-right,0px))`;
   const DOCK_ICON_CENTER_NUDGE_CSS = `(4.75rem - 3rem) / 2`;
@@ -265,7 +277,11 @@ export function FabMenu({
           size="lg"
           omitDefaultHorizontalAnchor={tabletDockedToBulkTodoSheet && !isMobileBulkDock}
           style={dockedMainFabStyle}
-          className={cn(studyBibleDarkClasses.fabMenuMain, mainClassName)}
+          className={cn(
+            studyBibleDarkClasses.fabMenuMain,
+            useTabletBottomNavCenter && FAB_TABLET_BOTTOM_NAV_MAIN,
+            mainClassName
+          )}
           data-fab-menu={menuId}
           {...(tabletDockedToBulkTodoSheet ? { "data-bulk-todo-sheet-fab": "" as const } : {})}
         >
@@ -314,6 +330,7 @@ export function FabMenu({
                     "pointer-events-auto fixed right-4 z-40 shadow-lg md:right-6 md:z-10 md:[--fab-action-effective-row-x:var(--fab-action-row-x)] md:[--fab-action-effective-arc-y:var(--fab-action-arc-y)]",
                     studyBibleDarkClasses.fabMenuActionShell,
                     resolveFabMenuActionSurface(action),
+                    useTabletBottomNavCenter && FAB_TABLET_BOTTOM_NAV_ACTIONS,
                     actionClassName
                   )}
                   style={{

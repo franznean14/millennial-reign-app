@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { format as formatDate } from "date-fns";
 import { upsertProfile } from "@/lib/db/profiles";
@@ -9,11 +9,24 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/sonner";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-import { Crosshair } from "lucide-react";
+import { FabMenu } from "@/components/shared/FabMenu";
+import { Crosshair, Loader2, Save } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { studyBibleDarkClasses, studyBibleSectionToggle } from "@/lib/theme/study-bible-dark";
+import { sidebarFormClasses } from "@/components/business/sidebar-form-styles";
+
+type ProfileSectionTab = "personal" | "contact" | "congregation";
+
+const PROFILE_SECTION_TABS: { value: ProfileSectionTab; label: string }[] = [
+  { value: "personal", label: "Personal" },
+  { value: "contact", label: "Contact and Address" },
+  { value: "congregation", label: "Congregation" },
+];
 
 const ALL_CONGREGATION_PRIVILEGES: Privilege[] = [
   "Elder",
@@ -52,6 +65,8 @@ export function ProfileForm({
   onSaved,
 }: ProfileFormProps) {
   const [saving, setSaving] = useState(false);
+  const [activeSection, setActiveSection] = useState<ProfileSectionTab>("personal");
+  const formRef = useRef<HTMLFormElement>(null);
   const [groupOptions, setGroupOptions] = useState<string[]>([]);
   const [showGroupInput, setShowGroupInput] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
@@ -486,26 +501,73 @@ export function ProfileForm({
   const showPrivilegesUi =
     canEditPrivilegesAndBwi || canEditPioneerPrivilegesOnly;
 
+  const requestSave = () => {
+    if (saving) return;
+    if (!hasChanges()) {
+      toast.message("No changes to save");
+      return;
+    }
+    formRef.current?.requestSubmit();
+  };
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 pb-10">
-      {/* Personal Information Section */}
+    <>
+    <form
+      ref={formRef}
+      onSubmit={handleSubmit}
+      className={cn(
+        "space-y-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+32px)]",
+        sidebarFormClasses.form
+      )}
+    >
+      <div className="flex justify-center">
+        <div className={cn("relative w-full max-w-screen-sm", studyBibleSectionToggle.shell)}>
+          <ToggleGroup
+            type="single"
+            value={activeSection}
+            onValueChange={(value) => {
+              if (value) setActiveSection(value as ProfileSectionTab);
+            }}
+            className={cn(studyBibleSectionToggle.group, studyBibleSectionToggle.filledTabGroup)}
+          >
+            {PROFILE_SECTION_TABS.map((tab) => (
+              <ToggleGroupItem
+                key={tab.value}
+                value={tab.value}
+                className={cn(
+                  studyBibleSectionToggle.item,
+                  studyBibleSectionToggle.itemCompact,
+                  studyBibleSectionToggle.filledTabItem
+                )}
+                title={tab.label}
+              >
+                  <span className="w-full whitespace-normal break-words text-center text-[11px] font-medium">
+                    {tab.label}
+                  </span>
+                </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+        </div>
+      </div>
+
+      {activeSection === "personal" ? (
       <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Personal</h3>
-        
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="first_name">First Name *</Label>
+            <Label htmlFor="first_name" className={sidebarFormClasses.label}>First Name *</Label>
             <Input
               id="first_name"
+              className={sidebarFormClasses.input}
               value={formData.first_name}
               onChange={(e) => setFormData(prev => ({ ...prev, first_name: e.target.value }))}
               required
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="last_name">Last Name *</Label>
+            <Label htmlFor="last_name" className={sidebarFormClasses.label}>Last Name *</Label>
             <Input
               id="last_name"
+              className={sidebarFormClasses.input}
               value={formData.last_name}
               onChange={(e) => setFormData(prev => ({ ...prev, last_name: e.target.value }))}
               required
@@ -514,9 +576,10 @@ export function ProfileForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="middle_name">Middle Name</Label>
+          <Label htmlFor="middle_name" className={sidebarFormClasses.label}>Middle Name</Label>
           <Input
             id="middle_name"
+            className={sidebarFormClasses.input}
             value={formData.middle_name || ""}
             onChange={(e) => setFormData(prev => ({ ...prev, middle_name: e.target.value }))}
           />
@@ -524,21 +587,23 @@ export function ProfileForm({
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label>Date of Birth</Label>
+            <Label className={sidebarFormClasses.label}>Date of Birth</Label>
             <DatePicker
               date={formData.date_of_birth}
               onSelect={(date) => setFormData(prev => ({ ...prev, date_of_birth: date }))}
               placeholder="Select birth date"
+              className={sidebarFormClasses.button}
               mobileShowActions
               mobileAllowClear
             />
           </div>
           <div className="space-y-2">
-            <Label>Date of Baptism</Label>
+            <Label className={sidebarFormClasses.label}>Date of Baptism</Label>
             <DatePicker
               date={formData.date_of_baptism}
               onSelect={(date) => setFormData(prev => ({ ...prev, date_of_baptism: date }))}
               placeholder="Select baptism date"
+              className={sidebarFormClasses.button}
               mobileShowActions
               mobileAllowClear
             />
@@ -546,55 +611,56 @@ export function ProfileForm({
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="gender">Gender</Label>
+          <Label htmlFor="gender" className={sidebarFormClasses.label}>Gender</Label>
           <Select
             value={formData.gender || ""}
             onValueChange={(value: Gender) => setFormData(prev => ({ ...prev, gender: value }))}
           >
-            <SelectTrigger>
+            <SelectTrigger className={cn("h-10", sidebarFormClasses.selectTrigger)}>
               <SelectValue placeholder="Select gender" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className={sidebarFormClasses.selectContent}>
               <SelectItem value="male">Male</SelectItem>
               <SelectItem value="female">Female</SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
+      ) : null}
 
-      {/* Contact and Address Section */}
-      <div className="space-y-4 border-t pt-4">
-        <h3 className="text-lg font-semibold">Contact and Address</h3>
+      {activeSection === "contact" ? (
+      <div className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="phone_number">Contact Number</Label>
-                 <Input
-                   id="phone_number"
-                   type="tel"
-                   value={formData.phone_number || ""}
-                   onChange={(e) => setFormData(prev => ({ ...prev, phone_number: e.target.value }))}
-                   placeholder="+63 912 345 6789"
-                 />
+          <Label htmlFor="phone_number" className={sidebarFormClasses.label}>Contact Number</Label>
+          <Input
+            id="phone_number"
+            type="tel"
+            className={sidebarFormClasses.input}
+            value={formData.phone_number || ""}
+            onChange={(e) => setFormData(prev => ({ ...prev, phone_number: e.target.value }))}
+            placeholder="+63 912 345 6789"
+          />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="address">Address</Label>
+          <Label htmlFor="address" className={sidebarFormClasses.label}>Address</Label>
           <Input
             id="address"
+            className={sidebarFormClasses.input}
             value={formData.address || ""}
             onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
             placeholder="123 Main St, City, State, ZIP"
           />
-          <p className="text-xs text-muted-foreground">
+          <p className={cn("text-xs", studyBibleDarkClasses.subtle)}>
             For emergency contact purposes - visible to congregation elders
           </p>
         </div>
 
-        {/* GPS Coordinates */}
         <div className="space-y-2">
-          <Label>GPS Coordinates (Optional)</Label>
+          <Label className={sidebarFormClasses.label}>GPS Coordinates (Optional)</Label>
           <div className="flex gap-2">
-            <Input 
-              className="flex-1"
+            <Input
+              className={cn("flex-1", sidebarFormClasses.input)}
               placeholder="14.5995, 120.9842"
               value={gps}
               onChange={(e) => {
@@ -616,10 +682,11 @@ export function ProfileForm({
                 }
               }}
             />
-            <Button 
-              type="button" 
-              variant="outline" 
+            <Button
+              type="button"
+              variant="outline"
               size="icon"
+              className={sidebarFormClasses.button}
               onClick={getCurrentLocation}
               disabled={gpsLoading}
               title={gpsLoading ? "Getting location..." : "Use current location"}
@@ -631,24 +698,23 @@ export function ProfileForm({
               )}
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className={cn("text-xs", studyBibleDarkClasses.subtle)}>
             Enter coordinates manually or use current location for emergency contact purposes
           </p>
         </div>
       </div>
+      ) : null}
 
-      {/* Congregation Section */}
-      <div className="space-y-4 border-t pt-4">
-        <h3 className="text-lg font-semibold">Congregation</h3>
-        
+      {activeSection === "congregation" ? (
+      <div className="space-y-4">
         {/* Group Field - Only visible to Elders */}
         {formData.privileges.includes('Elder') && (
           <div className="space-y-2">
-            <Label htmlFor="group_name">Group</Label>
+            <Label htmlFor="group_name" className={sidebarFormClasses.label}>Group</Label>
             {showGroupInput ? (
               <div className="flex gap-2">
                 <Input
-                  className="flex-1"
+                  className={cn("flex-1", sidebarFormClasses.input)}
                   placeholder="Enter new group name"
                   value={formData.group_name}
                   onChange={(e) => setFormData(prev => ({ ...prev, group_name: e.target.value }))}
@@ -657,6 +723,7 @@ export function ProfileForm({
                 <Button
                   type="button"
                   variant="outline"
+                  className={sidebarFormClasses.button}
                   onClick={() => setShowGroupInput(false)}
                 >
                   Cancel
@@ -676,10 +743,10 @@ export function ProfileForm({
                   }
                 }}
               >
-                <SelectTrigger>
+                <SelectTrigger className={cn("h-10", sidebarFormClasses.selectTrigger)}>
                   <SelectValue placeholder="Select group or add new" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className={sidebarFormClasses.selectContent}>
                   <SelectItem value="__none__">No group</SelectItem>
                   {groupOptions.map((group) => (
                     <SelectItem key={group} value={group}>
@@ -697,13 +764,12 @@ export function ProfileForm({
 
         {showPrivilegesUi && (
           <div className="space-y-2">
-            <Label>Privileges</Label>
+            <Label className={sidebarFormClasses.label}>Privileges</Label>
             {canEditPioneerPrivilegesOnly && !canEditPrivilegesAndBwi ? (
-              <p className="text-xs text-muted-foreground">
+              <p className={cn("text-xs", studyBibleDarkClasses.subtle)}>
                 Update your pioneer status for the congregation. Other assignments are set by elders.
               </p>
             ) : null}
-            {/* Match Manage User: AnimatePresence so privilege buttons exit when filtered out */}
             <AnimatePresence initial={false}>
               <div className="grid grid-cols-2 gap-2">
                 {visiblePrivileges.map((privilege) => (
@@ -719,7 +785,12 @@ export function ProfileForm({
                       type="button"
                       variant={formData.privileges.includes(privilege) ? "default" : "outline"}
                       onClick={() => togglePrivilege(privilege)}
-                      className="justify-start w-full"
+                      className={cn(
+                        "w-full justify-start",
+                        formData.privileges.includes(privilege)
+                          ? sidebarFormClasses.primaryButton
+                          : sidebarFormClasses.button
+                      )}
                     >
                       {formData.privileges.includes(privilege) ? "✓ " : ""}
                       {privilege}
@@ -730,49 +801,55 @@ export function ProfileForm({
             </AnimatePresence>
           </div>
         )}
-      </div>
 
-      {/* BWI Participation Section — visible to participants; editable by Elder/admin */}
-      {bwiEnabled && (canEditPrivilegesAndBwi || isBwiParticipant) && (
-        <div className="space-y-2">
-          <Label>Business Witnessing Initiative (BWI)</Label>
-          <div className="flex items-center justify-between p-3 border rounded-md">
-            <div className="space-y-1">
-              <div className="text-sm font-medium">BWI Participant</div>
-              <div className="text-xs text-muted-foreground">
-                {isBwiParticipant
-                  ? "You can access the Business tab in navigation"
-                  : canEditPrivilegesAndBwi
-                    ? "Enable to access Business Witnessing features"
-                    : "Participation is managed by congregation elders/admins"}
+        {bwiEnabled && (canEditPrivilegesAndBwi || isBwiParticipant) && (
+          <div className="space-y-2">
+            <Label className={sidebarFormClasses.label}>Business Witnessing Initiative (BWI)</Label>
+            <div
+              className={cn(
+                "flex items-center justify-between rounded-lg border p-3",
+                sidebarFormClasses.panel,
+                "border-border dark:border-[#1c1921]"
+              )}
+            >
+              <div className="space-y-1">
+                <div className="text-sm font-medium text-foreground dark:text-[#fffaff]">BWI Participant</div>
+                <div className={cn("text-xs", studyBibleDarkClasses.subtle)}>
+                  {isBwiParticipant
+                    ? "You can access the Business tab in navigation"
+                    : canEditPrivilegesAndBwi
+                      ? "Enable to access Business Witnessing features"
+                      : "Participation is managed by congregation elders/admins"}
+                </div>
               </div>
+              <Switch
+                disabled={!canEditPrivilegesAndBwi}
+                checked={isBwiParticipant}
+                onCheckedChange={toggleBwiParticipation}
+              />
             </div>
-            <Switch
-              disabled={!canEditPrivilegesAndBwi}
-              checked={isBwiParticipant}
-              onCheckedChange={toggleBwiParticipation}
-            />
           </div>
-        </div>
-      )}
-
-      <div className="flex justify-end gap-2">
-        <Button 
-          key={saving ? "saving" : "save"}
-          type="submit" 
-          disabled={saving || !hasChanges()}
-          className={saving ? "opacity-75" : ""}
-        >
-          {saving ? (
-            <div className="flex items-center gap-2">
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
-              Saving...
-            </div>
-          ) : (
-            "Update Profile"
-          )}
-        </Button>
+        )}
       </div>
+      ) : null}
     </form>
+
+    <FabMenu
+      label="Save profile"
+      actions={[
+        {
+          label: saving ? "Saving..." : "Update Profile",
+          icon: saving ? (
+            <Loader2 className="size-6 animate-spin" />
+          ) : (
+            <Save className="size-6" />
+          ),
+          className: studyBibleDarkClasses.fabMenuPrimary,
+          onClick: requestSave,
+        },
+      ]}
+      mainIcon={<Save className="size-6" />}
+    />
+    </>
   );
 }

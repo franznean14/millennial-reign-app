@@ -313,7 +313,7 @@ export function CongregationMembers({
               onValueChange={(v) => {
                 if (v) setActiveGroup(v);
               }}
-              className={cn(studyBibleSectionToggle.group, "w-max justify-center")}
+              className={cn(studyBibleSectionToggle.group, studyBibleSectionToggle.scrollableTabGroup)}
             >
               {groupTabValues.map((g) => (
                 <ToggleGroupItem

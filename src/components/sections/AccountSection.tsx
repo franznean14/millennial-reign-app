@@ -1,6 +1,6 @@
 "use client";
 
-import type { Dispatch, SetStateAction } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { SectionShell } from "@/components/shared/SectionShell";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,9 +12,63 @@ import { ProfileForm } from "@/components/account/ProfileForm";
 import { EditAccountForm } from "@/components/account/EditAccountForm";
 import { PasswordForm } from "@/components/account/PasswordForm";
 import { FormModal } from "@/components/shared/FormModal";
-import { ChevronRight, MapPin } from "lucide-react";
+import { FabMenu } from "@/components/shared/FabMenu";
+import { ChevronRight, MapPin, SquarePen } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 
 type AccountTab = "profile" | "account";
+
+function AccountDetailField({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="min-w-0 space-y-1.5">
+      <p
+        className={cn(
+          "text-[11px] font-semibold uppercase tracking-[0.08em]",
+          studyBibleDarkClasses.muted
+        )}
+      >
+        {label}
+      </p>
+      <div className="text-sm leading-relaxed text-foreground dark:text-[#fffaff]">{children}</div>
+    </div>
+  );
+}
+
+function AccountContentCard({
+  title,
+  children,
+  className,
+}: {
+  title?: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <article
+      className={cn(
+        "min-w-0 overflow-hidden rounded-xl border shadow-md",
+        studyBibleDarkClasses.bwiCard,
+        className
+      )}
+    >
+      {title ? (
+        <div
+          className={cn(
+            "border-b px-4 py-3",
+            studyBibleDarkClasses.divider,
+            studyBibleDarkClasses.laneTitleBar
+          )}
+        >
+          <h2 className="text-xs font-bold uppercase tracking-[0.08em] text-foreground dark:text-[#fffaff]">
+            {title}
+          </h2>
+        </div>
+      ) : null}
+      <div className="space-y-4 p-4">{children}</div>
+    </article>
+  );
+}
 
 interface AccountSectionProps {
   userId: string;
@@ -72,176 +126,176 @@ export function AccountSection({
   return (
     <SectionShell
       motionKey="account"
-      className="space-y-6 pb-20 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+60px)] md:pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+72px)]"
+      className="space-y-6 pb-[calc(max(env(safe-area-inset-bottom),0px)+88px)] pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+80px)] md:pb-20 md:pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+80px)]"
     >
-        <div className="space-y-6 p-4">
+        <div className="space-y-4 md:mx-auto md:max-w-6xl md:space-y-6 md:p-4">
           {accountTab === "profile" ? (
-            <>
-              <section className="space-y-4">
-                <div className="flex items-center gap-4">
-                  <Avatar className="h-16 w-16">
+            <div className="space-y-4 md:grid md:grid-cols-2 md:items-start md:gap-4 md:space-y-0">
+              <AccountContentCard>
+                <div className="flex flex-col items-center gap-4 text-center md:flex-row md:items-start md:text-left">
+                  <Avatar className="h-20 w-20 shrink-0 md:h-20 md:w-20">
                     <AvatarImage src={profile?.avatar_url || undefined} alt={fullName} />
                     <AvatarFallback className="text-lg">{initials}</AvatarFallback>
                   </Avatar>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <h1 className="text-xl font-semibold">{fullName}</h1>
-                      {!!userId && (
-                        <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
-                          Edit Profile
-                        </Button>
-                      )}
-                    </div>
-                    {profile?.username && <p className="text-sm text-muted-foreground">@{profile.username}</p>}
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {profile?.group_name && (
-                        <Badge variant="outline" className="text-xs">
-                          {profile.group_name}
-                        </Badge>
-                      )}
-                      {profile?.privileges?.length > 0 &&
-                        profile.privileges.map((privilege: string) => (
+                  <div className="min-w-0 w-full flex-1">
+                    <h1 className="text-xl font-semibold leading-tight md:text-2xl">{fullName}</h1>
+                    {profile?.username ? (
+                      <p className={cn("mt-1 text-sm", studyBibleDarkClasses.muted)}>@{profile.username}</p>
+                    ) : null}
+                    {(profile?.group_name || (profile?.privileges?.length ?? 0) > 0) ? (
+                      <div className="mt-3 flex flex-wrap justify-center gap-1.5 md:justify-start">
+                        {profile?.group_name ? (
+                          <Badge variant="outline" className="text-xs">
+                            {profile.group_name}
+                          </Badge>
+                        ) : null}
+                        {profile?.privileges?.map((privilege: string) => (
                           <Badge key={privilege} variant="secondary" className="text-xs">
                             {privilege}
                           </Badge>
                         ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid gap-3 text-sm">
-                  {profile?.date_of_birth && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Date of Birth:</span>
-                      <span>{formatDate(profile.date_of_birth)}</span>
-                    </div>
-                  )}
-                  {profile?.date_of_baptism && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Date of Baptism:</span>
-                      <span>{formatDate(profile.date_of_baptism)}</span>
-                    </div>
-                  )}
-                  {profile?.gender && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Gender:</span>
-                      <span className="capitalize">{profile.gender}</span>
-                    </div>
-                  )}
-                </div>
-              </section>
-
-              <Separator />
-
-              <section className="space-y-4">
-                <h2 className="text-lg font-semibold">Contact Information</h2>
-                <div className="grid gap-3 text-sm">
-                  {profile?.phone_number && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Phone:</span>
-                      <span>{profile.phone_number}</span>
-                    </div>
-                  )}
-                  {profile?.address && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Address:</span>
-                      <div className="text-right text-sm leading-relaxed">
-                        {profile.address.split(",").map((line: string, index: number) => (
-                          <div key={index} className={index > 0 ? "text-muted-foreground" : ""}>
-                            {line.trim()}
-                          </div>
-                        ))}
                       </div>
-                    </div>
-                  )}
-                  {profile?.address_latitude && profile?.address_longitude && (
-                    <div className="flex justify-end">
-                      <a
-                        className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs whitespace-nowrap hover:bg-muted"
-                        href={`https://www.google.com/maps/dir/?api=1&destination=${profile.address_latitude},${profile.address_longitude}`}
-                        target="_blank"
-                        rel="noreferrer"
-                      >
-                        <MapPin className="h-3.5 w-3.5" />
-                        Get Directions
-                      </a>
-                    </div>
-                  )}
-                  {!profile?.phone_number && !profile?.address && (
-                    <div className="text-sm text-muted-foreground">
-                      No contact information available. Edit your profile to add phone number and address.
-                    </div>
-                  )}
-                </div>
-              </section>
-            </>
-          ) : (
-            <>
-              <section className="space-y-4">
-                <h2 className="text-lg font-semibold">Account Settings</h2>
-                <div className="grid gap-3 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Email:</span>
-                    <span>{profile?.email || "Not set"}</span>
+                    ) : null}
                   </div>
-                  {profile?.username && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Username:</span>
-                      <span>@{profile.username}</span>
-                    </div>
-                  )}
-                  {profile?.time_zone && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Time Zone:</span>
-                      <span>{profile.time_zone}</span>
-                    </div>
-                  )}
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                  {!!userId && (
-                    <Button variant="outline" onClick={() => setEditAccountOpen(true)}>
+                {profile?.date_of_birth || profile?.date_of_baptism || profile?.gender ? (
+                  <>
+                    <Separator className={studyBibleDarkClasses.divider} />
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-4 md:grid-cols-2">
+                      {profile?.date_of_birth ? (
+                        <AccountDetailField label="Date of Birth">
+                          {formatDate(profile.date_of_birth)}
+                        </AccountDetailField>
+                      ) : null}
+                      {profile?.date_of_baptism ? (
+                        <AccountDetailField label="Date of Baptism">
+                          {formatDate(profile.date_of_baptism)}
+                        </AccountDetailField>
+                      ) : null}
+                      {profile?.gender ? (
+                        <div className="col-span-2 md:col-span-1">
+                          <AccountDetailField label="Gender">
+                            <span className="capitalize">{profile.gender}</span>
+                          </AccountDetailField>
+                        </div>
+                      ) : null}
+                    </div>
+                  </>
+                ) : null}
+              </AccountContentCard>
+
+              <AccountContentCard title="Contact Information">
+                {profile?.phone_number || profile?.address ? (
+                  <div className="grid gap-4">
+                    {profile?.phone_number ? (
+                      <AccountDetailField label="Phone">
+                        <a
+                          href={`tel:${profile.phone_number.replace(/\s/g, "")}`}
+                          className="break-all hover:underline"
+                        >
+                          {profile.phone_number}
+                        </a>
+                      </AccountDetailField>
+                    ) : null}
+                    {profile?.address ? (
+                      <AccountDetailField label="Address">
+                        <p className="whitespace-pre-line leading-relaxed">
+                          {profile.address.split(",").map((line: string) => line.trim()).join("\n")}
+                        </p>
+                      </AccountDetailField>
+                    ) : null}
+                    {profile?.address_latitude && profile?.address_longitude ? (
+                      <Button variant="outline" size="sm" className="w-full md:w-auto" asChild>
+                        <a
+                          href={`https://www.google.com/maps/dir/?api=1&destination=${profile.address_latitude},${profile.address_longitude}`}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <MapPin className="h-4 w-4 shrink-0" />
+                          Get Directions
+                        </a>
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p className={cn("text-sm leading-relaxed", studyBibleDarkClasses.muted)}>
+                    No contact information yet. Use Edit Profile to add a phone number and address.
+                  </p>
+                )}
+              </AccountContentCard>
+            </div>
+          ) : (
+            <div className="space-y-4 md:grid md:grid-cols-3 md:items-start md:gap-4 md:space-y-0">
+              <AccountContentCard title="Account Settings">
+                <div className="grid gap-4">
+                  <AccountDetailField label="Email">{profile?.email || "Not set"}</AccountDetailField>
+                  {profile?.username ? (
+                    <AccountDetailField label="Username">@{profile.username}</AccountDetailField>
+                  ) : null}
+                  {profile?.time_zone ? (
+                    <AccountDetailField label="Time Zone">{profile.time_zone}</AccountDetailField>
+                  ) : null}
+                </div>
+                <div className="flex flex-col gap-2 pt-1 sm:flex-row sm:flex-wrap">
+                  {!!userId ? (
+                    <Button variant="outline" className="w-full sm:w-auto" onClick={() => setEditAccountOpen(true)}>
                       Edit Account
                     </Button>
-                  )}
-                  {!!userId && (
-                    <Button variant="outline" onClick={() => setPasswordOpen(true)}>
+                  ) : null}
+                  {!!userId ? (
+                    <Button variant="outline" className="w-full sm:w-auto" onClick={() => setPasswordOpen(true)}>
                       {hasPassword ? "Edit Password" : "Add Password"}
                     </Button>
-                  )}
+                  ) : null}
                 </div>
-              </section>
+              </AccountContentCard>
 
-              <Separator />
-
-              <section className="space-y-4">
-                <h3 className="text-lg font-semibold">Notifications</h3>
+              <AccountContentCard title="Notifications">
                 <NotificationSettings />
-              </section>
+              </AccountContentCard>
 
-              <Separator />
-
-              <section className="space-y-4">
-                <h3 className="text-lg font-semibold">Security</h3>
-                <BiometricToggle />
-              </section>
-
-              <Separator />
-
-              <section className="space-y-4">
-                <h3 className="text-lg font-semibold">Legal</h3>
-                <div className="text-sm text-muted-foreground">
-                  <button
-                    onClick={() => setPrivacyPolicyOpen(true)}
-                    className="flex items-center gap-2 text-primary hover:underline hover:bg-muted/50 rounded-md px-2 py-1 -mx-2 -my-1 transition-colors"
-                  >
-                    <span>Learn more</span>
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                  <p className="mt-1">Learn how we collect, use, and protect your information.</p>
+              <AccountContentCard title="Security & Legal" className="md:col-span-1">
+                <div className="space-y-5">
+                  <div className="space-y-3">
+                    <p
+                      className={cn(
+                        "text-[11px] font-semibold uppercase tracking-[0.08em]",
+                        studyBibleDarkClasses.muted
+                      )}
+                    >
+                      Security
+                    </p>
+                    <BiometricToggle />
+                  </div>
+                  <Separator className={studyBibleDarkClasses.divider} />
+                  <div className="space-y-2">
+                    <p
+                      className={cn(
+                        "text-[11px] font-semibold uppercase tracking-[0.08em]",
+                        studyBibleDarkClasses.muted
+                      )}
+                    >
+                      Legal
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setPrivacyPolicyOpen(true)}
+                      className={cn(
+                        "flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2.5 text-left text-sm transition-colors",
+                        studyBibleDarkClasses.rowActionButton
+                      )}
+                    >
+                      <span>Privacy Policy</span>
+                      <ChevronRight className="h-4 w-4 shrink-0 opacity-70" />
+                    </button>
+                    <p className={cn("text-xs leading-relaxed", studyBibleDarkClasses.subtle)}>
+                      Learn how we collect, use, and protect your information.
+                    </p>
+                  </div>
                 </div>
-              </section>
-            </>
+              </AccountContentCard>
+            </div>
           )}
         </div>
 
@@ -250,6 +304,10 @@ export function AccountSection({
           onOpenChange={setEditing}
           title="Edit Profile"
           description="Edit your profile details and preferences"
+          desktopPresentation="left-sheet"
+          className="md:max-h-[100lvh]"
+          drawerDescriptionClassName="text-center"
+          skipFabRootInert
         >
           <ProfileForm
             userId={userId!}
@@ -433,6 +491,20 @@ export function AccountSection({
             </section>
           </div>
         </FormModal>
+
+        {accountTab === "profile" && !!userId && !editing ? (
+          <FabMenu
+            label="Profile actions"
+            actions={[
+              {
+                label: "Edit Profile",
+                icon: <SquarePen className="size-6" />,
+                onClick: () => setEditing(true),
+              },
+            ]}
+            mainIcon={<SquarePen className="size-6" />}
+          />
+        ) : null}
       </SectionShell>
   );
 }
