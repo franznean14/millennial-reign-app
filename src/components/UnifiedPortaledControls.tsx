@@ -12,7 +12,7 @@ import { FilterControls, type FilterBadge } from "@/components/shared/FilterCont
 import { buildFilterBadges } from "@/lib/utils/filter-badges";
 import { cn } from "@/lib/utils";
 import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
-import { LayoutGrid, List, Table as TableIcon, X, Crosshair, ChevronLeft, Edit } from "lucide-react";
+import { LayoutGrid, List, Table as TableIcon, X, ChevronLeft, Edit } from "lucide-react";
 import type { BusinessFiltersState, EstablishmentWithDetails, HouseholderWithDetails } from "@/lib/db/business";
 import { getBusinessDetailsHeaderTitleStatus, getStatusTitleColor } from "@/lib/utils/status-hierarchy";
 import {
@@ -303,7 +303,7 @@ function BusinessControlsContent({
               transition={{ type: "spring", stiffness: 300, damping: 30, bounce: 0 }}
               className="min-w-0 w-[calc(100%+2rem)] -mx-4 overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
             >
-              <div className="inline-flex w-max max-w-none items-center justify-start gap-3 px-4">
+              <div className="flex w-max min-w-full shrink-0 items-center justify-center gap-3 px-4">
               <FilterControls
                 isSearchActive={isSearchActive}
                 searchValue={filters.search}
@@ -360,7 +360,7 @@ function BusinessControlsContent({
               transition={{ type: "spring", stiffness: 300, damping: 30, bounce: 0 }}
               className="min-w-0 w-[calc(100%+2rem)] -mx-4 overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
             >
-              <div className="inline-flex w-max max-w-none items-center justify-start gap-3 px-4">
+              <div className="flex w-max min-w-full shrink-0 items-center justify-center gap-3 px-4">
                 <FilterControls
                   isSearchActive={isSearchActive}
                   searchValue={filters.search}
@@ -405,58 +405,26 @@ function BusinessControlsContent({
                   preserveActionButtonsWhenTogglesActive
                   containerClassName="whitespace-nowrap"
                   maxWidthClassName="mx-0"
+                  showNearMeFilter={showOtherButtons && businessTab !== "map"}
+                  nearMeActive={!!filters.nearMe}
+                  onNearMeToggle={onToggleNearMe}
                   trailingActions={
                     showOtherButtons && businessTab !== "map" ? (
-                      <>
-                        {filters.nearMe ? (
-                          <Button
-                            type="button"
-                            variant="default"
-                            size="sm"
-                            className={cn(
-                              "h-9 rounded-full px-3 flex items-center gap-2 flex-shrink-0 shadow-none border",
-                              studyBibleDarkClasses.filterToolbarButtonActive
-                            )}
-                            onClick={onToggleNearMe}
-                            aria-label="Near me"
-                          >
-                            <Crosshair className="h-4 w-4 flex-shrink-0" />
-                            <span className="text-sm whitespace-nowrap">Near Me</span>
-                            <X className="h-4 w-4 flex-shrink-0" />
-                          </Button>
-                        ) : (
-                          <Button
-                            type="button"
-                            variant="secondary"
-                            size="icon"
-                            className={cn(
-                              "h-9 w-9 rounded-full flex-shrink-0 shadow-none border",
-                              studyBibleDarkClasses.filterToolbarButton
-                            )}
-                            onClick={onToggleNearMe}
-                            aria-pressed={false}
-                            aria-label="Near me"
-                            title="Near me"
-                          >
-                            <Crosshair className="h-4 w-4" />
-                          </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="icon"
+                        className={cn(
+                          "h-9 w-9 rounded-full flex-shrink-0 shadow-none border",
+                          studyBibleDarkClasses.filterToolbarButton
                         )}
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          size="icon"
-                          className={cn(
-                            "h-9 w-9 rounded-full flex-shrink-0 shadow-none border",
-                            studyBibleDarkClasses.filterToolbarButton
-                          )}
-                          onClick={onCycleViewMode}
-                          title={`View: ${viewMode}`}
-                        >
-                          {viewMode === "detailed" && <LayoutGrid className="h-4 w-4" />}
-                          {viewMode === "compact" && <List className="h-4 w-4" />}
-                          {viewMode === "table" && <TableIcon className="h-4 w-4" />}
-                        </Button>
-                      </>
+                        onClick={onCycleViewMode}
+                        title={`View: ${viewMode}`}
+                      >
+                        {viewMode === "detailed" && <LayoutGrid className="h-4 w-4" />}
+                        {viewMode === "compact" && <List className="h-4 w-4" />}
+                        {viewMode === "table" && <TableIcon className="h-4 w-4" />}
+                      </Button>
                     ) : null
                   }
                   {...todoFilterControlProps}
