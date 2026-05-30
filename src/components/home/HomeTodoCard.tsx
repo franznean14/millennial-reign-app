@@ -1,6 +1,16 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef, useMemo, useId, type ReactNode } from "react";
+import {
+  useEffect,
+  useState,
+  useCallback,
+  useRef,
+  useMemo,
+  useId,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
 import { motion } from "motion/react";
 import {
   ListTodo,
@@ -229,6 +239,109 @@ function parseLocalDateString(value: string | null | undefined): Date | null {
   return date;
 }
 
+function stringArraysEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+function visitFiltersEqual(a: VisitFilters, b: VisitFilters): boolean {
+  return (
+    a.search === b.search &&
+    a.myUpdatesOnly === b.myUpdatesOnly &&
+    a.bwiOnly === b.bwiOnly &&
+    a.householderOnly === b.householderOnly &&
+    a.callDateFrom === b.callDateFrom &&
+    a.callDateTo === b.callDateTo &&
+    stringArraysEqual(a.statuses, b.statuses) &&
+    stringArraysEqual(a.areas, b.areas) &&
+    stringArraysEqual(a.assigneeIds, b.assigneeIds)
+  );
+}
+
+function mergeVisitFiltersFromHydrated(prev: VisitFilters, hydrated: VisitFilters): VisitFilters {
+  return {
+    search: typeof hydrated.search === "string" ? hydrated.search : prev.search,
+    statuses: Array.isArray(hydrated.statuses) ? hydrated.statuses : prev.statuses,
+    areas: Array.isArray(hydrated.areas) ? hydrated.areas : prev.areas,
+    assigneeIds: Array.isArray(hydrated.assigneeIds)
+      ? hydrated.assigneeIds.filter((id): id is string => typeof id === "string")
+      : prev.assigneeIds,
+    myUpdatesOnly:
+      typeof hydrated.myUpdatesOnly === "boolean" ? hydrated.myUpdatesOnly : prev.myUpdatesOnly,
+    bwiOnly: typeof hydrated.bwiOnly === "boolean" ? hydrated.bwiOnly : prev.bwiOnly,
+    householderOnly:
+      typeof hydrated.householderOnly === "boolean"
+        ? hydrated.householderOnly
+        : prev.householderOnly,
+    callDateFrom:
+      hydrated.callDateFrom === null || typeof hydrated.callDateFrom === "string"
+        ? hydrated.callDateFrom
+        : prev.callDateFrom,
+    callDateTo:
+      hydrated.callDateTo === null || typeof hydrated.callDateTo === "string"
+        ? hydrated.callDateTo
+        : prev.callDateTo,
+  };
+}
+
+type StoredTodoFiltersPayload = {
+  filters?: VisitFilters;
+  searchValue?: string;
+  dueDate?: string | null;
+};
+
+function serializeStoredTodoFiltersPayload(
+  filters: VisitFilters,
+  searchValue: string,
+  dueDateFilter: Date | null
+): string {
+  return JSON.stringify({
+    filters,
+    searchValue,
+    dueDate: dueDateFilter ? toLocalDateString(dueDateFilter) : null,
+  });
+}
+
+function dueDatesEqual(a: Date | null, b: Date | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return toLocalDateString(a) === toLocalDateString(b);
+}
+
+function applyStoredTodoFiltersFromParsed(
+  parsed: StoredTodoFiltersPayload,
+  current: {
+    filters: VisitFilters;
+    searchValue: string;
+    dueDateFilter: Date | null;
+  },
+  setters: {
+    setFilters: Dispatch<SetStateAction<VisitFilters>>;
+    setSearchValue: Dispatch<SetStateAction<string>>;
+    setIsSearchActive: Dispatch<SetStateAction<boolean>>;
+    setDueDateFilter: Dispatch<SetStateAction<Date | null>>;
+  }
+): void {
+  const hydrated = parsed.filters;
+  if (hydrated) {
+    const merged = mergeVisitFiltersFromHydrated(current.filters, hydrated);
+    if (!visitFiltersEqual(current.filters, merged)) {
+      setters.setFilters(merged);
+    }
+  }
+  if (typeof parsed.searchValue === "string" && parsed.searchValue !== current.searchValue) {
+    setters.setSearchValue(parsed.searchValue);
+    setters.setIsSearchActive(parsed.searchValue.trim().length > 0);
+  }
+  const nextDue = parseLocalDateString(parsed.dueDate);
+  if (!dueDatesEqual(current.dueDateFilter, nextDue)) {
+    setters.setDueDateFilter(nextDue);
+  }
+}
+
 function compareDeadlineAsc(a: MyOpenCallTodoItem, b: MyOpenCallTodoItem): number {
   const aDeadline = a.deadline_date ? new Date(`${a.deadline_date}T00:00:00`).getTime() : Number.POSITIVE_INFINITY;
   const bDeadline = b.deadline_date ? new Date(`${b.deadline_date}T00:00:00`).getTime() : Number.POSITIVE_INFINITY;
@@ -378,6 +491,8 @@ interface HomeTodoCardProps {
   detailsBridgeSyntheticTodo?: MyOpenCallTodoItem | null;
   detailsBridgeOpen?: boolean;
   onDetailsBridgeOpenChange?: (open: boolean) => void;
+  /** Bulk form: set true while est/contact/to-do editors are open so bulk submit stays isolated. */
+  onDetailsBridgeNestedFormActiveChange?: (active: boolean) => void;
 }
 
 export function HomeTodoCard({
@@ -397,6 +512,7 @@ export function HomeTodoCard({
   detailsBridgeSyntheticTodo = null,
   detailsBridgeOpen = false,
   onDetailsBridgeOpenChange,
+  onDetailsBridgeNestedFormActiveChange,
 }: HomeTodoCardProps) {
   const [openTodos, setOpenTodos] = useState<MyOpenCallTodoItem[]>(() => prefillOpenTodos ?? []);
   const [completedTodos, setCompletedTodos] = useState<MyOpenCallTodoItem[]>(() => prefillCompletedTodos ?? []);
@@ -411,6 +527,7 @@ export function HomeTodoCard({
   /** Bumps on scope change so stale IndexedDB / network results never overwrite the active list. */
   const loadGenRef = useRef(0);
   const filtersSyncInProgressRef = useRef(false);
+  const skipPersistAfterSyncRef = useRef(false);
   const [filters, setFilters] = useState<VisitFilters>({
     search: "",
     statuses: [],
@@ -426,6 +543,12 @@ export function HomeTodoCard({
   const [isSearchActive, setIsSearchActive] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [dueDateFilter, setDueDateFilter] = useState<Date | null>(null);
+  const filtersRef = useRef(filters);
+  filtersRef.current = filters;
+  const searchValueRef = useRef(searchValue);
+  searchValueRef.current = searchValue;
+  const dueDateFilterRef = useRef(dueDateFilter);
+  dueDateFilterRef.current = dueDateFilter;
   const [participantsById, setParticipantsById] = useState<Record<string, ParticipantProfile>>({});
   const [participantsReady, setParticipantsReady] = useState(false);
   const [bulkEditPromptOpen, setBulkEditPromptOpen] = useState(false);
@@ -684,45 +807,12 @@ export function HomeTodoCard({
         setFiltersHydrated(true);
         return;
       }
-      const parsed = JSON.parse(raw) as {
-        filters?: VisitFilters;
-        searchValue?: string;
-        dueDate?: string | null;
-      };
-      const hydrated = parsed.filters;
-      if (hydrated) {
-        setFilters((prev) => ({
-          ...prev,
-          search: typeof hydrated.search === "string" ? hydrated.search : prev.search,
-          statuses: Array.isArray(hydrated.statuses) ? hydrated.statuses : prev.statuses,
-          areas: Array.isArray(hydrated.areas) ? hydrated.areas : prev.areas,
-          assigneeIds: Array.isArray(hydrated.assigneeIds)
-            ? hydrated.assigneeIds.filter((id): id is string => typeof id === "string")
-            : prev.assigneeIds,
-          myUpdatesOnly:
-            typeof hydrated.myUpdatesOnly === "boolean"
-              ? hydrated.myUpdatesOnly
-              : prev.myUpdatesOnly,
-          bwiOnly: typeof hydrated.bwiOnly === "boolean" ? hydrated.bwiOnly : prev.bwiOnly,
-          householderOnly:
-            typeof hydrated.householderOnly === "boolean"
-              ? hydrated.householderOnly
-              : prev.householderOnly,
-          callDateFrom:
-            hydrated.callDateFrom === null || typeof hydrated.callDateFrom === "string"
-              ? hydrated.callDateFrom
-              : prev.callDateFrom,
-          callDateTo:
-            hydrated.callDateTo === null || typeof hydrated.callDateTo === "string"
-              ? hydrated.callDateTo
-              : prev.callDateTo,
-        }));
-      }
-      if (typeof parsed.searchValue === "string") {
-        setSearchValue(parsed.searchValue);
-        setIsSearchActive(parsed.searchValue.trim().length > 0);
-      }
-      setDueDateFilter(parseLocalDateString(parsed.dueDate));
+      const parsed = JSON.parse(raw) as StoredTodoFiltersPayload;
+      applyStoredTodoFiltersFromParsed(
+        parsed,
+        { filters, searchValue, dueDateFilter },
+        { setFilters, setSearchValue, setIsSearchActive, setDueDateFilter }
+      );
     } catch {
       // no-op
     } finally {
@@ -737,45 +827,16 @@ export function HomeTodoCard({
       try {
         const raw = window.localStorage.getItem(TODO_FILTERS_LOCAL_STORAGE_KEY(filterScopeKey));
         if (!raw) return;
-        const parsed = JSON.parse(raw) as {
-          filters?: VisitFilters;
-          searchValue?: string;
-          dueDate?: string | null;
-        };
-        const hydrated = parsed.filters;
-        if (hydrated) {
-          setFilters((prev) => ({
-            ...prev,
-            search: typeof hydrated.search === "string" ? hydrated.search : prev.search,
-            statuses: Array.isArray(hydrated.statuses) ? hydrated.statuses : prev.statuses,
-            areas: Array.isArray(hydrated.areas) ? hydrated.areas : prev.areas,
-            assigneeIds: Array.isArray(hydrated.assigneeIds)
-              ? hydrated.assigneeIds.filter((id): id is string => typeof id === "string")
-              : prev.assigneeIds,
-            myUpdatesOnly:
-              typeof hydrated.myUpdatesOnly === "boolean"
-                ? hydrated.myUpdatesOnly
-                : prev.myUpdatesOnly,
-            bwiOnly: typeof hydrated.bwiOnly === "boolean" ? hydrated.bwiOnly : prev.bwiOnly,
-            householderOnly:
-              typeof hydrated.householderOnly === "boolean"
-                ? hydrated.householderOnly
-                : prev.householderOnly,
-            callDateFrom:
-              hydrated.callDateFrom === null || typeof hydrated.callDateFrom === "string"
-                ? hydrated.callDateFrom
-                : prev.callDateFrom,
-            callDateTo:
-              hydrated.callDateTo === null || typeof hydrated.callDateTo === "string"
-                ? hydrated.callDateTo
-                : prev.callDateTo,
-          }));
-        }
-        if (typeof parsed.searchValue === "string") {
-          setSearchValue(parsed.searchValue);
-          setIsSearchActive(parsed.searchValue.trim().length > 0);
-        }
-        setDueDateFilter(parseLocalDateString(parsed.dueDate));
+        const parsed = JSON.parse(raw) as StoredTodoFiltersPayload;
+        applyStoredTodoFiltersFromParsed(
+          parsed,
+          {
+            filters: filtersRef.current,
+            searchValue: searchValueRef.current,
+            dueDateFilter: dueDateFilterRef.current,
+          },
+          { setFilters, setSearchValue, setIsSearchActive, setDueDateFilter }
+        );
       } catch {
         // no-op
       }
@@ -784,10 +845,9 @@ export function HomeTodoCard({
       const detail = (event as CustomEvent<{ filterScopeKey?: string }>).detail;
       if (detail?.filterScopeKey !== filterScopeKey) return;
       filtersSyncInProgressRef.current = true;
+      skipPersistAfterSyncRef.current = true;
       applyStoredFilters();
-      queueMicrotask(() => {
-        filtersSyncInProgressRef.current = false;
-      });
+      filtersSyncInProgressRef.current = false;
     };
     window.addEventListener(HOME_TODO_FILTERS_SYNC_EVENT, onFiltersSynced);
     return () => window.removeEventListener(HOME_TODO_FILTERS_SYNC_EVENT, onFiltersSynced);
@@ -795,15 +855,15 @@ export function HomeTodoCard({
 
   useEffect(() => {
     if (!filterScopeKey || !filtersHydrated || filtersSyncInProgressRef.current) return;
+    if (skipPersistAfterSyncRef.current) {
+      skipPersistAfterSyncRef.current = false;
+      return;
+    }
     try {
-      window.localStorage.setItem(
-        TODO_FILTERS_LOCAL_STORAGE_KEY(filterScopeKey),
-        JSON.stringify({
-          filters,
-          searchValue,
-          dueDate: dueDateFilter ? toLocalDateString(dueDateFilter) : null,
-        })
-      );
+      const storageKey = TODO_FILTERS_LOCAL_STORAGE_KEY(filterScopeKey);
+      const payload = serializeStoredTodoFiltersPayload(filters, searchValue, dueDateFilter);
+      if (window.localStorage.getItem(storageKey) === payload) return;
+      window.localStorage.setItem(storageKey, payload);
       window.dispatchEvent(
         new CustomEvent(HOME_TODO_FILTERS_SYNC_EVENT, {
           detail: { filterScopeKey },
@@ -2063,6 +2123,22 @@ export function HomeTodoCard({
       setTodoEditorUseLeftPanel(false);
     }
   }, [detailsBridgeOnly, detailsBridgeOpen]);
+
+  useEffect(() => {
+    if (!detailsBridgeOnly || !onDetailsBridgeNestedFormActiveChange) return;
+    const nestedFormActive =
+      detailsEntityEditOpen || contactSubdrawerEntityEditOpen || !!todoEditorContext;
+    onDetailsBridgeNestedFormActiveChange(nestedFormActive);
+    return () => {
+      onDetailsBridgeNestedFormActiveChange(false);
+    };
+  }, [
+    contactSubdrawerEntityEditOpen,
+    detailsBridgeOnly,
+    detailsEntityEditOpen,
+    onDetailsBridgeNestedFormActiveChange,
+    todoEditorContext,
+  ]);
 
   const refreshTodoDetailEntity = useCallback(async () => {
     const hhTarget = selectedTodoForDetails?.householder_id;

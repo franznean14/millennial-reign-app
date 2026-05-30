@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -398,6 +398,9 @@ export function BulkTodoForm({
   /** Populated once `addRow` is defined below; FAB companion invokes via window event on tablet. */
   const companionAddPickerRef = useRef<(() => void) | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const bulkFormDomId = useId();
+  /** True while bulk details bridge has an open nested editor (est/contact/to-do). Blocks accidental bulk submit. */
+  const detailsBridgeNestedFormActiveRef = useRef(false);
   const companionFabSubmitRef = useRef<(() => void) | null>(null);
   const companionFabClearRef = useRef<(() => void) | null>(null);
   const companionFabDeleteAllRef = useRef<(() => void) | null>(null);
@@ -2395,6 +2398,7 @@ export function BulkTodoForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (detailsBridgeNestedFormActiveRef.current) return;
     if (saving || deletingAllSourceTodos) return;
 
     setSaving(true);
@@ -2652,7 +2656,7 @@ export function BulkTodoForm({
   const savedTodoRowCount = rows.filter((row) => !!row.sourceTodoId).length;
 
   companionFabSubmitRef.current = () => {
-    if (!canSubmit) return;
+    if (detailsBridgeNestedFormActiveRef.current || !canSubmit) return;
     formRef.current?.requestSubmit();
   };
   companionFabClearRef.current = () => {
@@ -3420,7 +3424,9 @@ export function BulkTodoForm({
   );
 
   return (
+    <>
     <form
+      id={bulkFormDomId}
       ref={formRef}
       className={cn(
         "flex flex-col gap-4 pt-2 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)]",
@@ -3641,6 +3647,7 @@ export function BulkTodoForm({
         </div>
         <Button
           type="submit"
+          form={bulkFormDomId}
           size="sm"
           disabled={!canSubmit}
           className={cn(
@@ -3925,6 +3932,8 @@ export function BulkTodoForm({
         </DrawerContent>
       </Drawer>
 
+    </form>
+
       {publisherUserId ? (
         <div className="sr-only" aria-hidden>
           <HomeTodoCard
@@ -3936,11 +3945,13 @@ export function BulkTodoForm({
               setBulkTargetDetailsOpen(open);
               if (!open) setBulkTargetDetailsSyntheticTodo(null);
             }}
+            onDetailsBridgeNestedFormActiveChange={(active) => {
+              detailsBridgeNestedFormActiveRef.current = active;
+            }}
           />
         </div>
       ) : null}
-
-    </form>
+    </>
   );
 }
 
