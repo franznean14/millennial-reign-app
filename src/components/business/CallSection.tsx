@@ -5,6 +5,7 @@ import { ChevronRight } from "lucide-react";
 import { FormModal } from "@/components/shared/FormModal";
 import { FormDrawerRoot, FormDrawerContent } from "@/components/shared/FormDrawerPhone";
 import { drawerFormScrollPadClass } from "@/lib/theme/form-drawer-phone";
+import { getContactPrimaryStatus } from "@/lib/utils/status-hierarchy";
 import { type VisitWithUser } from "@/lib/db/business";
 import { CallForm } from "./CallForm";
 import { formatVisitDateShort } from "@/lib/utils/visit-history-ui";
@@ -96,7 +97,7 @@ export function CallSection({
           <div
             className={`relative ${dotSizeClass} rounded-full flex-shrink-0 border-2 ${
               visit.contact_id
-                ? getStatusDotColor(visit.contact?.status || "potential")
+                ? getStatusDotColor(visit.contact ? getContactPrimaryStatus(visit.contact) : "potential")
                 : getStatusDotColor(visit.establishment?.status || "for_scouting")
             }`}
             style={{ zIndex: 1 }}
@@ -120,7 +121,7 @@ export function CallSection({
           titleBadge={
             visit.contact_id && visit.contact?.name && !isContactContext ? (
               <VisitStatusBadge
-                status={visit.contact.status || "potential"}
+                status={visit.contact ? getContactPrimaryStatus(visit.contact) : "potential"}
                 label={visit.contact.name}
               />
             ) : undefined

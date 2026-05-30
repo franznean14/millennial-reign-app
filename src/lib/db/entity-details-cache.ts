@@ -12,7 +12,7 @@ export function establishmentDetailsCacheKey(establishmentId: string) {
 }
 
 export function contactDetailsCacheKey(contactId: string) {
-  return `contact:details:v4:${contactId}`;
+  return `contact:details:v5:${contactId}`;
 }
 
 export type EstablishmentDetailsSnapshot = {

@@ -38,7 +38,7 @@ import {
   establishmentHasMapLocation,
 } from "@/lib/db/business";
 import { getAssigneeAvatarInitials, getInitialsFromName } from "@/lib/utils/visit-history-ui";
-import { getBestStatus, getStatusTitleColor } from "@/lib/utils/status-hierarchy";
+import { getBestStatus, getContactPrimaryStatus, getStatusTitleColor, resolveContactStatuses } from "@/lib/utils/status-hierarchy";
 import { formatStatusText } from "@/lib/utils/formatters";
 import { VisitStatusBadge } from "@/components/visit/VisitStatusBadge";
 import { FilterControls, type FilterBadge } from "@/components/shared/FilterControls";
@@ -729,7 +729,7 @@ export function BulkTodoForm({
         establishment_id: estId,
         contact_id: hhId,
         context_name: option.label,
-        context_status: hh?.status ?? option.status ?? null,
+        context_status: hh ? getContactPrimaryStatus(hh) : option.status ?? null,
         context_establishment_name: hh?.establishment_name?.trim() || option.subtitle || null,
         context_establishment_status: est ? getBestStatus(est.statuses || []) : undefined,
         context_area: est?.area?.trim() ?? null,
@@ -773,7 +773,7 @@ export function BulkTodoForm({
           label: hh.name,
           typeLabel: "Contact",
           subtitle: hh.establishment_name || "",
-          status: hh.status || undefined,
+          status: getContactPrimaryStatus(hh) || undefined,
           avatars: [],
           searchText: `${hh.name}`.toLowerCase(),
         };
@@ -907,7 +907,7 @@ export function BulkTodoForm({
           label: contact.name,
           typeLabel: "Contact" as const,
           subtitle: parentName,
-          status: contact.status || undefined,
+          status: getContactPrimaryStatus(contact) || undefined,
           avatars: chosenAvatars,
           latestDateValue: insight?.dateValue ?? null,
           latestSource: insight?.source,
@@ -985,7 +985,7 @@ export function BulkTodoForm({
         .filter((contact): contact is ContactWithDetails & { id: string } => !!contact.id)
         .filter((contact) => {
           if (filters.bwiOnly) return false;
-          const status = contact.status || undefined;
+          const status = getContactPrimaryStatus(contact) || undefined;
           if (filters.statuses.length > 0 && (!status || !filters.statuses.includes(status))) return false;
           if (filters.areas.length > 0) return false;
           if (term) {
@@ -1225,8 +1225,8 @@ export function BulkTodoForm({
               ? contactsById.get(row.contact_id)?.name
               : null;
           const contactStatus =
-            row.contact_id && contactsById.get(row.contact_id)?.status
-              ? contactsById.get(row.contact_id)?.status
+            row.contact_id && contactsById.get(row.contact_id)
+              ? getContactPrimaryStatus(contactsById.get(row.contact_id)!)
               : null;
           const dateValue = row.visit_date || row.created_at || null;
           if (row.establishment_id) {
@@ -1260,8 +1260,8 @@ export function BulkTodoForm({
               ? contactsById.get(effectiveContactId)?.name
               : null;
           const contactStatus =
-            effectiveContactId && contactsById.get(effectiveContactId)?.status
-              ? contactsById.get(effectiveContactId)?.status
+            effectiveContactId && contactsById.get(effectiveContactId)
+              ? getContactPrimaryStatus(contactsById.get(effectiveContactId)!)
               : null;
           const dateValue = row.deadline_date || row.created_at || null;
           if (effectiveEstablishmentId) {
@@ -1300,8 +1300,8 @@ export function BulkTodoForm({
                 ? contactsById.get(effectiveContactId)?.name
                 : null,
             contactStatus:
-              effectiveContactId && contactsById.get(effectiveContactId)?.status
-                ? contactsById.get(effectiveContactId)?.status
+              effectiveContactId && contactsById.get(effectiveContactId)
+                ? getContactPrimaryStatus(contactsById.get(effectiveContactId)!)
                 : null,
           };
           if (effectiveEstablishmentId) {
@@ -1563,8 +1563,8 @@ export function BulkTodoForm({
       );
     }
     const contact = contactsById.get(targetId);
-    if (!contact?.status) return [];
-    return [contact.status];
+    if (!contact?.statuses?.length) return [];
+    return resolveContactStatuses(contact);
   };
 
   const isBulkAddModeActive = (rowId: string) => !!targetBulkAddModeByRow[rowId];
@@ -2240,7 +2240,7 @@ export function BulkTodoForm({
                   ? "personal_territory"
                   : getBestStatus(selectedEstablishment.statuses || []))
               : null)
-          : selectedContact?.status ?? null;
+          : selectedContact ? getContactPrimaryStatus(selectedContact) : null;
       const optimisticContextEstablishmentStatus =
         isContactTargetType(targetType) && selectedContact?.establishment_id
           ? (() => {

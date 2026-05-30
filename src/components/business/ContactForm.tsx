@@ -51,8 +51,7 @@ interface ContactFormProps {
     id: string;
     establishment_id?: string | null;
     name: string;
-    status: ContactStatus;
-    statuses?: ContactStatus[];
+    statuses: ContactStatus[];
     note?: string | null;
     lat?: number | null;
     lng?: number | null;
@@ -76,10 +75,7 @@ export function ContactForm({ establishments, selectedEstablishmentId, onSaved, 
   const [status, setStatus] = useState<string[]>(() =>
     normalizeContactStatusesForForm(
       initialData
-        ? resolveContactStatuses({
-            status: initialData.status,
-            statuses: initialData.statuses,
-          })
+        ? resolveContactStatuses({ statuses: initialData.statuses })
         : ["potential"]
     )
   );
@@ -231,10 +227,7 @@ export function ContactForm({ establishments, selectedEstablishmentId, onSaved, 
       setName(initialData.name || "");
       setStatus(
         normalizeContactStatusesForForm(
-          resolveContactStatuses({
-            status: initialData.status,
-            statuses: initialData.statuses,
-          })
+          resolveContactStatuses({ statuses: initialData.statuses })
         )
       );
       setNote(initialData.note || "");
@@ -291,7 +284,6 @@ export function ContactForm({ establishments, selectedEstablishmentId, onSaved, 
         establishment_id: context === "congregation" ? null : estId || null,
         publisher_id: context === "congregation" ? publisherId : initialData?.publisher_id || null,
         name,
-        status: statusesPayload[0] ?? "potential",
         statuses: statusesPayload,
         note: note || null,
         lat: latValue,

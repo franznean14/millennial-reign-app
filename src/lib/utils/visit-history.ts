@@ -1,6 +1,6 @@
 "use client";
 
-import { getBestStatus } from "@/lib/utils/status-hierarchy";
+import { getBestStatus, getContactPrimaryStatus } from "@/lib/utils/status-hierarchy";
 
 export interface VisitRecord {
   id: string;
@@ -70,7 +70,7 @@ export function buildVisitRecords(establishmentVisits: any[] = [], contactVisits
     id: `hh-${v.id}`,
     visit_date: v.visit_date,
     contact_name: (v.contacts as any)?.name,
-    contact_status: (v.contacts as any)?.status,
+    contact_status: getContactPrimaryStatus({ statuses: (v.contacts as any)?.statuses }),
     establishment_name: establishmentData?.name,
     establishment_status: getBestStatus(establishmentData?.statuses || []),
     establishment_area: establishmentData?.area || null,

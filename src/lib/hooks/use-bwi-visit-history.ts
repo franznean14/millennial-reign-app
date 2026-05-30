@@ -6,6 +6,7 @@ import { isContactVisitType } from "@/lib/db/contact-supabase";
 import { dedupeAndSortVisits } from "@/lib/utils/visit-history";
 import { getBwiVisitsPage, getRecentBwiVisits } from "@/lib/db/visit-history";
 import { formatStatusText } from "@/lib/utils/formatters";
+import { getContactPrimaryStatus } from "@/lib/utils/status-hierarchy";
 import { getVisitSearchText, visitDayKey } from "@/lib/utils/visit-history-ui";
 import { buildFilterBadges, type FilterBadge } from "@/lib/utils/filter-badges";
 import type { VisitAssigneeFilterOption, VisitFilters } from "@/components/visit/VisitFiltersForm";
@@ -35,9 +36,9 @@ interface VisitAddedBusPayload {
   note?: string;
   publisher_id?: string;
   establishment?: { name?: string; status?: string };
-  contact?: { name?: string; status?: string };
+  contact?: { name?: string; statuses?: string[] };
   /** @deprecated legacy bus payload */
-  householder?: { name?: string; status?: string };
+  householder?: { name?: string; statuses?: string[] };
   publisher?: { first_name?: string; last_name?: string; avatar_url?: string | null };
   partner?: { first_name?: string; last_name?: string; avatar_url?: string | null };
 }
@@ -199,7 +200,11 @@ export function useBwiVisitHistory({
             visit_date: visitData.visit_date,
             establishment_name: visitData.establishment?.name,
             contact_name: visitData.contact?.name ?? visitData.householder?.name,
-            contact_status: visitData.contact?.status ?? visitData.householder?.status,
+            contact_status: visitData.contact?.statuses?.length
+              ? getContactPrimaryStatus(visitData.contact)
+              : visitData.householder?.statuses?.length
+                ? getContactPrimaryStatus(visitData.householder)
+                : undefined,
             visit_type: visitData.contact_id ? "contact" : "establishment",
             establishment_id: visitData.establishment_id,
             contact_id: visitData.contact_id ?? undefined,

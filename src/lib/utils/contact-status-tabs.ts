@@ -44,7 +44,7 @@ export function formatContactStatusTabLabel(tab: string): string {
 }
 
 export function contactMatchesStatusTab(
-  contact: Pick<ContactWithDetails, "status" | "statuses">,
+  contact: Pick<ContactWithDetails, "statuses">,
   tab: string
 ): boolean {
   const present = resolveContactStatuses(contact);
@@ -55,7 +55,7 @@ export function contactMatchesStatusTab(
 }
 
 export function collectPresentContactStatuses(
-  contacts: Pick<ContactWithDetails, "status" | "statuses">[]
+  contacts: Pick<ContactWithDetails, "statuses">[]
 ): Set<string> {
   const set = new Set<string>();
   contacts.forEach((contact) => {

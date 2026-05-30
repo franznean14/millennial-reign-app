@@ -19,7 +19,7 @@ import {
 import { CONTACT_STATUS_DISPLAY_ORDER } from "@/lib/utils/contact-status-tabs";
 import { formatContactStatusCompactText, formatStatusText } from "@/lib/utils/formatters";
 import { getStudyBibleDarkCardFade, getStudyBibleDarkCardShade, studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
-import { getStatusTitleColor } from "@/lib/utils/status-hierarchy";
+import { getContactPrimaryStatus, getContactSecondaryStatuses, getStatusTitleColor, resolveContactStatuses } from "@/lib/utils/status-hierarchy";
 
 interface ContactListProps {
   contacts: ContactWithDetails[];
@@ -229,6 +229,8 @@ export function ContactList({
 
   const getStatusColorClass = (status: string) => {
     switch (status) {
+      case 'potential':
+        return 'bg-cyan-500';
       case 'do_not_call':
         return 'bg-red-500';
       case 'interested':
@@ -268,6 +270,47 @@ export function ContactList({
   const getContactCallTotal = (contact: ContactWithDetails) =>
     contact.visit_count ?? 0;
 
+  const renderContactStatusCell = (
+    contact: ContactWithDetails,
+    options?: { compact?: boolean; table?: boolean }
+  ) => {
+    const primary = getContactPrimaryStatus(contact);
+    const secondary = getContactSecondaryStatuses(contact);
+    const label = options?.table || options?.compact
+      ? formatStatusCompactText(primary)
+      : formatStatusText(primary);
+    const badgeClass = options?.table
+      ? "text-[10px] leading-4 px-1.5 py-0.5 rounded-sm"
+      : options?.compact
+        ? "text-xs px-1.5 py-0.5"
+        : undefined;
+
+    return (
+      <div className="flex items-center gap-1 min-w-0">
+        <Badge
+          variant="outline"
+          className={cn(getStatusTextColorClass(primary), badgeClass)}
+        >
+          {label}
+        </Badge>
+        {secondary.length > 0 ? (
+          <div className="flex items-center gap-0.5">
+            {secondary.slice(0, 3).map((status) => (
+              <div
+                key={status}
+                className={cn("w-1.5 h-1.5 rounded-full shrink-0", getStatusColorClass(status))}
+                title={formatStatusText(status)}
+              />
+            ))}
+            {secondary.length > 3 ? (
+              <span className="text-[10px] text-muted-foreground">+{secondary.length - 3}</span>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    );
+  };
+
   const sortedContactsForTable = useMemo(() => {
     if (viewMode !== "table") return contacts;
     const { column, dir } = contactTableSort;
@@ -299,8 +342,8 @@ export function ContactList({
           break;
         case "status":
           cmp = cmpStr(
-            formatStatusCompactText(ha.status).toLowerCase(),
-            formatStatusCompactText(hb.status).toLowerCase()
+            formatStatusCompactText(getContactPrimaryStatus(ha)).toLowerCase(),
+            formatStatusCompactText(getContactPrimaryStatus(hb)).toLowerCase()
           );
           break;
         case "establishment":
@@ -346,7 +389,9 @@ export function ContactList({
   }, [viewMode, contactTableSort.column, contactTableSort.dir]);
 
   const detailedStatusColumns = useMemo(() => {
-    const statuses = Array.from(new Set(contacts.map((contact) => contact.status || "potential")));
+    const statuses = Array.from(
+      new Set(contacts.flatMap((contact) => resolveContactStatuses(contact)))
+    );
     statuses.sort((a, b) => {
       const aIndex = CONTACT_STATUS_DISPLAY_ORDER.indexOf(a as (typeof CONTACT_STATUS_DISPLAY_ORDER)[number]);
       const bIndex = CONTACT_STATUS_DISPLAY_ORDER.indexOf(b as (typeof CONTACT_STATUS_DISPLAY_ORDER)[number]);
@@ -406,13 +451,8 @@ export function ContactList({
                   </div>
                 )}
                 {/* Status Badge */}
-                <div className="mt-2 flex items-center gap-2">
-                  <Badge
-                    variant="outline"
-                    className={cn(getStatusTextColorClass(contact.status))}
-                  >
-                    {formatStatusText(contact.status)}
-                  </Badge>
+                <div className="mt-2">
+                  {renderContactStatusCell(contact)}
                 </div>
               </div>
             </div>
@@ -496,14 +536,7 @@ export function ContactList({
                 <h3 className="font-semibold text-sm truncate" title={contact.name}>{truncateContactName(contact.name)}</h3>
                 
                 {/* Status Badge */}
-                <div className="flex items-center gap-1">
-                  <Badge 
-                    variant="outline" 
-                    className={cn("text-xs px-1.5 py-0.5", getStatusTextColorClass(contact.status))}
-                  >
-                    {formatStatusText(contact.status)}
-                  </Badge>
-                </div>
+                {renderContactStatusCell(contact, { compact: true })}
               </div>
               
               {/* Establishment and avatars in same line */}
@@ -615,14 +648,7 @@ export function ContactList({
                   <NameWithAvatarsCell name={contact.name} visitors={contact.top_visitors} />
                 </td>
                 <td className="p-3 w-[20%] md:w-[16%]">
-                  <div className="flex items-center gap-1 min-w-0">
-                    <Badge 
-                      variant="outline" 
-                      className={cn("text-[10px] leading-4 px-1.5 py-0.5 rounded-sm", getStatusTextColorClass(contact.status))}
-                    >
-                      {formatStatusCompactText(contact.status)}
-                    </Badge>
-                  </div>
+                  {renderContactStatusCell(contact, { table: true })}
                 </td>
                 <td className="p-3 min-w-0 w-[40%] md:w-[30%]">
                   {contact.establishment_name ? (
@@ -697,7 +723,9 @@ export function ContactList({
                   }}
                 >
                   {detailedStatusColumns.map((status) => {
-                    const columnContacts = contacts.filter((contact) => (contact.status || "potential") === status);
+                    const columnContacts = contacts.filter((contact) =>
+                      resolveContactStatuses(contact).includes(status)
+                    );
                     return (
                       <section
                         key={status}

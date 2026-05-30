@@ -562,7 +562,7 @@ export function AppClient() {
       const cachedContacts =
         cachedContactsRaw?.length
           ? cachedContactsRaw
-          : await cacheGet<ContactWithDetails[]>("householders:list:v2");
+          : await cacheGet<ContactWithDetails[]>("householders:list:v3");
       if (cachedEstablishments?.length) {
         setEstablishments(cachedEstablishments);
       }

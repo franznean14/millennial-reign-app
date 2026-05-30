@@ -19,7 +19,7 @@ import {
   formatContactStatusLabel,
   formatContactStatusTabLabel,
 } from "@/lib/utils/contact-status-tabs";
-import { getBestContactStatus, getStatusTextColor, resolveContactStatuses } from "@/lib/utils/status-hierarchy";
+import { getBestContactStatus, getContactPrimaryStatus, getStatusTextColor, resolveContactStatuses } from "@/lib/utils/status-hierarchy";
 import { CONG_BWI_BADGE_CLASS } from "@/lib/utils/congregation-member-roles";
 import { cn } from "@/lib/utils";
 import { FormModal } from "@/components/shared/FormModal";
@@ -278,8 +278,8 @@ export function MinistrySection({
         cmp = cmpStr((ca.name || "").toLowerCase(), (cb.name || "").toLowerCase());
       } else {
         cmp = cmpStr(
-          formatContactStatusLabel(ca.status ?? "").toLowerCase(),
-          formatContactStatusLabel(cb.status ?? "").toLowerCase()
+          formatContactStatusLabel(getContactPrimaryStatus(ca)).toLowerCase(),
+          formatContactStatusLabel(getContactPrimaryStatus(cb)).toLowerCase()
         );
       }
       if (cmp !== 0) return cmp;

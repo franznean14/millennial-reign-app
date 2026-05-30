@@ -25,6 +25,7 @@ import {
   SquarePen,
 } from "lucide-react";
 import type { EstablishmentWithDetails, ContactWithDetails } from "@/lib/db/business";
+import { getContactPrimaryStatus } from "@/lib/utils/status-hierarchy";
 import { useHomeTodoDetailsFabOptional } from "@/components/home/home-todo-details-fab-context";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
@@ -173,7 +174,7 @@ export function UnifiedFab({
   const fabSelectedEstId = homeDetailsFab?.selectedEstablishmentId ?? businessEstablishmentId;
   const fabContactId = homeDetailsFab?.contactId ?? selectedContact?.id;
   const fabContactName = homeDetailsFab?.contactName ?? selectedContact?.name;
-  const fabContactStatus = homeDetailsFab?.contactStatus ?? selectedContact?.status;
+  const fabContactStatus = homeDetailsFab?.contactStatus ?? (selectedContact ? getContactPrimaryStatus(selectedContact) : undefined);
   const fabLockEstablishment = showExpandableButtons || !!homeDetailsFab;
 
   const closeBusinessFabForm = () => {
@@ -668,7 +669,7 @@ export function UnifiedFab({
           disableEstablishmentSelect
           contactId={congregationSelectedContact?.id}
           contactName={congregationSelectedContact?.name}
-          contactStatus={congregationSelectedContact?.status}
+          contactStatus={congregationSelectedContact ? getContactPrimaryStatus(congregationSelectedContact) : undefined}
           onSaved={() => setOpenKey(null)}
         />
       </FormModal>

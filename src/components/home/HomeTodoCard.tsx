@@ -90,7 +90,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getAssigneeAvatarInitials } from "@/lib/utils/visit-history-ui";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useMobile } from "@/lib/hooks/use-mobile";
-import { getBestStatus, getStatusColor, getStatusTextColor } from "@/lib/utils/status-hierarchy";
+import { getBestStatus, getContactPrimaryStatus, getStatusColor, getStatusTextColor, resolveContactStatuses } from "@/lib/utils/status-hierarchy";
 import { CallSection } from "@/components/business/CallSection";
 import { ContactsSection } from "@/components/business/ContactsSection";
 import { TodoForm } from "@/components/business/TodoForm";
@@ -1023,7 +1023,9 @@ export function HomeTodoCard({
           contact: {
             id: contactId,
             name: selectedTodoForDetails?.context_name ?? "Contact",
-            status: (selectedTodoForDetails?.context_status as ContactWithDetails["status"]) ?? "potential",
+            statuses: selectedTodoForDetails?.context_status
+              ? [selectedTodoForDetails.context_status as ContactStatus]
+              : ["potential"],
             note: null,
             establishment_id: selectedTodoForDetails?.establishment_id ?? null,
             establishment_name: selectedTodoForDetails?.context_establishment_name ?? null,
@@ -2028,7 +2030,7 @@ export function HomeTodoCard({
   const contactSurfaceClass = selectedContact
     ? (selectedContact.publisher_id
         ? "border-emerald-500/45 bg-emerald-500/8"
-        : getContactCardColor(selectedContact.status))
+        : getContactCardColor(getContactPrimaryStatus(selectedContact)))
     : "";
   const contactArea =
     selectedContactEstablishment?.area?.trim() ?? "";
@@ -2105,7 +2107,7 @@ export function HomeTodoCard({
   const contactSubdrawerSurfaceClass = contactSubdrawerContact
     ? (contactSubdrawerContact.publisher_id
         ? "border-emerald-500/45 bg-emerald-500/8"
-        : getContactCardColor(contactSubdrawerContact.status))
+        : getContactCardColor(getContactPrimaryStatus(contactSubdrawerContact)))
     : "";
   const contactSubdrawerArea = contactSubdrawerEstablishment?.area?.trim() ?? "";
   const contactSubdrawerNote = contactSubdrawerContact?.note?.trim() ?? "";
@@ -2507,7 +2509,7 @@ export function HomeTodoCard({
         selectedEstablishmentId: estId,
         contactId: selectedContact.id,
         contactName: selectedContact.name,
-        contactStatus: selectedContact.status,
+        contactStatus: getContactPrimaryStatus(selectedContact),
       };
     }
     const est =
@@ -2528,7 +2530,7 @@ export function HomeTodoCard({
       selectedEstablishmentId: est.id,
       contactId: hh.id,
       contactName: hh.name,
-      contactStatus: hh.status,
+      contactStatus: getContactPrimaryStatus(hh),
     };
   }, [
     homeTodoDetailsFabSurface,
@@ -2540,7 +2542,7 @@ export function HomeTodoCard({
     selectedContact?.establishment_id,
     selectedContact?.establishment_name,
     selectedContact?.name,
-    selectedContact?.status,
+    selectedContact ? getContactPrimaryStatus(selectedContact) : undefined,
     selectedTodoForDetails?.establishment_id,
     selectedTodoForDetails?.context_establishment_name,
     contactSubdrawerEstablishment,
@@ -2748,15 +2750,15 @@ export function HomeTodoCard({
             >
             <CardHeader className="flex flex-row items-center justify-between gap-2">
               <div className="flex w-full min-w-0 flex-1 flex-wrap items-center gap-2 pr-1">
-                {selectedContact?.status?.trim() ? (
+                {selectedContact?.statuses?.length ? (
                   <Badge
                     variant="outline"
                     className={cn(
                       "flex-shrink-0 capitalize",
-                      getContactStatusColorClass(selectedContact.status)
+                      getContactStatusColorClass(getContactPrimaryStatus(selectedContact))
                     )}
                   >
-                    {formatStatusText(selectedContact.status)}
+                    {formatStatusText(getContactPrimaryStatus(selectedContact))}
                   </Badge>
                 ) : null}
                 {contactEstablishmentName ? (
@@ -2932,7 +2934,7 @@ export function HomeTodoCard({
           }
           contactId={isContactDetail ? selectedContact?.id : undefined}
           contactName={isContactDetail ? selectedContact?.name : undefined}
-          contactStatus={isContactDetail ? selectedContact?.status : undefined}
+          contactStatus={isContactDetail && selectedContact ? getContactPrimaryStatus(selectedContact) : undefined}
           isLoading={false}
           onVisitUpdated={() => {
             void refreshTodoDetailEntity().then(() => broadcastTodosAndBusinessRefresh());
@@ -3332,15 +3334,15 @@ export function HomeTodoCard({
           >
           <CardHeader className="flex flex-row items-center justify-between gap-2">
             <div className="flex w-full min-w-0 flex-1 flex-wrap items-center gap-2 pr-1">
-              {contactSubdrawerContact.status?.trim() ? (
+              {contactSubdrawerContact.statuses?.length ? (
                 <Badge
                   variant="outline"
                   className={cn(
                     "flex-shrink-0 capitalize",
-                    getContactStatusColorClass(contactSubdrawerContact.status)
+                    getContactStatusColorClass(getContactPrimaryStatus(contactSubdrawerContact))
                   )}
                 >
-                  {formatStatusText(contactSubdrawerContact.status)}
+                  {formatStatusText(getContactPrimaryStatus(contactSubdrawerContact))}
                 </Badge>
               ) : null}
               {contactSubdrawerEstablishmentName ? (
@@ -3407,7 +3409,7 @@ export function HomeTodoCard({
           selectedEstablishmentId={contactSubdrawerEstablishment?.id}
           contactId={contactSubdrawerContact?.id}
           contactName={contactSubdrawerContact?.name}
-          contactStatus={contactSubdrawerContact?.status}
+          contactStatus={contactSubdrawerContact ? getContactPrimaryStatus(contactSubdrawerContact) : undefined}
           isLoading={false}
           onVisitUpdated={() => {
             void refreshAfterContactSubdrawerEdit();
@@ -3438,7 +3440,7 @@ export function HomeTodoCard({
             id: contactSubdrawerContact.id,
             establishment_id: contactSubdrawerContact.establishment_id ?? null,
             name: contactSubdrawerContact.name,
-            status: (contactSubdrawerContact.status as ContactStatus) ?? "potential",
+            statuses: contactSubdrawerContact.statuses,
             note: contactSubdrawerContact.note ?? null,
             lat: contactSubdrawerContact.lat ?? null,
             lng: contactSubdrawerContact.lng ?? null,
@@ -3464,7 +3466,7 @@ export function HomeTodoCard({
             id: selectedContact.id,
             establishment_id: selectedContact.establishment_id ?? null,
             name: selectedContact.name,
-            status: (selectedContact.status as ContactStatus) ?? "potential",
+            statuses: selectedContact.statuses,
             note: selectedContact.note ?? null,
             lat: selectedContact.lat ?? null,
             lng: selectedContact.lng ?? null,

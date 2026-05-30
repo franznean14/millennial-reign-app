@@ -32,7 +32,7 @@ import {
   isEstablishmentTodoMissingLocation,
 } from "@/lib/db/business";
 import { MissingEstablishmentLocationIcon } from "@/components/business/MissingEstablishmentLocationIcon";
-import { getStatusTextColor } from "@/lib/utils/status-hierarchy";
+import { getContactPrimaryStatus, getStatusTextColor, resolveContactStatuses } from "@/lib/utils/status-hierarchy";
 import { getSelectedStatusColor } from "@/lib/utils/status-filter-styles";
 import NumberFlow from "@number-flow/react";
 import { cacheGet, cacheSet, cacheDelete } from "@/lib/offline/store";
@@ -553,7 +553,7 @@ export function CallHistory({
       potential: 0
     };
     filteredByAreaContacts.forEach((hh) => {
-      switch (hh.status) {
+      switch (getContactPrimaryStatus(hh)) {
         case "bible_study":
           counts.bible_study += 1;
           break;
@@ -766,8 +766,8 @@ export function CallHistory({
           : target.todo.context_name ?? "Contact";
       const fallbackStatus =
         target.kind === "visit"
-          ? (target.visit.contact_status as ContactWithDetails["status"] | undefined) ?? "potential"
-          : (target.todo.context_status as ContactWithDetails["status"] | undefined) ?? "potential";
+          ? target.visit.contact_status ?? "potential"
+          : target.todo.context_status ?? "potential";
       const fallbackEstablishmentName =
         target.kind === "visit"
           ? target.visit.establishment_name ?? null
@@ -781,7 +781,7 @@ export function CallHistory({
         contact: {
           id: contactId,
           name: fallbackName,
-          status: fallbackStatus,
+          statuses: [fallbackStatus as ContactStatus],
           note: null,
           establishment_id: establishmentId ?? null,
           establishment_name: fallbackEstablishmentName,
@@ -1075,7 +1075,7 @@ export function CallHistory({
         selectedEstablishmentId: est.id,
         contactId: hh.id,
         contactName: hh.name,
-        contactStatus: hh.status,
+        contactStatus: getContactPrimaryStatus(hh),
       };
     }
     const hh = selectedCallsContactDetails?.contact;
@@ -1095,7 +1095,7 @@ export function CallHistory({
       selectedEstablishmentId: est.id,
       contactId: hh.id,
       contactName: hh.name,
-      contactStatus: hh.status,
+      contactStatus: getContactPrimaryStatus(hh),
     };
   }, [
     callsDetailsFabSurface,
@@ -2307,8 +2307,7 @@ export function CallHistory({
                     id: selectedCallsContactDetails.contact.id,
                     establishment_id: selectedCallsContactDetails.contact.establishment_id ?? null,
                     name: selectedCallsContactDetails.contact.name,
-                    status:
-                      (selectedCallsContactDetails.contact.status as ContactStatus) ?? "potential",
+                    statuses: selectedCallsContactDetails.contact.statuses,
                     note: selectedCallsContactDetails.contact.note ?? null,
                     lat: selectedCallsContactDetails.contact.lat ?? null,
                     lng: selectedCallsContactDetails.contact.lng ?? null,
@@ -2334,8 +2333,7 @@ export function CallHistory({
                     id: selectedCallsContactDetails.contact.id,
                     establishment_id: selectedCallsContactDetails.contact.establishment_id ?? null,
                     name: selectedCallsContactDetails.contact.name,
-                    status:
-                      (selectedCallsContactDetails.contact.status as ContactStatus) ?? "potential",
+                    statuses: selectedCallsContactDetails.contact.statuses,
                     note: selectedCallsContactDetails.contact.note ?? null,
                     lat: selectedCallsContactDetails.contact.lat ?? null,
                     lng: selectedCallsContactDetails.contact.lng ?? null,

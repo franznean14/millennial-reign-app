@@ -635,10 +635,7 @@ export function BusinessSection({
                         id: selectedContact.id,
                         establishment_id: selectedContact.establishment_id || "",
                         name: selectedContact.name,
-                        status: selectedContact.status as any,
-                        statuses:
-                          selectedContact.statuses ??
-                          (selectedContact.status ? [selectedContact.status] : []),
+                        statuses: selectedContact.statuses,
                         note: selectedContact.note || null,
                         lat: selectedContact.lat ?? null,
                         lng: selectedContact.lng ?? null,
@@ -771,10 +768,7 @@ export function BusinessSection({
                     id: selectedContact.id,
                     establishment_id: selectedContact.establishment_id || "",
                     name: selectedContact.name,
-                    status: selectedContact.status as any,
-                    statuses:
-                      selectedContact.statuses ??
-                      (selectedContact.status ? [selectedContact.status] : []),
+                    statuses: selectedContact.statuses,
                     note: selectedContact.note || null,
                     lat: selectedContact.lat ?? null,
                     lng: selectedContact.lng ?? null,

@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/drawer";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
+import { getContactPrimaryStatus } from "@/lib/utils/status-hierarchy";
 import { getStudyBibleDarkCardShade } from "@/lib/theme/study-bible-dark";
 
 const CONTACTS_PREVIEW_MAX = 5;
@@ -122,10 +123,10 @@ export function ContactsSection({
               variant="outline"
               className={cn(
                 "h-5 px-2 py-0.5 text-xs leading-none",
-                getContactStatusColorClass(contact.status)
+                getContactStatusColorClass(getContactPrimaryStatus(contact))
               )}
             >
-              {formatStatusText(contact.status)}
+              {formatStatusText(getContactPrimaryStatus(contact))}
             </Badge>
           </div>
           {contact.note ? (

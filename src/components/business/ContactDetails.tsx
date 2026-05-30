@@ -275,7 +275,7 @@ export function ContactDetails({
         const updatedWithUser: ContactWithDetails = {
           id: updated.id,
           name: updated.name,
-          status: updated.status,
+          statuses: resolveContactStatuses(updated) as ContactStatus[],
           note: updated.note ?? null,
           establishment_id: updated.establishment_id ?? null,
           establishment_name: contact.establishment_name ?? null,
@@ -291,7 +291,7 @@ export function ContactDetails({
         };
         // Clear cache to force fresh fetch on next load
         if (updated.id) {
-          await cacheDelete(`contact:details:v4:${updated.id}`);
+          await cacheDelete(`contact:details:v5:${updated.id}`);
         }
         toast.success("Added as personal contact");
         businessEventBus.emit('contact-updated', updatedWithUser);
@@ -319,7 +319,7 @@ export function ContactDetails({
         const updatedWithUser: ContactWithDetails = {
           id: updated.id,
           name: updated.name,
-          status: updated.status,
+          statuses: resolveContactStatuses(updated) as ContactStatus[],
           note: updated.note ?? null,
           establishment_id: updated.establishment_id ?? null,
           establishment_name: contact.establishment_name ?? null,
@@ -330,7 +330,7 @@ export function ContactDetails({
         };
         // Clear cache to force fresh fetch on next load
         if (updated.id) {
-          await cacheDelete(`contact:details:v4:${updated.id}`);
+          await cacheDelete(`contact:details:v5:${updated.id}`);
         }
         toast.success("Removed as personal contact");
         businessEventBus.emit('contact-updated', updatedWithUser);
@@ -348,9 +348,11 @@ export function ContactDetails({
 
   const isCurrentUserPublisher = effectivePublisherId && contact.publisher_id === effectivePublisherId;
   const assignedUser = contact.assigned_user;
+  const contactStatuses = resolveContactStatuses(contact);
+  const primaryContactStatus = getBestContactStatus(contactStatuses);
   const detailsCardSurfaceClass = contact.publisher_id
     ? getPersonalTerritoryDetailsCardClass(!!isCurrentUserPublisher)
-    : getContactCardColor(contact.status);
+    : getContactCardColor(primaryContactStatus);
 
   const hasCoordinates = contact.lat != null && contact.lng != null;
   /** BWI: directions only after "Take as personal contact"; congregation unchanged. */
@@ -363,8 +365,6 @@ export function ContactDetails({
   );
   const areaFromEstablishment =
     establishment?.area?.trim() || linkedEstablishment?.area?.trim();
-  const contactStatuses = resolveContactStatuses(contact);
-  const primaryContactStatus = getBestContactStatus(contactStatuses);
   const contactNote = contact.note?.trim() ?? "";
   const establishmentDisplayName =
     (establishment?.name?.trim() || contact.establishment_name?.trim() || "") || "";
@@ -748,7 +748,7 @@ export function ContactDetails({
           selectedEstablishmentId={establishment?.id}
           contactId={contact.id}
           contactName={contact.name}
-          contactStatus={contact.status}
+          contactStatus={primaryContactStatus}
           isLoading={isLoading}
           preferLeftDetailPanel={preferLeftDetailPanel}
           insideStackedContactPane={insideStackedContactPane}
@@ -770,7 +770,7 @@ export function ContactDetails({
           disableEstablishmentSelect={context === "congregation"}
           contactId={contact.id}
           contactName={contact.name}
-          contactStatus={contact.status}
+          contactStatus={primaryContactStatus}
           onSaved={() => {
             setNewVisitOpen(false);
           }}
@@ -805,8 +805,7 @@ export function ContactDetails({
                   id: contact.id,
                   establishment_id: contact.establishment_id || "",
                   name: contact.name,
-                  status: contact.status as ContactStatus,
-                  statuses: contact.statuses ?? (contact.status ? [contact.status] : []),
+                  statuses: contact.statuses,
                   note: contact.note || null,
                   lat: contact.lat ?? null,
                   lng: contact.lng ?? null,
@@ -837,8 +836,7 @@ export function ContactDetails({
               id: contact.id,
               establishment_id: contact.establishment_id || "",
               name: contact.name,
-              status: contact.status as ContactStatus,
-              statuses: contact.statuses ?? (contact.status ? [contact.status] : []),
+              statuses: contact.statuses,
               note: contact.note || null,
               lat: contact.lat ?? null,
               lng: contact.lng ?? null,

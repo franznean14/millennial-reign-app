@@ -12,7 +12,7 @@ import {
   computeEstablishmentIdsFromTodoContacts,
   establishmentMatchesMyOpenTodos,
 } from "@/lib/utils/business-todo-filter";
-import { contactHasAnyStatus } from "@/lib/utils/status-hierarchy";
+import { contactHasAnyStatus, getContactPrimaryStatus } from "@/lib/utils/status-hierarchy";
 
 interface UseBusinessFilteredListsOptions {
   establishments: EstablishmentWithDetails[];
@@ -368,8 +368,8 @@ export function useBusinessFilteredLists({
               
               // Third priority: status priority
               if (aIsVisited === bIsVisited) {
-                const aPriority = getStatusPriority(a.status);
-                const bPriority = getStatusPriority(b.status);
+                const aPriority = getStatusPriority(getContactPrimaryStatus(a));
+                const bPriority = getStatusPriority(getContactPrimaryStatus(b));
                 if (aPriority !== bPriority) {
                   return aPriority - bPriority;
                 }

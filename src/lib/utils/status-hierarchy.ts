@@ -157,7 +157,7 @@ export const getStatusTitleColor = (status: string): string => {
  * Personal territory (publisher_id) overrides establishment status or contact status for the title color.
  */
 export function getBusinessDetailsHeaderTitleStatus(
-  selectedContact: { publisher_id?: string | null; status: string } | null | undefined,
+  selectedContact: { publisher_id?: string | null; statuses?: string[] | null } | null | undefined,
   selectedEstablishment: { publisher_id?: string | null; statuses?: string[] | null } | null | undefined,
   currentUserId: string | null | undefined
 ): string | undefined {
@@ -238,15 +238,20 @@ export const MUTUALLY_EXCLUSIVE_CONTACT_PIPELINE_STATUSES = [
   "interested",
   "return_visit",
   "bible_study",
+  "do_not_call",
 ] as const;
 
-export const STACKABLE_CONTACT_STATUSES = ["do_not_call"] as const;
+/** @deprecated do_not_call is pipeline-exclusive; nothing stackable separately. */
+export const STACKABLE_CONTACT_STATUSES = [] as const;
 
-export const TERMINAL_CONTACT_STATUSES = ["moved_branch", "resigned"] as const;
+/** Mutually exclusive with each other; either may combine with one pipeline/dnc status. */
+export const MUTUALLY_EXCLUSIVE_RELOCATED_CONTACT_STATUSES = ["moved_branch", "resigned"] as const;
+
+/** @deprecated Renamed to {@link MUTUALLY_EXCLUSIVE_RELOCATED_CONTACT_STATUSES}. */
+export const TERMINAL_CONTACT_STATUSES = MUTUALLY_EXCLUSIVE_RELOCATED_CONTACT_STATUSES;
 
 const CONTACT_PIPELINE_SET = new Set<string>(MUTUALLY_EXCLUSIVE_CONTACT_PIPELINE_STATUSES);
-const CONTACT_STACKABLE_SET = new Set<string>(STACKABLE_CONTACT_STATUSES);
-const CONTACT_TERMINAL_SET = new Set<string>(TERMINAL_CONTACT_STATUSES);
+const CONTACT_RELOCATED_SET = new Set<string>(MUTUALLY_EXCLUSIVE_RELOCATED_CONTACT_STATUSES);
 
 export function getBestContactStatus(statuses: string[]): string {
   if (!statuses?.length) return "potential";
@@ -263,22 +268,29 @@ export function getBestContactStatus(statuses: string[]): string {
   return bestStatus;
 }
 
-/** Union of legacy `status` and `statuses[]` so tabs/filters match list badges. */
+/** Normalized contact statuses from `statuses[]` (single source of truth). */
 export function resolveContactStatuses(contact: {
-  status?: string | null;
   statuses?: string[] | null;
 }): string[] {
-  const merged = new Set<string>();
-  if (contact.status) merged.add(contact.status);
-  contact.statuses?.forEach((s) => {
-    if (s) merged.add(s);
-  });
-  if (merged.size === 0) return ["potential"];
-  return Array.from(merged);
+  const raw = contact.statuses?.filter(Boolean) ?? [];
+  if (raw.length === 0) return ["potential"];
+  return normalizeContactStatusesForForm(raw);
+}
+
+/** Primary status for sort, FAB color, and single-badge display. */
+export function getContactPrimaryStatus(contact: { statuses?: string[] | null }): string {
+  return getBestContactStatus(resolveContactStatuses(contact));
+}
+
+/** Non-primary statuses for list/table dot indicators. */
+export function getContactSecondaryStatuses(contact: { statuses?: string[] | null }): string[] {
+  const statuses = resolveContactStatuses(contact);
+  const primary = getContactPrimaryStatus(contact);
+  return statuses.filter((s) => s !== primary);
 }
 
 export function contactHasAnyStatus(
-  contact: { status: string; statuses?: string[] | null },
+  contact: { statuses?: string[] | null },
   filterStatuses: string[]
 ): boolean {
   if (!filterStatuses.length) return true;
@@ -288,20 +300,21 @@ export function contactHasAnyStatus(
 
 export function normalizeContactStatusesForForm(statuses: string[]): string[] {
   if (!statuses?.length) return ["potential"];
-  const terminal = statuses.filter((s) => CONTACT_TERMINAL_SET.has(s));
-  if (terminal.length) {
-    return terminal.length === 1 ? terminal : [getBestContactStatus(terminal)];
-  }
-  const stackable = statuses.filter((s) => CONTACT_STACKABLE_SET.has(s));
+
+  const relocated = statuses.filter((s) => CONTACT_RELOCATED_SET.has(s));
   const pipeline = statuses.filter((s) => CONTACT_PIPELINE_SET.has(s));
+
   const primaryPipeline =
     pipeline.length === 0 ? [] : pipeline.length === 1 ? pipeline : [getBestContactStatus(pipeline)];
+  const primaryRelocated =
+    relocated.length === 0 ? [] : relocated.length === 1 ? relocated : [getBestContactStatus(relocated)];
+
   const out: string[] = [];
   const push = (s: string) => {
     if (!out.includes(s)) out.push(s);
   };
   primaryPipeline.forEach(push);
-  stackable.forEach(push);
+  primaryRelocated.forEach(push);
   return out.length ? out : ["potential"];
 }
 
@@ -310,16 +323,13 @@ export function toggleContactStatusForForm(prev: string[], value: string, checke
     return prev.filter((s) => s !== value);
   }
   if (prev.includes(value)) return prev;
-  if (CONTACT_TERMINAL_SET.has(value)) {
-    return [value];
-  }
   if (CONTACT_PIPELINE_SET.has(value)) {
-    return [
-      ...prev.filter((s) => !CONTACT_PIPELINE_SET.has(s) && !CONTACT_TERMINAL_SET.has(s)),
-      value,
-    ];
+    return [...prev.filter((s) => !CONTACT_PIPELINE_SET.has(s)), value];
   }
-  return [...prev.filter((s) => !CONTACT_TERMINAL_SET.has(s)), value];
+  if (CONTACT_RELOCATED_SET.has(value)) {
+    return [...prev.filter((s) => !CONTACT_RELOCATED_SET.has(s)), value];
+  }
+  return [...prev, value];
 }
 
 /**

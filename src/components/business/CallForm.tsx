@@ -21,7 +21,7 @@ import {
   DrawerTrigger,
 } from "@/components/ui/drawer";
 import { toast } from "@/components/ui/sonner";
-import { addVisit, getBwiParticipants, updateVisit, deleteVisit, getCallTodos, addCallTodo, updateCallTodo, deleteCallTodo, getDistinctCallGuestNames, syncCallTodoParticipantsForCall } from "@/lib/db/business";
+import { addVisit, getBwiParticipants, updateVisit, deleteVisit, getCallTodos, addCallTodo, updateCallTodo, deleteCallTodo, getDistinctCallGuestNames, syncCallTodoParticipantsForCall, type ContactStatus } from "@/lib/db/business";
 import { businessEventBus } from "@/lib/events/business-events";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { getBestStatus } from "@/lib/utils/status-hierarchy";
@@ -380,7 +380,7 @@ export function CallForm({ establishments, selectedEstablishmentId, onSaved, ini
                 ? {
                     id: contactId,
                     name: contactName,
-                    status: contactStatus || "potential",
+                    statuses: [(contactStatus || "potential") as ContactStatus],
                   }
                 : undefined,
           };

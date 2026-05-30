@@ -3,8 +3,8 @@
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cacheGet, cacheSet, cacheDelete } from "@/lib/offline/store";
 import { buildVisitRecords, dedupeAndSortVisits, takeTopVisits, type VisitRecord } from "@/lib/utils/visit-history";
-import type { VisitWithUser } from "@/lib/db/business";
-import { getBestStatus } from "@/lib/utils/status-hierarchy";
+import type { VisitWithUser, ContactStatus } from "@/lib/db/business";
+import { getBestStatus, getContactPrimaryStatus, resolveContactStatuses } from "@/lib/utils/status-hierarchy";
 import { CONTACT_FK_COLUMN } from "@/lib/db/contact-supabase";
 
 type VisitQueryResult = {
@@ -22,7 +22,7 @@ type VisitQueryResult = {
   business_establishments?: { name?: string | null; statuses?: string[] | null; area?: string | null } | null;
   contacts?: {
     name?: string | null;
-    status?: string | null;
+    statuses?: string[] | null;
     establishment_id?: string | null;
     publisher_id?: string | null;
     business_establishments?: { name?: string | null; statuses?: string[] | null; area?: string | null } | null;
@@ -49,7 +49,7 @@ type EstablishmentRef = {
 type ContactRef = {
   id?: string | null;
   name?: string | null;
-  status?: string | null;
+  statuses?: ContactStatus[] | null;
   establishment_id?: string | null;
   publisher_id?: string | null;
   business_establishments?: EstablishmentRef | EstablishmentRef[] | null;
@@ -122,7 +122,7 @@ async function fetchContactVisits(limit: number, offset: number) {
         partner_id,
         publisher_guest_name,
         partner_guest_name,
-        contacts(name, status, establishment_id, publisher_id, business_establishments(name, statuses, area)),
+        contacts(name, statuses, establishment_id, publisher_id, business_establishments(name, statuses, area)),
         business_establishments(name, statuses, area),
         publisher:profiles!calls_publisher_id_fkey(first_name, last_name, avatar_url),
         partner:profiles!calls_partner_id_fkey(first_name, last_name, avatar_url)
@@ -233,7 +233,7 @@ function normalizeContactRef(value: ContactRef | ContactRef[] | null | undefined
   return {
     id: contact.id,
     name: contact.name ?? "Contact",
-    status: contact.status ?? "potential",
+    statuses: resolveContactStatuses(contact) as ContactStatus[],
   };
 }
 
@@ -287,7 +287,7 @@ export async function getEstablishmentVisitsWithUsers(establishmentId: string): 
         establishment_id,
         publisher:profiles!calls_publisher_id_fkey(id, first_name, last_name, avatar_url),
         partner:profiles!calls_partner_id_fkey(id, first_name, last_name, avatar_url),
-        contact:householders!calls_householder_id_fkey(id, name, status)
+        contact:householders!calls_householder_id_fkey(id, name, statuses)
       `
     )
     .eq("establishment_id", establishmentId)
@@ -314,7 +314,7 @@ export async function getContactVisitsWithUsers(contactId: string): Promise<Visi
         contact_id:${CONTACT_FK_COLUMN},
         publisher:profiles!calls_publisher_id_fkey(id, first_name, last_name, avatar_url),
         partner:profiles!calls_partner_id_fkey(id, first_name, last_name, avatar_url),
-        contact:householders!calls_householder_id_fkey(id, name, status),
+        contact:householders!calls_householder_id_fkey(id, name, statuses),
         establishment:business_establishments!calls_establishment_id_fkey(id, name, statuses)
       `
     )

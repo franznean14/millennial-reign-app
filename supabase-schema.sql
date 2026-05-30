@@ -433,8 +433,7 @@ CREATE TABLE IF NOT EXISTS public.householders (
   establishment_id uuid REFERENCES public.business_establishments(id) ON DELETE CASCADE,
   publisher_id uuid REFERENCES public.profiles(id),
   name text NOT NULL,
-  status public.householder_status_t NOT NULL DEFAULT 'interested',
-  statuses public.householder_status_t[] NOT NULL DEFAULT ARRAY['interested']::public.householder_status_t[],
+  statuses public.householder_status_t[] NOT NULL DEFAULT ARRAY['potential']::public.householder_status_t[],
   note text,
   lat numeric(9,6),
   lng numeric(11,8),
@@ -1971,11 +1970,17 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.delete_householder(uuid, uuid) TO authenticated;
 
-CREATE OR REPLACE VIEW public.contacts AS
+CREATE VIEW public.contacts
+WITH (security_invoker = true)
+AS
   SELECT * FROM public.householders;
 
 COMMENT ON VIEW public.contacts IS
-  'Alias view for householders (contacts). Use table householders for writes.';
+  'Read-only alias for householders. security_invoker ensures householders RLS applies.';
+
+REVOKE ALL ON public.contacts FROM PUBLIC;
+REVOKE ALL ON public.contacts FROM anon;
+GRANT SELECT ON public.contacts TO authenticated;
 
 CREATE OR REPLACE FUNCTION public.add_bible_study_with_visit(
   p_visit_date date,

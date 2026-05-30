@@ -115,7 +115,7 @@ export function HomeSection({
           const { data: contact, error } = await supabase
             .from("householders")
             .select(
-              "id, name, status, note, establishment_id, publisher_id, lat, lng, created_at"
+              "id, name, statuses, note, establishment_id, publisher_id, lat, lng, created_at"
             )
             .eq("id", visit.contact_id)
             .maybeSingle();

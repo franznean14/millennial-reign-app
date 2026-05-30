@@ -2,6 +2,7 @@
 
 import { Plus, ChevronRight } from "lucide-react";
 import { toast } from "@/components/ui/sonner";
+import { resolveContactStatuses } from "@/lib/utils/status-hierarchy";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -530,7 +531,7 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
           const { upsertContact } = await import("@/lib/db/business");
           const newContact = await upsertContact({
             name: trimmed,
-            status: "bible_study",
+            statuses: ["bible_study"],
             publisher_id: userId,
             note: null,
             establishment_id: null,
@@ -596,11 +597,11 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
           let updatedContact = contact;
           
           // Update status to bible_study if not already
-          if (contact.status !== "bible_study") {
+          if (!resolveContactStatuses(contact).includes("bible_study")) {
             const updated = await upsertContact({
               id: contact.id,
               name: contact.name,
-              status: "bible_study",
+              statuses: ["bible_study"],
               publisher_id: contact.publisher_id,
               note: contact.note,
               establishment_id: contact.establishment_id,
@@ -611,7 +612,7 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
             if (updated) {
               updatedContact = {
                 ...contact,
-                status: "bible_study"
+                statuses: ["bible_study"]
               };
             }
           }

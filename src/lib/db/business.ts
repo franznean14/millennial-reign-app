@@ -6,6 +6,7 @@ import {
   getBestContactStatus,
   getBestStatus,
   normalizeContactStatusesForForm,
+  resolveContactStatuses,
 } from "@/lib/utils/status-hierarchy";
 import { getEstablishmentVisitsWithUsers, getContactVisitsWithUsers } from "@/lib/db/visit-history";
 import {
@@ -100,27 +101,15 @@ export interface Contact {
   establishment_id?: string | null;
   publisher_id?: string | null;
   name: string;
-  status: ContactStatus;
-  statuses?: ContactStatus[];
+  statuses: ContactStatus[];
   note?: string | null;
   lat?: number | null;
   lng?: number | null;
 }
 
-/** Cached after first list/detail/write against contacts table (avoids repeated failed selects). */
-let contactStatusesColumnAvailable: boolean | null = null;
-
-function isMissingContactStatusesColumn(error: unknown): boolean {
-  const message = String((error as { message?: string })?.message ?? error ?? "");
-  const hint = String((error as { hint?: string })?.hint ?? "");
-  const combined = `${message} ${hint}`.toLowerCase();
-  return combined.includes("statuses") && combined.includes("does not exist");
-}
-
-const CONTACT_LIST_SELECT_WITH_STATUSES = `
+const CONTACT_LIST_SELECT = `
         id,
         name,
-        status,
         statuses,
         note,
         establishment_id,
@@ -131,36 +120,8 @@ const CONTACT_LIST_SELECT_WITH_STATUSES = `
         establishment:business_establishments(name, statuses)
       `;
 
-const CONTACT_LIST_SELECT_LEGACY = `
-        id,
-        name,
-        status,
-        note,
-        establishment_id,
-        publisher_id,
-        lat,
-        lng,
-        created_at,
-        establishment:business_establishments(name, statuses)
-      `;
-
-const CONTACT_DETAIL_SELECT_WITH_STATUSES =
-  "id,name,status,statuses,note,establishment_id,publisher_id,lat,lng,created_at, establishment:business_establishments(id,name,area,statuses)";
-
-const CONTACT_DETAIL_SELECT_LEGACY =
-  "id,name,status,note,establishment_id,publisher_id,lat,lng,created_at, establishment:business_establishments(id,name,area,statuses)";
-
-function resolveContactStatusesFromRow(row: {
-  status?: string | null;
-  statuses?: ContactStatus[] | null;
-}): ContactStatus[] {
-  const merged = new Set<ContactStatus>();
-  if (row.status) merged.add(row.status as ContactStatus);
-  row.statuses?.forEach((s) => {
-    if (s) merged.add(s);
-  });
-  return Array.from(merged);
-}
+const CONTACT_DETAIL_SELECT =
+  "id,name,statuses,note,establishment_id,publisher_id,lat,lng,created_at, establishment:business_establishments(id,name,area,statuses)";
 
 const CALL_TODO_SELECT_BASE = `id, call_id, congregation_id, establishment_id, contact_id:${CONTACT_FK_COLUMN}, body, is_done, publisher_id, partner_id, deadline_date, created_at`;
 const CALL_TODO_SELECT_WITH_GUESTS = `id, call_id, congregation_id, establishment_id, contact_id:${CONTACT_FK_COLUMN}, body, is_done, publisher_id, partner_id, publisher_guest_name, partner_guest_name, deadline_date, created_at`;
@@ -293,7 +254,7 @@ export interface VisitWithUser {
   contact?: {
     id: string;
     name: string;
-    status: string;
+    statuses: ContactStatus[];
   } | null;
   establishment?: {
     id: string;
@@ -305,8 +266,7 @@ export interface VisitWithUser {
 export interface ContactWithDetails {
   id: string;
   name: string;
-  status: ContactStatus;
-  statuses?: ContactStatus[];
+  statuses: ContactStatus[];
   note?: string | null;
   establishment_id?: string | null;
   establishment_name?: string | null;
@@ -418,14 +378,14 @@ export async function listContacts(): Promise<ContactWithDetails[]> {
     // Return cached data immediately if available (for fast initial load)
     let cached = await cacheGet<ContactWithDetails[]>(cacheKey);
     if (!cached?.length) {
-      cached = await cacheGet<ContactWithDetails[]>("householders:list:v2");
+      cached = await cacheGet<ContactWithDetails[]>("householders:list:v3");
     }
     if (cached?.length && typeof navigator !== 'undefined' && !navigator.onLine) {
       // If offline, return cached data
       return cached;
     }
     
-    // Fetch fresh data (retry without statuses[] when migration not applied yet)
+    // Fetch fresh data
     const listQuery = (select: string) =>
       supabase
         .from(CONTACTS_TABLE)
@@ -434,20 +394,7 @@ export async function listContacts(): Promise<ContactWithDetails[]> {
         .eq("is_archived", false)
         .order("updated_at", { ascending: false });
 
-    let data: unknown[] | null = null;
-    let error: { message?: string; hint?: string } | null = null;
-
-    if (contactStatusesColumnAvailable === false) {
-      ({ data, error } = await listQuery(CONTACT_LIST_SELECT_LEGACY));
-    } else {
-      ({ data, error } = await listQuery(CONTACT_LIST_SELECT_WITH_STATUSES));
-      if (error && isMissingContactStatusesColumn(error)) {
-        contactStatusesColumnAvailable = false;
-        ({ data, error } = await listQuery(CONTACT_LIST_SELECT_LEGACY));
-      } else if (!error) {
-        contactStatusesColumnAvailable = true;
-      }
-    }
+    const { data, error } = await listQuery(CONTACT_LIST_SELECT);
 
     if (error) {
       console.error("Error fetching contacts:", error);
@@ -542,8 +489,7 @@ export async function listContacts(): Promise<ContactWithDetails[]> {
       return {
         id: hh.id,
         name: hh.name,
-        status: hh.status,
-        statuses: resolveContactStatusesFromRow(hh),
+        statuses: resolveContactStatuses(hh) as ContactStatus[],
         note: hh.note,
         establishment_id: hh.establishment_id,
         establishment_name: establishment?.name,
@@ -799,38 +745,27 @@ export async function upsertContact(h: Contact): Promise<Contact | null> {
   const lngValue = typeof h.lng === 'number' && !isNaN(h.lng) ? Number(h.lng.toFixed(8)) : null;
   
   const statusesPayload = normalizeContactStatusesForForm(
-    (h.statuses?.length ? h.statuses : h.status ? [h.status] : ["potential"]) as string[]
+    (h.statuses?.length ? h.statuses : ["potential"]) as string[]
   ) as ContactStatus[];
-  const primaryStatus = getBestContactStatus(statusesPayload) as ContactStatus;
 
-  const payloadBase = {
+  const payload = {
     name: h.name,
-    status: primaryStatus,
+    statuses: statusesPayload,
     note: h.note ?? null,
     establishment_id: h.establishment_id ?? null,
     publisher_id: h.publisher_id ?? null,
     lat: latValue,
     lng: lngValue,
   };
-  const payloadWithStatuses = { ...payloadBase, statuses: statusesPayload };
 
-  const writePayload =
-    contactStatusesColumnAvailable === false ? payloadBase : payloadWithStatuses;
-
-  const runWrite = async (payload: Record<string, unknown>) => {
+  const runWrite = async () => {
     if (h.id) {
       return supabase.from(CONTACTS_TABLE).update(payload).eq("id", h.id).select().single();
     }
     return supabase.from(CONTACTS_TABLE).insert(payload).select().single();
   };
 
-  let { data, error } = await runWrite(writePayload);
-  if (error && isMissingContactStatusesColumn(error)) {
-    contactStatusesColumnAvailable = false;
-    ({ data, error } = await runWrite(payloadBase));
-  } else if (!error && contactStatusesColumnAvailable !== false) {
-    contactStatusesColumnAvailable = true;
-  }
+  const { data, error } = await runWrite();
 
   if (error) {
     const text = formatContactWriteError(error);
@@ -1434,8 +1369,8 @@ function buildCallMetaById(calls: any[]): Map<string, { visit_date: string | nul
       const establishment_status = establishment?.statuses
         ? getBestStatus(establishment.statuses as string[])
         : null;
-      const context_status = callContactId && contact?.status
-        ? contact.status
+      const context_status = callContactId && contact?.statuses?.length
+        ? getBestContactStatus(resolveContactStatuses(contact))
         : establishment_status;
       return [
         c.id,
@@ -1468,7 +1403,7 @@ async function enrichTodoItems(
     const { data: calls } = await supabase
       .from("calls")
       .select(
-        `id, created_at, visit_date, establishment_id, contact_id:${CONTACT_FK_COLUMN}, establishment:business_establishments!calls_establishment_id_fkey(name, statuses, area), contact:householders!calls_householder_id_fkey(name, status)`
+        `id, created_at, visit_date, establishment_id, contact_id:${CONTACT_FK_COLUMN}, establishment:business_establishments!calls_establishment_id_fkey(name, statuses, area), contact:householders!calls_householder_id_fkey(name, statuses)`
       )
       .in("id", callIds);
     if (calls?.length) {
@@ -1496,7 +1431,7 @@ async function enrichTodoItems(
     contactIds.size
       ? supabase
           .from(CONTACTS_TABLE)
-          .select("id, name, status, establishment_id")
+          .select("id, name, statuses, establishment_id")
           .in("id", Array.from(contactIds))
       : Promise.resolve({ data: [], error: null } as any),
   ]);
@@ -1508,7 +1443,7 @@ async function enrichTodoItems(
   for (const e of establishmentRows.data ?? []) {
     establishmentById.set(e.id, e);
   }
-  const contactById = new Map<string, { id: string; name: string; status?: string | null; establishment_id?: string | null }>();
+  const contactById = new Map<string, { id: string; name: string; statuses?: ContactStatus[] | null; establishment_id?: string | null }>();
   for (const h of contactRows.data ?? []) {
     contactById.set(h.id, h);
   }
@@ -1545,7 +1480,9 @@ async function enrichTodoItems(
       : null;
 
     const context_name = contact?.name ?? establishment?.name ?? callMeta?.context_name ?? null;
-    const context_status = contact?.status ?? establishmentStatus ?? callMeta?.context_status ?? null;
+    const context_status = contact?.statuses?.length
+      ? getBestContactStatus(resolveContactStatuses(contact))
+      : establishmentStatus ?? callMeta?.context_status ?? null;
     const context_establishment_name = contact
       ? contactEstablishment?.name ?? establishment?.name ?? callMeta?.context_establishment_name ?? null
       : establishment?.name ?? callMeta?.context_establishment_name ?? null;
@@ -2173,7 +2110,7 @@ export async function getEstablishmentDetails(establishmentId: string): Promise<
     .select(`
       id,
       name,
-      status,
+      statuses,
       note
     `)
     .eq('establishment_id', establishmentId)
@@ -2263,7 +2200,7 @@ export async function getContactDetails(contactId: string): Promise<{
 } | null> {
   const supabase = createSupabaseBrowserClient();
   await supabase.auth.getSession().catch(() => {});
-  const cacheKey = `contact:details:v4:${contactId}`;
+  const cacheKey = `contact:details:v5:${contactId}`;
   
   try {
     // Offline-first only; when online, fetch fresh visits for the Calls section (same as establishment details).
@@ -2294,7 +2231,6 @@ export async function getContactDetails(contactId: string): Promise<{
   type ContactDetailRow = {
     id: string;
     name: string;
-    status: ContactStatus;
     statuses?: ContactStatus[] | null;
     note?: string | null;
     establishment_id?: string | null;
@@ -2305,26 +2241,9 @@ export async function getContactDetails(contactId: string): Promise<{
     establishment?: { id: string; name: string; area?: string | null; statuses?: string[] | null } | { id: string; name: string; area?: string | null; statuses?: string[] | null }[] | null;
   };
 
-  let hh: ContactDetailRow | null = null;
-  let hhError: { message?: string; hint?: string } | null = null;
-
-  if (contactStatusesColumnAvailable === false) {
-    const res = await detailQuery(CONTACT_DETAIL_SELECT_LEGACY);
-    hh = res.data as ContactDetailRow | null;
-    hhError = res.error;
-  } else {
-    const res = await detailQuery(CONTACT_DETAIL_SELECT_WITH_STATUSES);
-    hh = res.data as ContactDetailRow | null;
-    hhError = res.error;
-    if (hhError && isMissingContactStatusesColumn(hhError)) {
-      contactStatusesColumnAvailable = false;
-      const legacy = await detailQuery(CONTACT_DETAIL_SELECT_LEGACY);
-      hh = legacy.data as ContactDetailRow | null;
-      hhError = legacy.error;
-    } else if (!hhError) {
-      contactStatusesColumnAvailable = true;
-    }
-  }
+  const res = await detailQuery(CONTACT_DETAIL_SELECT);
+  const hh = res.data as ContactDetailRow | null;
+  const hhError = res.error;
 
   if (hhError || !hh) {
     // Row not found (e.g. soft-deleted by another user) — return null so UI can show list + toast
@@ -2366,8 +2285,7 @@ export async function getContactDetails(contactId: string): Promise<{
   const contact: ContactWithDetails = {
     id: hh.id,
     name: hh.name,
-    status: hh.status,
-    statuses: resolveContactStatusesFromRow(hh as { status?: string; statuses?: ContactStatus[] }),
+    statuses: resolveContactStatuses(hh) as ContactStatus[],
     note: hh.note,
     establishment_id: hh.establishment_id,
     establishment_name: establishment?.name,
