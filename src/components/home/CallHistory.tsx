@@ -1239,6 +1239,7 @@ export function CallHistory({
             callsDrawerTabletLayout ? openCallsMainSummaryEditor : undefined
           }
           preferLeftDetailPanel={callsDrawerTabletLayout}
+          detailsDrawerSurfaceKey={`bwi-calls-main-details:${userId}`}
         />
       );
     }
@@ -1256,6 +1257,7 @@ export function CallHistory({
           }
           preferLeftDetailPanel={callsDrawerTabletLayout}
           insideStackedContactPane={Boolean(callsContactSubdrawerOpen)}
+          detailsDrawerSurfaceKey={`bwi-calls-main-details:${userId}`}
         />
       );
     }
@@ -1281,6 +1283,7 @@ export function CallHistory({
         }
         preferLeftDetailPanel={callsDrawerTabletLayout}
         insideStackedContactPane={Boolean(callsContactSubdrawerOpen)}
+        detailsDrawerSurfaceKey={`bwi-calls-contact-subdrawer:${userId}`}
       />
     );
   };

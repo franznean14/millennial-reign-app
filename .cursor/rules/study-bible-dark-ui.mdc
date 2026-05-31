@@ -51,6 +51,15 @@ cn("dark:border-[#1c1921] dark:text-[#fffaff]", getStudyBibleDarkCardShade(`my-p
 
 Avoid stacking another full **`dark:bg-[#181714]`** (or similar flat gray) **on top of** a shade unless you need a nested inset; the shade **is** the panel background.
 
+## Nested cards inside drawers (parent ≠ child)
+
+**No card may share the same background as its parent panel** (details drawer, section shell, etc.). The parent owns the hashed drawer tint; children must read as distinct cards.
+
+- **Drawer body** — `getStudyBibleDarkCardShade(key)` on the drawer shell only.
+- **Section widgets in details** (To-Do / Calls on contact or establishment deets) — use semantic surfaces that contrast the drawer: **`todoSectionEmbeddedShell`** (border-only shell) + opaque **`todoRow`** / **`callsCard`**, not another full **`todoCard`** / **`homeTodoCardShade`** fill on the same hue.
+- **Per-row / per-item cards** — always opaque fills (**`todoRow`**, **`callsCard`**, **`bwiCard`**, etc.); never **`dark:bg-transparent`** on rows sitting on a tinted drawer.
+- **When hashing is required** — use **`getStudyBibleDistinctCardShade(parentKey, childKey)`** so the child index never matches the parent.
+
 ## Drawers (bottom sheets, left filter sheets, wide right/left panels)
 
 **Phone bottom sheets with inputs:** use **`FormDrawerRoot`** + **`FormDrawerContent`** (or **`FormModal`**) and scroll padding from **`form-drawer-phone.ts`** — see **`.cursor/rules/ios-viewport-safe-area.mdc`** (Drawer form sheets).
@@ -74,6 +83,7 @@ Avoid stacking another full **`dark:bg-[#181714]`** (or similar flat gray) **on 
 - [ ] Header **`bg-transparent`** unless design explicitly needs a contrasting sub-bar.
 - [ ] No redundant **border-b** between title and toolbar/filter row.
 - [ ] Mobile-first layout; tablet-only changes via **`md:`** per **`mobile-first-tablet-layout`**.
+- [ ] Nested cards inside drawers use a **different** surface than the parent (see **Nested cards inside drawers**).
 
 ## App shell & panel placement (viewport)
 

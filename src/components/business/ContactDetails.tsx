@@ -74,6 +74,8 @@ interface ContactDetailsProps {
   preferLeftDetailPanel?: boolean;
   /** When this contact pane is stacked above the establishment sheet (contact drill-in). */
   insideStackedContactPane?: boolean;
+  /** Parent details drawer palette key — nested section cards pick a distinct fill. */
+  detailsDrawerSurfaceKey?: string;
 }
 
 type TodoEditorItem = MyOpenCallTodoItem & {
@@ -137,6 +139,7 @@ export function ContactDetails({
   onRequestSummaryEdit,
   preferLeftDetailPanel = false,
   insideStackedContactPane = false,
+  detailsDrawerSurfaceKey,
 }: ContactDetailsProps) {
   
   // Reset scroll position to top when component mounts
@@ -737,6 +740,7 @@ export function ContactDetails({
           contactId={contact.id}
           userId={effectivePublisherId ?? undefined}
           onTodoTap={handleTodoTapOpenCall}
+          parentDrawerSurfaceKey={detailsDrawerSurfaceKey}
         />
       </motion.div>
 
@@ -752,6 +756,7 @@ export function ContactDetails({
           isLoading={isLoading}
           preferLeftDetailPanel={preferLeftDetailPanel}
           insideStackedContactPane={insideStackedContactPane}
+          parentDrawerSurfaceKey={detailsDrawerSurfaceKey}
           onVisitUpdated={() => {
             // Visit updates will be handled by the parent component's data refresh
           }}

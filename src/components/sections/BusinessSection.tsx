@@ -377,6 +377,11 @@ export function BusinessSection({
         onRequestSummaryEdit={() => setBusinessEditSheet("contact")}
         preferLeftDetailPanel={isTabletUp}
         insideStackedContactPane={options?.stacked}
+        detailsDrawerSurfaceKey={
+          options?.stacked
+            ? `bwi-business-contact-stack:${bwiBizScope}`
+            : `bwi-business-hh-detail:${bwiBizScope}`
+        }
       />
     );
   };
@@ -400,6 +405,7 @@ export function BusinessSection({
         preferLeftDetailPanel={isTabletUp}
         insideStackedContactPane={!!selectedContact && !!selectedEstablishment}
         publisherId={userId}
+        detailsDrawerSurfaceKey={`bwi-business-est-detail:${bwiBizScope}`}
       />
     );
   };

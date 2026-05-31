@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/drawer";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
-import { getStudyBibleDarkCardShade } from "@/lib/theme/study-bible-dark";
+import { getStudyBibleDarkCardShade, getStudyBibleDistinctCardShade, studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 
 interface CallSectionProps {
   visits: VisitWithUser[];
@@ -43,6 +43,8 @@ interface CallSectionProps {
    * elevated stacking as Edit Call so they appear above the contact drawer.
    */
   insideStackedContactPane?: boolean;
+  /** Parent details drawer palette key — section card uses a distinct fill vs the drawer shell. */
+  parentDrawerSurfaceKey?: string;
 }
 
 export function CallSection({
@@ -57,6 +59,7 @@ export function CallSection({
   isLoading = false,
   preferLeftDetailPanel = false,
   insideStackedContactPane = false,
+  parentDrawerSurfaceKey,
 }: CallSectionProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editVisit, setEditVisit] = useState<VisitWithUser | null>(null);
@@ -72,6 +75,24 @@ export function CallSection({
     () => getStudyBibleDarkCardShade(`bwi-callsection-edit:${callSectionScope}`),
     [callSectionScope]
   );
+  const callsSectionSurfaceClass = useMemo(() => {
+    if (parentDrawerSurfaceKey) {
+      return getStudyBibleDistinctCardShade(
+        parentDrawerSurfaceKey,
+        `calls-section:${callSectionScope}`
+      );
+    }
+    if (isContactContext || selectedEstablishmentId || contactId) {
+      return studyBibleDarkClasses.callsCard;
+    }
+    return "bg-card border-border dark:border-[#1c1921] dark:bg-[#30283c]";
+  }, [
+    parentDrawerSurfaceKey,
+    callSectionScope,
+    isContactContext,
+    selectedEstablishmentId,
+    contactId,
+  ]);
 
   // Show only first 3 visits in main view
   const mainVisits = visits.slice(0, 3);
@@ -205,7 +226,12 @@ export function CallSection({
     ) : null;
 
   return (
-    <div className="bg-card p-4 rounded-lg shadow-md border border-border dark:border-[#1c1921] dark:bg-[#30283c] text-foreground dark:text-[#fffaff]">
+    <div
+      className={cn(
+        "p-4 rounded-lg shadow-md border text-foreground dark:text-[#fffaff]",
+        callsSectionSurfaceClass
+      )}
+    >
       <button
         type="button"
         onClick={() => setDrawerOpen(true)}

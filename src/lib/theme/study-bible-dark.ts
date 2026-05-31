@@ -37,10 +37,13 @@ export const studyBibleDarkClasses = {
     "border-[#e2dde8] bg-[#e8e2ef] text-[#1a1820] dark:border-[#1c1921] dark:bg-[#30283c] dark:text-[#fffaff]",
   todoCard:
     "border-[#d4c8e4] bg-[#ded6e7] text-[#1a1820] dark:border-[#1c1921] dark:bg-[#2a2534] dark:text-[#fffaff]",
-  /** Individual to-do rows (card preview + drawer lists). */
+  /** To-Do block embedded in a details drawer — border only; rows supply their own fill (never match parent). */
+  todoSectionEmbeddedShell:
+    "rounded-lg border border-[#d4c8e4] bg-transparent dark:border-[#1c1921] dark:bg-transparent",
+  /** Individual to-do rows (card preview + drawer lists). Always opaque — never inherit parent drawer tint. */
   todoRow:
-    "border border-[#d4c8e4] bg-[#f5f2f8] shadow-[0_1px_2px_rgba(93,71,136,0.1)] dark:border-transparent dark:bg-transparent dark:shadow-none",
-  todoRowStripe: "bg-[#ebe4f2] dark:bg-[#30283c]/40",
+    "border border-[#d4c8e4] bg-[#f5f2f8] shadow-[0_1px_2px_rgba(93,71,136,0.1)] dark:border-[#1c1921] dark:bg-[#3b3348] dark:shadow-none",
+  todoRowStripe: "bg-[#ebe4f2] dark:bg-[#342a43]",
   /** In-card section labels (To-Do / Open / Done). */
   sectionLabel: "text-[#5d4788] dark:text-[#ded6e7]",
   /** Home To-Do — assigned / “To-Do” counts (header + section chips). */
@@ -300,6 +303,17 @@ function getStablePaletteIndex(key: string, length: number) {
 export function getStudyBibleDarkCardShade(key: string) {
   const index = getStablePaletteIndex(key, studyBibleLightCardShadeClasses.length);
   return `${studyBibleLightCardShadeClasses[index]} ${studyBibleDarkCardShadeClasses[index]}`;
+}
+
+/** Card surface guaranteed to differ from {@link getStudyBibleDarkCardShade}(parentKey) — use for nested cards in drawers. */
+export function getStudyBibleDistinctCardShade(parentKey: string, childKey: string) {
+  const len = studyBibleLightCardShadeClasses.length;
+  const parentIndex = getStablePaletteIndex(parentKey, len);
+  let childIndex = getStablePaletteIndex(childKey, len);
+  if (childIndex === parentIndex) {
+    childIndex = (childIndex + 2) % len;
+  }
+  return getStudyBibleCardShadeByIndex(childIndex);
 }
 
 export function getStudyBibleLightCardShadeHex(key: string) {

@@ -58,6 +58,8 @@ interface EstablishmentDetailsProps {
   publisherId?: string | null;
   isLoading?: boolean;
   canManagePersonalTerritoryOwner?: boolean;
+  /** Parent details drawer palette key — nested section cards pick a distinct fill. */
+  detailsDrawerSurfaceKey?: string;
 }
 
 type TodoEditorItem = MyOpenCallTodoItem & {
@@ -102,6 +104,7 @@ export function EstablishmentDetails({
   publisherId,
   isLoading = false,
   canManagePersonalTerritoryOwner = false,
+  detailsDrawerSurfaceKey,
 }: EstablishmentDetailsProps) {
   
   // Reset scroll position to top when component mounts
@@ -806,6 +809,7 @@ export function EstablishmentDetails({
           establishmentId={establishment.id}
           userId={currentUserId ?? undefined}
           onTodoTap={handleTodoTapOpenCall}
+          parentDrawerSurfaceKey={detailsDrawerSurfaceKey}
         />
       </motion.div>
 
@@ -819,6 +823,7 @@ export function EstablishmentDetails({
           isLoading={isLoading}
           preferLeftDetailPanel={preferLeftDetailPanel}
           insideStackedContactPane={insideStackedContactPane}
+          parentDrawerSurfaceKey={detailsDrawerSurfaceKey}
           onVisitUpdated={() => {
             // Visit updates will be handled by the parent component's data refresh
           }}

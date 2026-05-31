@@ -44,10 +44,6 @@ import { VisitStatusBadge } from "@/components/visit/VisitStatusBadge";
 import { FilterControls, type FilterBadge } from "@/components/shared/FilterControls";
 import { VisitFiltersForm, type VisitFilters, type VisitFilterOption } from "@/components/visit/VisitFiltersForm";
 import { CONTACT_FK_COLUMN } from "@/lib/db/contact-supabase";
-
-function isContactTargetType(targetType: string): boolean {
-  return targetType === "contact" || isContactTargetType(targetType);
-}
 import { buildFilterBadges } from "@/lib/utils/filter-badges";
 import { useMobile } from "@/lib/hooks/use-mobile";
 import { useMediaQuery } from "@/hooks/use-media-query";
@@ -57,6 +53,10 @@ import { cn } from "@/lib/utils";
 import { sidebarFormClasses } from "@/components/business/sidebar-form-styles";
 import { getStudyBibleDarkCardShade, studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
 import { HomeTodoCard } from "@/components/home/HomeTodoCard";
+
+function isContactTargetType(targetType: string): boolean {
+  return targetType === "contact";
+}
 
 type BulkTodoDraftRow = {
   id: string;
@@ -1643,8 +1643,8 @@ export function BulkTodoForm({
 
     return (
     <>
-      <div className="w-full overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-        <div className="w-max min-w-full flex justify-center">
+      <div className="min-w-0 w-[calc(100%+2rem)] -mx-4 overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex w-max min-w-full shrink-0 items-center justify-center gap-3 px-4">
           <FilterControls
             isSearchActive={!!targetSearchActiveByRow[row.id]}
             searchValue={targetSearchByRow[row.id] || ""}
@@ -3540,7 +3540,7 @@ export function BulkTodoForm({
               <DrawerDescription className="sr-only">Choose a target for the new to-do row.</DrawerDescription>
             </DrawerHeader>
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+24px)] pt-3">
-              <div className="shrink-0 space-y-2">
+              <div className="min-w-0 shrink-0 space-y-2">
                 {renderTargetPickerControls({
                   id: NEW_TODO_PICKER_ROW_ID,
                   targetKey: "none",
@@ -3577,7 +3577,7 @@ export function BulkTodoForm({
               </DrawerDescription>
             </DrawerHeader>
             <div className={cn("flex min-h-0 flex-1 flex-col px-4 pt-2", drawerFormScrollPadTightClass)}>
-              <div className="shrink-0 space-y-2">
+              <div className="min-w-0 shrink-0 space-y-2">
                 {renderTargetPickerControls({
                   id: NEW_TODO_PICKER_ROW_ID,
                   targetKey: "none",

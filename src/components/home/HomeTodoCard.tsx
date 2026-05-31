@@ -99,7 +99,12 @@ import { EstablishmentSummaryFields } from "@/components/business/EstablishmentS
 import { ContactSummaryFields } from "@/components/business/ContactSummaryFields";
 import { ContactForm } from "@/components/business/ContactForm";
 import { useMediaQuery } from "@/hooks/use-media-query";
-import { studyBibleDarkClasses, getStudyBibleDarkCardShade, getStudyBibleHomeCardShade } from "@/lib/theme/study-bible-dark";
+import {
+  studyBibleDarkClasses,
+  getStudyBibleDarkCardShade,
+  getStudyBibleDistinctCardShade,
+  getStudyBibleHomeCardShade,
+} from "@/lib/theme/study-bible-dark";
 import { DetailsDrawer } from "@/components/shared/DetailsDrawer";
 
 const todoLayoutTransition = {
@@ -498,6 +503,8 @@ interface HomeTodoCardProps {
   onDetailsBridgeNestedFormActiveChange?: (active: boolean) => void;
   /** Override profile-derived permission to assign open-pool to-dos (admin + Elder). */
   canAssignOpenTodos?: boolean;
+  /** Parent details drawer palette key — nested section uses a distinct fill vs the drawer shell. */
+  parentDrawerSurfaceKey?: string;
 }
 
 export function HomeTodoCard({
@@ -519,6 +526,7 @@ export function HomeTodoCard({
   onDetailsBridgeOpenChange,
   onDetailsBridgeNestedFormActiveChange,
   canAssignOpenTodos: canAssignOpenTodosProp,
+  parentDrawerSurfaceKey,
 }: HomeTodoCardProps) {
   const [sessionUserId, setSessionUserId] = useState<string | null>(null);
   const effectiveUserId = userId ?? sessionUserId;
@@ -2006,6 +2014,14 @@ export function HomeTodoCard({
   const showAssigneeAvatars = Boolean(userId || establishmentId || contactId);
   /** Contact to-dos in estab/contact detail panels — parent drawer already names the establishment. */
   const hideContactEstablishmentBadgeOnRows = Boolean(contactId || establishmentId);
+  const isEmbeddedInDetailsPanel = Boolean(establishmentId || contactId);
+  const embeddedSectionSurfaceClass = useMemo(() => {
+    if (!isEmbeddedInDetailsPanel || !parentDrawerSurfaceKey) return null;
+    return getStudyBibleDistinctCardShade(
+      parentDrawerSurfaceKey,
+      `todo-section:${scopeKey ?? "anon"}`
+    );
+  }, [isEmbeddedInDetailsPanel, parentDrawerSurfaceKey, scopeKey]);
   const showOtherPublisherDecorations = Boolean(
     userId && !establishmentId && !contactId && !filters.myUpdatesOnly
   );
@@ -2885,6 +2901,7 @@ export function HomeTodoCard({
           prefillOpenTodos={contactPrefillOpenTodos}
           prefillCompletedTodos={contactPrefillCompletedTodos}
           preferLeftCompanionDrawer
+          parentDrawerSurfaceKey={`bwi-todos-details:${todoDrawerShadeKey}`}
           onTodoTap={(todo) =>
             openTodoEditorFromDetails(todo, selectedDetailVisits, {
               establishments: selectedContactEstablishment
@@ -2906,6 +2923,7 @@ export function HomeTodoCard({
           prefillOpenTodos={establishmentPrefillOpenTodos}
           prefillCompletedTodos={establishmentPrefillCompletedTodos}
           preferLeftCompanionDrawer
+          parentDrawerSurfaceKey={`bwi-todos-details:${todoDrawerShadeKey}`}
           onTodoTap={(todo) =>
             openTodoEditorFromDetails(todo, selectedDetailVisits, {
               establishments: [{ id: selectedEstablishmentDetails.id, name: selectedEstablishmentDetails.name }],
@@ -2943,6 +2961,7 @@ export function HomeTodoCard({
           }}
           preferLeftDetailPanel={isTodoDetailsSideLayout}
           insideStackedContactPane={Boolean(!isContactDetail && contactDetailsSubdrawerOpen)}
+          parentDrawerSurfaceKey={`bwi-todos-details:${todoDrawerShadeKey}`}
         />
       ) : null}
 
@@ -3387,6 +3406,7 @@ export function HomeTodoCard({
           prefillOpenTodos={contactSubdrawerPrefillOpenTodos}
           prefillCompletedTodos={contactSubdrawerPrefillCompletedTodos}
           preferLeftCompanionDrawer
+          parentDrawerSurfaceKey={`bwi-todos-contact:${todoDrawerShadeKey}`}
           onTodoTap={(todo) =>
             openTodoEditorFromDetails(todo, contactSubdrawerVisits, {
               establishments: contactSubdrawerEstablishment
@@ -3416,6 +3436,7 @@ export function HomeTodoCard({
           }}
           preferLeftDetailPanel={isTodoDetailsSideLayout}
           insideStackedContactPane
+          parentDrawerSurfaceKey={`bwi-todos-contact:${todoDrawerShadeKey}`}
         />
       ) : null}
     </>
@@ -3707,7 +3728,17 @@ export function HomeTodoCard({
 
   return (
     <>
-      <div className={cn("rounded-lg border overflow-hidden", studyBibleDarkClasses.todoCard, homeTodoCardShade, className)}>
+      <div
+        className={cn(
+          "overflow-hidden",
+          isEmbeddedInDetailsPanel
+            ? embeddedSectionSurfaceClass
+              ? cn("rounded-lg border dark:border-[#1c1921]", embeddedSectionSurfaceClass)
+              : cn("rounded-lg border", studyBibleDarkClasses.todoCard, homeTodoCardShade)
+            : cn("rounded-lg border", studyBibleDarkClasses.todoCard, homeTodoCardShade),
+          className
+        )}
+      >
         <div className={cn("flex h-full min-h-0 flex-col", headerVariant === "bar" ? "" : "p-4")}>
           <button
             type="button"
@@ -3716,7 +3747,12 @@ export function HomeTodoCard({
               headerVariant === "bar"
                 ? "flex h-10 shrink-0 items-center gap-2 border-b px-4 text-sm font-medium transition-colors"
                 : "text-xs text-muted-foreground mb-4 flex items-center gap-1.5 w-full text-left hover:text-foreground transition-colors",
-              headerVariant === "bar" ? cn(studyBibleDarkClasses.cardBarHeader, homeTodoCardShade) : studyBibleDarkClasses.sectionLabel
+              headerVariant === "bar"
+                ? cn(
+                    studyBibleDarkClasses.cardBarHeader,
+                    embeddedSectionSurfaceClass ?? homeTodoCardShade
+                  )
+                : studyBibleDarkClasses.sectionLabel
             )}
           >
             <ListTodo className="h-4 w-4 shrink-0" />
