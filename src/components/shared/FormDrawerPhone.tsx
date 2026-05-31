@@ -21,18 +21,21 @@ type FormDrawerContentProps = DrawerContentProps & {
   fitContent?: boolean;
   /** Stack above another open bottom sheet without closing it. */
   stackAboveParentSheet?: boolean;
+  /** Stack above a sheet that already uses {@link stackAboveParentSheet}. */
+  stackAboveStackedParentSheet?: boolean;
 };
 
 export const FormDrawerContent = React.forwardRef<
   React.ElementRef<typeof DrawerContent>,
   FormDrawerContentProps
->(({ fitContent = false, stackAboveParentSheet = false, className, ...props }, ref) => {
+>(({ fitContent = false, stackAboveParentSheet = false, stackAboveStackedParentSheet = false, className, ...props }, ref) => {
   return (
     <DrawerContent
       ref={ref}
       {...FORM_DRAWER_PHONE_ATTR}
       data-drawer-fit-content={fitContent ? "" : undefined}
       stackAboveParentSheet={stackAboveParentSheet}
+      stackAboveStackedParentSheet={stackAboveStackedParentSheet}
       className={cn(getFormDrawerPhoneClassName({ fitContent }), className)}
       {...props}
     />

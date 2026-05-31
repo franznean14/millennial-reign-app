@@ -884,6 +884,8 @@ export function EstablishmentDetails({
                   establishments={[{ id: establishment.id, name: establishment.name }]}
                   selectedEstablishmentId={establishment.id}
                   initialTodo={editTodo}
+                  contactId={editTodo.contact_id ?? undefined}
+                  contactName={editTodo.context_name ?? undefined}
                   onSaved={() => setEditTodo(null)}
                   disableEstablishmentSelect
                 />
@@ -898,11 +900,15 @@ export function EstablishmentDetails({
             }}
             title="Edit To-Do"
             headerClassName="text-center"
+            stackAboveParentSheet={!insideStackedContactPane}
+            stackAboveStackedParentSheet={insideStackedContactPane}
           >
             <TodoForm
               establishments={[{ id: establishment.id, name: establishment.name }]}
               selectedEstablishmentId={establishment.id}
               initialTodo={editTodo}
+              contactId={editTodo.contact_id ?? undefined}
+              contactName={editTodo.context_name ?? undefined}
               onSaved={() => setEditTodo(null)}
               disableEstablishmentSelect
             />

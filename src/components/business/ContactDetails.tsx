@@ -763,6 +763,8 @@ export function ContactDetails({
         onOpenChange={setNewVisitOpen}
         title="New Call"
         headerClassName="text-center"
+        stackAboveParentSheet={!insideStackedContactPane}
+        stackAboveStackedParentSheet={insideStackedContactPane}
       >
         <CallForm
                 establishments={establishments}
@@ -825,6 +827,8 @@ export function ContactDetails({
           title="Edit Contact"
           description="Update contact details"
           headerClassName="text-center"
+          stackAboveParentSheet={!insideStackedContactPane}
+          stackAboveStackedParentSheet={insideStackedContactPane}
         >
           <ContactForm
             establishments={establishments}
@@ -889,6 +893,8 @@ export function ContactDetails({
             }}
             title="Edit To-Do"
             headerClassName="text-center"
+            stackAboveParentSheet={!insideStackedContactPane}
+            stackAboveStackedParentSheet={insideStackedContactPane}
           >
             <TodoForm
               establishments={establishments}

@@ -340,6 +340,8 @@ export function CallSection({
           className={callEditPaneShade}
           drawerContentClassName="h-[85svh] max-h-[85svh] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden"
           drawerHandleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
+          stackAboveParentSheet={!insideStackedContactPane}
+          stackAboveStackedParentSheet={insideStackedContactPane}
         >
           {visitForm}
         </FormModal>

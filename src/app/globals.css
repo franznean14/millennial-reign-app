@@ -519,6 +519,29 @@ body.app-scroll-locked {
   z-index: 10001 !important;
 }
 
+/* Phone form sheet above stacked contact-over-establishment drawer (third layer). */
+[data-vaul-overlay][data-stack-above-stacked-parent-sheet] {
+  z-index: 10002 !important;
+}
+
+[data-vaul-drawer][data-stack-above-stacked-parent-sheet] {
+  z-index: 10003 !important;
+}
+
+/* FAB chrome (#fab-root + portaled menu) sits above drawer/form tiers — see drawer-stack-z-index.ts */
+#fab-root {
+  z-index: 100010 !important;
+}
+
+/* FormModal suppresses #fab-root while new/edit call, to-do, etc. are open. */
+#fab-root[data-form-modal-suppressed],
+#fab-root[inert] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  z-index: 40 !important;
+}
+
 /* Dialog/Modal z-index */
 [role="dialog"] {
   z-index: 9999 !important;

@@ -16,6 +16,7 @@ import {
   DELETE_CONTACT_RPC,
   DELETE_CONTACT_RPC_LEGACY,
   mapContactFkRow,
+  readContactIdFromDb,
 } from "@/lib/db/contact-supabase";
 import { notifyEstablishmentRackStatusChange } from "@/lib/push/notify-establishment-rack-status";
 
@@ -1361,10 +1362,10 @@ function buildCallMetaById(calls: any[]): Map<string, { visit_date: string | nul
       const contact = Array.isArray((c as any).contact)
         ? (c as any).contact[0]
         : (c as any).contact;
-      const callContactId = c.contact_id ?? c.contact_id;
-      const context_name = (callContactId && contact?.name
-        ? contact.name
-        : establishment?.name ?? null) as string | null;
+      const callContactId = readContactIdFromDb(c);
+      const context_name = callContactId
+        ? ((contact?.name ?? null) as string | null)
+        : ((establishment?.name ?? null) as string | null);
       const context_establishment_name = (establishment?.name ?? null) as string | null;
       const establishment_status = establishment?.statuses
         ? getBestStatus(establishment.statuses as string[])
@@ -1479,7 +1480,9 @@ async function enrichTodoItems(
       ? getBestStatus(establishment.statuses)
       : null;
 
-    const context_name = contact?.name ?? establishment?.name ?? callMeta?.context_name ?? null;
+    const context_name = effectiveContactId
+      ? contact?.name ?? (callMeta?.contact_id ? callMeta.context_name : null) ?? null
+      : establishment?.name ?? callMeta?.context_name ?? null;
     const context_status = contact?.statuses?.length
       ? getBestContactStatus(resolveContactStatuses(contact))
       : establishmentStatus ?? callMeta?.context_status ?? null;

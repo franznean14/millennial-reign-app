@@ -32,7 +32,7 @@ import {
   isEstablishmentTodoMissingLocation,
 } from "@/lib/db/business";
 import { MissingEstablishmentLocationIcon } from "@/components/business/MissingEstablishmentLocationIcon";
-import { getContactPrimaryStatus, getStatusTextColor, resolveContactStatuses } from "@/lib/utils/status-hierarchy";
+import { getContactPrimaryStatus, getStatusTextColor, resolveContactStatuses, resolveDetailsDrawerTitle } from "@/lib/utils/status-hierarchy";
 import { getSelectedStatusColor } from "@/lib/utils/status-filter-styles";
 import NumberFlow from "@number-flow/react";
 import { cacheGet, cacheSet, cacheDelete } from "@/lib/offline/store";
@@ -70,7 +70,7 @@ import {
   studyBibleDarkClasses,
   studyBibleSectionToggle,
 } from "@/lib/theme/study-bible-dark";
-import { HomeMobileDetailsDrawer } from "@/components/home/HomeMobileDetailsDrawer";
+import { DetailsDrawer } from "@/components/shared/DetailsDrawer";
 
 interface CallHistoryProps {
   userId: string;
@@ -732,16 +732,51 @@ export function CallHistory({
     () => buildCallsStreamItems.drawer.filter(callsStreamItemIsContactColumn),
     [buildCallsStreamItems.drawer]
   );
-  const callsDetailsSheetTitle = useMemo(() => {
-    const contactName = selectedCallsContactDetails?.contact?.name?.trim();
-    if (contactName) return contactName;
-    const est = selectedCallsEstablishmentDetails?.establishment?.name?.trim();
-    if (est) return est;
-    return "Details";
+  const callsDetailsDrawerTitle = useMemo(() => {
+    if (selectedCallsContactDetails?.contact) {
+      return resolveDetailsDrawerTitle(
+        {
+          kind: "contact",
+          name: selectedCallsContactDetails.contact.name,
+          statuses: selectedCallsContactDetails.contact.statuses,
+          publisher_id: selectedCallsContactDetails.contact.publisher_id,
+        },
+        userId
+      );
+    }
+    if (selectedCallsEstablishmentDetails?.establishment) {
+      return resolveDetailsDrawerTitle(
+        {
+          kind: "establishment",
+          name: selectedCallsEstablishmentDetails.establishment.name,
+          statuses: selectedCallsEstablishmentDetails.establishment.statuses,
+          publisher_id: selectedCallsEstablishmentDetails.establishment.publisher_id,
+        },
+        userId
+      );
+    }
+    return { name: "Details", titleStatus: undefined as string | undefined };
   }, [
-    selectedCallsContactDetails?.contact?.name,
-    selectedCallsEstablishmentDetails?.establishment?.name,
+    selectedCallsContactDetails?.contact,
+    selectedCallsEstablishmentDetails?.establishment,
+    userId,
   ]);
+
+  const callsContactSubdrawerTitle = useMemo(() => {
+    const contact = selectedCallsContactDetails?.contact;
+    if (!contact) {
+      return { name: "Contact Details", titleStatus: undefined as string | undefined };
+    }
+    return resolveDetailsDrawerTitle(
+      {
+        kind: "contact",
+        name: contact.name,
+        statuses: contact.statuses,
+        publisher_id: contact.publisher_id,
+      },
+      userId
+    );
+  }, [selectedCallsContactDetails?.contact, userId]);
 
   async function openCallsDetailsDrawer(
     target:
@@ -1220,7 +1255,7 @@ export function CallHistory({
             callsDrawerTabletLayout ? openCallsMainSummaryEditor : undefined
           }
           preferLeftDetailPanel={callsDrawerTabletLayout}
-          insideStackedContactPane={Boolean(callsContactSubdrawerOpen && callsDrawerTabletLayout)}
+          insideStackedContactPane={Boolean(callsContactSubdrawerOpen)}
         />
       );
     }
@@ -1245,7 +1280,7 @@ export function CallHistory({
           callsDrawerTabletLayout ? openCallsContactSummaryEditor : undefined
         }
         preferLeftDetailPanel={callsDrawerTabletLayout}
-        insideStackedContactPane={callsDrawerTabletLayout}
+        insideStackedContactPane={Boolean(callsContactSubdrawerOpen)}
       />
     );
   };
@@ -2141,126 +2176,53 @@ export function CallHistory({
         </FormDrawerContent>
       </FormDrawerRoot>
 
-      {callsDrawerTabletLayout ? (
-        <Drawer
-          open={callsDetailsDrawerOpen}
-          onOpenChange={(open) => {
-            setCallsDetailsDrawerOpen(open);
-            if (!open) {
-              setSelectedCallsEstablishmentDetails(null);
-              setSelectedCallsContactDetails(null);
-              setCallsContactSubdrawerOpen(false);
-              setSelectedCallsContactDetails(null);
-              setCallsDetailsEntityEditOpen(false);
-              setCallsContactSubdrawerEntityEditOpen(false);
-            }
-          }}
-          direction="right"
-          modal
-          nested
-          shouldScaleBackground={false}
-        >
-          <DrawerWideRightContent
-            className={cn(
-              "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
-              callsMainDetailsPanelClass
-            )}
-          >
-            <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
-              <DrawerTitle className="text-center text-xl font-extrabold tracking-tight">{callsDetailsSheetTitle}</DrawerTitle>
-            </DrawerHeader>
-            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
-              {renderCallsMainDetailsBody()}
-            </div>
-          </DrawerWideRightContent>
-        </Drawer>
-      ) : (
-        <HomeMobileDetailsDrawer
-          open={callsDetailsDrawerOpen}
-          onOpenChange={(open) => {
-            setCallsDetailsDrawerOpen(open);
-            if (!open) {
-              setSelectedCallsEstablishmentDetails(null);
-              setSelectedCallsContactDetails(null);
-              setCallsContactSubdrawerOpen(false);
-              setSelectedCallsContactDetails(null);
-              setCallsDetailsEntityEditOpen(false);
-              setCallsContactSubdrawerEntityEditOpen(false);
-            }
-          }}
-          title={callsDetailsSheetTitle}
-          contentClassName={cn(
-            "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
-            callsMainDetailsPanelClass
-          )}
-        >
-          {renderCallsMainDetailsBody()}
-        </HomeMobileDetailsDrawer>
-      )}
+      <DetailsDrawer
+        open={callsDetailsDrawerOpen}
+        onOpenChange={(open) => {
+          setCallsDetailsDrawerOpen(open);
+          if (!open) {
+            setSelectedCallsEstablishmentDetails(null);
+            setSelectedCallsContactDetails(null);
+            setCallsContactSubdrawerOpen(false);
+            setSelectedCallsContactDetails(null);
+            setCallsDetailsEntityEditOpen(false);
+            setCallsContactSubdrawerEntityEditOpen(false);
+          }
+        }}
+        entityName={callsDetailsDrawerTitle.name}
+        titleStatus={callsDetailsDrawerTitle.titleStatus}
+        layout={callsDrawerTabletLayout ? "tablet" : "phone"}
+        contentClassName={cn(
+          "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
+          callsMainDetailsPanelClass
+        )}
+        bodyClassName="space-y-3"
+      >
+        {renderCallsMainDetailsBody()}
+      </DetailsDrawer>
 
-      {callsDrawerTabletLayout ? (
-        <Drawer
-          open={callsContactSubdrawerOpen && callsDetailsDrawerOpen}
-          onOpenChange={(open) => {
-            setCallsContactSubdrawerOpen(open);
-            if (!open) {
-              setSelectedCallsContactDetails(null);
-              setCallsContactSubdrawerEntityEditOpen(false);
-            }
-          }}
-          direction="right"
-          modal
-          nested
-          shouldScaleBackground={false}
-        >
-          <DrawerWideRightContent
-            stackAboveDetailsSheet
-            className={cn(
-              "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
-              callsContactSubdrawerPanelClass
-            )}
-          >
-            <DrawerHeader className="bg-transparent px-2 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-left sm:px-4">
-              <div className="relative flex items-center justify-center gap-1 pr-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute left-0 h-9 w-9 shrink-0"
-                  onClick={closeCallsContactSubdrawer}
-                  aria-label="Back to establishment"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </Button>
-                <DrawerTitle className="px-10 text-center text-xl font-extrabold tracking-tight">
-                  {selectedCallsContactDetails?.contact.name ?? "Contact Details"}
-                </DrawerTitle>
-              </div>
-            </DrawerHeader>
-            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
-              {renderCallsContactSubdrawerBody()}
-            </div>
-          </DrawerWideRightContent>
-        </Drawer>
-      ) : (
-        <HomeMobileDetailsDrawer
-          open={callsContactSubdrawerOpen}
-          onOpenChange={(open) => {
-            setCallsContactSubdrawerOpen(open);
-            if (!open) {
-              setSelectedCallsContactDetails(null);
-              setCallsContactSubdrawerEntityEditOpen(false);
-            }
-          }}
-          title={selectedCallsContactDetails?.contact.name?.trim() || "Contact Details"}
-          contentClassName={cn(
-            "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
-            callsContactSubdrawerPanelClass
-          )}
-        >
-          {renderCallsContactSubdrawerBody()}
-        </HomeMobileDetailsDrawer>
-      )}
+      <DetailsDrawer
+        open={callsContactSubdrawerOpen && (callsDrawerTabletLayout ? callsDetailsDrawerOpen : true)}
+        onOpenChange={(open) => {
+          setCallsContactSubdrawerOpen(open);
+          if (!open) {
+            setSelectedCallsContactDetails(null);
+            setCallsContactSubdrawerEntityEditOpen(false);
+          }
+        }}
+        entityName={callsContactSubdrawerTitle.name}
+        titleStatus={callsContactSubdrawerTitle.titleStatus}
+        layout={callsDrawerTabletLayout ? "tablet" : "phone"}
+        stackAboveDetailsSheet={callsDrawerTabletLayout}
+        stackAboveParentSheet={!callsDrawerTabletLayout}
+        contentClassName={cn(
+          "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
+          callsContactSubdrawerPanelClass
+        )}
+        bodyClassName="space-y-3"
+      >
+        {renderCallsContactSubdrawerBody()}
+      </DetailsDrawer>
 
       {callsDrawerTabletLayout ? (
         <Drawer

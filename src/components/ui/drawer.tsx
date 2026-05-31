@@ -117,8 +117,10 @@ export const DrawerContent = React.forwardRef<
     handleClassName?: string;
     /** Stack above another open bottom sheet (must beat global `[data-vaul-drawer]` z-index). */
     stackAboveParentSheet?: boolean;
+    /** Stack above a sheet that already uses {@link stackAboveParentSheet} (e.g. contact deets over establishment deets). */
+    stackAboveStackedParentSheet?: boolean;
   }
->(({ className, overlayClassName, handleClassName, stackAboveParentSheet = false, children, onPointerDownOutside, style, ...props }, ref) => {
+>(({ className, overlayClassName, handleClassName, stackAboveParentSheet = false, stackAboveStackedParentSheet = false, children, onPointerDownOutside, style, ...props }, ref) => {
   const visualViewport = useVisualViewport();
   
   // Check if this is a nested drawer (time picker) that needs to be taller
@@ -173,9 +175,11 @@ export const DrawerContent = React.forwardRef<
     [dynamicStyles, style]
   );
 
-  const stackAboveParentAttrs = stackAboveParentSheet
-    ? ({ "data-stack-above-parent-sheet": "" } as const)
-    : undefined;
+  const stackAboveParentAttrs = stackAboveStackedParentSheet
+    ? ({ "data-stack-above-stacked-parent-sheet": "" } as const)
+    : stackAboveParentSheet
+      ? ({ "data-stack-above-parent-sheet": "" } as const)
+      : undefined;
 
   return (
     <DrawerPortal>

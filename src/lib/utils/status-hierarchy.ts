@@ -178,6 +178,29 @@ export function getBusinessDetailsHeaderTitleStatus(
   return undefined;
 }
 
+export type DetailsDrawerEntityKind = "establishment" | "contact";
+
+export type DetailsDrawerEntity = {
+  kind: DetailsDrawerEntityKind;
+  name?: string | null;
+  statuses?: string[] | null;
+  publisher_id?: string | null;
+};
+
+/** Resolve display name + status token for unified details drawer titles. */
+export function resolveDetailsDrawerTitle(
+  entity: DetailsDrawerEntity,
+  currentUserId?: string | null
+): { name: string; titleStatus: string | undefined } {
+  const fallback = entity.kind === "contact" ? "Contact Details" : "Establishment Details";
+  const name = entity.name?.trim() || fallback;
+  const titleStatus =
+    entity.kind === "contact"
+      ? getBusinessDetailsHeaderTitleStatus(entity, undefined, currentUserId)
+      : getBusinessDetailsHeaderTitleStatus(undefined, entity, currentUserId);
+  return { name, titleStatus };
+}
+
 export const getStatusTextColor = (status: string) => {
   switch (status) {
     // Establishment statuses

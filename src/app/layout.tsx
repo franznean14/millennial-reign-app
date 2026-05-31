@@ -53,7 +53,7 @@ export default function RootLayout({
       </head>
       <body suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
         {/* FAB portal: fixed layer above sheets/dialogs; children use pointer-events-auto */}
-        <div id="fab-root" className="pointer-events-none fixed inset-0 z-[99999]" />
+        <div id="fab-root" className="pointer-events-none fixed inset-0 z-[100010]" />
         <ThemeInit />
         <SPAProvider>
           <AppChrome>{children}</AppChrome>

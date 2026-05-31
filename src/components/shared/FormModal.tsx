@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useEffect } from "react";
+import { incrementFabFormSheetSuppress } from "@/lib/fab/form-sheet-suppress";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -79,6 +80,10 @@ interface FormModalProps {
   tabletQuery?: string;
   /** When using left sheet above home stacked contact pane (tablet). */
   leftSheetStackAboveNestedRight?: boolean;
+  /** Phone bottom sheet above an open parent drawer (e.g. contact details). */
+  stackAboveParentSheet?: boolean;
+  /** Phone bottom sheet above a stacked parent drawer (contact deets over establishment deets). */
+  stackAboveStackedParentSheet?: boolean;
   /**
    * When open, skip marking `#fab-root` inert and skip lowering its z-index on mobile so a docked FAB
    * stays above the sheet (bulk to-dos).
@@ -116,6 +121,8 @@ export function FormModal({
   desktopPresentation = "auto",
   tabletQuery = "(min-width: 768px)",
   leftSheetStackAboveNestedRight = false,
+  stackAboveParentSheet = false,
+  stackAboveStackedParentSheet = false,
   skipFabRootInert = false,
   sheetBodyScrollClassName,
   drawerHandleClassName,
@@ -133,60 +140,22 @@ export function FormModal({
   /** Radix Dialog/Drawer warn if content has no Description; extra copy is screen-reader only when no `description` prop. */
   const a11yDescription =
     description ?? (typeof title === "string" ? `Use the form to ${title}.` : "Dialog form.");
+  const phoneDrawerStackNested = stackAboveParentSheet || stackAboveStackedParentSheet;
+  const phoneDrawerStackProps = {
+    stackAboveParentSheet,
+    stackAboveStackedParentSheet,
+  } as const;
+
   useEffect(() => {
-    if (typeof document === "undefined") return;
+    if (!open || skipFabRootInert) return;
+
     const fabRoot = document.getElementById("fab-root");
-    if (!fabRoot) return;
-    const isMobile = window.matchMedia("(max-width: 767px)").matches;
-    const OPEN_COUNT_KEY = "formModalOpenCount";
-    const PREV_Z_KEY = "formModalPrevZIndex";
-
-    if (!open) {
-      fabRoot.removeAttribute("inert");
-      return;
+    const active = document.activeElement as HTMLElement | null;
+    if (fabRoot && active && fabRoot.contains(active)) {
+      active.blur();
     }
 
-    if (!skipFabRootInert) {
-      const active = document.activeElement as HTMLElement | null;
-      if (active && fabRoot.contains(active)) {
-        active.blur();
-      }
-      fabRoot.setAttribute("inert", "");
-    }
-
-    // On mobile, keep form drawers above FAB/menu so inline submit controls remain tappable.
-    // Bulk sheet uses skipFabRootInert so the unified FAB stays above the drawer.
-    if (isMobile && !skipFabRootInert) {
-      const currentCount = Number(fabRoot.dataset[OPEN_COUNT_KEY] ?? "0");
-      const nextCount = currentCount + 1;
-      fabRoot.dataset[OPEN_COUNT_KEY] = String(nextCount);
-      if (nextCount === 1) {
-        fabRoot.dataset[PREV_Z_KEY] = fabRoot.style.zIndex ?? "";
-        fabRoot.style.zIndex = "40";
-      }
-    }
-
-    return () => {
-      if (!skipFabRootInert) {
-        fabRoot.removeAttribute("inert");
-      }
-      if (!isMobile) return;
-
-      const currentCount = Number(fabRoot.dataset[OPEN_COUNT_KEY] ?? "0");
-      const nextCount = Math.max(0, currentCount - 1);
-      if (nextCount === 0) {
-        const prevZ = fabRoot.dataset[PREV_Z_KEY];
-        if (prevZ && prevZ.length > 0) {
-          fabRoot.style.zIndex = prevZ;
-        } else {
-          fabRoot.style.removeProperty("z-index");
-        }
-        delete fabRoot.dataset[OPEN_COUNT_KEY];
-        delete fabRoot.dataset[PREV_Z_KEY];
-      } else {
-        fabRoot.dataset[OPEN_COUNT_KEY] = String(nextCount);
-      }
-    };
+    return incrementFabFormSheetSuppress();
   }, [open, skipFabRootInert]);
 
   if (desktopPresentation === "left-sheet") {
@@ -228,10 +197,11 @@ export function FormModal({
     }
 
     return (
-      <FormDrawerRoot open={open} onOpenChange={onOpenChange}>
+      <FormDrawerRoot open={open} onOpenChange={onOpenChange} nested={phoneDrawerStackNested}>
         <DrawerContent
           {...FORM_DRAWER_PHONE_ATTR}
           data-drawer-fit-content={drawerFitContent ? "" : undefined}
+          {...phoneDrawerStackProps}
           className={cn(FORM_MODAL_SHELL_BASE, FORM_MODAL_PHONE_SHADE, className, phoneDrawerClassName)}
           handleClassName={resolvedDrawerHandle}
         >
@@ -291,10 +261,11 @@ export function FormModal({
     }
 
     return (
-      <FormDrawerRoot open={open} onOpenChange={onOpenChange}>
+      <FormDrawerRoot open={open} onOpenChange={onOpenChange} nested={phoneDrawerStackNested}>
         <DrawerContent
           {...FORM_DRAWER_PHONE_ATTR}
           data-drawer-fit-content={drawerFitContent ? "" : undefined}
+          {...phoneDrawerStackProps}
           className={cn(
             "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
             getStudyBibleDarkCardShade("bwi-bulk-todos-right-sheet:phone"),
@@ -336,10 +307,11 @@ export function FormModal({
   }
 
   return (
-    <FormDrawerRoot open={open} onOpenChange={onOpenChange}>
+    <FormDrawerRoot open={open} onOpenChange={onOpenChange} nested={phoneDrawerStackNested}>
       <DrawerContent
         {...FORM_DRAWER_PHONE_ATTR}
         data-drawer-fit-content={drawerFitContent ? "" : undefined}
+        {...phoneDrawerStackProps}
         className={cn(FORM_MODAL_SHELL_BASE, FORM_MODAL_PHONE_SHADE, className, phoneDrawerClassName)}
         handleClassName={resolvedDrawerHandle}
       >

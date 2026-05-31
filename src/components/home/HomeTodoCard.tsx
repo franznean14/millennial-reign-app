@@ -90,7 +90,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { getAssigneeAvatarInitials } from "@/lib/utils/visit-history-ui";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useMobile } from "@/lib/hooks/use-mobile";
-import { getBestStatus, getContactPrimaryStatus, getStatusColor, getStatusTextColor, resolveContactStatuses } from "@/lib/utils/status-hierarchy";
+import { getBestStatus, getContactPrimaryStatus, getStatusColor, getStatusTextColor, resolveContactStatuses, resolveDetailsDrawerTitle } from "@/lib/utils/status-hierarchy";
 import { CallSection } from "@/components/business/CallSection";
 import { ContactsSection } from "@/components/business/ContactsSection";
 import { TodoForm } from "@/components/business/TodoForm";
@@ -100,7 +100,7 @@ import { ContactSummaryFields } from "@/components/business/ContactSummaryFields
 import { ContactForm } from "@/components/business/ContactForm";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { studyBibleDarkClasses, getStudyBibleDarkCardShade, getStudyBibleHomeCardShade } from "@/lib/theme/study-bible-dark";
-import { HomeMobileDetailsDrawer } from "@/components/home/HomeMobileDetailsDrawer";
+import { DetailsDrawer } from "@/components/shared/DetailsDrawer";
 
 const todoLayoutTransition = {
   type: "spring",
@@ -109,7 +109,7 @@ const todoLayoutTransition = {
 } as const;
 const TODOS_FRESH_MS = 30_000;
 
-const TODOS_CACHE_KEY = (scopeKey: string) => `home-todos:${scopeKey}`;
+const TODOS_CACHE_KEY = (scopeKey: string) => `home-todos:v4:${scopeKey}`;
 const TODOS_LOCAL_STORAGE_KEY = (scopeKey: string) => `home-todos:local:${scopeKey}`;
 const TODO_FILTERS_LOCAL_STORAGE_KEY = (scopeKey: string) => `home-todos:filters:${scopeKey}`;
 const HOME_TODO_FILTERS_SYNC_EVENT = "home-todos-filters-sync";
@@ -2004,6 +2004,8 @@ export function HomeTodoCard({
   );
 
   const showAssigneeAvatars = Boolean(userId || establishmentId || contactId);
+  /** Contact to-dos in estab/contact detail panels — parent drawer already names the establishment. */
+  const hideContactEstablishmentBadgeOnRows = Boolean(contactId || establishmentId);
   const showOtherPublisherDecorations = Boolean(
     userId && !establishmentId && !contactId && !filters.myUpdatesOnly
   );
@@ -2311,7 +2313,7 @@ export function HomeTodoCard({
       layoutId={`${layoutScopeId}-card-${todo.id}`}
       layoutTransition={todoLayoutTransition}
       hideContactNameBadge={!!contactId}
-      hideContactEstablishmentBadge={!!contactId}
+      hideContactEstablishmentBadge={hideContactEstablishmentBadgeOnRows}
       listTier={listTier}
       headerAction={isUnassignedTodoItem(todo) ? renderOpenTodoTakeButton(todo) : undefined}
     />
@@ -2940,9 +2942,7 @@ export function HomeTodoCard({
             void refreshTodoDetailEntity().then(() => broadcastTodosAndBusinessRefresh());
           }}
           preferLeftDetailPanel={isTodoDetailsSideLayout}
-          insideStackedContactPane={
-            Boolean(!isContactDetail && contactDetailsSubdrawerOpen && isTodoDetailsSideLayout)
-          }
+          insideStackedContactPane={Boolean(!isContactDetail && contactDetailsSubdrawerOpen)}
         />
       ) : null}
 
@@ -2952,7 +2952,7 @@ export function HomeTodoCard({
           contacts={selectedDetailContacts}
           onContactClick={openContactDetailsSubdrawer}
           preferLeftDetailPanel={isTodoDetailsSideLayout}
-          insideStackedContactPane={Boolean(contactDetailsSubdrawerOpen && isTodoDetailsSideLayout)}
+          insideStackedContactPane={Boolean(contactDetailsSubdrawerOpen)}
           isLoading={false}
         />
       ) : null}
@@ -3091,7 +3091,7 @@ export function HomeTodoCard({
                     layoutTransition={todoLayoutTransition}
                     clampBody={false}
                     hideContactNameBadge={!!contactId}
-                    hideContactEstablishmentBadge={!!contactId}
+                    hideContactEstablishmentBadge={hideContactEstablishmentBadgeOnRows}
                   />
                 ))}
               </ul>
@@ -3130,7 +3130,7 @@ export function HomeTodoCard({
                     layoutTransition={todoLayoutTransition}
                     clampBody={false}
                     hideContactNameBadge={!!contactId}
-                    hideContactEstablishmentBadge={!!contactId}
+                    hideContactEstablishmentBadge={hideContactEstablishmentBadgeOnRows}
                     headerAction={renderHomeDrawerOpenTodoActions(todo)}
                   />
                 ))}
@@ -3170,7 +3170,7 @@ export function HomeTodoCard({
                     layoutTransition={todoLayoutTransition}
                     clampBody={false}
                     hideContactNameBadge={!!contactId}
-                    hideContactEstablishmentBadge={!!contactId}
+                    hideContactEstablishmentBadge={hideContactEstablishmentBadgeOnRows}
                   />
                 ))}
               </ul>
@@ -3212,7 +3212,7 @@ export function HomeTodoCard({
                         layoutTransition={todoLayoutTransition}
                         clampBody={false}
                         hideContactNameBadge={!!contactId}
-                        hideContactEstablishmentBadge={!!contactId}
+                        hideContactEstablishmentBadge={hideContactEstablishmentBadgeOnRows}
                       />
                     ))}
                   </ul>
@@ -3245,7 +3245,7 @@ export function HomeTodoCard({
                         layoutTransition={todoLayoutTransition}
                         clampBody={false}
                         hideContactNameBadge={!!contactId}
-                        hideContactEstablishmentBadge={!!contactId}
+                        hideContactEstablishmentBadge={hideContactEstablishmentBadgeOnRows}
                         headerAction={renderHomeDrawerOpenTodoActions(todo)}
                       />
                     ))}
@@ -3279,7 +3279,7 @@ export function HomeTodoCard({
                         layoutTransition={todoLayoutTransition}
                         clampBody={false}
                         hideContactNameBadge={!!contactId}
-                        hideContactEstablishmentBadge={!!contactId}
+                        hideContactEstablishmentBadge={hideContactEstablishmentBadgeOnRows}
                       />
                     ))}
                   </ul>
@@ -3415,7 +3415,7 @@ export function HomeTodoCard({
             void refreshAfterContactSubdrawerEdit();
           }}
           preferLeftDetailPanel={isTodoDetailsSideLayout}
-          insideStackedContactPane={isTodoDetailsSideLayout}
+          insideStackedContactPane
         />
       ) : null}
     </>
@@ -3493,103 +3493,99 @@ export function HomeTodoCard({
     </>
   );
 
+  const todoDetailsDrawerTitle = useMemo(() => {
+    if (isContactDetail) {
+      if (selectedContact) {
+        return resolveDetailsDrawerTitle(
+          {
+            kind: "contact",
+            name: selectedContact.name,
+            statuses: selectedContact.statuses,
+            publisher_id: selectedContact.publisher_id,
+          },
+          effectiveUserId
+        );
+      }
+      return {
+        name: selectedTodoForDetails?.context_name || "Contact Details",
+        titleStatus: selectedTodoForDetails?.context_status
+          ? getContactPrimaryStatus({ statuses: [selectedTodoForDetails.context_status as ContactStatus] })
+          : undefined,
+      };
+    }
+    if (selectedEstablishmentDetails) {
+      return resolveDetailsDrawerTitle(
+        {
+          kind: "establishment",
+          name: selectedEstablishmentDetails.name,
+          statuses: selectedEstablishmentDetails.statuses,
+          publisher_id: selectedEstablishmentDetails.publisher_id,
+        },
+        effectiveUserId
+      );
+    }
+    return {
+      name: selectedTodoForDetails?.context_name || "Establishment Details",
+      titleStatus: selectedTodoForDetails?.context_status
+        ? getBestStatus([selectedTodoForDetails.context_status])
+        : undefined,
+    };
+  }, [
+    isContactDetail,
+    selectedContact,
+    selectedEstablishmentDetails,
+    selectedTodoForDetails?.context_name,
+    selectedTodoForDetails?.context_status,
+    effectiveUserId,
+  ]);
+
+  const contactSubdrawerDrawerTitle = useMemo(() => {
+    if (!contactSubdrawerContact) {
+      return { name: "Contact Details", titleStatus: undefined as string | undefined };
+    }
+    return resolveDetailsDrawerTitle(
+      {
+        kind: "contact",
+        name: contactSubdrawerContact.name,
+        statuses: contactSubdrawerContact.statuses,
+        publisher_id: contactSubdrawerContact.publisher_id,
+      },
+      effectiveUserId
+    );
+  }, [contactSubdrawerContact, effectiveUserId]);
+
   const detailsAndEditorLayers = (
     <>
-      {isTodoDetailsSideLayout ? (
-      <Drawer
+      <DetailsDrawer
         open={todoDetailsDrawerOpen}
         onOpenChange={handleTodoDetailsDrawerChange}
-        direction="right"
-        modal
-        nested
-        shouldScaleBackground={false}
-      >
-        <DrawerWideRightContent
-          className={cn("border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]", todoDetailsSheetPanelClass)}
-        >
-          <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
-            <DrawerTitle className="text-center text-xl font-extrabold tracking-tight">{isContactDetail
-                ? (selectedContact?.name || selectedTodoForDetails?.context_name || "Contact Details")
-                : (selectedEstablishmentDetails?.name || selectedTodoForDetails?.context_name || "Establishment Details")}</DrawerTitle>
-          </DrawerHeader>
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3">
-            {renderTodoDetailsBody()}
-          </div>
-        </DrawerWideRightContent>
-      </Drawer>
-      ) : (
-      <HomeMobileDetailsDrawer
-        open={todoDetailsDrawerOpen}
-        onOpenChange={handleTodoDetailsDrawerChange}
+        entityName={todoDetailsDrawerTitle.name}
+        titleStatus={todoDetailsDrawerTitle.titleStatus}
+        layout={isTodoDetailsSideLayout ? "tablet" : "phone"}
         contentClassName={todoDetailsSheetPanelClass}
-        title={
-          isContactDetail
-            ? (selectedContact?.name || selectedTodoForDetails?.context_name || "Contact Details")
-            : (selectedEstablishmentDetails?.name || selectedTodoForDetails?.context_name || "Establishment Details")
-        }
         bodyClassName="space-y-3"
       >
         {renderTodoDetailsBody()}
-      </HomeMobileDetailsDrawer>
-      )}
+      </DetailsDrawer>
 
-      {/* Second right sheet (portaled). Must sit above estab drawer (z-100) and left companion (z-102) so
-          Framer `layoutId` layers from estab todos cannot paint on top of contact UI. */}
-      {isTodoDetailsSideLayout ? (
-        <Drawer
-          open={contactDetailsSubdrawerOpen && todoDetailsDrawerOpen}
-          onOpenChange={(open) => {
-            setContactDetailsSubdrawerOpen(open);
-            if (!open) {
-              setSelectedContactFromEstablishment(null);
-            }
-          }}
-          direction="right"
-          modal
-          shouldScaleBackground={false}
-        >
-          <DrawerWideRightContent
-            stackAboveDetailsSheet
-            className={cn("border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]", todoContactSheetPanelClass)}
-          >
-            <DrawerHeader className="bg-transparent px-2 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-left sm:px-4">
-              <div className="relative flex items-center justify-center gap-1 pr-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute left-0 h-9 w-9 shrink-0"
-                  onClick={closeContactDetailsSubdrawer}
-                  aria-label="Back to establishment"
-                >
-                  <ChevronLeft className="h-5 w-5" />
-                </Button>
-                <DrawerTitle className="px-10 text-center text-xl font-extrabold tracking-tight">
-                  {contactSubdrawerContact?.name || "Contact Details"}
-                </DrawerTitle>
-              </div>
-            </DrawerHeader>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3">
-              {renderContactSubdrawerBody()}
-            </div>
-          </DrawerWideRightContent>
-        </Drawer>
-      ) : (
-        <HomeMobileDetailsDrawer
-          open={contactDetailsSubdrawerOpen}
-          onOpenChange={(open) => {
-            setContactDetailsSubdrawerOpen(open);
-            if (!open) {
-              setSelectedContactFromEstablishment(null);
-            }
-          }}
-          contentClassName={todoContactSheetPanelClass}
-          title={contactSubdrawerContact?.name || "Contact Details"}
-          bodyClassName="space-y-3"
-        >
-          {renderContactSubdrawerBody()}
-        </HomeMobileDetailsDrawer>
-      )}
+      <DetailsDrawer
+        open={contactDetailsSubdrawerOpen && (isTodoDetailsSideLayout ? todoDetailsDrawerOpen : true)}
+        onOpenChange={(open) => {
+          setContactDetailsSubdrawerOpen(open);
+          if (!open) {
+            setSelectedContactFromEstablishment(null);
+          }
+        }}
+        entityName={contactSubdrawerDrawerTitle.name}
+        titleStatus={contactSubdrawerDrawerTitle.titleStatus}
+        layout={isTodoDetailsSideLayout ? "tablet" : "phone"}
+        stackAboveDetailsSheet={isTodoDetailsSideLayout}
+        stackAboveParentSheet={!isTodoDetailsSideLayout}
+        contentClassName={todoContactSheetPanelClass}
+        bodyClassName="space-y-3"
+      >
+        {renderContactSubdrawerBody()}
+      </DetailsDrawer>
 
       {isTodoDetailsSideLayout ? (
         <Drawer
@@ -3618,7 +3614,7 @@ export function HomeTodoCard({
           </DrawerWideLeftContentTop>
         </Drawer>
       ) : (
-        <HomeMobileDetailsDrawer
+        <DetailsDrawer
           open={detailsEntityEditOpen || contactSubdrawerEntityEditOpen}
           onOpenChange={(open) => {
             if (!open) {
@@ -3626,11 +3622,12 @@ export function HomeTodoCard({
               setContactSubdrawerEntityEditOpen(false);
             }
           }}
-          title={entityEditDrawerTitle}
+          entityName={entityEditDrawerTitle}
+          layout="phone"
           contentClassName={cn(todoEntityEditSheetPanelClass, "md:max-h-[80dvh]")}
         >
           {entityEditForms}
-        </HomeMobileDetailsDrawer>
+        </DetailsDrawer>
       )}
 
       {todoEditorUseLeftPanel && todoEditorContext ? (
@@ -3681,6 +3678,8 @@ export function HomeTodoCard({
         }}
         title="Edit To-Do"
         headerClassName="text-center"
+        stackAboveParentSheet={Boolean(todoDetailsDrawerOpen && !contactDetailsSubdrawerOpen)}
+        stackAboveStackedParentSheet={Boolean(contactDetailsSubdrawerOpen)}
       >
         {todoEditorContext ? (
           <TodoForm
@@ -3787,7 +3786,7 @@ export function HomeTodoCard({
                         layoutId={`${layoutScopeId}-card-${todo.id}`}
                         layoutTransition={todoLayoutTransition}
                         hideContactNameBadge={!!contactId}
-                        hideContactEstablishmentBadge={!!contactId}
+                        hideContactEstablishmentBadge={hideContactEstablishmentBadgeOnRows}
                       />
                     ))}
                   </ul>

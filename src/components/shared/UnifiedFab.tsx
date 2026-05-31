@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactElement, useCallback } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore, type ReactElement, useCallback } from "react";
 import { FormModal } from "@/components/shared/FormModal";
 import { FabMenu } from "@/components/shared/FabMenu";
 import { EstablishmentForm } from "@/components/business/EstablishmentForm";
@@ -30,6 +30,10 @@ import { useHomeTodoDetailsFabOptional } from "@/components/home/home-todo-detai
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
+import {
+  getFabFormSheetSuppressCount,
+  subscribeFabFormSheetSuppress,
+} from "@/lib/fab/form-sheet-suppress";
 
 type BusinessTab = "establishments" | "contacts" | "map";
 type CongregationTab = "meetings" | "ministry" | "admin";
@@ -164,6 +168,10 @@ export function UnifiedFab({
   const businessEstablishmentId =
     selectedContact?.establishment_id || selectedEstablishment?.id || undefined;
   const isBusinessDetails = !!selectedEstablishment || !!selectedContact;
+  const detailsDrawerOpen = isBusinessDetails || !!homeDetailsFab;
+  const stackedDetailsDrawerOpen = stackBusinessLeftSheetAboveNestedDetails;
+  const stackFormAboveParentSheet = detailsDrawerOpen && !stackedDetailsDrawerOpen;
+  const stackFormAboveStackedParentSheet = stackedDetailsDrawerOpen;
   const showExpandableButtons = !!selectedEstablishment && !selectedContact;
   const showEstablishmentForm = !selectedEstablishment && !selectedContact && businessTab === "establishments";
   const showContactForm = !selectedEstablishment && !selectedContact && businessTab === "contacts";
@@ -393,20 +401,27 @@ export function UnifiedFab({
   }, [bulkSavedEditRowCount]);
 
   const fabMenuActions = fabDockedForTodoWorkflow ? [] : actions;
+  const fabSuppressedForFormSheet =
+    useSyncExternalStore(subscribeFabFormSheetSuppress, getFabFormSheetSuppressCount, () => 0) > 0;
 
   useEffect(() => {
     if (typeof document === "undefined") return;
     const fabRoot = document.getElementById("fab-root");
-    if (!fabRoot || currentSection !== "home") return;
+    if (!fabRoot) return;
 
     const PREV_Z = "homeFabPrevZIndex";
+    const isHome = currentSection === "home";
     const homeTodoListDrawerOpen = !!homeTodoListFabBridge?.todoListDrawerOpen;
+    const fabFormSheetOpen =
+      openKey != null && openKey !== "business-bulk-todos";
     const shouldElevateFab =
       homeBulkEditPickerDocked ||
       openKey === "business-bulk-todos" ||
-      homeTodoListDrawerOpen;
-    /** Only non–To-Do list home sheets (Calls, Select Area, filters, details, etc.) sit above the FAB. */
-    const shouldLowerFab = !shouldElevateFab && !!homeFabBridge?.homeBlockingDrawerOpen;
+      homeTodoListDrawerOpen ||
+      (detailsDrawerOpen && !fabFormSheetOpen);
+    /** Non–details home sheets (Calls list, filters, etc.) sit above the FAB; details deets keep FAB on top. */
+    const shouldLowerFab =
+      isHome && !shouldElevateFab && !!homeFabBridge?.homeBlockingDrawerOpen;
 
     if (shouldElevateFab) {
       if (fabRoot.dataset[PREV_Z]) {
@@ -431,6 +446,7 @@ export function UnifiedFab({
     };
   }, [
     currentSection,
+    detailsDrawerOpen,
     homeBulkEditPickerDocked,
     homeFabBridge?.homeBlockingDrawerOpen,
     homeTodoListFabBridge?.todoListDrawerOpen,
@@ -450,6 +466,7 @@ export function UnifiedFab({
 
   return (
     <>
+      {!fabSuppressedForFormSheet ? (
       <FabMenu
         label={
           homeBulkEditPickerDocked
@@ -468,7 +485,7 @@ export function UnifiedFab({
           !bulkFabTabletDocked &&
             "md:!bottom-[calc(max(env(safe-area-inset-bottom),0px)+28px)]",
           "md:transition-[left,transform] md:duration-300 md:ease-[cubic-bezier(0.34,1.2,0.64,1)]",
-          bulkFabTabletDocked ? "" : "md:!left-1/2 md:!-translate-x-1/2 md:!z-40 md:!right-auto"
+          bulkFabTabletDocked ? "" : "md:!left-1/2 md:!-translate-x-1/2 md:!z-[100010] md:!right-auto"
         )}
         actionOffsetStart={112}
         actionOffsetStep={56}
@@ -496,6 +513,7 @@ export function UnifiedFab({
           }
         }))}
       />
+      ) : null}
 
       <FormModal
         open={openKey === "business-establishment"}
@@ -505,6 +523,8 @@ export function UnifiedFab({
         headerClassName={useBusinessLeftSheet ? undefined : "text-center"}
         desktopPresentation={useBusinessLeftSheet ? "left-sheet" : "auto"}
         leftSheetStackAboveNestedRight={stackBusinessLeftSheetAboveNestedDetails}
+        stackAboveParentSheet={stackFormAboveParentSheet}
+        stackAboveStackedParentSheet={stackFormAboveStackedParentSheet}
       >
         <EstablishmentForm
           onSaved={() => setOpenKey(null)}
@@ -519,6 +539,8 @@ export function UnifiedFab({
         headerClassName={useBusinessLeftSheet ? undefined : "text-center"}
         desktopPresentation={useBusinessLeftSheet ? "left-sheet" : "auto"}
         leftSheetStackAboveNestedRight={stackBusinessLeftSheetAboveNestedDetails}
+        stackAboveParentSheet={stackFormAboveParentSheet}
+        stackAboveStackedParentSheet={stackFormAboveStackedParentSheet}
       >
         <ContactForm
           establishments={fabEstablishmentsForForms}
@@ -535,6 +557,8 @@ export function UnifiedFab({
         headerClassName={useBusinessLeftSheet ? undefined : "text-center"}
         desktopPresentation={useBusinessLeftSheet ? "left-sheet" : "auto"}
         leftSheetStackAboveNestedRight={stackBusinessLeftSheetAboveNestedDetails}
+        stackAboveParentSheet={stackFormAboveParentSheet}
+        stackAboveStackedParentSheet={stackFormAboveStackedParentSheet}
       >
         <CallForm
           establishments={fabEstablishmentsForForms as EstablishmentWithDetails[]}
@@ -554,6 +578,8 @@ export function UnifiedFab({
         headerClassName={useBusinessLeftSheet ? undefined : "text-center"}
         desktopPresentation={useBusinessLeftSheet ? "left-sheet" : "auto"}
         leftSheetStackAboveNestedRight={stackBusinessLeftSheetAboveNestedDetails}
+        stackAboveParentSheet={stackFormAboveParentSheet}
+        stackAboveStackedParentSheet={stackFormAboveStackedParentSheet}
         className="w-[min(100vw,48rem)] md:max-h-[100lvh]"
       >
         <TodoForm

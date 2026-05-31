@@ -19,11 +19,11 @@ import {
   formatContactStatusLabel,
   formatContactStatusTabLabel,
 } from "@/lib/utils/contact-status-tabs";
-import { getBestContactStatus, getContactPrimaryStatus, getStatusTextColor, resolveContactStatuses } from "@/lib/utils/status-hierarchy";
+import { getBestContactStatus, getContactPrimaryStatus, getStatusTextColor, resolveContactStatuses, resolveDetailsDrawerTitle } from "@/lib/utils/status-hierarchy";
 import { CONG_BWI_BADGE_CLASS } from "@/lib/utils/congregation-member-roles";
 import { cn } from "@/lib/utils";
 import { FormModal } from "@/components/shared/FormModal";
-import { HomeMobileDetailsDrawer } from "@/components/home/HomeMobileDetailsDrawer";
+import { DetailsDrawer } from "@/components/shared/DetailsDrawer";
 import { EventScheduleFormSheet } from "@/components/congregation/EventScheduleFormSheet";
 import { businessEventBus } from "@/lib/events/business-events";
 import { useMediaQuery } from "@/hooks/use-media-query";
@@ -103,6 +103,20 @@ export function MinistrySection({
   const [selectedSchedule, setSelectedSchedule] = useState<EventSchedule | null>(null);
 
   const isMdUp = useMediaQuery("(min-width: 768px)");
+  const contactDetailsDrawerTitle = useMemo(() => {
+    if (!selectedContact) {
+      return { name: contactDetailsTitle, titleStatus: undefined as string | undefined };
+    }
+    return resolveDetailsDrawerTitle(
+      {
+        kind: "contact",
+        name: selectedContact.name,
+        statuses: selectedContact.statuses,
+        publisher_id: selectedContact.publisher_id,
+      },
+      userId
+    );
+  }, [selectedContact, userId, contactDetailsTitle]);
 
   const openContactDetails = useCallback(
     (contact: ContactWithDetails) => {
@@ -1045,48 +1059,26 @@ export function MinistrySection({
       )}
 
       {selectedContact && contactDetailsBody ? (
-        isMdUp ? (
-          <Drawer
-            open={Boolean(selectedContact)}
-            onOpenChange={(open) => {
-              if (!open) onClearSelectedContact?.();
-            }}
-            direction="right"
-            modal
-            nested
-            shouldScaleBackground={false}
-          >
-            <DrawerWideRightContent
-              stackAboveDetailsSheet
-              className="flex flex-col overflow-hidden border-border dark:border-[#1c1921] bg-card dark:bg-[#181714] text-foreground dark:text-[#fffaff] md:max-h-[100lvh]"
-            >
-              <DrawerHeader className="shrink-0 px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center bg-card dark:bg-[#181714]">
-                <DrawerTitle className="text-center text-xl font-extrabold tracking-tight">
-                  {contactDetailsTitle}
-                </DrawerTitle>
-                <DrawerDescription className="sr-only">
-                  Return visits, notes, and congregation contact actions.
-                </DrawerDescription>
-              </DrawerHeader>
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2 space-y-3 bg-card dark:bg-[#181714]">
-                {contactDetailsBody}
-              </div>
-            </DrawerWideRightContent>
-          </Drawer>
-        ) : (
-          <HomeMobileDetailsDrawer
-            open={Boolean(selectedContact)}
-            onOpenChange={(open) => {
-              if (!open) onClearSelectedContact?.();
-            }}
-            stackAboveParentSheet={contactsDrawerOpen}
-            fitContent
-            title={contactDetailsTitle}
-            bodyClassName="space-y-3"
-          >
-            {contactDetailsBody}
-          </HomeMobileDetailsDrawer>
-        )
+        <DetailsDrawer
+          open={Boolean(selectedContact)}
+          onOpenChange={(open) => {
+            if (!open) onClearSelectedContact?.();
+          }}
+          entityName={contactDetailsDrawerTitle.name}
+          titleStatus={contactDetailsDrawerTitle.titleStatus}
+          stackAboveParentSheet={contactsDrawerOpen && !isMdUp}
+          stackAboveDetailsSheet={contactsDrawerOpen && isMdUp}
+          fitContent={!isMdUp}
+          bodyClassName="space-y-3"
+          description="Return visits, notes, and congregation contact actions."
+          contentClassName={
+            isMdUp
+              ? "flex flex-col overflow-hidden border-border dark:border-[#1c1921] bg-card dark:bg-[#181714] text-foreground dark:text-[#fffaff]"
+              : undefined
+          }
+        >
+          {contactDetailsBody}
+        </DetailsDrawer>
       ) : null}
 
       {isMdUp ? (

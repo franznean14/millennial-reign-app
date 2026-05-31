@@ -41,8 +41,9 @@ export function contactFkWritePayload(
 export function mapContactFkRow<T extends ContactFkDbRow>(
   row: T
 ): Omit<T, "householder_id"> & { contact_id: string | null } {
-  const { householder_id, ...rest } = row;
-  return { ...rest, contact_id: householder_id ?? null };
+  const contact_id = readContactIdFromDb(row) ?? null;
+  const { householder_id: _householderId, contact_id: _contactId, ...rest } = row;
+  return { ...rest, contact_id };
 }
 
 /** Visit stream discriminator (legacy value `householder` still accepted). */

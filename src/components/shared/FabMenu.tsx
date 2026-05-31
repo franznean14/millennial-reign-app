@@ -21,6 +21,7 @@ import {
   resolveFabMenuActionSurface,
   studyBibleDarkClasses,
 } from "@/lib/theme/study-bible-dark";
+import { FAB_CHROME_Z, FAB_CHROME_Z_CLASS } from "@/lib/theme/drawer-stack-z-index";
 
 interface FabAction {
   label: string;
@@ -195,12 +196,12 @@ export function FabMenu({
 
   const dockedMainFabStyle: CSSProperties | undefined = tabletDockedToBulkTodoSheet
     ? isMobileBulkDock
-      ? { zIndex: 145 }
+      ? { zIndex: FAB_CHROME_Z }
       : {
           left: "auto",
           right: `calc(${dockFabRightExpr})`,
           bottom: FAB_TABLET_DOCK_BOTTOM_CSS,
-          zIndex: 145,
+          zIndex: FAB_CHROME_Z,
         }
     : undefined;
 
@@ -242,7 +243,8 @@ export function FabMenu({
           type="button"
           variant="outline"
           className={cn(
-            "pointer-events-auto fixed z-[145] max-w-[min(calc(100vw-2rem),19rem)]",
+            "pointer-events-auto fixed max-w-[min(calc(100vw-2rem),19rem)]",
+            FAB_CHROME_Z_CLASS,
             studyBibleDarkClasses.fabMenuActionShell,
             resolveFabMenuActionSurface(action)
           )}
@@ -327,7 +329,8 @@ export function FabMenu({
                   type="button"
                   variant="outline"
                   className={cn(
-                    "pointer-events-auto fixed right-4 z-40 shadow-lg md:right-6 md:z-10 md:[--fab-action-effective-row-x:var(--fab-action-row-x)] md:[--fab-action-effective-arc-y:var(--fab-action-arc-y)]",
+                    "pointer-events-auto fixed right-4 shadow-lg md:right-6 md:[--fab-action-effective-row-x:var(--fab-action-row-x)] md:[--fab-action-effective-arc-y:var(--fab-action-arc-y)]",
+                    FAB_CHROME_Z_CLASS,
                     studyBibleDarkClasses.fabMenuActionShell,
                     resolveFabMenuActionSurface(action),
                     useTabletBottomNavCenter && FAB_TABLET_BOTTOM_NAV_ACTIONS,
