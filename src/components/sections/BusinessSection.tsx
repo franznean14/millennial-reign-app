@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "motion/react";
 import { SectionShell } from "@/components/shared/SectionShell";
 import dynamic from "next/dynamic";
 import { StickySearchBar } from "@/components/business/StickySearchBar";
-import { Drawer, DrawerHeader, DrawerTitle, DrawerWideLeftContentTop } from "@/components/ui/drawer";
 import { DetailsDrawer } from "@/components/shared/DetailsDrawer";
 import { cn } from "@/lib/utils";
 import { getStudyBibleDarkCardShade } from "@/lib/theme/study-bible-dark";
@@ -571,133 +570,70 @@ export function BusinessSection({
           {renderContactDetails({ stacked: true })}
         </DetailsDrawer>
 
-        {isTabletUp ? (
-          <Drawer
-            open={!!businessEditSheet}
-            onOpenChange={(open) => {
-              if (!open) setBusinessEditSheet(null);
-            }}
-            direction="left"
-            modal
-            shouldScaleBackground={false}
-          >
-            <DrawerWideLeftContentTop
-              stackAboveStackedRightSheet={!!selectedContact && !!selectedEstablishment}
-              className={cn("border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]", businessEntityEditShade)}
-            >
-              <DrawerHeader className="bg-transparent px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center">
-                <DrawerTitle className="text-center text-lg font-bold">
-                  {businessEditSheet === "contact" ? "Edit Contact" : "Edit Establishment"}
-                </DrawerTitle>
-              </DrawerHeader>
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-[calc(max(env(safe-area-inset-bottom),0px)+80px)] pt-2">
-                {businessEditSheet === "establishment" && selectedEstablishment ? (
-                  <EstablishmentForm
-                    key={selectedEstablishment.id}
-                    onSaved={handleEstablishmentEditSaved}
-                    onDelete={async () => {
-                      await handleDeleteEstablishment(selectedEstablishment);
-                      closeEstablishmentSideDetails();
-                    }}
-                    onArchive={async () => {
-                      await handleArchiveEstablishment(selectedEstablishment);
-                      closeEstablishmentSideDetails();
-                    }}
-                    selectedArea={selectedEstablishment.area || undefined}
-                    initialData={selectedEstablishmentDetails?.establishment ?? selectedEstablishment}
-                    isEditing
-                  />
-                ) : businessEditSheet === "contact" && selectedContact ? (
-                  <ContactForm
-                    key={selectedContact.id}
-                    establishments={selectedEstablishment ? [selectedEstablishment] : establishments}
-                    selectedEstablishmentId={selectedContact.establishment_id ?? undefined}
-                    isEditing
-                    initialData={{
-                      id: selectedContact.id,
-                      establishment_id: selectedContact.establishment_id || "",
-                      name: selectedContact.name,
-                      statuses: selectedContact.statuses,
-                      note: selectedContact.note || null,
-                      lat: selectedContact.lat ?? null,
-                      lng: selectedContact.lng ?? null,
-                      publisher_id: selectedContact.publisher_id ?? null,
-                    }}
-                    onSaved={handleContactEditSaved}
-                    onDelete={async () => {
-                      await handleDeleteContact(selectedContact);
-                      closeContactSideDetails();
-                    }}
-                    onArchive={async () => {
-                      await handleArchiveContact(selectedContact);
-                      closeContactSideDetails();
-                    }}
-                    disableEstablishmentSelect={!!selectedEstablishment}
-                    publisherId={userId ?? undefined}
-                  />
-                ) : null}
-              </div>
-            </DrawerWideLeftContentTop>
-          </Drawer>
-        ) : (
-          <FormModal
-            open={!!businessEditSheet}
-            onOpenChange={(open) => {
-              if (!open) setBusinessEditSheet(null);
-            }}
-            title={businessEditSheet === "contact" ? "Edit Contact" : "Edit Establishment"}
-            stackAboveParentSheet={
-              useMobileBottomDetails && !(!!selectedContact && !!selectedEstablishment)
-            }
-            stackAboveStackedParentSheet={!!selectedContact && !!selectedEstablishment}
-          >
-            {businessEditSheet === "establishment" && selectedEstablishment ? (
-              <EstablishmentForm
-                key={selectedEstablishment.id}
-                onSaved={handleEstablishmentEditSaved}
-                onDelete={async () => {
-                  await handleDeleteEstablishment(selectedEstablishment);
-                  closeEstablishmentSideDetails();
-                }}
-                onArchive={async () => {
-                  await handleArchiveEstablishment(selectedEstablishment);
-                  closeEstablishmentSideDetails();
-                }}
-                selectedArea={selectedEstablishment.area || undefined}
-                initialData={selectedEstablishmentDetails?.establishment ?? selectedEstablishment}
-                isEditing
-              />
-            ) : businessEditSheet === "contact" && selectedContact ? (
-              <ContactForm
-                key={selectedContact.id}
-                establishments={selectedEstablishment ? [selectedEstablishment] : establishments}
-                selectedEstablishmentId={selectedContact.establishment_id ?? undefined}
-                isEditing
-                initialData={{
-                  id: selectedContact.id,
-                  establishment_id: selectedContact.establishment_id || "",
-                  name: selectedContact.name,
-                  statuses: selectedContact.statuses,
-                  note: selectedContact.note || null,
-                  lat: selectedContact.lat ?? null,
-                  lng: selectedContact.lng ?? null,
-                  publisher_id: selectedContact.publisher_id ?? null,
-                }}
-                onSaved={handleContactEditSaved}
-                onDelete={async () => {
-                  await handleDeleteContact(selectedContact);
-                  closeContactSideDetails();
-                }}
-                onArchive={async () => {
-                  await handleArchiveContact(selectedContact);
-                  closeContactSideDetails();
-                }}
-                disableEstablishmentSelect={!!selectedEstablishment}
-                publisherId={userId ?? undefined}
-              />
-            ) : null}
-          </FormModal>
-        )}
+        <FormModal
+          open={!!businessEditSheet}
+          onOpenChange={(open) => {
+            if (!open) setBusinessEditSheet(null);
+          }}
+          title={businessEditSheet === "contact" ? "Edit Contact" : "Edit Establishment"}
+          headerClassName="text-center"
+          desktopPresentation={isTabletUp ? "left-sheet" : "auto"}
+          leftSheetStackAboveNestedRight={!!selectedContact && !!selectedEstablishment}
+          stackAboveParentSheet={
+            useMobileBottomDetails && !(!!selectedContact && !!selectedEstablishment)
+          }
+          stackAboveStackedParentSheet={!!selectedContact && !!selectedEstablishment}
+          className={cn(
+            "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
+            businessEntityEditShade
+          )}
+        >
+          {businessEditSheet === "establishment" && selectedEstablishment ? (
+            <EstablishmentForm
+              key={selectedEstablishment.id}
+              onSaved={handleEstablishmentEditSaved}
+              onDelete={async () => {
+                await handleDeleteEstablishment(selectedEstablishment);
+                closeEstablishmentSideDetails();
+              }}
+              onArchive={async () => {
+                await handleArchiveEstablishment(selectedEstablishment);
+                closeEstablishmentSideDetails();
+              }}
+              selectedArea={selectedEstablishment.area || undefined}
+              initialData={selectedEstablishmentDetails?.establishment ?? selectedEstablishment}
+              isEditing
+            />
+          ) : businessEditSheet === "contact" && selectedContact ? (
+            <ContactForm
+              key={selectedContact.id}
+              establishments={selectedEstablishment ? [selectedEstablishment] : establishments}
+              selectedEstablishmentId={selectedContact.establishment_id ?? undefined}
+              isEditing
+              initialData={{
+                id: selectedContact.id,
+                establishment_id: selectedContact.establishment_id || "",
+                name: selectedContact.name,
+                statuses: selectedContact.statuses,
+                note: selectedContact.note || null,
+                lat: selectedContact.lat ?? null,
+                lng: selectedContact.lng ?? null,
+                publisher_id: selectedContact.publisher_id ?? null,
+              }}
+              onSaved={handleContactEditSaved}
+              onDelete={async () => {
+                await handleDeleteContact(selectedContact);
+                closeContactSideDetails();
+              }}
+              onArchive={async () => {
+                await handleArchiveContact(selectedContact);
+                closeContactSideDetails();
+              }}
+              disableEstablishmentSelect={!!selectedEstablishment}
+              publisherId={userId ?? undefined}
+            />
+          ) : null}
+        </FormModal>
 
         {/* FAB handled by UnifiedFab */}
       </SectionShell>

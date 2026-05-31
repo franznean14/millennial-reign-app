@@ -547,14 +547,14 @@ body.app-scroll-locked {
   z-index: 9999 !important;
 }
 
-/* Ensure dropdowns in drawers have high z-index */
+/* Portaled form menus above nested drawer tiers (10003); see drawer-stack-z-index.ts FORM_PORTAL_CONTENT_Z */
 [data-vaul-drawer] [data-radix-popper-content-wrapper],
 [data-vaul-drawer] [data-radix-select-content],
 [data-vaul-drawer] [data-radix-dropdown-menu-content],
 [data-radix-popper-content-wrapper],
 [data-radix-select-content],
 [data-radix-dropdown-menu-content] {
-  z-index: 10000 !important;
+  z-index: 10005 !important;
 }
 
 /* Ensure dropdown triggers in drawers are clickable */
