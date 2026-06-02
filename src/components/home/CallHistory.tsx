@@ -71,6 +71,7 @@ import {
   studyBibleSectionToggle,
 } from "@/lib/theme/study-bible-dark";
 import { DetailsDrawer } from "@/components/shared/DetailsDrawer";
+import { toast } from "@/components/ui/sonner";
 
 interface CallHistoryProps {
   userId: string;
@@ -240,6 +241,7 @@ export function CallHistory({
   const selectedCallsContactDetailsRef = useRef<CallsContactSnapshot | null>(null);
   const selectedCallsEstablishmentDetailsRef = useRef<CallsEstablishmentSnapshot | null>(null);
   const callsContactSubdrawerOpenRef = useRef(false);
+  const callsDetailsOpenRequestRef = useRef(0);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const hasFocusedRef = useRef(false);
   const searchDebounceTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -789,48 +791,209 @@ export function CallHistory({
           todo: MyOpenCallTodoItem;
         }
   ) {
+    const requestId = ++callsDetailsOpenRequestRef.current;
+    const isStale = () => requestId !== callsDetailsOpenRequestRef.current;
+
     const contactId =
       target.kind === "visit" ? target.visit.contact_id : target.todo.contact_id;
     const establishmentId =
       target.kind === "visit" ? target.visit.establishment_id : target.todo.establishment_id;
 
-    if (contactId) {
-      const fallbackName =
-        target.kind === "visit"
-          ? target.visit.contact_name ?? "Contact"
-          : target.todo.context_name ?? "Contact";
-      const fallbackStatus =
-        target.kind === "visit"
-          ? target.visit.contact_status ?? "potential"
-          : target.todo.context_status ?? "potential";
+    try {
+      if (contactId) {
+        const fallbackName =
+          target.kind === "visit"
+            ? target.visit.contact_name ?? "Contact"
+            : target.todo.context_name ?? "Contact";
+        const fallbackStatus =
+          target.kind === "visit"
+            ? target.visit.contact_status ?? "potential"
+            : target.todo.context_status ?? "potential";
+        const fallbackEstablishmentName =
+          target.kind === "visit"
+            ? target.visit.establishment_name ?? null
+            : target.todo.context_establishment_name ?? null;
+        const fallbackEstablishmentStatus =
+          target.kind === "visit"
+            ? target.visit.establishment_status ?? null
+            : target.todo.context_establishment_status ?? null;
+
+        const fallbackStub: CallsContactSnapshot = {
+          contact: {
+            id: contactId,
+            name: fallbackName,
+            statuses: [fallbackStatus as ContactStatus],
+            note: null,
+            establishment_id: establishmentId ?? null,
+            establishment_name: fallbackEstablishmentName,
+            publisher_id: null,
+            lat: null,
+            lng: null,
+          },
+          visits: [],
+          establishment: establishmentId
+            ? {
+                id: establishmentId,
+                name: fallbackEstablishmentName ?? "",
+                area: null,
+                statuses: fallbackEstablishmentStatus ? [fallbackEstablishmentStatus] : null,
+              }
+            : null,
+        };
+
+        const { snapshot, hadWarmCache } = await resolveContactDetailsSnapshot(
+          contactId,
+          callsContactCacheRef.current,
+          fallbackStub
+        );
+        if (isStale()) return;
+
+        setSelectedCallsContactDetails(snapshot);
+        setSelectedCallsEstablishmentDetails(null);
+        setCallsContactSubdrawerOpen(false);
+        setCallsDetailsDrawerOpen(true);
+        setIsLoadingCallsDetails(!hadWarmCache);
+
+        try {
+          const details = await getContactDetails(contactId);
+          if (isStale()) return;
+          if (!details) {
+            if (!hadWarmCache) {
+              setSelectedCallsContactDetails(null);
+              setCallsDetailsDrawerOpen(false);
+              toast.error("Could not load contact details");
+            }
+            return;
+          }
+          const nextSnapshot: CallsContactSnapshot = {
+            contact: details.contact,
+            visits: details.visits,
+            establishment: details.establishment,
+          };
+          callsContactCacheRef.current.set(contactId, nextSnapshot);
+          setSelectedCallsContactDetails(nextSnapshot);
+        } finally {
+          if (!isStale()) setIsLoadingCallsDetails(false);
+        }
+        return;
+      }
+
+      if (establishmentId) {
+        const fallbackName =
+          target.kind === "visit"
+            ? target.visit.establishment_name ?? "Establishment"
+            : target.todo.context_name ?? "Establishment";
+        const fallbackStatus =
+          target.kind === "visit"
+            ? target.visit.establishment_status ?? "for_scouting"
+            : target.todo.context_establishment_status ||
+              target.todo.context_status ||
+              "for_scouting";
+        const fallbackArea =
+          target.kind === "visit"
+            ? target.visit.establishment_area ?? null
+            : target.todo.context_area ?? null;
+
+        const fallbackStub: CallsEstablishmentSnapshot = {
+          establishment: {
+            id: establishmentId,
+            name: fallbackName,
+            area: fallbackArea,
+            description: null,
+            floor: null,
+            note: null,
+            statuses: [fallbackStatus],
+            lat: null,
+            lng: null,
+          },
+          visits: [],
+          contacts: [],
+        };
+
+        const { snapshot, hadWarmCache } = await resolveEstablishmentDetailsSnapshot(
+          establishmentId,
+          callsEstablishmentCacheRef.current,
+          fallbackStub
+        );
+        if (isStale()) return;
+
+        setSelectedCallsEstablishmentDetails(snapshot);
+        setSelectedCallsContactDetails(null);
+        setCallsContactSubdrawerOpen(false);
+        setCallsDetailsDrawerOpen(true);
+        setIsLoadingCallsDetails(!hadWarmCache);
+
+        try {
+          const details = await getEstablishmentDetails(establishmentId);
+          if (isStale()) return;
+          if (!details) {
+            if (!hadWarmCache) {
+              setSelectedCallsEstablishmentDetails(null);
+              setCallsDetailsDrawerOpen(false);
+              toast.error("Could not load establishment details");
+            }
+            return;
+          }
+          const nextSnapshot: CallsEstablishmentSnapshot = {
+            establishment: details.establishment,
+            visits: details.visits,
+            contacts: details.contacts,
+          };
+          callsEstablishmentCacheRef.current.set(establishmentId, nextSnapshot);
+          setSelectedCallsEstablishmentDetails(nextSnapshot);
+        } finally {
+          if (!isStale()) setIsLoadingCallsDetails(false);
+        }
+        return;
+      }
+
+      if (target.kind === "visit" && onVisitClick) {
+        onVisitClick(target.visit);
+        return;
+      }
+
+      toast.error("This call is not linked to a contact or establishment");
+    } catch (error) {
+      if (isStale()) return;
+      console.error("openCallsDetailsDrawer failed", error);
+      setCallsDetailsDrawerOpen(false);
+      setSelectedCallsContactDetails(null);
+      setSelectedCallsEstablishmentDetails(null);
+      toast.error("Could not open details", {
+        description: error instanceof Error ? error.message : undefined,
+      });
+    }
+  }
+
+  async function openCallsContactSubdrawer(contact: ContactWithDetails) {
+    const contactId = contact.id;
+    if (!contactId) return;
+
+    const requestId = ++callsDetailsOpenRequestRef.current;
+    const isStale = () => requestId !== callsDetailsOpenRequestRef.current;
+
+    try {
+      const establishment =
+        selectedCallsEstablishmentDetails?.establishment &&
+        selectedCallsEstablishmentDetails.establishment.id === contact.establishment_id
+          ? selectedCallsEstablishmentDetails.establishment
+          : null;
       const fallbackEstablishmentName =
-        target.kind === "visit"
-          ? target.visit.establishment_name ?? null
-          : target.todo.context_establishment_name ?? null;
-      const fallbackEstablishmentStatus =
-        target.kind === "visit"
-          ? target.visit.establishment_status ?? null
-          : target.todo.context_establishment_status ?? null;
+        establishment?.name ?? contact.establishment_name ?? null;
+      const fallbackStatuses =
+        establishment?.statuses && establishment.statuses.length > 0
+          ? establishment.statuses
+          : null;
 
       const fallbackStub: CallsContactSnapshot = {
-        contact: {
-          id: contactId,
-          name: fallbackName,
-          statuses: [fallbackStatus as ContactStatus],
-          note: null,
-          establishment_id: establishmentId ?? null,
-          establishment_name: fallbackEstablishmentName,
-          publisher_id: null,
-          lat: null,
-          lng: null,
-        },
+        contact,
         visits: [],
-        establishment: establishmentId
+        establishment: contact.establishment_id
           ? {
-              id: establishmentId,
+              id: contact.establishment_id,
               name: fallbackEstablishmentName ?? "",
-              area: null,
-              statuses: fallbackEstablishmentStatus ? [fallbackEstablishmentStatus] : null,
+              area: establishment?.area ?? null,
+              statuses: fallbackStatuses,
             }
           : null,
       };
@@ -840,15 +1003,23 @@ export function CallHistory({
         callsContactCacheRef.current,
         fallbackStub
       );
+      if (isStale()) return;
 
       setSelectedCallsContactDetails(snapshot);
-      setSelectedCallsEstablishmentDetails(null);
-      setCallsDetailsDrawerOpen(true);
-      setIsLoadingCallsDetails(!hadWarmCache);
+      setCallsContactSubdrawerOpen(true);
+      setIsLoadingCallsContactDetails(!hadWarmCache);
 
       try {
         const details = await getContactDetails(contactId);
-        if (!details) return;
+        if (isStale()) return;
+        if (!details) {
+          if (!hadWarmCache) {
+            setCallsContactSubdrawerOpen(false);
+            setSelectedCallsContactDetails(null);
+            toast.error("Could not load contact details");
+          }
+          return;
+        }
         const nextSnapshot: CallsContactSnapshot = {
           contact: details.contact,
           visits: details.visits,
@@ -857,126 +1028,15 @@ export function CallHistory({
         callsContactCacheRef.current.set(contactId, nextSnapshot);
         setSelectedCallsContactDetails(nextSnapshot);
       } finally {
-        setIsLoadingCallsDetails(false);
+        if (!isStale()) setIsLoadingCallsContactDetails(false);
       }
-      return;
-    }
-
-    if (establishmentId) {
-      const fallbackName =
-        target.kind === "visit"
-          ? target.visit.establishment_name ?? "Establishment"
-          : target.todo.context_name ?? "Establishment";
-      const fallbackStatus =
-        target.kind === "visit"
-          ? target.visit.establishment_status ?? "for_scouting"
-          : target.todo.context_establishment_status ||
-            target.todo.context_status ||
-            "for_scouting";
-      const fallbackArea =
-        target.kind === "visit"
-          ? target.visit.establishment_area ?? null
-          : target.todo.context_area ?? null;
-
-      const fallbackStub: CallsEstablishmentSnapshot = {
-        establishment: {
-          id: establishmentId,
-          name: fallbackName,
-          area: fallbackArea,
-          description: null,
-          floor: null,
-          note: null,
-          statuses: [fallbackStatus],
-          lat: null,
-          lng: null,
-        },
-        visits: [],
-        contacts: [],
-      };
-
-      const { snapshot, hadWarmCache } = await resolveEstablishmentDetailsSnapshot(
-        establishmentId,
-        callsEstablishmentCacheRef.current,
-        fallbackStub
-      );
-
-      setSelectedCallsEstablishmentDetails(snapshot);
-      setSelectedCallsContactDetails(null);
-      setCallsDetailsDrawerOpen(true);
-      setIsLoadingCallsDetails(!hadWarmCache);
-
-      try {
-        const details = await getEstablishmentDetails(establishmentId);
-        if (!details) return;
-        const nextSnapshot: CallsEstablishmentSnapshot = {
-          establishment: details.establishment,
-          visits: details.visits,
-          contacts: details.contacts,
-        };
-        callsEstablishmentCacheRef.current.set(establishmentId, nextSnapshot);
-        setSelectedCallsEstablishmentDetails(nextSnapshot);
-      } finally {
-        setIsLoadingCallsDetails(false);
-      }
-      return;
-    }
-
-    if (target.kind === "visit" && onVisitClick) {
-      onVisitClick(target.visit);
-    }
-  }
-
-  async function openCallsContactSubdrawer(contact: ContactWithDetails) {
-    const contactId = contact.id;
-    if (!contactId) return;
-
-    const establishment =
-      selectedCallsEstablishmentDetails?.establishment &&
-      selectedCallsEstablishmentDetails.establishment.id === contact.establishment_id
-        ? selectedCallsEstablishmentDetails.establishment
-        : null;
-    const fallbackEstablishmentName =
-      establishment?.name ?? contact.establishment_name ?? null;
-    const fallbackStatuses =
-      establishment?.statuses && establishment.statuses.length > 0
-        ? establishment.statuses
-        : null;
-
-    const fallbackStub: CallsContactSnapshot = {
-      contact,
-      visits: [],
-      establishment: contact.establishment_id
-        ? {
-            id: contact.establishment_id,
-            name: fallbackEstablishmentName ?? "",
-            area: establishment?.area ?? null,
-            statuses: fallbackStatuses,
-          }
-        : null,
-    };
-
-    const { snapshot, hadWarmCache } = await resolveContactDetailsSnapshot(
-      contactId,
-      callsContactCacheRef.current,
-      fallbackStub
-    );
-
-    setSelectedCallsContactDetails(snapshot);
-    setCallsContactSubdrawerOpen(true);
-    setIsLoadingCallsContactDetails(!hadWarmCache);
-
-    try {
-      const details = await getContactDetails(contactId);
-      if (!details) return;
-      const nextSnapshot: CallsContactSnapshot = {
-        contact: details.contact,
-        visits: details.visits,
-        establishment: details.establishment,
-      };
-      callsContactCacheRef.current.set(contactId, nextSnapshot);
-      setSelectedCallsContactDetails(nextSnapshot);
-    } finally {
-      setIsLoadingCallsContactDetails(false);
+    } catch (error) {
+      if (isStale()) return;
+      console.error("openCallsContactSubdrawer failed", error);
+      setCallsContactSubdrawerOpen(false);
+      toast.error("Could not open contact details", {
+        description: error instanceof Error ? error.message : undefined,
+      });
     }
   }
 
@@ -2180,14 +2240,19 @@ export function CallHistory({
       </FormDrawerRoot>
 
       <DetailsDrawer
-        open={callsDetailsDrawerOpen}
+        open={
+          callsDetailsDrawerOpen &&
+          Boolean(selectedCallsContactDetails || selectedCallsEstablishmentDetails)
+        }
         onOpenChange={(open) => {
+          if (!open) {
+            callsDetailsOpenRequestRef.current += 1;
+          }
           setCallsDetailsDrawerOpen(open);
           if (!open) {
             setSelectedCallsEstablishmentDetails(null);
             setSelectedCallsContactDetails(null);
             setCallsContactSubdrawerOpen(false);
-            setSelectedCallsContactDetails(null);
             setCallsDetailsEntityEditOpen(false);
             setCallsContactSubdrawerEntityEditOpen(false);
           }
@@ -2195,6 +2260,7 @@ export function CallHistory({
         entityName={callsDetailsDrawerTitle.name}
         titleStatus={callsDetailsDrawerTitle.titleStatus}
         layout={callsDrawerTabletLayout ? "tablet" : "phone"}
+        stackAboveParentSheet={!callsDrawerTabletLayout}
         contentClassName={cn(
           "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
           callsMainDetailsPanelClass
