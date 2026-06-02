@@ -590,15 +590,13 @@ export function TodoForm({
             </div>
           ))}
           {slots.length < 2 && (
-            <FormDrawerRoot
+            <NestedFormPickerDrawerRoot
               open={addPublisherDrawerOpen}
               onOpenChange={(open) => {
                 setAddPublisherDrawerOpen(open);
                 if (!open) setNewGuestName("");
               }}
-              {...(usePublisherSidebar
-                ? { direction: "right" as const, modal: true, nested: true, shouldScaleBackground: false }
-                : {})}
+              useTabletSidebar={usePublisherSidebar}
             >
               <DrawerTrigger asChild>
                 <Button
@@ -613,16 +611,17 @@ export function TodoForm({
               </DrawerTrigger>
               {usePublisherSidebar ? (
                 <DrawerThinRightContent
+                  stackAboveFormSheet
                   className={cn("border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]", publisherPickerShade)}
                 >
                   {publisherPickerContent}
                 </DrawerThinRightContent>
               ) : (
-                <FormDrawerContent className={cn("max-h-[70vh]", sidebarFormClasses.popover)}>
+                <NestedFormPickerDrawerContent className={cn("max-h-[70vh]", sidebarFormClasses.popover)}>
                   {publisherPickerContent}
-                </FormDrawerContent>
+                </NestedFormPickerDrawerContent>
               )}
-            </FormDrawerRoot>
+            </NestedFormPickerDrawerRoot>
           )}
         </div>
       </div>

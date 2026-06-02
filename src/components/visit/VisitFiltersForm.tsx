@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { StatusFilterButtons } from "@/components/filters/StatusFilterButtons";
 import { getInitialsFromName } from "@/lib/utils/visit-history-ui";
 import { FormModal } from "@/components/shared/FormModal";
+import { nestedFormPickerFormModalStackProps } from "@/components/shared/FormDrawerPhone";
 import {
   Drawer,
   DrawerDescription,
@@ -223,6 +224,7 @@ export function VisitFiltersForm({
             shouldScaleBackground={false}
           >
             <DrawerThinRightContent
+              stackAboveFormSheet
               className={cn(
                 "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
                 callDateDrawerPanelClass
@@ -247,6 +249,7 @@ export function VisitFiltersForm({
             title="Call date"
             description="Choose a single date or select a range"
             className="sm:max-w-[640px]"
+            {...nestedFormPickerFormModalStackProps}
           >
             {callBody}
           </FormModal>
@@ -286,6 +289,7 @@ export function VisitFiltersForm({
               shouldScaleBackground={false}
             >
               <DrawerThinRightContent
+                stackAboveFormSheet
                 className={cn(
                   "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
                   dueDateDrawerPanelClass
@@ -310,6 +314,7 @@ export function VisitFiltersForm({
               title="Due date"
               description="Choose a due date"
               className="sm:max-w-[640px]"
+              {...nestedFormPickerFormModalStackProps}
             >
               {dueDateBody}
             </FormModal>

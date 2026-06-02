@@ -7,6 +7,7 @@ import { Calendar as CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { FormModal } from "@/components/shared/FormModal";
+import { nestedFormPickerFormModalStackProps } from "@/components/shared/FormDrawerPhone";
 import {
   Drawer,
   DrawerDescription,
@@ -86,6 +87,7 @@ export function DatePicker({
           title="Select Date"
           description="Choose a date"
           className="sm:max-w-[640px]"
+          {...nestedFormPickerFormModalStackProps}
         >
           {sheetBody}
         </FormModal>
@@ -116,7 +118,10 @@ export function DatePicker({
         nested
         shouldScaleBackground={false}
       >
-        <DrawerThinRightContent className="border-border dark:border-[#1c1921] bg-card dark:bg-[#181714] text-foreground dark:text-[#fffaff]">
+        <DrawerThinRightContent
+          stackAboveFormSheet
+          className="border-border dark:border-[#1c1921] bg-card dark:bg-[#181714] text-foreground dark:text-[#fffaff]"
+        >
           <DrawerHeader className="px-4 pb-3 pt-[calc(max(env(safe-area-inset-top),var(--device-safe-top,0px))+1rem)] text-center bg-card dark:bg-[#181714]">
             <DrawerTitle className="text-center text-lg font-bold">Select Date</DrawerTitle>
             <DrawerDescription className="text-muted-foreground dark:text-[#ded6e7]/75">Choose a date</DrawerDescription>

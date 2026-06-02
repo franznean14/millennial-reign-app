@@ -82,3 +82,8 @@ export const NestedFormPickerDrawerContent = React.forwardRef<
   <FormDrawerContent ref={ref} stackAboveStackedParentSheet {...props} />
 ));
 NestedFormPickerDrawerContent.displayName = "NestedFormPickerDrawerContent";
+
+/** Pass to {@link FormModal} for pickers opened inside an open form drawer (phone). */
+export const nestedFormPickerFormModalStackProps = {
+  stackAboveStackedParentSheet: true,
+} as const;
