@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Drawer as DrawerPrimitive } from "vaul";
 import { cn } from "@/lib/utils";
+import { RIGHT_SHEET_STACK_ABOVE_FORM_SHEET_Z } from "@/lib/theme/drawer-stack-z-index";
 import { useVisualViewport } from "@/lib/hooks/use-visual-viewport";
 import {
   isPhoneLikeDeviceByScreen,
@@ -240,18 +241,9 @@ export const DrawerThinRightContent = React.forwardRef<
      * z-100 right sheet (e.g. assignee picker opened from bulk to-dos on tablet).
      */
     stackAboveDetailsSheet?: boolean;
-    /**
-     * When true, overlay + panel sit above open left form sheets (z-130 / stacked z-160).
-     * Use for nested pickers (publisher, date) opened from new/edit call or to-do forms on tablet.
-     */
-    stackAboveFormSheet?: boolean;
   }
->(({ className, overlayClassName, stackAboveDetailsSheet, stackAboveFormSheet, children, style, onPointerDownOutside, ...props }, ref) => {
-  const stackStyle = stackAboveFormSheet
-    ? ({ zIndex: RIGHT_SHEET_STACK_ABOVE_FORM_SHEET_Z } as React.CSSProperties)
-    : stackAboveDetailsSheet
-      ? ({ zIndex: RIGHT_SHEET_STACK_ABOVE_Z } as React.CSSProperties)
-      : undefined;
+>(({ className, overlayClassName, stackAboveDetailsSheet, children, style, onPointerDownOutside, ...props }, ref) => {
+  const stackStyle = stackAboveDetailsSheet ? ({ zIndex: RIGHT_SHEET_STACK_ABOVE_Z } as React.CSSProperties) : undefined;
   return (
     <DrawerPortal>
       <DrawerOverlay className={cn("z-[100]", overlayClassName)} style={stackStyle} />

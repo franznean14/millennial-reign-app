@@ -65,9 +65,12 @@ export function NestedFormPickerDrawerRoot({
   nested: nestedProp,
   ...props
 }: NestedFormPickerDrawerRootProps) {
+  // Phone: nested=false — parent FormModal is not a Vaul nested drawer; stacking is z-index only.
+  // Tablet: nested=true for right-edge picker beside the open left form sheet.
+  const nested = nestedProp ?? useTabletSidebar;
   return (
     <FormDrawerRoot
-      nested={nestedProp ?? true}
+      nested={nested}
       {...(useTabletSidebar ? nestedFormPickerTabletRootProps : {})}
       {...props}
     />
