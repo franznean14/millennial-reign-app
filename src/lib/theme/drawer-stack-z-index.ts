@@ -4,6 +4,13 @@ export const DRAWER_STACK_ABOVE_PARENT_Z = 10001;
 export const DRAWER_STACK_ABOVE_STACKED_Z = 10003;
 
 /**
+ * Tablet right-edge picker opened from a left/right form sheet
+ * ({@link DrawerThinRightContent} `stackAboveFormSheet`).
+ * Beats {@link DrawerWideLeftContentTop} and stacked left sheets (~160).
+ */
+export const RIGHT_SHEET_STACK_ABOVE_FORM_SHEET_Z = 170;
+
+/**
  * Radix Select / Popover / DropdownMenu (portaled to `document.body`).
  * Must sit above {@link DRAWER_STACK_ABOVE_STACKED_Z} and tablet left sheets (inline ~160).
  * Keep below {@link FAB_CHROME_Z}.

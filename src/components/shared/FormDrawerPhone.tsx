@@ -42,3 +42,43 @@ export const FormDrawerContent = React.forwardRef<
   );
 });
 FormDrawerContent.displayName = "FormDrawerContent";
+
+/** Tablet root props for a nested picker beside an open form sheet. */
+export const nestedFormPickerTabletRootProps = {
+  direction: "right" as const,
+  modal: true as const,
+  nested: true as const,
+  shouldScaleBackground: false as const,
+};
+
+type NestedFormPickerDrawerRootProps = DrawerRootProps & {
+  /** When true, opens as a right-edge sheet on tablet (md+). */
+  useTabletSidebar?: boolean;
+};
+
+/**
+ * Bottom sheet (phone) or right sheet (tablet) for pickers opened inside an open form modal
+ * (new/edit call, to-do, bulk assignee, etc.). Always stacks above the parent form drawer.
+ */
+export function NestedFormPickerDrawerRoot({
+  useTabletSidebar = false,
+  nested: nestedProp,
+  ...props
+}: NestedFormPickerDrawerRootProps) {
+  return (
+    <FormDrawerRoot
+      nested={nestedProp ?? true}
+      {...(useTabletSidebar ? nestedFormPickerTabletRootProps : {})}
+      {...props}
+    />
+  );
+}
+
+/** Phone bottom sheet content for nested form pickers — z-index above any open form tier. */
+export const NestedFormPickerDrawerContent = React.forwardRef<
+  React.ElementRef<typeof DrawerContent>,
+  Omit<FormDrawerContentProps, "stackAboveParentSheet" | "stackAboveStackedParentSheet">
+>((props, ref) => (
+  <FormDrawerContent ref={ref} stackAboveStackedParentSheet {...props} />
+));
+NestedFormPickerDrawerContent.displayName = "NestedFormPickerDrawerContent";
