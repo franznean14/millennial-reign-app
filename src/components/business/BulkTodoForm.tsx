@@ -12,7 +12,7 @@ import { toast } from "@/components/ui/sonner";
 import { Check, ChevronDown, ChevronUp, ExternalLink, Plus, Search, Trash2, X } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { FormDrawerRoot, FormDrawerContent, NestedFormPickerDrawerRoot, NestedFormPickerDrawerContent } from "@/components/shared/FormDrawerPhone";
+import { FormDrawerRoot, FormDrawerContent } from "@/components/shared/FormDrawerPhone";
 import { drawerFormScrollPadTightClass } from "@/lib/theme/form-drawer-phone";
 import {
   Drawer,
@@ -2999,7 +2999,7 @@ export function BulkTodoForm({
                   </DrawerTrigger>
                   {isTabletUp ? (
                     <DrawerThinRightContent
-                      stackAboveDetailsSheet
+                      stackAboveFormSheet
                       className={cn(
                         "md:max-h-[100lvh]",
                         "border-border dark:border-[#1c1921] text-foreground dark:text-[#fffaff]",
