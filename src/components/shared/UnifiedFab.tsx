@@ -130,7 +130,11 @@ export function UnifiedFab({
   }, []);
 
   useEffect(() => {
-    if (openKey !== "business-bulk-todos") setBulkTodoTabletTier(3);
+    if (openKey === "business-bulk-todos") return;
+    const resetTimer = window.setTimeout(() => {
+      setBulkTodoTabletTier(3);
+    }, 0);
+    return () => window.clearTimeout(resetTimer);
   }, [openKey]);
 
   const getDraftBulkTodoKind = (): "new" | "edit" | "mixed" => {
@@ -269,7 +273,6 @@ export function UnifiedFab({
 
     return items;
   }, [
-    businessTab,
     canManageCongregation,
     currentSection,
     homeDetailsFab,
@@ -309,9 +312,11 @@ export function UnifiedFab({
   }, []);
 
   useEffect(() => {
-    if (openKey === "business-bulk-todos") {
+    if (openKey !== "business-bulk-todos") return;
+    const syncTimer = window.setTimeout(() => {
       setBulkSavedEditRowCount(readBulkDraftSavedEditCount());
-    }
+    }, 0);
+    return () => window.clearTimeout(syncTimer);
   }, [openKey]);
 
   const bulkFabDocked = openKey === "business-bulk-todos";
