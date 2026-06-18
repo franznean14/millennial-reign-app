@@ -73,6 +73,7 @@ type FabActionKey =
   | "congregation-contact"
   | "congregation-user"
   | "congregation-visit"
+  | "congregation-todo"
   | "congregation-schedule"
   | "field-service"
   | "home-edit-todos"
@@ -129,7 +130,11 @@ export function UnifiedFab({
   }, []);
 
   useEffect(() => {
-    if (openKey !== "business-bulk-todos") setBulkTodoTabletTier(3);
+    if (openKey === "business-bulk-todos") return;
+    const resetTimer = window.setTimeout(() => {
+      setBulkTodoTabletTier(3);
+    }, 0);
+    return () => window.clearTimeout(resetTimer);
   }, [openKey]);
 
   const getDraftBulkTodoKind = (): "new" | "edit" | "mixed" => {
@@ -220,11 +225,16 @@ export function UnifiedFab({
       }
     }
 
-    if (currentSection === "congregation" && canManageCongregation) {
-      if (isCongregationAdminTab) {
+    if (currentSection === "congregation") {
+      if (isCongregationMinistryTab && isCongregationDetails) {
+        items.push(
+          { key: "congregation-visit", label: "New Call", icon: <FilePlus2 className="size-6" /> },
+          { key: "congregation-todo", label: "New To-Do", icon: <ListTodo className="size-6" /> }
+        );
+      } else if (!canManageCongregation) {
+        // Ministry contact details use personal call/to-do actions above; admin creation is elder/admin only.
+      } else if (isCongregationAdminTab) {
         items.push({ key: "congregation-schedule", label: "New Schedule", icon: <Calendar className="size-6" /> });
-      } else if (isCongregationMinistryTab && isCongregationDetails) {
-        items.push({ key: "congregation-visit", label: "New Call", icon: <FilePlus2 className="size-6" /> });
       } else if (isCongregationMinistryTab) {
         items.push({ key: "congregation-contact", label: "Add Contact", icon: <UserPlus className="size-6" /> });
       } else {
@@ -263,7 +273,6 @@ export function UnifiedFab({
 
     return items;
   }, [
-    businessTab,
     canManageCongregation,
     currentSection,
     homeDetailsFab,
@@ -303,9 +312,11 @@ export function UnifiedFab({
   }, []);
 
   useEffect(() => {
-    if (openKey === "business-bulk-todos") {
+    if (openKey !== "business-bulk-todos") return;
+    const syncTimer = window.setTimeout(() => {
       setBulkSavedEditRowCount(readBulkDraftSavedEditCount());
-    }
+    }, 0);
+    return () => window.clearTimeout(syncTimer);
   }, [openKey]);
 
   const bulkFabDocked = openKey === "business-bulk-todos";
@@ -688,6 +699,7 @@ export function UnifiedFab({
         onOpenChange={(open) => setOpenKey(open ? "congregation-visit" : null)}
         title="New Call"
         headerClassName="text-center"
+        stackAboveStackedParentSheet
       >
         <CallForm
           establishments={[]}
@@ -696,6 +708,24 @@ export function UnifiedFab({
           contactId={congregationSelectedContact?.id}
           contactName={congregationSelectedContact?.name}
           contactStatus={congregationSelectedContact ? getContactPrimaryStatus(congregationSelectedContact) : undefined}
+          onSaved={() => setOpenKey(null)}
+        />
+      </FormModal>
+
+      <FormModal
+        open={openKey === "congregation-todo"}
+        onOpenChange={(open) => setOpenKey(open ? "congregation-todo" : null)}
+        title="New To-Do"
+        headerClassName="text-center"
+        stackAboveStackedParentSheet
+        className="w-[min(100vw,48rem)] md:max-h-[100lvh]"
+      >
+        <TodoForm
+          establishments={[]}
+          selectedEstablishmentId="none"
+          disableEstablishmentSelect
+          contactId={congregationSelectedContact?.id}
+          contactName={congregationSelectedContact?.name}
           onSaved={() => setOpenKey(null)}
         />
       </FormModal>

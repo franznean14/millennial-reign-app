@@ -1046,6 +1046,7 @@ export function MinistrySection({
           open={contactsDrawerOpen}
           onOpenChange={setContactsDrawerOpen}
           title="Contacts"
+          skipFabRootInert={Boolean(selectedContact)}
           className={cn("dark:border-[#1c1921] dark:bg-[#181714] text-[#1a1820] dark:text-[#fffaff]", ministryContactsPanelShade)}
           headerClassName="text-center"
           bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden !pb-0 max-xl:!pb-0"

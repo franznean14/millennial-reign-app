@@ -12,8 +12,6 @@ import { X, Plus, Calendar, Users, FileText, Link2 } from "lucide-react";
 import { NestedFormPickerDrawerRoot, NestedFormPickerDrawerContent } from "@/components/shared/FormDrawerPhone";
 import { drawerFormScrollPadTightClass } from "@/lib/theme/form-drawer-phone";
 import {
-  Drawer,
-  DrawerContent,
   DrawerHeader,
   DrawerThinRightContent,
   DrawerTitle,
@@ -37,6 +35,15 @@ import { useMediaQuery } from "@/hooks/use-media-query";
 type PublisherSlot = { type: "publisher"; id: string } | { type: "guest"; name: string };
 const PARTICIPANTS_CACHE_KEY = "business:participants:local:v1";
 const GUEST_NAMES_CACHE_KEY = "business:guest-names:local:v1";
+
+function broadcastTodosMutated() {
+  try {
+    window.dispatchEvent(new CustomEvent("business-todos-mutated"));
+    window.dispatchEvent(new CustomEvent("app-business-refresh"));
+  } catch {
+    /* ignore */
+  }
+}
 
 /** Quick-fill buttons for new establishment to-dos (not shown on contact/contact forms). */
 const NEW_TODO_BODY_PRESETS = [
@@ -263,6 +270,7 @@ export function TodoForm({
         });
         if (ok) {
           toast.success("To-do updated.");
+          broadcastTodosMutated();
           onSaved();
         } else {
           toast.error("Failed to update to-do");
@@ -280,6 +288,7 @@ export function TodoForm({
         });
         if (todo) {
           toast.success("To-do added.");
+          broadcastTodosMutated();
           onSaved();
         } else {
           toast.error("Failed to add to-do");
