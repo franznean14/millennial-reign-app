@@ -38,6 +38,15 @@ type PublisherSlot = { type: "publisher"; id: string } | { type: "guest"; name: 
 const PARTICIPANTS_CACHE_KEY = "business:participants:local:v1";
 const GUEST_NAMES_CACHE_KEY = "business:guest-names:local:v1";
 
+function broadcastTodosMutated() {
+  try {
+    window.dispatchEvent(new CustomEvent("business-todos-mutated"));
+    window.dispatchEvent(new CustomEvent("app-business-refresh"));
+  } catch {
+    /* ignore */
+  }
+}
+
 /** Quick-fill buttons for new establishment to-dos (not shown on contact/contact forms). */
 const NEW_TODO_BODY_PRESETS = [
   { label: "Replenish", body: "Replenish" },
@@ -263,6 +272,7 @@ export function TodoForm({
         });
         if (ok) {
           toast.success("To-do updated.");
+          broadcastTodosMutated();
           onSaved();
         } else {
           toast.error("Failed to update to-do");
@@ -280,6 +290,7 @@ export function TodoForm({
         });
         if (todo) {
           toast.success("To-do added.");
+          broadcastTodosMutated();
           onSaved();
         } else {
           toast.error("Failed to add to-do");
