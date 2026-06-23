@@ -241,9 +241,18 @@ export const DrawerThinRightContent = React.forwardRef<
      * z-100 right sheet (e.g. assignee picker opened from bulk to-dos on tablet).
      */
     stackAboveDetailsSheet?: boolean;
+    /**
+     * When true, overlay + panel use {@link RIGHT_SHEET_STACK_ABOVE_FORM_SHEET_Z} so this sheet sits above
+     * left/right form sheets (e.g. date or publisher picker opened from a form modal on tablet).
+     */
+    stackAboveFormSheet?: boolean;
   }
->(({ className, overlayClassName, stackAboveDetailsSheet, children, style, onPointerDownOutside, ...props }, ref) => {
-  const stackStyle = stackAboveDetailsSheet ? ({ zIndex: RIGHT_SHEET_STACK_ABOVE_Z } as React.CSSProperties) : undefined;
+>(({ className, overlayClassName, stackAboveDetailsSheet, stackAboveFormSheet, children, style, onPointerDownOutside, ...props }, ref) => {
+  const stackStyle = stackAboveFormSheet
+    ? ({ zIndex: RIGHT_SHEET_STACK_ABOVE_FORM_SHEET_Z } as React.CSSProperties)
+    : stackAboveDetailsSheet
+      ? ({ zIndex: RIGHT_SHEET_STACK_ABOVE_Z } as React.CSSProperties)
+      : undefined;
   return (
     <DrawerPortal>
       <DrawerOverlay className={cn("z-[100]", overlayClassName)} style={stackStyle} />

@@ -301,6 +301,9 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
     if (isContactId(study)) {
       return study.replace("contact:", "");
     }
+    if (study.startsWith("householder:")) {
+      return study.replace("householder:", "");
+    }
     return null;
   };
 
@@ -380,15 +383,17 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
         const newCache = new Map(visitNamesCache);
         const newContactIdCache = new Map(visitContactIdCache);
         visits?.forEach((visit: any) => {
-          if (visit.contacts && visit.contacts.name) {
-            newCache.set(visit.id, visit.contacts.name);
-            // Cache for offline access
-            cacheSet(`visit:${visit.id}:name`, visit.contacts.name);
+          const linkedContact = visit.householders ?? visit.contacts;
+          const contactName = Array.isArray(linkedContact)
+            ? linkedContact[0]?.name
+            : linkedContact?.name;
+          if (contactName) {
+            newCache.set(visit.id, contactName);
+            cacheSet(`visit:${visit.id}:name`, contactName);
           }
-          if (visit.contact_id) {
-            newContactIdCache.set(visit.id, visit.contact_id);
-            // Cache for offline access
-            cacheSet(`visit:${visit.id}:householder_id`, visit.contact_id);
+          if (visit.householder_id) {
+            newContactIdCache.set(visit.id, visit.householder_id);
+            cacheSet(`visit:${visit.id}:householder_id`, visit.householder_id);
           }
         });
         setVisitNamesCache(newCache);
@@ -440,7 +445,13 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
     if (visitId) {
       const name = visitNamesCache.get(visitId);
       if (name) return name;
-      // Return null if still loading (don't show visit ID)
+      const householderId = visitContactIdCache.get(visitId);
+      if (householderId) {
+        const contact = personalContacts.find((c) => c.id === householderId);
+        if (contact?.name) return contact.name;
+      }
+      // Return null while loading (don't show raw visit ID)
+      if (loadingVisitIds.has(visitId)) return null;
       return null;
     }
 
