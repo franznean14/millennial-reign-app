@@ -19,7 +19,8 @@ import { CallForm } from "@/components/business/CallForm";
 import { ChevronLeft } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
+import { getStudyBibleDarkCardShade, studyBibleDarkClasses } from "@/lib/theme/study-bible-dark";
+import { FormModal } from "@/components/shared/FormModal";
 
 function toLocalStr(d: Date) {
   const y = d.getFullYear();
@@ -871,6 +872,11 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
     loadPersonalContacts();
   }, [userId]);
 
+  const callEditPaneShade = useMemo(
+    () => getStudyBibleDarkCardShade(`fieldservice-call-edit:${userId}`),
+    [userId]
+  );
+
   // Load establishments for CallForm
   useEffect(() => {
     const loadEstablishments = async () => {
@@ -903,7 +909,15 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
 
         if (error) throw error;
         if (data) {
-          setEditVisit(data);
+          setEditVisit({
+            id: data.id,
+            establishment_id: data.establishment_id,
+            contact_id: data.householder_id ?? null,
+            note: data.note,
+            publisher_id: data.publisher_id,
+            partner_id: data.partner_id,
+            visit_date: data.visit_date,
+          });
         }
       } catch (error) {
         console.error('Error loading visit:', error);
@@ -948,40 +962,8 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
     }
   }, [dirty, scheduleSave, studies, hours, note]);
 
-  // If editing a visit, show only the edit form
-  if (editVisitId && editVisit) {
-    return (
-      <div className="-mx-4 px-4 pb-10 relative">
-        <div className="mb-4 flex items-center justify-center gap-2 relative pt-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setEditVisitId(null)}
-            className="h-8 w-8 p-0 absolute left-0"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </Button>
-          <div className="text-center">
-            <h2 className="text-lg font-semibold">Edit Call</h2>
-          </div>
-        </div>
-        <CallForm
-          establishments={establishments}
-          initialVisit={editVisit}
-          contactId={editVisit.contact_id || undefined}
-          contactName={visitNamesCache.get(editVisitId) || undefined}
-          onSaved={() => {
-            setEditVisitId(null);
-            // Refresh the studies to get updated visit data
-            load(date);
-          }}
-          disableEstablishmentSelect={!!editVisit.contact_id}
-        />
-      </div>
-    );
-  }
-
   return (
+    <>
     <div>
       <div className="px-4 pb-0 pt-2 text-center">
         <h2 className="text-lg font-semibold text-[#1a1820] dark:text-[#fffaff]">Field Service</h2>
@@ -1350,5 +1332,33 @@ export default function FieldServiceForm({ userId, onClose, isOpen = true }: Fie
         </div>
       </div>
     </div>
+
+    <FormModal
+      open={!!editVisitId && !!editVisit}
+      onOpenChange={(open) => {
+        if (!open) setEditVisitId(null);
+      }}
+      title="Edit Call"
+      headerClassName="text-center bg-transparent dark:bg-transparent"
+      className={callEditPaneShade}
+      drawerContentClassName="h-[85svh] max-h-[85svh] [&_.drawer-content-inner]:flex [&_.drawer-content-inner]:flex-col [&_.drawer-content-inner]:overflow-hidden"
+      drawerHandleClassName="dark:bg-[#80778e] dark:shadow-[0_0_18px_rgba(128,119,142,0.45)]"
+      stackAboveParentSheet
+    >
+      {editVisit ? (
+        <CallForm
+          establishments={establishments}
+          initialVisit={editVisit}
+          contactId={editVisit.contact_id || undefined}
+          contactName={editVisitId ? visitNamesCache.get(editVisitId) || undefined : undefined}
+          onSaved={() => {
+            setEditVisitId(null);
+            load(date);
+          }}
+          disableEstablishmentSelect={!!editVisit.contact_id}
+        />
+      ) : null}
+    </FormModal>
+    </>
   );
 }
