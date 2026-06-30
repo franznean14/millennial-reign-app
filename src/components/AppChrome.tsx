@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 // Defer non-critical chrome to reduce initial JS
 const OfflineInit = dynamic(() => import("@/components/OfflineInit"), { ssr: false });
 const ServiceWorkerRegister = dynamic(() => import("@/components/ServiceWorkerRegister"), { ssr: false });
+const ChunkLoadRecovery = dynamic(() => import("@/components/ChunkLoadRecovery"), { ssr: false });
 const SyncBanner = dynamic(() => import("@/components/SyncBanner"), { ssr: false });
 const OnlineBanner = dynamic(() => import("@/components/OnlineBanner"), { ssr: false });
 const BiometricGate = dynamic(() => import("@/components/BiometricGate"), { ssr: false });
@@ -69,6 +70,7 @@ export function AppChrome({ children }: AppChromeProps) {
       <>
         <OfflineInit />
         <ServiceWorkerRegister />
+        <ChunkLoadRecovery />
         <SyncBanner />
         <OnlineBanner />
         <BiometricGate />
@@ -83,6 +85,7 @@ export function AppChrome({ children }: AppChromeProps) {
       
       <OfflineInit />
       <ServiceWorkerRegister />
+      <ChunkLoadRecovery />
       <SyncBanner />
       <OnlineBanner />
       <BiometricGate />

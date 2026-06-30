@@ -3578,11 +3578,15 @@ export function HomeTodoCard({
   const detailsAndEditorLayers = (
     <>
       <DetailsDrawer
-        open={todoDetailsDrawerOpen}
+        open={
+          todoDetailsDrawerOpen &&
+          Boolean(selectedContactDetails || selectedTodoDetails)
+        }
         onOpenChange={handleTodoDetailsDrawerChange}
         entityName={todoDetailsDrawerTitle.name}
         titleStatus={todoDetailsDrawerTitle.titleStatus}
         layout={isTodoDetailsSideLayout ? "tablet" : "phone"}
+        stackAboveParentSheet={!isTodoDetailsSideLayout && drawerOpen}
         contentClassName={todoDetailsSheetPanelClass}
         bodyClassName="space-y-3"
       >

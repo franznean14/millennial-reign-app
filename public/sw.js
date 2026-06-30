@@ -1,4 +1,4 @@
-const CACHE = "mr-app-v3"; // Updated cache version to force refresh
+const CACHE = "mr-app-v4"; // Updated cache version to force refresh
 const OFFLINE_URL = "/offline";
 
 self.addEventListener("install", (event) => {
@@ -126,10 +126,13 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     fetch(req)
       .then((res) => {
-        // Only cache successful same-origin GET responses
+        // Only cache successful same-origin GET responses.
+        // Never cache Next build chunks — stale hashes cause "This page couldn't load" after deploy.
         try {
           const url = new URL(req.url);
-          if ((url.origin === self.location.origin) && res.ok) {
+          const isNextBuildAsset =
+            url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/_next/chunks/");
+          if (url.origin === self.location.origin && res.ok && !isNextBuildAsset) {
             const copy = res.clone();
             caches.open(CACHE).then((cache) => cache.put(req, copy)).catch(() => {});
           }
